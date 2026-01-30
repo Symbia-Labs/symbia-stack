@@ -16,15 +16,6 @@ const services = {
 
 const proxy: Record<string, object> = {};
 
-// Replit Auth routes - proxied to identity service
-const authRoutes = ['/api/login', '/api/logout', '/api/callback', '/api/auth'];
-for (const route of authRoutes) {
-  proxy[route] = {
-    target: `http://localhost:${services.identity}`,
-    changeOrigin: true,
-  };
-}
-
 // Proxy /api/{service}/* -> localhost:{port}/api/*
 // e.g., /api/catalog/resources -> localhost:5003/api/resources
 for (const [service, port] of Object.entries(services)) {
