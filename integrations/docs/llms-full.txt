@@ -1,0 +1,360 @@
+# Symbia Integrations Service - Complete Documentation
+
+> Centralized gateway for third-party API traffic. Sole bridge to the external world in most Symbia networks.
+
+## Overview
+
+Centralized gateway for third-party API traffic including LLM providers.
+
+- Execute LLM operations (chat completions, text generation, embeddings)
+- Supports OpenAI and HuggingFace providers
+- Normalized response format across all providers
+- Credential management via Identity service
+- Provider configuration via Catalog service
+- Execution logging and usage tracking
+
+## Custom Headers (optional)
+
+- **Authorization**: Bearer token for authentication
+- **X-Org-Id**: Organization ID for credential scoping
+
+## API Reference
+
+Base URL: http://localhost:5007
+
+### Execute
+
+Execute operations via providers
+
+#### POST /api/api/integrations/execute
+Execute an LLM operation
+Execute a chat completion or embedding operation through a configured provider
+
+Request Body:
+```json
+// See ExecuteRequest schema
+```
+
+Response: Successful execution
+
+#### POST /api/api/integrations/invoke
+Invoke any registered integration operation
+Invoke operations from registered OpenAPI specs, MCP servers, or built-in providers
+
+Request Body:
+```json
+// See InvokeRequest schema
+```
+
+Response: Successful invocation
+
+### Providers
+
+Provider configuration and discovery
+
+#### GET /api/api/integrations/providers
+List available providers
+
+Response: List of providers
+
+#### GET /api/api/integrations/providers/{provider}
+Get provider configuration
+
+Path Parameters:
+- provider: string
+
+Response: Provider configuration
+
+#### GET /api/api/integrations/providers/{provider}/models
+Get available models for a provider
+
+Path Parameters:
+- provider: string
+
+Query Parameters:
+- capability (optional): string
+
+Response: List of models
+
+#### GET /api/api/integrations/capabilities
+Get comprehensive provider capabilities
+System of Record for UI - includes access status, models by purpose, defaults
+
+Response: Provider capabilities
+
+### Registry
+
+Integration registry management
+
+#### GET /api/api/integrations/registry
+List all registered integrations
+
+Response: List of integrations
+
+#### POST /api/api/integrations/register
+Register a new integration
+Register an OpenAPI spec or MCP server as a callable integration
+
+Request Body:
+```json
+// See RegisterRequest schema
+```
+
+Response: Integration registered
+
+#### GET /api/api/integrations/registry/{key}/operations
+Get operations for an integration
+
+Path Parameters:
+- key: string
+
+Response: List of operations
+
+### MCP
+
+MCP server and client endpoints
+
+#### POST /api/api/integrations/mcp
+MCP JSON-RPC endpoint
+HTTP transport for MCP protocol. Supports initialize, tools/list, tools/call
+
+Request Body:
+```json
+// See MCPRequest schema
+```
+
+Response: MCP response
+
+#### GET /api/api/integrations/mcp/info
+Get MCP server info
+
+Response: Server info
+
+#### POST /api/api/integrations/mcp/register
+Register an external MCP server
+
+Request Body:
+```json
+// See RegisterMCPRequest schema
+```
+
+Response: MCP server registered
+
+### Usage
+
+Usage analytics
+
+#### GET /api/api/integrations/usage
+Get usage summary for organization
+
+Query Parameters:
+- days (optional): integer
+- integration (optional): string
+
+Response: Usage summary
+
+### Health
+
+Service health and monitoring
+
+#### GET /api/api/integrations/status
+Get service status
+Returns provider status and circuit breaker state
+
+Response: Service status
+
+#### GET /api/api/integrations/circuit-breaker
+Get circuit breaker status
+
+Response: Circuit breaker status
+
+#### POST /api/api/integrations/circuit-breaker/reset
+Reset all circuit breakers
+
+Response: All circuits reset
+
+#### POST /api/api/integrations/circuit-breaker/reset/{provider}
+Reset circuit breaker for a provider
+
+Path Parameters:
+- provider: string
+
+Response: Circuit reset
+
+### Database
+
+Database management (in-memory mode)
+
+#### POST /api/api/integrations/db/export
+Export in-memory database to file
+Exports the in-memory database to a backup file. Only applicable when using in-memory mode.
+
+Response: Export successful
+
+#### GET /api/api/integrations/db/status
+Get database status
+Returns information about the database mode (in-memory vs PostgreSQL) and persistence status.
+
+Response: Database status
+
+## Data Models
+
+### ExecuteRequest
+```typescript
+{
+  provider: openai|anthropic|google|mistral|cohere|huggingface;
+  operation: chat.completions|messages|embeddings|responses;
+  params: object;
+  credentialId?: string;
+}
+```
+
+### ExecuteResponse
+```typescript
+{
+  success?: boolean;
+  data?: any;
+  error?: string;
+  errorCategory?: any;
+  retryable?: boolean;
+  requestId?: string;
+  durationMs?: number;
+}
+```
+
+### NormalizedLLMResponse
+```typescript
+{
+  provider?: string;
+  model?: string;
+  content?: string;
+  usage?: object;
+  finishReason?: stop|length|content_filter|tool_calls|error|incomplete;
+  metadata?: object;
+}
+```
+
+### ErrorCategory
+Error category for retry/fallback decisions
+
+```typescript
+{
+}
+```
+
+### InvokeRequest
+```typescript
+{
+  operation: string;  // Fully qualified operation ID
+  body?: object;
+  timeout?: integer;
+}
+```
+
+### ProviderInfo
+```typescript
+{
+  name?: string;
+  baseUrl?: string;
+  defaultModel?: string;
+  supportedOperations?: array;
+}
+```
+
+### CapabilitiesResponse
+```typescript
+{
+  providers?: array;
+  byProvider?: object;
+  modelsByPurpose?: object;
+  defaults?: object;
+}
+```
+
+### RegisterRequest
+```typescript
+{
+  key: string;
+  name: string;
+  type: openapi|mcp|builtin|custom;
+  openapi?: object;
+  mcp?: object;
+  auth?: object;
+}
+```
+
+### MCPRequest
+```typescript
+{
+  jsonrpc: 2.0;
+  id?: any;
+  method: string;
+  params?: object;
+}
+```
+
+### MCPResponse
+```typescript
+{
+  jsonrpc?: string;
+  id?: any;
+  result?: object;
+  error?: object;
+}
+```
+
+### RegisterMCPRequest
+```typescript
+{
+  key: string;
+  name: string;
+  mcp: object;
+}
+```
+
+### StatusResponse
+```typescript
+{
+  status?: healthy|degraded|unhealthy;
+  providers?: array;
+  circuitBreaker?: any;
+}
+```
+
+### CircuitBreakerStatus
+```typescript
+{
+}
+```
+
+## Authentication
+
+All authenticated endpoints require one of:
+- Cookie: Session cookie (set automatically after login)
+- Header: `Authorization: Bearer <token>`
+- Header: `X-API-Key: <api-key>`
+
+- Bearer token authentication (Authorization: Bearer <token>)
+- Cookie-based session authentication (token cookie)
+
+## Supported Providers
+
+Currently supported LLM providers:
+- **OpenAI**: chat.completions, embeddings
+- **HuggingFace**: text.generation, chat.completions, embeddings
+
+More providers coming soon: Anthropic, Google Gemini, Cohere
+
+## Response Normalization
+
+All provider responses are normalized to a common schema:
+- provider: The provider name
+- model: The model used
+- content: The generated content
+- usage: Token counts (prompt, completion, total)
+- finishReason: Why generation stopped (stop, length, content_filter, etc.)
+
+## Documentation
+
+- OpenAPI: /docs/openapi.json
+- LLM summary: /docs/llms.txt

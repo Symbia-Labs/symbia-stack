@@ -1,0 +1,309 @@
+import express, { type Request, Response, NextFunction } from "express";
+import { registerRoutes } from "./routes";
+import { serveStatic } from "./static";
+import { createServer } from "http";
+import { randomUUID } from "crypto";
+import { createTelemetryClient } from "@symbia/telem";
+
+const app = express();
+const httpServer = createServer(app);
+const telemetry = createTelemetryClient({
+  serviceId: process.env.TELEMETRY_SERVICE_ID || "symbia-identity-service",
+});
+
+function getScopeHeaders(req: Request): {
+  orgId: string | null;
+  serviceId: string | null;
+  env: string | null;
+  dataClass: string | null;
+  policyRef: string | null;
+} {
+  const orgId = req.get("x-org-id") || null;
+  const serviceId = req.get("x-service-id") || null;
+  const env = req.get("x-env") || req.get("x-environment") || null;
+  const dataClass = req.get("x-data-class") || null;
+  const policyRef = req.get("x-policy-ref") || null;
+  return { orgId, serviceId, env, dataClass, policyRef };
+}
+
+function buildScopeLabels(scope: ReturnType<typeof getScopeHeaders>): Record<string, string> {
+  const labels: Record<string, string> = {};
+  if (scope.orgId) labels.orgId = scope.orgId;
+  if (scope.serviceId) labels.serviceId = scope.serviceId;
+  if (scope.env) labels.env = scope.env;
+  if (scope.dataClass) labels.dataClass = scope.dataClass;
+  if (scope.policyRef) labels.policyRef = scope.policyRef;
+  return labels;
+}
+
+declare module "http" {
+  interface IncomingMessage {
+    rawBody: unknown;
+  }
+}
+
+// CORS Configuration
+// Set CORS_ORIGINS environment variable with comma-separated URLs
+// Supports wildcards: *.replit.app matches any subdomain
+// Example: *.replit.app,https://my-domain.com
+const corsOriginConfig = process.env.CORS_ALLOWED_ORIGINS || process.env.CORS_ORIGINS || "";
+const corsOrigins = corsOriginConfig
+  ? corsOriginConfig.split(",").map((origin) => origin.trim().replace(/\/$/, ""))
+  : [];
+
+function matchesOrigin(origin: string, pattern: string): boolean {
+  if (pattern === "*") return true;
+  if (pattern === origin) return true;
+  
+  // Handle wildcard patterns like *.replit.app or *.replit.dev
+  if (pattern.startsWith("*.")) {
+    const suffix = pattern.slice(1); // Remove the *, keep the .domain.com
+    try {
+      const url = new URL(origin);
+      return url.hostname.endsWith(suffix);
+    } catch {
+      return false;
+    }
+  }
+  
+  return false;
+}
+
+// Always allow localhost/127.0.0.1 in development
+function isLocalOrigin(origin: string): boolean {
+  try {
+    const url = new URL(origin);
+    return url.hostname === 'localhost' || url.hostname === '127.0.0.1';
+  } catch {
+    return false;
+  }
+}
+
+const PUBLIC_CORS_PATHS = new Set([
+  "/llm.txt",
+  "/llms.txt",
+  "/llms-full.txt",
+  "/docs/llms.txt",
+  "/docs/llms-full.txt",
+  "/api/docs/openapi.json",
+  "/docs/openapi.json",
+  "/openapi.json",
+  "/.well-known/openapi.json",
+]);
+
+app.use((req, res, next) => {
+  const origin = req.headers.origin;
+  const isPublicCorsPath = PUBLIC_CORS_PATHS.has(req.path);
+  const isPublicCorsRequest = isPublicCorsPath && (req.method === "GET" || req.method === "HEAD" || req.method === "OPTIONS");
+
+  if (origin) {
+    const normalizedOrigin = origin.replace(/\/$/, "");
+    const allowAnyOrigin = corsOrigins.length === 0 && process.env.NODE_ENV !== "production";
+    const allowLocal = process.env.NODE_ENV !== "production" && isLocalOrigin(normalizedOrigin);
+    const allowListed = corsOrigins.some((pattern) => matchesOrigin(normalizedOrigin, pattern));
+
+    if (allowAnyOrigin || allowLocal || allowListed) {
+      res.header("Access-Control-Allow-Origin", normalizedOrigin);
+      res.header("Access-Control-Allow-Credentials", "true");
+      res.header("Access-Control-Allow-Methods", "GET, POST, PUT, PATCH, DELETE, OPTIONS");
+      res.header(
+        "Access-Control-Allow-Headers",
+        "Content-Type, Authorization, X-API-Key, X-Org-Id, X-Service-Id, X-Env, X-Environment, X-Data-Class, X-Policy-Ref",
+      );
+      res.header("Access-Control-Max-Age", "86400");
+    } else if (isPublicCorsRequest) {
+      res.header("Access-Control-Allow-Origin", "*");
+      res.header("Access-Control-Allow-Methods", "GET, HEAD, OPTIONS");
+      res.header(
+        "Access-Control-Allow-Headers",
+        "Content-Type, Authorization, X-API-Key, X-Org-Id, X-Service-Id, X-Env, X-Environment, X-Data-Class, X-Policy-Ref",
+      );
+      res.header("Access-Control-Max-Age", "86400");
+    }
+  } else if (!origin) {
+    res.header("Access-Control-Allow-Origin", "*");
+    res.header("Access-Control-Allow-Methods", "GET, POST, PUT, PATCH, DELETE, OPTIONS");
+    res.header(
+      "Access-Control-Allow-Headers",
+      "Content-Type, Authorization, X-API-Key, X-Org-Id, X-Service-Id, X-Env, X-Environment, X-Data-Class, X-Policy-Ref",
+    );
+    res.header("Access-Control-Max-Age", "86400");
+  }
+
+  if (req.method === "OPTIONS") {
+    if (origin && corsOrigins.length > 0) {
+      const normalizedOrigin = origin.replace(/\/$/, "");
+      if (!corsOrigins.some((pattern) => matchesOrigin(normalizedOrigin, pattern)) && !isPublicCorsPath) {
+        return res.sendStatus(403);
+      }
+    }
+    return res.sendStatus(200);
+  }
+  next();
+});
+
+app.use(
+  express.json({
+    verify: (req, _res, buf) => {
+      req.rawBody = buf;
+    },
+  }),
+);
+
+app.use(express.urlencoded({ extended: false }));
+
+// Health check endpoint for autoscale deployments
+// Must respond before database/routes are initialized
+app.get("/health", (_req, res) => {
+  res.status(200).json({ status: "ok", timestamp: new Date().toISOString() });
+});
+
+app.use((req, res, next) => {
+  const start = Date.now();
+  const inboundTrace = req.headers["x-trace-id"];
+  const traceId = typeof inboundTrace === "string" && inboundTrace ? inboundTrace : randomUUID();
+  const spanId = randomUUID();
+
+  res.setHeader("x-trace-id", traceId);
+
+  res.on("finish", () => {
+    const durationMs = Date.now() - start;
+    const status = res.statusCode;
+    const path = req.path;
+    const scopeLabels = buildScopeLabels(getScopeHeaders(req));
+
+    telemetry.metric("service.request.count", 1, {
+      endpoint: path,
+      method: req.method,
+      status: String(status),
+      ...scopeLabels,
+    });
+
+    telemetry.metric("service.request.latency_ms", durationMs, {
+      endpoint: path,
+      method: req.method,
+      status: String(status),
+      ...scopeLabels,
+    });
+
+    telemetry.span({
+      traceId,
+      spanId,
+      parentSpanId: null,
+      name: `${req.method} ${path}`,
+      kind: "server",
+      status: status >= 500 ? "error" : "ok",
+      startTime: new Date(start).toISOString(),
+      endTime: new Date().toISOString(),
+      attributes: {
+        status,
+        ...scopeLabels,
+      },
+    });
+
+    if (status >= 500) {
+      telemetry.event("service.error", "HTTP request failed", {
+        status,
+        endpoint: path,
+        method: req.method,
+        ...scopeLabels,
+      }, "error");
+      telemetry.metric("service.error.count", 1, {
+        endpoint: path,
+        method: req.method,
+        status: String(status),
+        ...scopeLabels,
+      });
+    }
+  });
+
+  next();
+});
+
+export function log(message: string, source = "express") {
+  const formattedTime = new Date().toLocaleTimeString("en-US", {
+    hour: "numeric",
+    minute: "2-digit",
+    second: "2-digit",
+    hour12: true,
+  });
+
+  console.log(`${formattedTime} [${source}] ${message}`);
+}
+
+app.use((req, res, next) => {
+  const start = Date.now();
+  const path = req.path;
+  let capturedJsonResponse: Record<string, any> | undefined = undefined;
+
+  const originalResJson = res.json;
+  res.json = function (bodyJson, ...args) {
+    capturedJsonResponse = bodyJson;
+    return originalResJson.apply(res, [bodyJson, ...args]);
+  };
+
+  res.on("finish", () => {
+    const duration = Date.now() - start;
+    if (path.startsWith("/api")) {
+      let logLine = `${req.method} ${path} ${res.statusCode} in ${duration}ms`;
+      if (capturedJsonResponse) {
+        logLine += ` :: ${JSON.stringify(capturedJsonResponse)}`;
+      }
+
+      log(logLine);
+    }
+  });
+
+  next();
+});
+
+(async () => {
+  await registerRoutes(httpServer, app);
+
+  app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
+    const status = err.status || err.statusCode || 500;
+    const message = err.message || "Internal Server Error";
+
+    res.status(status).json({ message });
+    throw err;
+  });
+
+  // importantly only setup vite in development and after
+  // setting up all the other routes so the catch-all route
+  // doesn't interfere with the other routes
+  if (process.env.NODE_ENV === "production") {
+    serveStatic(app);
+  } else {
+    const { setupVite } = await import("./vite");
+    await setupVite(httpServer, app);
+  }
+
+  // ALWAYS serve the app on the port specified in the environment variable PORT
+  // Other ports are firewalled. Default to 5000 if not specified.
+  // this serves both the API and the client.
+  // It is the only port that is not firewalled.
+  const port = parseInt(process.env.PORT || "5000", 10);
+  const host = process.env.HOST || "0.0.0.0";
+  const reusePort = process.platform === "linux";
+  httpServer.listen(
+    {
+      port,
+      host,
+      reusePort,
+    },
+    () => {
+      log(`serving on http://${host}:${port}`);
+      telemetry.event("service.started", "Identity service started", {
+        mode: process.env.NODE_ENV || "development",
+        port,
+      });
+    },
+  );
+})();
+
+const shutdownSignals = ["SIGINT", "SIGTERM"];
+shutdownSignals.forEach((signal) => {
+  process.on(signal, () => {
+    telemetry.shutdown().finally(() => process.exit(0));
+  });
+});

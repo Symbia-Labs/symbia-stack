@@ -1,0 +1,579 @@
+# Symbia Object Service API - Complete Documentation
+
+> Registry service for managing resources, versions, and artifacts with CRUD operations, versioning, search capabilities, and a public bootstrap endpoint for system initialization. Uses allowlist-based access control with entitlements.
+
+**Scope Headers (optional)**: X-Org-Id, X-Service-Id, X-Env, X-Data-Class, X-Policy-Ref.
+
+**CORS**: All API endpoints support CORS with methods GET, POST, PUT, PATCH, DELETE, OPTIONS and headers Content-Type, Authorization, X-API-Key, X-Org-Id, X-Service-Id, X-Env, X-Data-Class, X-Policy-Ref. Credentialed requests (cookies) only allowed from origins in CORS_ALLOWED_ORIGINS. Disallowed origins receive 403 on preflight. Identity Service origin is always allowed.
+
+**Resource Types**: context, integration, graph, assistant. All types support identical CRUD operations and versioning workflows.
+
+**Authentication**: Bearer token (JWT), API key (X-API-Key header), or session cookie (symbia_session).
+
+## Overview
+
+Component registry and resource management with versioning support.
+
+- Full CRUD operations on resources
+- Version control with publish workflow
+- Bootstrap resources for system initialization
+- Keyword and natural language search
+- Resource metadata and organization scoping
+- Allowlist-based access control with entitlements
+
+## Custom Headers (optional)
+
+- **X-Org-Id**: Organization ID for multi-tenant scoping
+- **X-Service-Id**: Service identifier for request routing
+- **X-Env**: Environment (dev|stage|prod)
+- **X-Data-Class**: Data classification (none|pii|phi|secret)
+- **X-Policy-Ref**: Policy reference for compliance
+
+## API Reference
+
+Base URL: /api
+
+### Resources
+
+Resource management operations
+
+#### GET /api/resources
+List all resources
+Retrieve a list of all resources with optional filtering
+
+Query Parameters:
+- type (optional): Filter by resource type
+- status (optional): Filter by resource status
+
+Response: List of resources
+
+#### POST /api/resources
+Create a new resource
+Create a new resource in draft status
+
+Request Body:
+```json
+// See CreateResource schema
+```
+
+Response: Resource created successfully
+
+#### GET /api/resources/{id}
+Get a resource by ID
+Retrieve a single resource by its unique identifier
+
+Path Parameters:
+- id: Resource ID
+
+Response: Resource details
+
+#### PATCH /api/resources/{id}
+Update a resource
+Update an existing resource's properties
+
+Path Parameters:
+- id: Resource ID
+
+Request Body:
+```json
+// See UpdateResource schema
+```
+
+Response: Resource updated successfully
+
+#### DELETE /api/resources/{id}
+Delete a resource
+Permanently delete a resource and all its versions
+
+Path Parameters:
+- id: Resource ID
+
+Response: Resource deleted successfully
+
+#### POST /api/resources/{id}/publish
+Publish a resource
+Create a new version and publish the resource. Changes status to 'published' and increments version number.
+
+Path Parameters:
+- id: Resource ID
+
+Request Body:
+```json
+{
+  "changelog": "string"
+}
+```
+
+Response: Resource published successfully
+
+#### POST /api/resources/bulk
+Perform bulk operations on resources
+Execute bulk actions on multiple resources at once. Supports publish, delete, status update, and tag management. Returns per-item results with success/failure status. Failed items remain selected for retry.
+
+Request Body:
+```json
+{
+  "ids": [],
+  "action": "string",
+  "payload": {}
+}
+```
+
+Response: Bulk operation completed
+
+### Versions
+
+Version management operations
+
+#### POST /api/resources/{id}/publish
+Publish a resource
+Create a new version and publish the resource. Changes status to 'published' and increments version number.
+
+Path Parameters:
+- id: Resource ID
+
+Request Body:
+```json
+{
+  "changelog": "string"
+}
+```
+
+Response: Resource published successfully
+
+#### GET /api/resources/{id}/versions
+Get resource versions
+Retrieve all versions of a specific resource
+
+Path Parameters:
+- id: Resource ID
+
+Response: List of versions
+
+### Search
+
+Search operations
+
+#### POST /api/search
+Search resources
+Search resources using keyword or natural language queries
+
+Request Body:
+```json
+{
+  "query": "string",
+  "mode": "string",
+  "type": "string",
+  "status": "string"
+}
+```
+
+Response: Search results
+
+### Bootstrap
+
+System initialization (public)
+
+#### GET /api/bootstrap
+Get bootstrap resources
+Public endpoint that returns all published resources with public read access, marked for system initialization (isBootstrap: true). No authentication required.
+
+Response: List of bootstrap resources
+
+#### GET /api/bootstrap/summary
+Get bootstrap summary
+Public endpoint that returns aggregated counts for bootstrap resources (components + contexts) grouped by category and intention group. No authentication required.
+
+Response: Bootstrap summary payload
+
+### Stats
+
+Dashboard statistics
+
+#### GET /api/stats
+Get dashboard statistics
+Retrieve aggregate statistics about resources, versions, and bootstrap entries
+
+Response: Dashboard statistics
+
+### Graphs
+
+Convenience endpoints for graph resources with org scoping
+
+#### GET /api/graphs
+List graph resources
+List all graph resources with optional org filtering. Rate limited.
+
+Query Parameters:
+- orgId (optional): Filter by organization ID
+
+Response: List of graph resources
+
+#### POST /api/graphs
+Create a graph resource
+Create a new graph with org scoping and payload validation. Rate limited (30 writes/min).
+
+Request Body:
+```json
+// See CreateGraph schema
+```
+
+Response: Graph created successfully
+
+#### GET /api/graphs/{id}
+Get graph by ID
+
+Path Parameters:
+- id: string
+
+Response: Graph resource
+
+#### PATCH /api/graphs/{id}
+Update a graph
+Update graph name, description, tags, or payload. Rate limited.
+
+Path Parameters:
+- id: string
+
+Request Body:
+```json
+// See UpdateGraph schema
+```
+
+Response: Graph updated
+
+#### DELETE /api/graphs/{id}
+Delete a graph
+
+Path Parameters:
+- id: string
+
+Response: Graph deleted
+
+### Contexts
+
+Context resource management
+
+#### GET /api/contexts
+List context resources
+List all context resources with optional org filtering.
+
+Query Parameters:
+- orgId (optional): string
+
+Response: List of contexts
+
+#### POST /api/contexts
+Create a context
+Create a new context resource. Rate limited.
+
+Request Body:
+```json
+// See CreateContext schema
+```
+
+Response: Context created
+
+#### GET /api/contexts/{id}
+Get context by ID
+
+Path Parameters:
+- id: string
+
+Response: Context resource
+
+#### PATCH /api/contexts/{id}
+Update a context
+
+Path Parameters:
+- id: string
+
+Request Body:
+```json
+// See UpdateContext schema
+```
+
+Response: Context updated
+
+#### DELETE /api/contexts/{id}
+Delete a context
+
+Path Parameters:
+- id: string
+
+Response: Context deleted
+
+### Artifacts
+
+Artifact upload and download
+
+#### POST /api/resources/{id}/artifacts
+Upload artifact
+Upload an artifact to a resource. Max 50MB, restricted MIME types. Rate limited (10 uploads/min).
+
+Path Parameters:
+- id: Resource ID
+
+Request Body:
+```json
+{
+  "name": "string",
+  "type": "string",
+  "content": "string"
+}
+```
+
+Response: Artifact uploaded
+
+#### GET /api/artifacts/{id}/download
+Download artifact
+
+Path Parameters:
+- id: string
+
+Response: Artifact file content
+
+#### DELETE /api/artifacts/{id}
+Delete artifact
+
+Path Parameters:
+- id: string
+
+Response: Artifact deleted
+
+### RateLimits
+
+Rate limit information
+
+#### GET /api/rate-limits
+Get current rate limits
+Returns the configured rate limit values for write, search, and upload operations.
+
+Response: Rate limit configuration
+
+## Data Models
+
+### Resource
+```typescript
+{
+  id?: string;  // Unique identifier
+  key?: string;  // Unique key for the resource
+  name?: string;  // Display name
+  description?: string;  // Resource description
+  type?: context|integration|graph|assistant;  // Resource type. Use 'graph' for workflow/pipeline definitions.
+  status?: draft|published|deprecated;  // Current status
+  currentVersion?: integer;  // Current version number
+  tags?: array;  // Tags for categorization
+  isBootstrap?: boolean;  // Whether this resource is used for system initialization
+  orgId?: string;  // Organization identifier
+  accessPolicy?: any;  // Access control policy for the resource
+  metadata?: object;  // Additional metadata
+  createdAt?: string;  // Creation timestamp
+  updatedAt?: string;  // Last update timestamp
+}
+```
+
+### CreateResource
+```typescript
+{
+  key: string;  // Unique key for the resource
+  name: string;  // Display name
+  description?: string;  // Resource description
+  type: context|integration|graph|assistant;  // Resource type. Use 'graph' for workflow/pipeline definitions.
+  tags?: array;  // Tags for categorization
+  isBootstrap?: boolean;  // Whether this resource is used for system initialization
+  orgId?: string;  // Organization identifier
+  accessPolicy?: any;  // Access control policy. Defaults to private visibility if not specified.
+  metadata?: object;  // Additional metadata
+}
+```
+
+### UpdateResource
+```typescript
+{
+  key?: string;  // Unique key for the resource
+  name?: string;  // Display name
+  description?: string;  // Resource description
+  type?: context|integration|graph|assistant;  // Resource type. Use 'graph' for workflow/pipeline definitions.
+  status?: draft|published|deprecated;  // Current status
+  tags?: array;  // Tags for categorization
+  isBootstrap?: boolean;  // Whether this resource is used for system initialization
+  orgId?: string;  // Organization identifier
+  accessPolicy?: any;  // Access control policy
+  metadata?: object;  // Additional metadata
+}
+```
+
+### ResourceVersion
+```typescript
+{
+  id?: string;  // Unique identifier
+  resourceId?: string;  // Parent resource ID
+  version?: integer;  // Version number
+  changelog?: string;  // Description of changes
+  publishedAt?: string;  // Publication timestamp
+  publishedBy?: string;  // Publisher identifier
+}
+```
+
+### BootstrapSummaryCategory
+```typescript
+{
+  id?: string;  // Category identifier
+  label?: string;  // Display label
+  count?: integer;  // Number of resources in this category
+}
+```
+
+### BootstrapSummaryGroup
+```typescript
+{
+  id?: string;  // Group identifier (from group:* tags)
+  label?: string;  // Display label
+  count?: integer;  // Number of component resources in this group
+  categories?: array;
+}
+```
+
+### BootstrapSummary
+```typescript
+{
+  generatedAt?: string;  // Summary generation timestamp
+  components?: object;
+  contexts?: object;
+}
+```
+
+### Stats
+```typescript
+{
+  totalResources?: integer;  // Total number of resources
+  publishedVersions?: integer;  // Total number of published versions
+  bootstrapEntries?: integer;  // Number of bootstrap resources
+}
+```
+
+### Error
+```typescript
+{
+  error?: string;  // Error message
+  details?: array;  // Validation error details
+}
+```
+
+### AccessPolicy
+Access control policy defining visibility and per-action entitlement requirements
+
+```typescript
+{
+  visibility?: public|org|private;  // Visibility level: public (anyone can read), org (org members only), private (admins only)
+  actions?: object;  // Per-action entitlement requirements
+}
+```
+
+### ActionPolicy
+Entitlement requirements for a specific action
+
+```typescript
+{
+  anyOf?: array;  // List of entitlement keys. User must have at least one to perform the action. Keys: public, authenticated, role:admin, role:publisher, cap:registry.write/publish/sign/certify, org:<orgId>, role:admin:<orgId>
+}
+```
+
+### CreateGraph
+```typescript
+{
+  key: string;  // Unique key
+  name: string;  // Display name
+  description?: string;
+  orgId: string;  // Required organization ID for graph scoping
+  tags?: array;
+  metadata?: object;  // Graph metadata
+}
+```
+
+### UpdateGraph
+```typescript
+{
+  name?: string;
+  description?: string;
+  tags?: array;
+  metadata?: object;  // Graph metadata
+}
+```
+
+### CreateContext
+```typescript
+{
+  key: string;  // Unique key
+  name: string;  // Display name
+  description?: string;
+  orgId?: string;
+  tags?: array;
+  metadata?: object;
+}
+```
+
+### UpdateContext
+```typescript
+{
+  name?: string;
+  description?: string;
+  tags?: array;
+  metadata?: object;
+}
+```
+
+### Artifact
+```typescript
+{
+  id?: string;
+  resourceId?: string;
+  versionId?: string;
+  name?: string;
+  mimeType?: string;
+  size?: integer;
+  checksum?: string;
+  storageUrl?: string;
+  createdAt?: string;
+}
+```
+
+## Authentication
+
+All authenticated endpoints require one of:
+- Cookie: Session cookie (set automatically after login)
+- Header: `Authorization: Bearer <token>`
+- Header: `X-API-Key: <api-key>`
+
+- Bearer token authentication (Authorization: Bearer <token>)
+- API key authentication (X-API-Key header)
+- Session cookie authentication (symbia_session)
+
+## Resource Types
+
+Supported resource types:
+- **component**: Reusable components
+- **context**: Context definitions
+- **integration**: External integrations
+- **graph**: Workflow graphs
+- **executor**: Execution engines
+
+## Resource Statuses
+
+Resource lifecycle statuses:
+- **draft**: Work in progress, not visible to consumers
+- **published**: Active and available for use
+- **deprecated**: Marked for removal, still accessible
+
+## Rate Limits
+
+All authenticated endpoints are rate limited:
+- Write operations: 30 requests per minute
+- Search operations: 60 requests per minute
+- Artifact uploads: 10 requests per minute
+
+## Documentation
+
+- OpenAPI: /docs/openapi.json
+- LLM summary: /docs/llms.txt

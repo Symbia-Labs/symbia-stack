@@ -1,0 +1,1282 @@
+export const apiDocumentation = {
+  openapi: "3.0.3",
+  info: {
+    title: "Symbia Identity Service API",
+    version: "1.0.0",
+    description: "Authentication, authorization, and entitlements API for the Symbia ecosystem. Use this service to manage users, organizations, projects, applications, services, and feature entitlements.\n\n**Scope Headers (optional)**: X-Org-Id, X-Service-Id, X-Env, X-Data-Class, X-Policy-Ref.",
+  },
+  servers: [
+    {
+      url: "/api",
+      description: "API Base URL",
+    },
+  ],
+  paths: {
+    "/auth/register": {
+      post: {
+        tags: ["Authentication"],
+        summary: "Register a new user",
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: {
+                type: "object",
+                required: ["email", "password", "name"],
+                properties: {
+                  email: { type: "string", format: "email" },
+                  password: { type: "string", minLength: 8 },
+                  name: { type: "string" },
+                },
+              },
+            },
+          },
+        },
+        responses: {
+          "200": { description: "User registered successfully" },
+          "400": { description: "Invalid input or email already exists" },
+        },
+      },
+    },
+    "/auth/login": {
+      post: {
+        tags: ["Authentication"],
+        summary: "Login user",
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: {
+                type: "object",
+                required: ["email", "password"],
+                properties: {
+                  email: { type: "string", format: "email" },
+                  password: { type: "string" },
+                },
+              },
+            },
+          },
+        },
+        responses: {
+          "200": { description: "Login successful, returns user data and sets auth cookie" },
+          "401": { description: "Invalid credentials" },
+        },
+      },
+    },
+    "/auth/logout": {
+      post: {
+        tags: ["Authentication"],
+        summary: "Logout user",
+        security: [{ cookieAuth: [] }],
+        responses: {
+          "200": { description: "Logged out successfully" },
+        },
+      },
+    },
+    "/auth/refresh": {
+      post: {
+        tags: ["Authentication"],
+        summary: "Refresh authentication token",
+        security: [{ cookieAuth: [] }],
+        responses: {
+          "200": { description: "Token refreshed" },
+          "401": { description: "Invalid or expired token" },
+        },
+      },
+    },
+    "/auth/introspect": {
+      post: {
+        tags: ["Authentication", "Service-to-Service"],
+        summary: "Validate token and get user principal (RFC 7662)",
+        description: "Token introspection endpoint for service-to-service auth. Returns user principal with organizations, entitlements, and roles if token is valid.",
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: {
+                type: "object",
+                required: ["token"],
+                properties: {
+                  token: { type: "string", description: "JWT token to validate" },
+                },
+              },
+            },
+          },
+        },
+        responses: {
+          "200": {
+            description: "Token introspection response",
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  properties: {
+                    active: { type: "boolean", description: "Whether the token is valid" },
+                    sub: { type: "string", format: "uuid", description: "User ID" },
+                    email: { type: "string", format: "email" },
+                    name: { type: "string" },
+                    isSuperAdmin: { type: "boolean" },
+                    organizations: {
+                      type: "array",
+                      items: {
+                        type: "object",
+                        properties: {
+                          id: { type: "string", format: "uuid" },
+                          name: { type: "string" },
+                          slug: { type: "string" },
+                          role: { type: "string", enum: ["admin", "member", "viewer"] },
+                        },
+                      },
+                    },
+                    entitlements: { type: "array", items: { type: "string" } },
+                    roles: { type: "array", items: { type: "string" } },
+                    token_type: { type: "string", enum: ["Bearer"] },
+                    iat: { type: "integer", description: "Issued at timestamp" },
+                    exp: { type: "integer", description: "Expiration timestamp" },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    },
+    "/auth/verify-api-key": {
+      post: {
+        tags: ["Authentication", "API Keys"],
+        summary: "Verify an API key (for service-to-service auth)",
+        description: "Validates an API key and returns the associated user/org principal if valid. Use this for service-to-service authentication.",
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: {
+                type: "object",
+                required: ["apiKey"],
+                properties: {
+                  apiKey: { type: "string", description: "API key to validate (e.g., sk_...)" },
+                },
+              },
+            },
+          },
+        },
+        responses: {
+          "200": {
+            description: "Verification result",
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  properties: {
+                    valid: { type: "boolean" },
+                    error: { type: "string", description: "Error message if not valid" },
+                    keyId: { type: "string", format: "uuid" },
+                    name: { type: "string" },
+                    orgId: { type: "string", format: "uuid", nullable: true },
+                    scopes: { type: "array", items: { type: "string" } },
+                    creator: {
+                      type: "object",
+                      description: "Enriched user data of the key creator",
+                      properties: {
+                        id: { type: "string", format: "uuid" },
+                        email: { type: "string", format: "email" },
+                        entitlements: { type: "array", items: { type: "string" } },
+                        roles: { type: "array", items: { type: "string" } },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    },
+    "/api-keys": {
+      post: {
+        tags: ["API Keys"],
+        summary: "Create a new API key",
+        description: "Mints a new API key for service-to-service authentication. The full key is returned only once.",
+        security: [{ cookieAuth: [] }, { bearerAuth: [] }],
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: {
+                type: "object",
+                required: ["name"],
+                properties: {
+                  name: { type: "string", description: "Human-readable name for the key" },
+                  orgId: { type: "string", format: "uuid", description: "Optional org to scope the key to" },
+                  scopes: { type: "array", items: { type: "string" }, description: "Permission scopes" },
+                  expiresAt: { type: "string", format: "date-time", description: "Optional expiration date" },
+                },
+              },
+            },
+          },
+        },
+        responses: {
+          "200": {
+            description: "API key created - includes the full key (shown only once)",
+            content: {
+              "application/json": {
+                schema: { $ref: "#/components/schemas/ApiKeyCreated" },
+              },
+            },
+          },
+          "403": { description: "Insufficient permissions" },
+        },
+      },
+      get: {
+        tags: ["API Keys"],
+        summary: "List your API keys",
+        security: [{ cookieAuth: [] }, { bearerAuth: [] }],
+        responses: {
+          "200": {
+            description: "List of API keys (without the actual key values)",
+            content: {
+              "application/json": {
+                schema: {
+                  type: "array",
+                  items: { $ref: "#/components/schemas/ApiKey" },
+                },
+              },
+            },
+          },
+        },
+      },
+    },
+    "/api-keys/{id}": {
+      get: {
+        tags: ["API Keys"],
+        summary: "Get API key details",
+        security: [{ cookieAuth: [] }, { bearerAuth: [] }],
+        parameters: [
+          { name: "id", in: "path", required: true, schema: { type: "string", format: "uuid" } },
+        ],
+        responses: {
+          "200": { description: "API key details" },
+          "404": { description: "API key not found" },
+        },
+      },
+      delete: {
+        tags: ["API Keys"],
+        summary: "Delete an API key permanently",
+        security: [{ cookieAuth: [] }, { bearerAuth: [] }],
+        parameters: [
+          { name: "id", in: "path", required: true, schema: { type: "string", format: "uuid" } },
+        ],
+        responses: {
+          "200": { description: "API key deleted" },
+          "404": { description: "API key not found" },
+        },
+      },
+    },
+    "/api-keys/{id}/revoke": {
+      post: {
+        tags: ["API Keys"],
+        summary: "Revoke an API key",
+        description: "Marks the key as revoked. It can no longer be used but remains in history.",
+        security: [{ cookieAuth: [] }, { bearerAuth: [] }],
+        parameters: [
+          { name: "id", in: "path", required: true, schema: { type: "string", format: "uuid" } },
+        ],
+        responses: {
+          "200": { description: "API key revoked" },
+          "400": { description: "API key already revoked" },
+        },
+      },
+    },
+    "/api-keys/{id}/rotate": {
+      post: {
+        tags: ["API Keys"],
+        summary: "Rotate an API key",
+        description: "Revokes the old key and creates a new one with the same settings.",
+        security: [{ cookieAuth: [] }, { bearerAuth: [] }],
+        parameters: [
+          { name: "id", in: "path", required: true, schema: { type: "string", format: "uuid" } },
+        ],
+        responses: {
+          "200": {
+            description: "New API key created (old key revoked)",
+            content: {
+              "application/json": {
+                schema: { $ref: "#/components/schemas/ApiKeyCreated" },
+              },
+            },
+          },
+        },
+      },
+    },
+    "/users/me": {
+      get: {
+        tags: ["Users"],
+        summary: "Get current user profile",
+        security: [{ cookieAuth: [] }],
+        responses: {
+          "200": {
+            description: "User profile",
+            content: {
+              "application/json": {
+                schema: { $ref: "#/components/schemas/User" },
+              },
+            },
+          },
+        },
+      },
+      patch: {
+        tags: ["Users"],
+        summary: "Update current user profile",
+        security: [{ cookieAuth: [] }],
+        requestBody: {
+          content: {
+            "application/json": {
+              schema: {
+                type: "object",
+                properties: {
+                  name: { type: "string" },
+                },
+              },
+            },
+          },
+        },
+        responses: {
+          "200": { description: "Profile updated" },
+        },
+      },
+    },
+    "/orgs": {
+      get: {
+        tags: ["Organizations"],
+        summary: "List user's organizations",
+        security: [{ cookieAuth: [] }],
+        responses: {
+          "200": {
+            description: "List of organizations",
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  properties: {
+                    organizations: {
+                      type: "array",
+                      items: { $ref: "#/components/schemas/Organization" },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+      post: {
+        tags: ["Organizations"],
+        summary: "Create a new organization",
+        security: [{ cookieAuth: [] }],
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: {
+                type: "object",
+                required: ["name", "slug"],
+                properties: {
+                  name: { type: "string" },
+                  slug: { type: "string", pattern: "^[a-z0-9-]+$" },
+                },
+              },
+            },
+          },
+        },
+        responses: {
+          "200": { description: "Organization created" },
+        },
+      },
+    },
+    "/orgs/{orgId}": {
+      get: {
+        tags: ["Organizations"],
+        summary: "Get organization details",
+        security: [{ cookieAuth: [] }],
+        parameters: [
+          { name: "orgId", in: "path", required: true, schema: { type: "string", format: "uuid" } },
+        ],
+        responses: {
+          "200": {
+            description: "Organization details with members and entitlements",
+          },
+        },
+      },
+    },
+    "/orgs/{orgId}/projects": {
+      get: {
+        tags: ["Projects"],
+        summary: "List projects in an organization",
+        security: [{ cookieAuth: [] }],
+        parameters: [
+          { name: "orgId", in: "path", required: true, schema: { type: "string", format: "uuid" } },
+        ],
+        responses: {
+          "200": {
+            description: "List of projects",
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  properties: {
+                    projects: {
+                      type: "array",
+                      items: { $ref: "#/components/schemas/Project" },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+      post: {
+        tags: ["Projects"],
+        summary: "Create a new project",
+        description: "Requires admin or member role",
+        security: [{ cookieAuth: [] }],
+        parameters: [
+          { name: "orgId", in: "path", required: true, schema: { type: "string", format: "uuid" } },
+        ],
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: {
+                type: "object",
+                required: ["name", "slug"],
+                properties: {
+                  name: { type: "string" },
+                  slug: { type: "string", pattern: "^[a-z0-9-]+$" },
+                  description: { type: "string" },
+                },
+              },
+            },
+          },
+        },
+        responses: {
+          "200": { description: "Project created" },
+          "403": { description: "Insufficient permissions" },
+        },
+      },
+    },
+    "/projects/{projectId}": {
+      get: {
+        tags: ["Projects"],
+        summary: "Get project details",
+        description: "Returns project with its applications, services, and entitlements",
+        security: [{ cookieAuth: [] }],
+        parameters: [
+          { name: "projectId", in: "path", required: true, schema: { type: "string", format: "uuid" } },
+        ],
+        responses: {
+          "200": {
+            description: "Project details",
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  properties: {
+                    project: { $ref: "#/components/schemas/Project" },
+                    applications: { type: "array", items: { $ref: "#/components/schemas/Application" } },
+                    services: { type: "array", items: { $ref: "#/components/schemas/Service" } },
+                    entitlements: { type: "array", items: { $ref: "#/components/schemas/ScopedEntitlement" } },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+      patch: {
+        tags: ["Projects"],
+        summary: "Update project",
+        security: [{ cookieAuth: [] }],
+        parameters: [
+          { name: "projectId", in: "path", required: true, schema: { type: "string", format: "uuid" } },
+        ],
+        requestBody: {
+          content: {
+            "application/json": {
+              schema: {
+                type: "object",
+                properties: {
+                  name: { type: "string" },
+                  description: { type: "string" },
+                  status: { type: "string", enum: ["active", "archived", "suspended"] },
+                },
+              },
+            },
+          },
+        },
+        responses: {
+          "200": { description: "Project updated" },
+        },
+      },
+      delete: {
+        tags: ["Projects"],
+        summary: "Delete project",
+        description: "Admin only",
+        security: [{ cookieAuth: [] }],
+        parameters: [
+          { name: "projectId", in: "path", required: true, schema: { type: "string", format: "uuid" } },
+        ],
+        responses: {
+          "200": { description: "Project deleted" },
+          "403": { description: "Only admins can delete projects" },
+        },
+      },
+    },
+    "/projects/{projectId}/applications": {
+      get: {
+        tags: ["Applications"],
+        summary: "List applications in a project",
+        security: [{ cookieAuth: [] }],
+        parameters: [
+          { name: "projectId", in: "path", required: true, schema: { type: "string", format: "uuid" } },
+        ],
+        responses: {
+          "200": { description: "List of applications" },
+        },
+      },
+      post: {
+        tags: ["Applications"],
+        summary: "Create a new application",
+        security: [{ cookieAuth: [] }],
+        parameters: [
+          { name: "projectId", in: "path", required: true, schema: { type: "string", format: "uuid" } },
+        ],
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: {
+                type: "object",
+                required: ["name", "slug", "environment", "appType"],
+                properties: {
+                  name: { type: "string" },
+                  slug: { type: "string", pattern: "^[a-z0-9-]+$" },
+                  environment: { type: "string", enum: ["development", "staging", "production"] },
+                  appType: { type: "string", enum: ["web", "mobile", "api", "cli"] },
+                  repoUrl: { type: "string", format: "uri" },
+                },
+              },
+            },
+          },
+        },
+        responses: {
+          "200": { description: "Application created" },
+        },
+      },
+    },
+    "/applications/{appId}": {
+      get: {
+        tags: ["Applications"],
+        summary: "Get application details",
+        security: [{ cookieAuth: [] }],
+        parameters: [
+          { name: "appId", in: "path", required: true, schema: { type: "string", format: "uuid" } },
+        ],
+        responses: {
+          "200": {
+            description: "Application with services and entitlements",
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  properties: {
+                    application: { $ref: "#/components/schemas/Application" },
+                    services: { type: "array", items: { $ref: "#/components/schemas/Service" } },
+                    entitlements: { type: "array", items: { $ref: "#/components/schemas/ScopedEntitlement" } },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+      patch: {
+        tags: ["Applications"],
+        summary: "Update application",
+        security: [{ cookieAuth: [] }],
+        parameters: [
+          { name: "appId", in: "path", required: true, schema: { type: "string", format: "uuid" } },
+        ],
+        responses: {
+          "200": { description: "Application updated" },
+        },
+      },
+      delete: {
+        tags: ["Applications"],
+        summary: "Delete application",
+        security: [{ cookieAuth: [] }],
+        parameters: [
+          { name: "appId", in: "path", required: true, schema: { type: "string", format: "uuid" } },
+        ],
+        responses: {
+          "200": { description: "Application deleted" },
+        },
+      },
+    },
+    "/projects/{projectId}/services": {
+      get: {
+        tags: ["Services"],
+        summary: "List services in a project",
+        security: [{ cookieAuth: [] }],
+        parameters: [
+          { name: "projectId", in: "path", required: true, schema: { type: "string", format: "uuid" } },
+        ],
+        responses: {
+          "200": { description: "List of services" },
+        },
+      },
+      post: {
+        tags: ["Services"],
+        summary: "Create a new service",
+        security: [{ cookieAuth: [] }],
+        parameters: [
+          { name: "projectId", in: "path", required: true, schema: { type: "string", format: "uuid" } },
+        ],
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: {
+                type: "object",
+                required: ["name", "serviceType"],
+                properties: {
+                  name: { type: "string" },
+                  serviceType: { type: "string", enum: ["database", "api", "auth", "storage", "messaging", "analytics"] },
+                  provider: { type: "string" },
+                  endpointUrl: { type: "string", format: "uri" },
+                  externalId: { type: "string" },
+                },
+              },
+            },
+          },
+        },
+        responses: {
+          "200": { description: "Service created" },
+        },
+      },
+    },
+    "/services/{serviceId}": {
+      get: {
+        tags: ["Services"],
+        summary: "Get service details",
+        security: [{ cookieAuth: [] }],
+        parameters: [
+          { name: "serviceId", in: "path", required: true, schema: { type: "string", format: "uuid" } },
+        ],
+        responses: {
+          "200": { description: "Service with entitlements" },
+        },
+      },
+      patch: {
+        tags: ["Services"],
+        summary: "Update service",
+        security: [{ cookieAuth: [] }],
+        parameters: [
+          { name: "serviceId", in: "path", required: true, schema: { type: "string", format: "uuid" } },
+        ],
+        responses: {
+          "200": { description: "Service updated" },
+        },
+      },
+      delete: {
+        tags: ["Services"],
+        summary: "Delete service",
+        security: [{ cookieAuth: [] }],
+        parameters: [
+          { name: "serviceId", in: "path", required: true, schema: { type: "string", format: "uuid" } },
+        ],
+        responses: {
+          "200": { description: "Service deleted" },
+        },
+      },
+    },
+    "/applications/{appId}/services/{serviceId}": {
+      post: {
+        tags: ["Applications", "Services"],
+        summary: "Link a service to an application",
+        security: [{ cookieAuth: [] }],
+        parameters: [
+          { name: "appId", in: "path", required: true, schema: { type: "string", format: "uuid" } },
+          { name: "serviceId", in: "path", required: true, schema: { type: "string", format: "uuid" } },
+        ],
+        responses: {
+          "200": { description: "Service linked to application" },
+        },
+      },
+      delete: {
+        tags: ["Applications", "Services"],
+        summary: "Unlink a service from an application",
+        security: [{ cookieAuth: [] }],
+        parameters: [
+          { name: "appId", in: "path", required: true, schema: { type: "string", format: "uuid" } },
+          { name: "serviceId", in: "path", required: true, schema: { type: "string", format: "uuid" } },
+        ],
+        responses: {
+          "200": { description: "Service unlinked" },
+        },
+      },
+    },
+    "/scoped-entitlements/{scopeType}/{scopeId}": {
+      get: {
+        tags: ["Entitlements"],
+        summary: "Get entitlements for a specific scope",
+        description: "Retrieve entitlements scoped to an org, project, application, or service",
+        security: [{ cookieAuth: [] }],
+        parameters: [
+          { name: "scopeType", in: "path", required: true, schema: { type: "string", enum: ["org", "project", "application", "service"] } },
+          { name: "scopeId", in: "path", required: true, schema: { type: "string", format: "uuid" } },
+        ],
+        responses: {
+          "200": {
+            description: "List of scoped entitlements",
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  properties: {
+                    entitlements: {
+                      type: "array",
+                      items: { $ref: "#/components/schemas/ScopedEntitlement" },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    },
+    "/scoped-entitlements": {
+      post: {
+        tags: ["Entitlements"],
+        summary: "Create a scoped entitlement",
+        description: "Admin only. Create an entitlement for org, project, application, or service scope.",
+        security: [{ cookieAuth: [] }],
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: {
+                type: "object",
+                required: ["scopeType", "scopeId", "featureKey", "enabled"],
+                properties: {
+                  scopeType: { type: "string", enum: ["org", "project", "application", "service"] },
+                  scopeId: { type: "string", format: "uuid" },
+                  featureKey: { type: "string" },
+                  quota: { type: "integer" },
+                  enabled: { type: "boolean" },
+                  expiresAt: { type: "string", format: "date-time" },
+                },
+              },
+            },
+          },
+        },
+        responses: {
+          "200": { description: "Entitlement created" },
+          "403": { description: "Only admins can manage entitlements" },
+        },
+      },
+    },
+    "/scoped-entitlements/{id}": {
+      patch: {
+        tags: ["Entitlements"],
+        summary: "Update a scoped entitlement",
+        security: [{ cookieAuth: [] }],
+        parameters: [
+          { name: "id", in: "path", required: true, schema: { type: "string", format: "uuid" } },
+        ],
+        requestBody: {
+          content: {
+            "application/json": {
+              schema: {
+                type: "object",
+                properties: {
+                  quota: { type: "integer" },
+                  consumed: { type: "integer" },
+                  enabled: { type: "boolean" },
+                  expiresAt: { type: "string", format: "date-time" },
+                },
+              },
+            },
+          },
+        },
+        responses: {
+          "200": { description: "Entitlement updated" },
+        },
+      },
+      delete: {
+        tags: ["Entitlements"],
+        summary: "Delete a scoped entitlement",
+        security: [{ cookieAuth: [] }],
+        parameters: [
+          { name: "id", in: "path", required: true, schema: { type: "string", format: "uuid" } },
+        ],
+        responses: {
+          "200": { description: "Entitlement deleted" },
+        },
+      },
+    },
+    "/entitlements/{orgId}": {
+      get: {
+        tags: ["Entitlements"],
+        summary: "Get organization entitlements (legacy)",
+        security: [{ cookieAuth: [] }],
+        parameters: [
+          { name: "orgId", in: "path", required: true, schema: { type: "string", format: "uuid" } },
+        ],
+        responses: {
+          "200": { description: "Organization entitlements" },
+        },
+      },
+    },
+    "/license/{orgId}": {
+      get: {
+        tags: ["License"],
+        summary: "Get organization license status",
+        security: [{ cookieAuth: [] }],
+        parameters: [
+          { name: "orgId", in: "path", required: true, schema: { type: "string", format: "uuid" } },
+        ],
+        responses: {
+          "200": {
+            description: "License status",
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  properties: {
+                    valid: { type: "boolean" },
+                    plan: { $ref: "#/components/schemas/Plan" },
+                    features: { type: "object" },
+                    limits: { type: "object" },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    },
+    "/dashboard": {
+      get: {
+        tags: ["Dashboard"],
+        summary: "Get dashboard data",
+        security: [{ cookieAuth: [] }],
+        responses: {
+          "200": { description: "Dashboard data with stats and recent activity" },
+        },
+      },
+    },
+    "/admin/users/{userId}/entitlements": {
+      get: {
+        tags: ["Super Admin"],
+        summary: "Get user's capability entitlements",
+        description: "Requires super admin privileges",
+        security: [{ cookieAuth: [] }],
+        parameters: [
+          { name: "userId", in: "path", required: true, schema: { type: "string", format: "uuid" } },
+        ],
+        responses: {
+          "200": {
+            description: "List of user entitlements",
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  properties: {
+                    entitlements: { type: "array", items: { $ref: "#/components/schemas/UserEntitlement" } },
+                  },
+                },
+              },
+            },
+          },
+          "403": { description: "Super admin access required" },
+        },
+      },
+      post: {
+        tags: ["Super Admin"],
+        summary: "Grant a capability entitlement to a user",
+        description: "Requires super admin privileges",
+        security: [{ cookieAuth: [] }],
+        parameters: [
+          { name: "userId", in: "path", required: true, schema: { type: "string", format: "uuid" } },
+        ],
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: {
+                type: "object",
+                required: ["entitlementKey"],
+                properties: {
+                  entitlementKey: { type: "string", description: "e.g., cap:registry.write" },
+                  expiresAt: { type: "string", format: "date-time" },
+                },
+              },
+            },
+          },
+        },
+        responses: {
+          "200": { description: "Entitlement granted" },
+          "400": { description: "User already has this entitlement" },
+          "403": { description: "Super admin access required" },
+        },
+      },
+    },
+    "/admin/users/{userId}/entitlements/{entitlementKey}": {
+      delete: {
+        tags: ["Super Admin"],
+        summary: "Revoke a capability entitlement from a user",
+        description: "Requires super admin privileges",
+        security: [{ cookieAuth: [] }],
+        parameters: [
+          { name: "userId", in: "path", required: true, schema: { type: "string", format: "uuid" } },
+          { name: "entitlementKey", in: "path", required: true, schema: { type: "string" } },
+        ],
+        responses: {
+          "200": { description: "Entitlement revoked" },
+          "403": { description: "Super admin access required" },
+          "404": { description: "Entitlement not found" },
+        },
+      },
+    },
+    "/admin/users/{userId}/roles": {
+      get: {
+        tags: ["Super Admin"],
+        summary: "Get user's global roles",
+        description: "Requires super admin privileges",
+        security: [{ cookieAuth: [] }],
+        parameters: [
+          { name: "userId", in: "path", required: true, schema: { type: "string", format: "uuid" } },
+        ],
+        responses: {
+          "200": {
+            description: "List of user roles",
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  properties: {
+                    roles: { type: "array", items: { $ref: "#/components/schemas/UserRole" } },
+                  },
+                },
+              },
+            },
+          },
+          "403": { description: "Super admin access required" },
+        },
+      },
+      post: {
+        tags: ["Super Admin"],
+        summary: "Grant a global role to a user",
+        description: "Requires super admin privileges",
+        security: [{ cookieAuth: [] }],
+        parameters: [
+          { name: "userId", in: "path", required: true, schema: { type: "string", format: "uuid" } },
+        ],
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: {
+                type: "object",
+                required: ["roleKey"],
+                properties: {
+                  roleKey: { type: "string", description: "e.g., role:publisher" },
+                  expiresAt: { type: "string", format: "date-time" },
+                },
+              },
+            },
+          },
+        },
+        responses: {
+          "200": { description: "Role granted" },
+          "400": { description: "User already has this role" },
+          "403": { description: "Super admin access required" },
+        },
+      },
+    },
+    "/admin/users/{userId}/roles/{roleKey}": {
+      delete: {
+        tags: ["Super Admin"],
+        summary: "Revoke a global role from a user",
+        description: "Requires super admin privileges",
+        security: [{ cookieAuth: [] }],
+        parameters: [
+          { name: "userId", in: "path", required: true, schema: { type: "string", format: "uuid" } },
+          { name: "roleKey", in: "path", required: true, schema: { type: "string" } },
+        ],
+        responses: {
+          "200": { description: "Role revoked" },
+          "403": { description: "Super admin access required" },
+          "404": { description: "Role not found" },
+        },
+      },
+    },
+  },
+  components: {
+    securitySchemes: {
+      cookieAuth: {
+        type: "apiKey",
+        in: "cookie",
+        name: "auth_token",
+        description: "JWT token stored in httpOnly cookie",
+      },
+    },
+    parameters: {
+      OrgIdHeader: {
+        name: "X-Org-Id",
+        in: "header",
+        required: false,
+        description: "Optional organization scope override.",
+        schema: { type: "string" },
+      },
+      ServiceIdHeader: {
+        name: "X-Service-Id",
+        in: "header",
+        required: false,
+        description: "Optional service scope identifier.",
+        schema: { type: "string" },
+      },
+      EnvHeader: {
+        name: "X-Env",
+        in: "header",
+        required: false,
+        description: "Optional environment scope (dev|stage|prod).",
+        schema: { type: "string" },
+      },
+      DataClassHeader: {
+        name: "X-Data-Class",
+        in: "header",
+        required: false,
+        description: "Optional data classification (none|pii|phi|secret).",
+        schema: { type: "string", enum: ["none", "pii", "phi", "secret"] },
+      },
+      PolicyRefHeader: {
+        name: "X-Policy-Ref",
+        in: "header",
+        required: false,
+        description: "Optional policy reference for auditing.",
+        schema: { type: "string" },
+      },
+    },
+    schemas: {
+      User: {
+        type: "object",
+        description: "User profile with organizations, entitlements, and roles for Object Service integration",
+        properties: {
+          id: { type: "string", format: "uuid" },
+          email: { type: "string", format: "email" },
+          name: { type: "string" },
+          isSuperAdmin: { type: "boolean" },
+          organizations: {
+            type: "array",
+            description: "Organizations the user belongs to with their role",
+            items: {
+              type: "object",
+              properties: {
+                id: { type: "string", format: "uuid" },
+                name: { type: "string" },
+                slug: { type: "string" },
+                role: { type: "string", enum: ["admin", "member", "viewer"] },
+              },
+            },
+          },
+          entitlements: {
+            type: "array",
+            description: "Capability entitlements (e.g., cap:registry.write, cap:registry.publish)",
+            items: { type: "string" },
+          },
+          roles: {
+            type: "array",
+            description: "Global roles (e.g., role:publisher, role:admin)",
+            items: { type: "string" },
+          },
+          createdAt: { type: "string", format: "date-time" },
+        },
+      },
+      UserEntitlement: {
+        type: "object",
+        description: "A capability grant for a user",
+        properties: {
+          id: { type: "string", format: "uuid" },
+          userId: { type: "string", format: "uuid" },
+          entitlementKey: { type: "string", description: "e.g., cap:registry.write" },
+          grantedBy: { type: "string", format: "uuid", nullable: true },
+          expiresAt: { type: "string", format: "date-time", nullable: true },
+          createdAt: { type: "string", format: "date-time" },
+        },
+      },
+      UserRole: {
+        type: "object",
+        description: "A global role for a user",
+        properties: {
+          id: { type: "string", format: "uuid" },
+          userId: { type: "string", format: "uuid" },
+          roleKey: { type: "string", description: "e.g., role:publisher" },
+          grantedBy: { type: "string", format: "uuid", nullable: true },
+          expiresAt: { type: "string", format: "date-time", nullable: true },
+          createdAt: { type: "string", format: "date-time" },
+        },
+      },
+      Organization: {
+        type: "object",
+        properties: {
+          id: { type: "string", format: "uuid" },
+          name: { type: "string" },
+          slug: { type: "string" },
+          planId: { type: "string", format: "uuid", nullable: true },
+          createdAt: { type: "string", format: "date-time" },
+        },
+      },
+      Project: {
+        type: "object",
+        properties: {
+          id: { type: "string", format: "uuid" },
+          orgId: { type: "string", format: "uuid" },
+          name: { type: "string" },
+          slug: { type: "string" },
+          description: { type: "string", nullable: true },
+          status: { type: "string", enum: ["active", "archived", "suspended"] },
+          createdAt: { type: "string", format: "date-time" },
+        },
+      },
+      Application: {
+        type: "object",
+        properties: {
+          id: { type: "string", format: "uuid" },
+          projectId: { type: "string", format: "uuid" },
+          orgId: { type: "string", format: "uuid" },
+          name: { type: "string" },
+          slug: { type: "string" },
+          environment: { type: "string", enum: ["development", "staging", "production"] },
+          appType: { type: "string", enum: ["web", "mobile", "api", "cli"] },
+          repoUrl: { type: "string", nullable: true },
+          createdAt: { type: "string", format: "date-time" },
+        },
+      },
+      Service: {
+        type: "object",
+        properties: {
+          id: { type: "string", format: "uuid" },
+          projectId: { type: "string", format: "uuid" },
+          orgId: { type: "string", format: "uuid" },
+          name: { type: "string" },
+          serviceType: { type: "string", enum: ["database", "api", "auth", "storage", "messaging", "analytics"] },
+          provider: { type: "string", nullable: true },
+          endpointUrl: { type: "string", nullable: true },
+          externalId: { type: "string", nullable: true },
+          status: { type: "string", enum: ["active", "inactive", "error"] },
+          createdAt: { type: "string", format: "date-time" },
+        },
+      },
+      ScopedEntitlement: {
+        type: "object",
+        description: "Polymorphic entitlement that can be scoped to org, project, application, or service",
+        properties: {
+          id: { type: "string", format: "uuid" },
+          orgId: { type: "string", format: "uuid" },
+          scopeType: { type: "string", enum: ["org", "project", "application", "service"] },
+          scopeId: { type: "string", format: "uuid" },
+          featureKey: { type: "string" },
+          quota: { type: "integer", nullable: true, description: "Maximum allowed usage" },
+          consumed: { type: "integer", description: "Current usage count" },
+          enabled: { type: "boolean" },
+          expiresAt: { type: "string", format: "date-time", nullable: true },
+          createdAt: { type: "string", format: "date-time" },
+        },
+      },
+      Plan: {
+        type: "object",
+        properties: {
+          id: { type: "string", format: "uuid" },
+          name: { type: "string" },
+          featuresJson: { type: "object" },
+          limitsJson: { type: "object" },
+          priceCents: { type: "integer" },
+        },
+      },
+      ApiKey: {
+        type: "object",
+        description: "API key metadata (excludes actual key value)",
+        properties: {
+          id: { type: "string", format: "uuid" },
+          name: { type: "string" },
+          keyPrefix: { type: "string", description: "First 8 chars of the key for identification" },
+          orgId: { type: "string", format: "uuid", nullable: true },
+          scopes: { type: "array", items: { type: "string" } },
+          expiresAt: { type: "string", format: "date-time", nullable: true },
+          lastUsedAt: { type: "string", format: "date-time", nullable: true },
+          revokedAt: { type: "string", format: "date-time", nullable: true },
+          createdAt: { type: "string", format: "date-time" },
+        },
+      },
+      ApiKeyCreated: {
+        type: "object",
+        description: "API key response when creating or rotating (includes full key)",
+        properties: {
+          id: { type: "string", format: "uuid" },
+          name: { type: "string" },
+          key: { type: "string", description: "The full API key - only shown once, store securely" },
+          keyPrefix: { type: "string" },
+          orgId: { type: "string", format: "uuid", nullable: true },
+          scopes: { type: "array", items: { type: "string" } },
+          expiresAt: { type: "string", format: "date-time", nullable: true },
+          createdAt: { type: "string", format: "date-time" },
+          _warning: { type: "string" },
+        },
+      },
+      HealthCheck: {
+        type: "object",
+        description: "System health status including database connectivity",
+        properties: {
+          status: { type: "string", enum: ["ok", "degraded", "error"] },
+          timestamp: { type: "string", format: "date-time" },
+          database: {
+            type: "object",
+            properties: {
+              connected: { type: "boolean" },
+              latencyMs: { type: "integer", description: "DB query latency in ms" },
+              error: { type: "string", description: "Error message if not connected" },
+            },
+          },
+          email: {
+            type: "object",
+            properties: {
+              enabled: { type: "boolean" },
+            },
+          },
+          version: { type: "string" },
+        },
+      },
+    },
+  },
+};
+
+const scopeParameters = [
+  { $ref: "#/components/parameters/OrgIdHeader" },
+  { $ref: "#/components/parameters/ServiceIdHeader" },
+  { $ref: "#/components/parameters/EnvHeader" },
+  { $ref: "#/components/parameters/DataClassHeader" },
+  { $ref: "#/components/parameters/PolicyRefHeader" },
+];
+
+const scopeRefs = new Set(scopeParameters.map((param) => (param as any).$ref));
+
+if (apiDocumentation.paths) {
+  Object.values(apiDocumentation.paths).forEach((pathItem: any) => {
+    const existing = Array.isArray(pathItem.parameters) ? pathItem.parameters : [];
+    const merged = [...scopeParameters, ...existing.filter((param: any) => !scopeRefs.has(param?.$ref))];
+    pathItem.parameters = merged;
+  });
+}

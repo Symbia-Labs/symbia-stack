@@ -1,0 +1,1477 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="carbon" data-mode="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Symbia — AI-Native Orchestration Platform</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <style>
+    /* ============================================
+       SYMBIA DESIGN SYSTEM v3
+       Theme: Carbon (default) | Sand | Stone | Mono variants
+       Modes: Dark | Light | System
+    ============================================ */
+
+    :root {
+      /* Typography */
+      --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      --font-mono: 'JetBrains Mono', monospace;
+
+      /* Spacing scale */
+      --space-1: 4px;
+      --space-2: 8px;
+      --space-3: 12px;
+      --space-4: 16px;
+      --space-5: 24px;
+      --space-6: 32px;
+      --space-7: 48px;
+      --space-8: 64px;
+      --space-9: 96px;
+      --space-10: 128px;
+
+      /* Radii */
+      --radius-sm: 6px;
+      --radius-md: 10px;
+      --radius-lg: 16px;
+      --radius-xl: 24px;
+
+      /* Transitions */
+      --transition-fast: 0.15s ease;
+      --transition-med: 0.25s ease;
+    }
+
+    /* ============================================
+       CARBON THEME (Default)
+    ============================================ */
+    [data-theme="carbon"][data-mode="dark"] {
+      --bg-base: #08080a;
+      --bg-elevated: #0f0f12;
+      --bg-muted: #1a1a1f;
+      --bg-subtle: #242429;
+      --border: #2a2a32;
+      --border-muted: #1f1f25;
+      --text: #fafafa;
+      --text-secondary: #a1a1aa;
+      --text-muted: #71717a;
+      --primary: #3b82f6;
+      --primary-hover: #2563eb;
+      --secondary: #ec4899;
+      --tertiary: #a3e635;
+      --accent-glow: rgba(59, 130, 246, 0.15);
+      --node-input: #22c55e;
+      --node-router: #a855f7;
+      --node-llm: #ec4899;
+      --node-output: #f97316;
+      --node-tool: #06b6d4;
+      --node-condition: #eab308;
+    }
+    [data-theme="carbon"][data-mode="light"] {
+      --bg-base: #ffffff;
+      --bg-elevated: #fafafa;
+      --bg-muted: #f1f3f5;
+      --bg-subtle: #e5e7eb;
+      --border: #e5e7eb;
+      --border-muted: #f1f3f5;
+      --text: #111827;
+      --text-secondary: #4b5563;
+      --text-muted: #9ca3af;
+      --primary: #2563eb;
+      --primary-hover: #1d4ed8;
+      --secondary: #db2777;
+      --tertiary: #65a30d;
+      --accent-glow: rgba(37, 99, 235, 0.1);
+      --node-input: #16a34a;
+      --node-router: #9333ea;
+      --node-llm: #db2777;
+      --node-output: #ea580c;
+      --node-tool: #0891b2;
+      --node-condition: #ca8a04;
+    }
+
+    /* ============================================
+       SAND THEME
+    ============================================ */
+    [data-theme="sand"][data-mode="dark"] {
+      --bg-base: #1a1612;
+      --bg-elevated: #221c16;
+      --bg-muted: #302921;
+      --bg-subtle: #3d342a;
+      --border: #4a3f33;
+      --border-muted: #3a3228;
+      --text: #f5f0e8;
+      --text-secondary: #c4b8a5;
+      --text-muted: #8a7e6d;
+      --primary: #c2956b;
+      --primary-hover: #a87d55;
+      --secondary: #7d9a78;
+      --tertiary: #b8a07a;
+      --accent-glow: rgba(194, 149, 107, 0.15);
+      --node-input: #7d9a78;
+      --node-router: #a08db8;
+      --node-llm: #c49a9a;
+      --node-output: #c2956b;
+      --node-tool: #7aaa9a;
+      --node-condition: #c4b078;
+    }
+    [data-theme="sand"][data-mode="light"] {
+      --bg-base: #faf8f5;
+      --bg-elevated: #f5f2ed;
+      --bg-muted: #ebe5db;
+      --bg-subtle: #ddd5c8;
+      --border: #d9d0c3;
+      --border-muted: #e8e0d5;
+      --text: #2d261e;
+      --text-secondary: #5c5144;
+      --text-muted: #8a7e6d;
+      --primary: #9a7352;
+      --primary-hover: #7d5c40;
+      --secondary: #5d7a58;
+      --tertiary: #8a7454;
+      --accent-glow: rgba(154, 115, 82, 0.1);
+      --node-input: #5d7a58;
+      --node-router: #7a6890;
+      --node-llm: #a07070;
+      --node-output: #9a7352;
+      --node-tool: #5a8a7a;
+      --node-condition: #9a8858;
+    }
+
+    /* ============================================
+       STONE THEME
+    ============================================ */
+    [data-theme="stone"][data-mode="dark"] {
+      --bg-base: #121416;
+      --bg-elevated: #181a1d;
+      --bg-muted: #24272c;
+      --bg-subtle: #2e3238;
+      --border: #3a3f48;
+      --border-muted: #2a2e35;
+      --text: #e8eaed;
+      --text-secondary: #9ea4ad;
+      --text-muted: #6b7280;
+      --primary: #7890a8;
+      --primary-hover: #5a7490;
+      --secondary: #a89088;
+      --tertiary: #88a090;
+      --accent-glow: rgba(120, 144, 168, 0.15);
+      --node-input: #6a9878;
+      --node-router: #9080a0;
+      --node-llm: #a08090;
+      --node-output: #a89080;
+      --node-tool: #7090a0;
+      --node-condition: #a0a078;
+    }
+    [data-theme="stone"][data-mode="light"] {
+      --bg-base: #fafafa;
+      --bg-elevated: #f5f5f6;
+      --bg-muted: #eaeaec;
+      --bg-subtle: #dcdcde;
+      --border: #d4d4d8;
+      --border-muted: #e4e4e7;
+      --text: #27272a;
+      --text-secondary: #52525b;
+      --text-muted: #a1a1aa;
+      --primary: #526880;
+      --primary-hover: #3d5068;
+      --secondary: #806058;
+      --tertiary: #587060;
+      --accent-glow: rgba(82, 104, 128, 0.1);
+      --node-input: #4a7858;
+      --node-router: #685878;
+      --node-llm: #785868;
+      --node-output: #806858;
+      --node-tool: #507080;
+      --node-condition: #787850;
+    }
+
+    /* ============================================
+       MONO BLUE
+    ============================================ */
+    [data-theme="mono-blue"][data-mode="dark"] {
+      --bg-base: #0a0f18;
+      --bg-elevated: #0f1520;
+      --bg-muted: #182235;
+      --bg-subtle: #203048;
+      --border: #2a3a55;
+      --border-muted: #1a2a42;
+      --text: #e8eef5;
+      --text-secondary: #8aa0c0;
+      --text-muted: #5070a0;
+      --primary: #5a8ad0;
+      --primary-hover: #4070b8;
+      --secondary: #4070b0;
+      --tertiary: #85a8d8;
+      --accent-glow: rgba(90, 138, 208, 0.15);
+      --node-input: #3a6898;
+      --node-router: #4878a8;
+      --node-llm: #5080b8;
+      --node-output: #6090c0;
+      --node-tool: #4a88b8;
+      --node-condition: #5898c0;
+    }
+    [data-theme="mono-blue"][data-mode="light"] {
+      --bg-base: #f8fafc;
+      --bg-elevated: #f0f5fa;
+      --bg-muted: #e4eaf2;
+      --bg-subtle: #d0dae8;
+      --border: #c8d4e4;
+      --border-muted: #d8e2ef;
+      --text: #1a2840;
+      --text-secondary: #3a5070;
+      --text-muted: #6080a8;
+      --primary: #3868a8;
+      --primary-hover: #2a5090;
+      --secondary: #4a78b8;
+      --tertiary: #5888c0;
+      --accent-glow: rgba(56, 104, 168, 0.1);
+      --node-input: #285880;
+      --node-router: #3868a0;
+      --node-llm: #4070a0;
+      --node-output: #4878a0;
+      --node-tool: #3878a8;
+      --node-condition: #4888b0;
+    }
+
+    /* ============================================
+       MONO SLATE
+    ============================================ */
+    [data-theme="mono-slate"][data-mode="dark"] {
+      --bg-base: #101214;
+      --bg-elevated: #16181b;
+      --bg-muted: #222528;
+      --bg-subtle: #2c3035;
+      --border: #383c42;
+      --border-muted: #282c32;
+      --text: #e8e9eb;
+      --text-secondary: #a0a4a8;
+      --text-muted: #686c72;
+      --primary: #8890a0;
+      --primary-hover: #707888;
+      --secondary: #707888;
+      --tertiary: #a8b0b8;
+      --accent-glow: rgba(136, 144, 160, 0.15);
+      --node-input: #607870;
+      --node-router: #787080;
+      --node-llm: #887888;
+      --node-output: #888078;
+      --node-tool: #708088;
+      --node-condition: #909080;
+    }
+    [data-theme="mono-slate"][data-mode="light"] {
+      --bg-base: #fafafa;
+      --bg-elevated: #f5f5f6;
+      --bg-muted: #ebebed;
+      --bg-subtle: #dcdcde;
+      --border: #d8d8dc;
+      --border-muted: #e4e4e6;
+      --text: #202225;
+      --text-secondary: #505458;
+      --text-muted: #888c92;
+      --primary: #505860;
+      --primary-hover: #404850;
+      --secondary: #606870;
+      --tertiary: #707880;
+      --accent-glow: rgba(80, 88, 96, 0.1);
+      --node-input: #406050;
+      --node-router: #585060;
+      --node-llm: #685868;
+      --node-output: #686058;
+      --node-tool: #507068;
+      --node-condition: #707060;
+    }
+
+    /* ============================================
+       MONO GREEN
+    ============================================ */
+    [data-theme="mono-green"][data-mode="dark"] {
+      --bg-base: #0a140e;
+      --bg-elevated: #0f1a12;
+      --bg-muted: #18281e;
+      --bg-subtle: #20382a;
+      --border: #2a4535;
+      --border-muted: #1a3525;
+      --text: #e8f5ed;
+      --text-secondary: #8ac0a0;
+      --text-muted: #509070;
+      --primary: #5ac090;
+      --primary-hover: #40a078;
+      --secondary: #40a070;
+      --tertiary: #85d8b0;
+      --accent-glow: rgba(90, 192, 144, 0.15);
+      --node-input: #3a9868;
+      --node-router: #48a078;
+      --node-llm: #50b080;
+      --node-output: #60c090;
+      --node-tool: #4ab088;
+      --node-condition: #58c898;
+    }
+    [data-theme="mono-green"][data-mode="light"] {
+      --bg-base: #f8fcfa;
+      --bg-elevated: #f0f8f4;
+      --bg-muted: #e4f2ea;
+      --bg-subtle: #d0e8dc;
+      --border: #c8e4d4;
+      --border-muted: #d8f0e2;
+      --text: #1a4028;
+      --text-secondary: #3a7050;
+      --text-muted: #60a080;
+      --primary: #38a868;
+      --primary-hover: #2a9058;
+      --secondary: #48b878;
+      --tertiary: #58c088;
+      --accent-glow: rgba(56, 168, 104, 0.1);
+      --node-input: #288050;
+      --node-router: #38a060;
+      --node-llm: #40a070;
+      --node-output: #48a070;
+      --node-tool: #38b070;
+      --node-condition: #48b880;
+    }
+
+    /* ============================================
+       MONO VIOLET
+    ============================================ */
+    [data-theme="mono-violet"][data-mode="dark"] {
+      --bg-base: #10091a;
+      --bg-elevated: #150f22;
+      --bg-muted: #221835;
+      --bg-subtle: #2e2048;
+      --border: #3a2a55;
+      --border-muted: #2a1a42;
+      --text: #f0e8f8;
+      --text-secondary: #b098d0;
+      --text-muted: #7858a8;
+      --primary: #9068d0;
+      --primary-hover: #7850b8;
+      --secondary: #7050b0;
+      --tertiary: #b090e0;
+      --accent-glow: rgba(144, 104, 208, 0.15);
+      --node-input: #6850a8;
+      --node-router: #7858b0;
+      --node-llm: #8060c0;
+      --node-output: #9070c8;
+      --node-tool: #7868c0;
+      --node-condition: #8878d0;
+    }
+    [data-theme="mono-violet"][data-mode="light"] {
+      --bg-base: #fcfaff;
+      --bg-elevated: #f8f4fc;
+      --bg-muted: #f0e8f8;
+      --bg-subtle: #e0d0f0;
+      --border: #e0d0f0;
+      --border-muted: #ecdcf8;
+      --text: #281840;
+      --text-secondary: #503870;
+      --text-muted: #8060a8;
+      --primary: #6840a8;
+      --primary-hover: #582890;
+      --secondary: #7850b8;
+      --tertiary: #8860c0;
+      --accent-glow: rgba(104, 64, 168, 0.1);
+      --node-input: #483088;
+      --node-router: #5840a0;
+      --node-llm: #6048a0;
+      --node-output: #6850a0;
+      --node-tool: #5850b0;
+      --node-condition: #6860b8;
+    }
+
+    /* ============================================
+       MONO AMBER
+    ============================================ */
+    [data-theme="mono-amber"][data-mode="dark"] {
+      --bg-base: #14100a;
+      --bg-elevated: #1a150e;
+      --bg-muted: #282018;
+      --bg-subtle: #382a20;
+      --border: #453828;
+      --border-muted: #352818;
+      --text: #f8f0e8;
+      --text-secondary: #c8b090;
+      --text-muted: #987850;
+      --primary: #d0a050;
+      --primary-hover: #b88838;
+      --secondary: #b08030;
+      --tertiary: #e8c080;
+      --accent-glow: rgba(208, 160, 80, 0.15);
+      --node-input: #a88030;
+      --node-router: #b89040;
+      --node-llm: #c09040;
+      --node-output: #d0a050;
+      --node-tool: #c09848;
+      --node-condition: #d8b058;
+    }
+    [data-theme="mono-amber"][data-mode="light"] {
+      --bg-base: #fffcf8;
+      --bg-elevated: #faf6f0;
+      --bg-muted: #f4ece0;
+      --bg-subtle: #e8dcc8;
+      --border: #e8dcc8;
+      --border-muted: #f0e4d4;
+      --text: #40301a;
+      --text-secondary: #705830;
+      --text-muted: #a08050;
+      --primary: #a87820;
+      --primary-hover: #906010;
+      --secondary: #b88830;
+      --tertiary: #c89840;
+      --accent-glow: rgba(168, 120, 32, 0.1);
+      --node-input: #886010;
+      --node-router: #987018;
+      --node-llm: #a07018;
+      --node-output: #a87820;
+      --node-tool: #988028;
+      --node-condition: #a89030;
+    }
+
+    /* ============================================
+       BASE STYLES
+    ============================================ */
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    html {
+      scroll-behavior: smooth;
+    }
+
+    body {
+      font-family: var(--font-sans);
+      background: var(--bg-base);
+      color: var(--text);
+      line-height: 1.6;
+      transition: background var(--transition-med), color var(--transition-med);
+    }
+
+    a {
+      color: var(--primary);
+      text-decoration: none;
+      transition: color var(--transition-fast);
+    }
+    a:hover {
+      color: var(--primary-hover);
+    }
+
+    code, pre {
+      font-family: var(--font-mono);
+    }
+
+    /* ============================================
+       LAYOUT
+    ============================================ */
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 0 var(--space-5);
+    }
+
+    .section {
+      padding: var(--space-10) 0;
+    }
+
+    /* ============================================
+       NAVIGATION
+    ============================================ */
+    .nav {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      z-index: 100;
+      background: var(--bg-base);
+      border-bottom: 1px solid var(--border-muted);
+      backdrop-filter: blur(12px);
+      background: color-mix(in srgb, var(--bg-base) 85%, transparent);
+    }
+
+    .nav-inner {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      height: 64px;
+    }
+
+    .nav-logo {
+      display: flex;
+      align-items: center;
+      gap: var(--space-3);
+      font-weight: 700;
+      font-size: 1.25rem;
+      color: var(--text);
+    }
+
+    .nav-logo svg {
+      width: 32px;
+      height: 32px;
+    }
+
+    .nav-links {
+      display: flex;
+      align-items: center;
+      gap: var(--space-6);
+    }
+
+    .nav-link {
+      color: var(--text-secondary);
+      font-size: 14px;
+      font-weight: 500;
+      transition: color var(--transition-fast);
+    }
+    .nav-link:hover {
+      color: var(--text);
+    }
+
+    .nav-actions {
+      display: flex;
+      align-items: center;
+      gap: var(--space-3);
+    }
+
+    /* ============================================
+       BUTTONS
+    ============================================ */
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: var(--space-2);
+      padding: var(--space-3) var(--space-5);
+      border-radius: var(--radius-md);
+      font-size: 14px;
+      font-weight: 500;
+      cursor: pointer;
+      border: none;
+      transition: all var(--transition-fast);
+    }
+
+    .btn-primary {
+      background: var(--primary);
+      color: white;
+    }
+    .btn-primary:hover {
+      background: var(--primary-hover);
+      transform: translateY(-1px);
+    }
+
+    .btn-secondary {
+      background: var(--bg-muted);
+      color: var(--text);
+      border: 1px solid var(--border);
+    }
+    .btn-secondary:hover {
+      background: var(--bg-subtle);
+      border-color: var(--primary);
+    }
+
+    .btn-ghost {
+      background: transparent;
+      color: var(--text-secondary);
+    }
+    .btn-ghost:hover {
+      background: var(--bg-muted);
+      color: var(--text);
+    }
+
+    /* ============================================
+       HERO SECTION
+    ============================================ */
+    .hero {
+      padding-top: 160px;
+      padding-bottom: var(--space-10);
+      text-align: center;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .hero::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 800px;
+      height: 800px;
+      background: radial-gradient(circle, var(--accent-glow) 0%, transparent 70%);
+      pointer-events: none;
+    }
+
+    .hero-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: var(--space-2);
+      padding: var(--space-2) var(--space-4);
+      background: var(--bg-muted);
+      border: 1px solid var(--border);
+      border-radius: 100px;
+      font-size: 13px;
+      color: var(--text-secondary);
+      margin-bottom: var(--space-6);
+    }
+
+    .hero-badge-dot {
+      width: 6px;
+      height: 6px;
+      background: var(--tertiary);
+      border-radius: 50%;
+      animation: pulse 2s infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.5; }
+    }
+
+    .hero-title {
+      font-size: clamp(2.5rem, 6vw, 4.5rem);
+      font-weight: 800;
+      letter-spacing: -0.03em;
+      line-height: 1.1;
+      margin-bottom: var(--space-5);
+      position: relative;
+    }
+
+    .hero-title-gradient {
+      background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    .hero-subtitle {
+      font-size: 1.25rem;
+      color: var(--text-secondary);
+      max-width: 640px;
+      margin: 0 auto var(--space-7);
+      line-height: 1.7;
+    }
+
+    .hero-actions {
+      display: flex;
+      justify-content: center;
+      gap: var(--space-4);
+      margin-bottom: var(--space-9);
+    }
+
+    .hero-visual {
+      position: relative;
+      max-width: 1000px;
+      margin: 0 auto;
+      border-radius: var(--radius-xl);
+      overflow: hidden;
+      border: 1px solid var(--border);
+      background: var(--bg-elevated);
+      box-shadow: 0 24px 80px rgba(0,0,0,0.3);
+    }
+
+    .hero-visual-header {
+      display: flex;
+      align-items: center;
+      gap: var(--space-2);
+      padding: var(--space-3) var(--space-4);
+      background: var(--bg-muted);
+      border-bottom: 1px solid var(--border);
+    }
+
+    .hero-visual-dot {
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+    }
+
+    .hero-visual-content {
+      padding: var(--space-6);
+      min-height: 400px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    /* Workflow visualization placeholder */
+    .workflow-preview {
+      display: flex;
+      align-items: center;
+      gap: var(--space-4);
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+
+    .workflow-node {
+      display: flex;
+      align-items: center;
+      gap: var(--space-2);
+      padding: var(--space-3) var(--space-4);
+      background: var(--bg-subtle);
+      border-radius: var(--radius-md);
+      border: 1px solid var(--border);
+      font-size: 13px;
+      font-weight: 500;
+    }
+
+    .workflow-node-icon {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+    }
+
+    .workflow-connector {
+      width: 40px;
+      height: 2px;
+      background: var(--border);
+      position: relative;
+    }
+
+    .workflow-connector::after {
+      content: '';
+      position: absolute;
+      right: 0;
+      top: 50%;
+      transform: translateY(-50%);
+      border: 4px solid transparent;
+      border-left-color: var(--border);
+    }
+
+    /* ============================================
+       FEATURES SECTION
+    ============================================ */
+    .features-header {
+      text-align: center;
+      margin-bottom: var(--space-9);
+    }
+
+    .section-label {
+      font-size: 12px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 2px;
+      color: var(--primary);
+      margin-bottom: var(--space-3);
+    }
+
+    .section-title {
+      font-size: clamp(1.75rem, 4vw, 2.5rem);
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      margin-bottom: var(--space-4);
+    }
+
+    .section-desc {
+      font-size: 1.1rem;
+      color: var(--text-secondary);
+      max-width: 600px;
+      margin: 0 auto;
+    }
+
+    .features-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+      gap: var(--space-5);
+    }
+
+    .feature-card {
+      padding: var(--space-6);
+      background: var(--bg-elevated);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      transition: all var(--transition-med);
+    }
+    .feature-card:hover {
+      border-color: var(--primary);
+      transform: translateY(-2px);
+      box-shadow: 0 12px 40px var(--accent-glow);
+    }
+
+    .feature-icon {
+      width: 48px;
+      height: 48px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: var(--bg-muted);
+      border-radius: var(--radius-md);
+      margin-bottom: var(--space-4);
+      color: var(--primary);
+    }
+
+    .feature-title {
+      font-size: 1.1rem;
+      font-weight: 600;
+      margin-bottom: var(--space-2);
+    }
+
+    .feature-desc {
+      font-size: 14px;
+      color: var(--text-secondary);
+      line-height: 1.6;
+    }
+
+    /* ============================================
+       CODE BLOCK
+    ============================================ */
+    .code-section {
+      background: var(--bg-elevated);
+      border-radius: var(--radius-xl);
+      border: 1px solid var(--border);
+      overflow: hidden;
+    }
+
+    .code-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: var(--space-4) var(--space-5);
+      background: var(--bg-muted);
+      border-bottom: 1px solid var(--border);
+    }
+
+    .code-tabs {
+      display: flex;
+      gap: var(--space-1);
+    }
+
+    .code-tab {
+      padding: var(--space-2) var(--space-4);
+      background: transparent;
+      border: none;
+      color: var(--text-muted);
+      font-size: 13px;
+      font-weight: 500;
+      cursor: pointer;
+      border-radius: var(--radius-sm);
+      transition: all var(--transition-fast);
+    }
+    .code-tab.active {
+      background: var(--bg-subtle);
+      color: var(--text);
+    }
+
+    .code-body {
+      padding: var(--space-5);
+      overflow-x: auto;
+    }
+
+    .code-body pre {
+      font-size: 13px;
+      line-height: 1.7;
+      color: var(--text-secondary);
+    }
+
+    .code-keyword { color: var(--secondary); }
+    .code-string { color: var(--tertiary); }
+    .code-comment { color: var(--text-muted); }
+    .code-function { color: var(--primary); }
+
+    /* ============================================
+       STATS SECTION
+    ============================================ */
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: var(--space-5);
+      padding: var(--space-8) 0;
+      border-top: 1px solid var(--border);
+      border-bottom: 1px solid var(--border);
+    }
+
+    .stat {
+      text-align: center;
+    }
+
+    .stat-value {
+      font-size: 3rem;
+      font-weight: 800;
+      letter-spacing: -0.03em;
+      background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    .stat-label {
+      font-size: 14px;
+      color: var(--text-muted);
+      margin-top: var(--space-2);
+    }
+
+    /* ============================================
+       CTA SECTION
+    ============================================ */
+    .cta {
+      text-align: center;
+      padding: var(--space-10) 0;
+    }
+
+    .cta-card {
+      padding: var(--space-9);
+      background: linear-gradient(135deg, var(--bg-muted) 0%, var(--bg-elevated) 100%);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-xl);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .cta-card::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 1px;
+      background: linear-gradient(90deg, transparent, var(--primary), transparent);
+    }
+
+    .cta-title {
+      font-size: 2rem;
+      font-weight: 700;
+      margin-bottom: var(--space-4);
+    }
+
+    .cta-desc {
+      color: var(--text-secondary);
+      margin-bottom: var(--space-6);
+      max-width: 500px;
+      margin-left: auto;
+      margin-right: auto;
+    }
+
+    /* ============================================
+       FOOTER
+    ============================================ */
+    .footer {
+      padding: var(--space-8) 0;
+      border-top: 1px solid var(--border);
+    }
+
+    .footer-inner {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .footer-copy {
+      font-size: 13px;
+      color: var(--text-muted);
+    }
+
+    .footer-links {
+      display: flex;
+      gap: var(--space-5);
+    }
+
+    .footer-link {
+      font-size: 13px;
+      color: var(--text-muted);
+    }
+    .footer-link:hover {
+      color: var(--text);
+    }
+
+    /* ============================================
+       THEME CONTROLS (Floating)
+    ============================================ */
+    .theme-controls {
+      position: fixed;
+      bottom: var(--space-5);
+      right: var(--space-5);
+      display: flex;
+      flex-direction: column;
+      gap: var(--space-3);
+      z-index: 1000;
+    }
+
+    .theme-panel {
+      background: var(--bg-elevated);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding: var(--space-4);
+      box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+    }
+
+    .theme-panel-title {
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: var(--text-muted);
+      margin-bottom: var(--space-3);
+    }
+
+    .mode-toggle {
+      display: flex;
+      background: var(--bg-muted);
+      border-radius: var(--radius-md);
+      padding: 3px;
+    }
+
+    .mode-btn {
+      padding: var(--space-2) var(--space-4);
+      border: none;
+      background: transparent;
+      color: var(--text-muted);
+      font-size: 12px;
+      font-weight: 500;
+      cursor: pointer;
+      border-radius: var(--radius-sm);
+      transition: all var(--transition-fast);
+    }
+    .mode-btn.active {
+      background: var(--primary);
+      color: white;
+    }
+
+    .theme-swatches {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: var(--space-2);
+      margin-top: var(--space-3);
+    }
+
+    .theme-swatch {
+      width: 32px;
+      height: 32px;
+      border-radius: var(--radius-sm);
+      border: 2px solid transparent;
+      cursor: pointer;
+      transition: all var(--transition-fast);
+      position: relative;
+    }
+    .theme-swatch:hover {
+      transform: scale(1.1);
+    }
+    .theme-swatch.active {
+      border-color: var(--text);
+    }
+
+    .theme-swatch::after {
+      content: attr(data-name);
+      position: absolute;
+      bottom: -20px;
+      left: 50%;
+      transform: translateX(-50%);
+      font-size: 9px;
+      color: var(--text-muted);
+      white-space: nowrap;
+      opacity: 0;
+      transition: opacity var(--transition-fast);
+    }
+    .theme-swatch:hover::after {
+      opacity: 1;
+    }
+
+    /* ============================================
+       RESPONSIVE
+    ============================================ */
+    @media (max-width: 768px) {
+      .nav-links {
+        display: none;
+      }
+
+      .stats-grid {
+        grid-template-columns: repeat(2, 1fr);
+      }
+
+      .hero-actions {
+        flex-direction: column;
+        align-items: center;
+      }
+
+      .footer-inner {
+        flex-direction: column;
+        gap: var(--space-4);
+        text-align: center;
+      }
+
+      .theme-controls {
+        bottom: var(--space-3);
+        right: var(--space-3);
+      }
+    }
+  </style>
+</head>
+<body>
+  <!-- Navigation -->
+  <nav class="nav">
+    <div class="container nav-inner">
+      <a href="/" class="nav-logo">
+        <svg viewBox="0 0 32 32" fill="none">
+          <rect width="32" height="32" rx="8" fill="var(--primary)"/>
+          <path d="M8 16L14 10L20 16L14 22L8 16Z" fill="white" fill-opacity="0.9"/>
+          <path d="M14 16L20 10L26 16L20 22L14 16Z" fill="white" fill-opacity="0.6"/>
+        </svg>
+        Symbia
+      </a>
+
+      <div class="nav-links">
+        <a href="#features" class="nav-link">Features</a>
+        <a href="#developers" class="nav-link">Developers</a>
+        <a href="#pricing" class="nav-link">Pricing</a>
+        <a href="/docs" class="nav-link">Docs</a>
+      </div>
+
+      <div class="nav-actions">
+        <button class="btn btn-ghost">Sign In</button>
+        <button class="btn btn-primary">Get Started</button>
+      </div>
+    </div>
+  </nav>
+
+  <!-- Hero Section -->
+  <section class="hero">
+    <div class="container">
+      <div class="hero-badge">
+        <span class="hero-badge-dot"></span>
+        Now in Public Beta
+      </div>
+
+      <h1 class="hero-title">
+        Orchestrate AI agents<br>
+        <span class="hero-title-gradient">without the chaos</span>
+      </h1>
+
+      <p class="hero-subtitle">
+        Symbia is the AI-native platform for building, deploying, and managing autonomous workflows.
+        Declarative graphs, not brittle code. Built for production.
+      </p>
+
+      <div class="hero-actions">
+        <button class="btn btn-primary">Start Building Free</button>
+        <button class="btn btn-secondary">View Documentation</button>
+      </div>
+
+      <div class="hero-visual">
+        <div class="hero-visual-header">
+          <div class="hero-visual-dot" style="background: var(--node-llm)"></div>
+          <div class="hero-visual-dot" style="background: var(--node-condition)"></div>
+          <div class="hero-visual-dot" style="background: var(--node-input)"></div>
+        </div>
+        <div class="hero-visual-content">
+          <div class="workflow-preview">
+            <div class="workflow-node">
+              <div class="workflow-node-icon" style="background: var(--node-input)"></div>
+              Input
+            </div>
+            <div class="workflow-connector"></div>
+            <div class="workflow-node">
+              <div class="workflow-node-icon" style="background: var(--node-router)"></div>
+              Router
+            </div>
+            <div class="workflow-connector"></div>
+            <div class="workflow-node">
+              <div class="workflow-node-icon" style="background: var(--node-llm)"></div>
+              LLM Agent
+            </div>
+            <div class="workflow-connector"></div>
+            <div class="workflow-node">
+              <div class="workflow-node-icon" style="background: var(--node-tool)"></div>
+              Tool Call
+            </div>
+            <div class="workflow-connector"></div>
+            <div class="workflow-node">
+              <div class="workflow-node-icon" style="background: var(--node-output)"></div>
+              Output
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Stats -->
+  <section class="section">
+    <div class="container">
+      <div class="stats-grid">
+        <div class="stat">
+          <div class="stat-value">45K+</div>
+          <div class="stat-label">Lines of TypeScript</div>
+        </div>
+        <div class="stat">
+          <div class="stat-value">9</div>
+          <div class="stat-label">Microservices</div>
+        </div>
+        <div class="stat">
+          <div class="stat-value">&lt;50ms</div>
+          <div class="stat-label">Median Latency</div>
+        </div>
+        <div class="stat">
+          <div class="stat-value">∞</div>
+          <div class="stat-label">Scalability</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Features Section -->
+  <section class="section" id="features">
+    <div class="container">
+      <div class="features-header">
+        <div class="section-label">Core Capabilities</div>
+        <h2 class="section-title">Built different, on purpose</h2>
+        <p class="section-desc">
+          Traditional orchestration breaks when AI gets involved. Symbia was designed from day one for autonomous agents.
+        </p>
+      </div>
+
+      <div class="features-grid">
+        <div class="feature-card">
+          <div class="feature-icon">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="12" cy="12" r="10"/>
+              <path d="M12 6v6l4 2"/>
+            </svg>
+          </div>
+          <h3 class="feature-title">Graphs, Not Code</h3>
+          <p class="feature-desc">
+            Workflows are declarative data structures. JSON-serializable, version-controlled, runtime-mutable. No redeployment required.
+          </p>
+        </div>
+
+        <div class="feature-card">
+          <div class="feature-icon">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M12 2L2 7l10 5 10-5-10-5z"/>
+              <path d="M2 17l10 5 10-5"/>
+              <path d="M2 12l10 5 10-5"/>
+            </svg>
+          </div>
+          <h3 class="feature-title">Dual Principal Model</h3>
+          <p class="feature-desc">
+            AI agents aren't just tools—they're first-class principals with their own permissions, context, and decision space.
+          </p>
+        </div>
+
+        <div class="feature-card">
+          <div class="feature-icon">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <rect x="3" y="3" width="18" height="18" rx="2"/>
+              <path d="M9 9h6v6H9z"/>
+            </svg>
+          </div>
+          <h3 class="feature-title">Stream Control</h3>
+          <p class="feature-desc">
+            Pause, resume, and preempt AI responses mid-stream. Real-time control without losing context or state.
+          </p>
+        </div>
+
+        <div class="feature-card">
+          <div class="feature-icon">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/>
+            </svg>
+          </div>
+          <h3 class="feature-title">Self-Documenting</h3>
+          <p class="feature-desc">
+            Every service auto-generates LLM-optimized docs at /docs/llms.txt. Agents read themselves into understanding.
+          </p>
+        </div>
+
+        <div class="feature-card">
+          <div class="feature-icon">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <polyline points="16 18 22 12 16 6"/>
+              <polyline points="8 6 2 12 8 18"/>
+            </svg>
+          </div>
+          <h3 class="feature-title">Symbia Script</h3>
+          <p class="feature-desc">
+            Cross-service DSL for namespace access. @auth.user.permissions flows naturally across service boundaries.
+          </p>
+        </div>
+
+        <div class="feature-card">
+          <div class="feature-icon">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/>
+            </svg>
+          </div>
+          <h3 class="feature-title">Multi-Tenant Native</h3>
+          <p class="feature-desc">
+            Workspace isolation, tenant-scoped execution, and cross-tenant workflows when you need them.
+          </p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Code Section -->
+  <section class="section" id="developers">
+    <div class="container">
+      <div class="features-header">
+        <div class="section-label">Developer Experience</div>
+        <h2 class="section-title">Code that reads like intent</h2>
+        <p class="section-desc">
+          Define what you want, not how to wire it up. Symbia handles the complexity.
+        </p>
+      </div>
+
+      <div class="code-section">
+        <div class="code-header">
+          <div class="code-tabs">
+            <button class="code-tab active">workflow.json</button>
+            <button class="code-tab">symbia.config.ts</button>
+          </div>
+          <button class="btn btn-ghost" style="padding: 6px 12px; font-size: 12px;">Copy</button>
+        </div>
+        <div class="code-body">
+<pre><code>{
+  <span class="code-string">"id"</span>: <span class="code-string">"customer-support-agent"</span>,
+  <span class="code-string">"nodes"</span>: [
+    {
+      <span class="code-string">"type"</span>: <span class="code-string">"input"</span>,
+      <span class="code-string">"id"</span>: <span class="code-string">"user-message"</span>
+    },
+    {
+      <span class="code-string">"type"</span>: <span class="code-string">"llm"</span>,
+      <span class="code-string">"id"</span>: <span class="code-string">"classifier"</span>,
+      <span class="code-string">"model"</span>: <span class="code-string">"claude-3-5-sonnet"</span>,
+      <span class="code-string">"prompt"</span>: <span class="code-string">"Classify intent: refund, question, or escalate"</span>
+    },
+    {
+      <span class="code-string">"type"</span>: <span class="code-string">"router"</span>,
+      <span class="code-string">"id"</span>: <span class="code-string">"intent-router"</span>,
+      <span class="code-string">"routes"</span>: {
+        <span class="code-string">"refund"</span>: <span class="code-string">"refund-processor"</span>,
+        <span class="code-string">"question"</span>: <span class="code-string">"knowledge-lookup"</span>,
+        <span class="code-string">"escalate"</span>: <span class="code-string">"human-handoff"</span>
+      }
+    }
+  ],
+  <span class="code-string">"edges"</span>: [
+    [<span class="code-string">"user-message"</span>, <span class="code-string">"classifier"</span>],
+    [<span class="code-string">"classifier"</span>, <span class="code-string">"intent-router"</span>]
+  ]
+}</code></pre>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- CTA Section -->
+  <section class="section cta">
+    <div class="container">
+      <div class="cta-card">
+        <h2 class="cta-title">Ready to orchestrate?</h2>
+        <p class="cta-desc">
+          Join the beta and start building AI workflows that actually work in production.
+        </p>
+        <div style="display: flex; justify-content: center; gap: var(--space-4);">
+          <button class="btn btn-primary">Start Free Trial</button>
+          <button class="btn btn-secondary">Talk to Sales</button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Footer -->
+  <footer class="footer">
+    <div class="container footer-inner">
+      <div class="footer-copy">
+        © 2026 Symbia Labs. All rights reserved.
+      </div>
+      <div class="footer-links">
+        <a href="/docs" class="footer-link">Documentation</a>
+        <a href="/blog" class="footer-link">Blog</a>
+        <a href="/privacy" class="footer-link">Privacy</a>
+        <a href="/terms" class="footer-link">Terms</a>
+      </div>
+    </div>
+  </footer>
+
+  <!-- Theme Controls -->
+  <div class="theme-controls">
+    <div class="theme-panel">
+      <div class="theme-panel-title">Mode</div>
+      <div class="mode-toggle">
+        <button class="mode-btn active" data-mode="dark">Dark</button>
+        <button class="mode-btn" data-mode="light">Light</button>
+        <button class="mode-btn" data-mode="system">Auto</button>
+      </div>
+
+      <div class="theme-panel-title" style="margin-top: var(--space-4);">Theme</div>
+      <div class="theme-swatches">
+        <button class="theme-swatch active" data-theme="carbon" data-name="Carbon" style="background: linear-gradient(135deg, #3b82f6, #ec4899)"></button>
+        <button class="theme-swatch" data-theme="sand" data-name="Sand" style="background: linear-gradient(135deg, #c2956b, #7d9a78)"></button>
+        <button class="theme-swatch" data-theme="stone" data-name="Stone" style="background: linear-gradient(135deg, #7890a8, #a89088)"></button>
+        <button class="theme-swatch" data-theme="mono-blue" data-name="Mono" style="background: #5a8ad0"></button>
+      </div>
+
+      <!-- Mono Hue Variants (shown when Mono selected) -->
+      <div class="mono-variants" id="mono-variants" style="display: none; margin-top: var(--space-3);">
+        <div class="theme-swatches">
+          <button class="theme-swatch" data-theme="mono-blue" data-name="Blue" style="background: #5a8ad0"></button>
+          <button class="theme-swatch" data-theme="mono-slate" data-name="Slate" style="background: #8890a0"></button>
+          <button class="theme-swatch" data-theme="mono-green" data-name="Green" style="background: #5ac090"></button>
+          <button class="theme-swatch" data-theme="mono-violet" data-name="Violet" style="background: #9068d0"></button>
+          <button class="theme-swatch" data-theme="mono-amber" data-name="Amber" style="background: #d0a050"></button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // Theme & Mode Management
+    const html = document.documentElement;
+    let currentTheme = 'carbon';
+    let currentMode = 'dark';
+
+    // Mode buttons
+    document.querySelectorAll('.mode-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const mode = btn.dataset.mode;
+
+        document.querySelectorAll('.mode-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+
+        if (mode === 'system') {
+          const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+          currentMode = prefersDark ? 'dark' : 'light';
+        } else {
+          currentMode = mode;
+        }
+
+        html.setAttribute('data-mode', currentMode);
+      });
+    });
+
+    // Theme swatches
+    document.querySelectorAll('.theme-swatch').forEach(swatch => {
+      swatch.addEventListener('click', () => {
+        const theme = swatch.dataset.theme;
+
+        // Check if clicking main Mono swatch
+        const isMainMono = swatch.closest('.theme-swatches') &&
+                          !swatch.closest('#mono-variants') &&
+                          theme.startsWith('mono-');
+
+        const monoVariants = document.getElementById('mono-variants');
+
+        if (isMainMono) {
+          // Toggle mono variants visibility
+          monoVariants.style.display = monoVariants.style.display === 'none' ? 'block' : 'none';
+        } else {
+          // Hide mono variants if selecting non-mono theme
+          if (!theme.startsWith('mono-')) {
+            monoVariants.style.display = 'none';
+          }
+        }
+
+        // Update active state
+        document.querySelectorAll('.theme-swatch').forEach(s => s.classList.remove('active'));
+        swatch.classList.add('active');
+
+        // Apply theme
+        currentTheme = theme;
+        html.setAttribute('data-theme', currentTheme);
+      });
+    });
+
+    // Listen for system preference changes
+    window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', e => {
+      const systemBtn = document.querySelector('.mode-btn[data-mode="system"]');
+      if (systemBtn.classList.contains('active')) {
+        currentMode = e.matches ? 'dark' : 'light';
+        html.setAttribute('data-mode', currentMode);
+      }
+    });
+  </script>
+</body>
+</html>

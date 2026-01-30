@@ -1,0 +1,66 @@
+# Symbia Logging Service API
+
+> Comprehensive observability platform supporting Logs, Metrics, Traces, and Objects. Requests are scoped by X-Org-Id, X-Service-Id, and X-Env headers.
+
+## Overview
+
+Comprehensive observability platform supporting Logs, Metrics, Traces, and Objects.
+
+- Log stream and entry management with structured logging
+- Metric definitions and time-series data point tracking
+- Distributed tracing with span correlation
+- Binary object and file management with metadata
+- Multi-tenant scoping with organization, service, and environment isolation
+- Data classification support (none|pii|phi|secret)
+
+## API Base URL
+
+Use /api as the base path for all endpoints.
+
+## Quick Reference
+
+- GET /api/logs/streams - List all log streams
+- POST /api/logs/streams - Create a new log stream
+- POST /api/logs/query - Query log entries
+- POST /api/logs/ingest - Ingest log entries
+- GET /api/logs/stream - SSE endpoint for real-time log streaming (?streamIds=x,y&level=error)
+- GET /api/metrics - List all metrics
+- POST /api/metrics - Create a new metric
+- POST /api/metrics/query - Query metric data points
+- POST /api/metrics/ingest - Ingest metric data points
+- GET /api/traces - List all traces
+- GET /api/traces/{traceId}/spans - Get spans for a specific trace
+- POST /api/traces/query - Query traces
+- POST /api/traces/ingest - Ingest trace spans
+- GET /api/objects/streams - List all object streams
+- POST /api/objects/streams - Create a new object stream
+- POST /api/objects/query - Query object entries
+- POST /api/objects/ingest - Register an object entry
+- GET /api/assistant/config - Get assistant configuration
+- POST /api/assistant/summarize - Summarize logs with AI
+- POST /api/assistant/analyze - Analyze errors with AI
+- POST /api/assistant/investigate - Investigate a specific insight
+- POST /api/assistant/group - Group related logs by pattern
+
+## Authentication
+
+Methods supported:
+- Bearer token (Authorization: Bearer <token>)
+- API key (X-API-Key header)
+- Session cookie
+
+- Cookie-based session authentication for browser clients
+- JWT introspection with Identity Service
+
+## Custom Headers
+
+- X-Org-Id: Organization ID (required for multi-org users)
+- X-Service-Id: Service identifier
+- X-Env: Environment (dev|stage|prod)
+- X-Data-Class: Data classification (none|pii|phi|secret)
+- X-Policy-Ref: Policy reference string
+
+## Documentation
+
+- OpenAPI: /docs/openapi.json
+- Full docs: /docs/llms-full.txt

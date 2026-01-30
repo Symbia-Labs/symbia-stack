@@ -1,0 +1,1092 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Symbia - Website Redesign Mockup</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      --font-mono: 'JetBrains Mono', 'Fira Code', monospace;
+    }
+
+    /* THEME: Carbon Dark (default) */
+    :root, [data-theme="carbon"][data-mode="dark"] {
+      --bg: #0a0a0a;
+      --bg-subtle: #141414;
+      --bg-muted: #1f1f1f;
+      --text: #fafafa;
+      --text-muted: #9ca3af;
+      --accent: #3b82f6;
+      --accent-hover: #60a5fa;
+      --accent-subtle: #1e3a5f;
+      --border: #2a2a2a;
+      --success: #10b981;
+      --warning: #f59e0b;
+      --error: #ef4444;
+    }
+
+    [data-theme="carbon"][data-mode="light"] {
+      --bg: #ffffff;
+      --bg-subtle: #f8f9fa;
+      --bg-muted: #f1f3f5;
+      --text: #1a1a1a;
+      --text-muted: #6b7280;
+      --accent: #0066ff;
+      --accent-hover: #0052cc;
+      --accent-subtle: #e6f0ff;
+      --border: #e5e7eb;
+    }
+
+    [data-theme="ocean"][data-mode="dark"] {
+      --bg: #0c1426;
+      --bg-subtle: #0f1d32;
+      --bg-muted: #1a2d4a;
+      --text: #f1f5f9;
+      --text-muted: #94a3b8;
+      --accent: #22d3ee;
+      --accent-hover: #67e8f9;
+      --accent-subtle: #164e63;
+      --border: #1e3a5f;
+    }
+
+    [data-theme="ocean"][data-mode="light"] {
+      --bg: #ffffff;
+      --bg-subtle: #f0f9ff;
+      --bg-muted: #e0f2fe;
+      --text: #0c1426;
+      --text-muted: #64748b;
+      --accent: #0891b2;
+      --accent-hover: #0e7490;
+      --accent-subtle: #cffafe;
+      --border: #cbd5e1;
+    }
+
+    [data-theme="ember"][data-mode="dark"] {
+      --bg: #0c0a09;
+      --bg-subtle: #1c1917;
+      --bg-muted: #292524;
+      --text: #fafaf9;
+      --text-muted: #a8a29e;
+      --accent: #fb923c;
+      --accent-hover: #fdba74;
+      --accent-subtle: #7c2d12;
+      --border: #44403c;
+    }
+
+    [data-theme="ember"][data-mode="light"] {
+      --bg: #fffbf5;
+      --bg-subtle: #fff7ed;
+      --bg-muted: #ffedd5;
+      --text: #1c1917;
+      --text-muted: #78716c;
+      --accent: #ea580c;
+      --accent-hover: #c2410c;
+      --accent-subtle: #fed7aa;
+      --border: #d6d3d1;
+    }
+
+    [data-theme="violet"][data-mode="dark"] {
+      --bg: #0d0a14;
+      --bg-subtle: #1a1625;
+      --bg-muted: #2d2640;
+      --text: #faf5ff;
+      --text-muted: #a1a1aa;
+      --accent: #a78bfa;
+      --accent-hover: #c4b5fd;
+      --accent-subtle: #4c1d95;
+      --border: #3f3657;
+    }
+
+    [data-theme="violet"][data-mode="light"] {
+      --bg: #fefefe;
+      --bg-subtle: #faf5ff;
+      --bg-muted: #f3e8ff;
+      --text: #1e1b2e;
+      --text-muted: #6b7280;
+      --accent: #8b5cf6;
+      --accent-hover: #7c3aed;
+      --accent-subtle: #e9d5ff;
+      --border: #e5e7eb;
+    }
+
+    [data-theme="forest"][data-mode="dark"] {
+      --bg: #0a0f0c;
+      --bg-subtle: #0f1a14;
+      --bg-muted: #1a2e22;
+      --text: #f0fdf4;
+      --text-muted: #9ca3af;
+      --accent: #4ade80;
+      --accent-hover: #86efac;
+      --accent-subtle: #14532d;
+      --border: #2d4a3a;
+    }
+
+    [data-theme="forest"][data-mode="light"] {
+      --bg: #fefefe;
+      --bg-subtle: #f0fdf4;
+      --bg-muted: #dcfce7;
+      --text: #14241c;
+      --text-muted: #5b6b61;
+      --accent: #16a34a;
+      --accent-hover: #15803d;
+      --accent-subtle: #bbf7d0;
+      --border: #d1d5db;
+    }
+
+    [data-theme="slate"][data-mode="dark"] {
+      --bg: #0f172a;
+      --bg-subtle: #1e293b;
+      --bg-muted: #334155;
+      --text: #f8fafc;
+      --text-muted: #94a3b8;
+      --accent: #cbd5e1;
+      --accent-hover: #e2e8f0;
+      --accent-subtle: #475569;
+      --border: #475569;
+    }
+
+    [data-theme="slate"][data-mode="light"] {
+      --bg: #ffffff;
+      --bg-subtle: #f8fafc;
+      --bg-muted: #f1f5f9;
+      --text: #0f172a;
+      --text-muted: #64748b;
+      --accent: #475569;
+      --accent-hover: #334155;
+      --accent-subtle: #e2e8f0;
+      --border: #e2e8f0;
+    }
+
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: var(--font-sans);
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.5;
+      transition: background 0.3s, color 0.3s;
+    }
+
+    a {
+      color: inherit;
+      text-decoration: none;
+    }
+
+    /* Theme Controls */
+    .theme-controls {
+      position: fixed;
+      top: 16px;
+      right: 16px;
+      z-index: 1000;
+      background: var(--bg-subtle);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      box-shadow: 0 4px 24px rgba(0,0,0,0.3);
+    }
+
+    .theme-controls-label {
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: var(--text-muted);
+    }
+
+    .mode-toggle {
+      display: flex;
+      gap: 4px;
+      background: var(--bg-muted);
+      border-radius: 8px;
+      padding: 4px;
+    }
+
+    .mode-btn {
+      flex: 1;
+      padding: 6px 12px;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 12px;
+      font-weight: 500;
+      background: transparent;
+      color: var(--text-muted);
+      transition: all 0.2s;
+    }
+
+    .mode-btn.active {
+      background: var(--accent);
+      color: #fff;
+    }
+
+    .theme-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 6px;
+    }
+
+    .theme-btn {
+      padding: 8px 10px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 11px;
+      font-weight: 500;
+      background: var(--bg-muted);
+      color: var(--text);
+      transition: all 0.2s;
+    }
+
+    .theme-btn.active {
+      border: 2px solid var(--accent);
+      background: var(--accent-subtle);
+    }
+
+    /* Navigation */
+    nav {
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      background: var(--bg);
+      backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--border);
+    }
+
+    .nav-inner {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 16px 24px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .logo {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .logo-mark {
+      width: 32px;
+      height: 32px;
+      background: linear-gradient(135deg, var(--accent), var(--accent-hover));
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 700;
+      color: #fff;
+      font-size: 16px;
+    }
+
+    .logo-text {
+      font-weight: 700;
+      font-size: 18px;
+      letter-spacing: -0.5px;
+    }
+
+    .nav-links {
+      display: flex;
+      gap: 32px;
+    }
+
+    .nav-links a {
+      color: var(--text-muted);
+      font-size: 14px;
+      font-weight: 500;
+      transition: color 0.2s;
+    }
+
+    .nav-links a:hover {
+      color: var(--text);
+    }
+
+    .nav-ctas {
+      display: flex;
+      gap: 12px;
+    }
+
+    .btn {
+      padding: 10px 18px;
+      border-radius: 8px;
+      font-size: 14px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .btn-secondary {
+      border: 1px solid var(--border);
+      background: transparent;
+      color: var(--text);
+    }
+
+    .btn-primary {
+      border: none;
+      background: var(--accent);
+      color: #fff;
+      font-weight: 600;
+    }
+
+    .btn-primary:hover {
+      background: var(--accent-hover);
+    }
+
+    .btn-lg {
+      padding: 16px 32px;
+      border-radius: 10px;
+      font-size: 16px;
+    }
+
+    /* Hero */
+    .hero {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 120px 24px 80px;
+      text-align: center;
+    }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 14px;
+      background: var(--accent-subtle);
+      border-radius: 20px;
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--accent);
+      margin-bottom: 24px;
+    }
+
+    .badge-dot {
+      width: 6px;
+      height: 6px;
+      background: var(--accent);
+      border-radius: 50%;
+    }
+
+    .hero h1 {
+      font-size: clamp(40px, 6vw, 72px);
+      font-weight: 700;
+      line-height: 1.05;
+      letter-spacing: -0.03em;
+      margin-bottom: 24px;
+    }
+
+    .hero p {
+      font-size: 20px;
+      color: var(--text-muted);
+      max-width: 640px;
+      margin: 0 auto 40px;
+      line-height: 1.6;
+    }
+
+    .hero-ctas {
+      display: flex;
+      gap: 16px;
+      justify-content: center;
+    }
+
+    /* Architecture Section */
+    .architecture {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 40px 24px 100px;
+    }
+
+    .arch-card {
+      background: var(--bg-subtle);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 48px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .grid-overlay {
+      position: absolute;
+      inset: 0;
+      background-image: linear-gradient(var(--border) 1px, transparent 1px),
+                        linear-gradient(90deg, var(--border) 1px, transparent 1px);
+      background-size: 40px 40px;
+      opacity: 0.3;
+    }
+
+    .arch-header {
+      text-align: center;
+      margin-bottom: 48px;
+      position: relative;
+      z-index: 1;
+    }
+
+    .section-label {
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 2px;
+      color: var(--text-muted);
+      margin-bottom: 8px;
+    }
+
+    .arch-header h2 {
+      font-size: 32px;
+      font-weight: 700;
+      letter-spacing: -0.5px;
+    }
+
+    .services-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 16px;
+      position: relative;
+      z-index: 1;
+    }
+
+    .service-card {
+      background: var(--bg-muted);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 20px;
+      transition: transform 0.2s, box-shadow 0.2s;
+      cursor: pointer;
+    }
+
+    .service-card:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 24px rgba(0,0,0,0.2);
+    }
+
+    .service-header {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 8px;
+    }
+
+    .service-icon {
+      font-size: 24px;
+    }
+
+    .service-name {
+      font-weight: 600;
+      font-size: 15px;
+    }
+
+    .service-port {
+      font-size: 11px;
+      color: var(--text-muted);
+      font-family: var(--font-mono);
+    }
+
+    .service-desc {
+      font-size: 13px;
+      color: var(--text-muted);
+    }
+
+    /* Differentiators */
+    .differentiators {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 80px 24px;
+    }
+
+    .diff-header {
+      text-align: center;
+      margin-bottom: 64px;
+    }
+
+    .diff-header h2 {
+      font-size: 40px;
+      font-weight: 700;
+      letter-spacing: -0.5px;
+      margin-bottom: 16px;
+    }
+
+    .diff-header p {
+      font-size: 18px;
+      color: var(--text-muted);
+      max-width: 600px;
+      margin: 0 auto;
+    }
+
+    .diff-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 24px;
+    }
+
+    .diff-card {
+      background: var(--bg-subtle);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 32px;
+    }
+
+    .diff-card h3 {
+      font-size: 20px;
+      font-weight: 600;
+      margin-bottom: 12px;
+    }
+
+    .diff-card p {
+      font-size: 15px;
+      color: var(--text-muted);
+      margin-bottom: 20px;
+      line-height: 1.6;
+    }
+
+    .code-block {
+      background: var(--bg-muted);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 16px;
+      font-size: 12px;
+      line-height: 1.5;
+      overflow: auto;
+      font-family: var(--font-mono);
+      white-space: pre;
+    }
+
+    /* Trust Signals */
+    .trust {
+      background: var(--bg-subtle);
+      border-top: 1px solid var(--border);
+      border-bottom: 1px solid var(--border);
+      padding: 80px 24px;
+    }
+
+    .trust-inner {
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+
+    .trust h2 {
+      text-align: center;
+      font-size: 32px;
+      font-weight: 700;
+      letter-spacing: -0.5px;
+      margin-bottom: 48px;
+    }
+
+    .trust-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 32px;
+    }
+
+    .trust-item {
+      text-align: center;
+    }
+
+    .trust-metric {
+      font-size: 28px;
+      font-weight: 700;
+      color: var(--accent);
+      margin-bottom: 8px;
+    }
+
+    .trust-detail {
+      font-size: 14px;
+      color: var(--text-muted);
+    }
+
+    /* Developer Experience */
+    .devex {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 100px 24px;
+    }
+
+    .devex-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 64px;
+      align-items: center;
+    }
+
+    .devex-label {
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 2px;
+      color: var(--accent);
+      margin-bottom: 16px;
+    }
+
+    .devex h2 {
+      font-size: 36px;
+      font-weight: 700;
+      letter-spacing: -0.5px;
+      margin-bottom: 20px;
+    }
+
+    .devex p {
+      font-size: 17px;
+      color: var(--text-muted);
+      line-height: 1.7;
+      margin-bottom: 24px;
+    }
+
+    .terminal {
+      background: var(--bg-muted);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 24px;
+      font-family: var(--font-mono);
+      font-size: 14px;
+      line-height: 1.8;
+    }
+
+    .terminal-header {
+      color: var(--text-muted);
+      margin-bottom: 8px;
+    }
+
+    .terminal-prompt {
+      color: var(--text-muted);
+    }
+
+    .terminal-success {
+      color: var(--success);
+      margin-top: 16px;
+    }
+
+    /* Final CTA */
+    .final-cta {
+      background: linear-gradient(135deg, var(--bg-muted) 0%, var(--bg-subtle) 100%);
+      border-top: 1px solid var(--border);
+      padding: 100px 24px;
+      text-align: center;
+    }
+
+    .final-cta-inner {
+      max-width: 600px;
+      margin: 0 auto;
+    }
+
+    .final-cta h2 {
+      font-size: 40px;
+      font-weight: 700;
+      letter-spacing: -0.5px;
+      margin-bottom: 20px;
+    }
+
+    .final-cta p {
+      font-size: 18px;
+      color: var(--text-muted);
+      margin-bottom: 32px;
+      line-height: 1.6;
+    }
+
+    .final-cta-buttons {
+      display: flex;
+      gap: 16px;
+      justify-content: center;
+    }
+
+    /* Footer */
+    footer {
+      border-top: 1px solid var(--border);
+      padding: 48px 24px;
+    }
+
+    .footer-inner {
+      max-width: 1200px;
+      margin: 0 auto;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .footer-logo {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .footer-logo-mark {
+      width: 24px;
+      height: 24px;
+      background: var(--accent);
+      border-radius: 6px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 700;
+      color: #fff;
+      font-size: 12px;
+    }
+
+    .footer-logo-text {
+      font-weight: 600;
+      font-size: 14px;
+    }
+
+    .footer-copy {
+      font-size: 13px;
+      color: var(--text-muted);
+    }
+
+    @media (max-width: 768px) {
+      .services-grid,
+      .diff-grid,
+      .trust-grid,
+      .devex-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .theme-controls {
+        top: auto;
+        bottom: 16px;
+        right: 16px;
+        left: 16px;
+      }
+
+      .nav-links {
+        display: none;
+      }
+    }
+  </style>
+</head>
+<body data-theme="carbon" data-mode="dark">
+
+  <!-- Theme Controls -->
+  <div class="theme-controls">
+    <div class="theme-controls-label">Theme Preview</div>
+
+    <div class="mode-toggle">
+      <button class="mode-btn active" data-mode="light" onclick="setMode('light')">☀️ Light</button>
+      <button class="mode-btn" data-mode="dark" onclick="setMode('dark')">🌙 Dark</button>
+      <button class="mode-btn" data-mode="system" onclick="setMode('system')">💻 System</button>
+    </div>
+
+    <div class="theme-grid">
+      <button class="theme-btn active" data-theme="carbon" onclick="setTheme('carbon')">Carbon</button>
+      <button class="theme-btn" data-theme="ocean" onclick="setTheme('ocean')">Ocean</button>
+      <button class="theme-btn" data-theme="ember" onclick="setTheme('ember')">Ember</button>
+      <button class="theme-btn" data-theme="violet" onclick="setTheme('violet')">Violet</button>
+      <button class="theme-btn" data-theme="forest" onclick="setTheme('forest')">Forest</button>
+      <button class="theme-btn" data-theme="slate" onclick="setTheme('slate')">Slate</button>
+    </div>
+  </div>
+
+  <!-- Navigation -->
+  <nav>
+    <div class="nav-inner">
+      <div class="logo">
+        <div class="logo-mark">S</div>
+        <span class="logo-text">Symbia</span>
+      </div>
+      <div class="nav-links">
+        <a href="#">Platform</a>
+        <a href="#">Docs</a>
+        <a href="#">Pricing</a>
+        <a href="#">Blog</a>
+      </div>
+      <div class="nav-ctas">
+        <button class="btn btn-secondary">Sign In</button>
+        <button class="btn btn-primary">Get Started</button>
+      </div>
+    </div>
+  </nav>
+
+  <!-- Hero -->
+  <section class="hero">
+    <div class="badge">
+      <span class="badge-dot"></span>
+      Now in Private Beta
+    </div>
+    <h1>The infrastructure layer<br>for AI-native products</h1>
+    <p>Symbia is a microservices platform where AI agents are first-class citizens.
+       Build, orchestrate, and monitor autonomous workflows with enterprise-grade
+       authentication, observability, and multi-tenancy from day one.</p>
+    <div class="hero-ctas">
+      <button class="btn btn-primary btn-lg">Start Building →</button>
+      <button class="btn btn-secondary btn-lg">View Documentation</button>
+    </div>
+  </section>
+
+  <!-- Architecture -->
+  <section class="architecture">
+    <div class="arch-card">
+      <div class="grid-overlay"></div>
+      <div class="arch-header">
+        <div class="section-label">Platform Architecture</div>
+        <h2>9 services. One platform.</h2>
+      </div>
+      <div class="services-grid">
+        <div class="service-card">
+          <div class="service-header">
+            <span class="service-icon">🔐</span>
+            <div>
+              <div class="service-name">Identity</div>
+              <div class="service-port">:5001</div>
+            </div>
+          </div>
+          <p class="service-desc">Auth, users, agents, RBAC</p>
+        </div>
+        <div class="service-card">
+          <div class="service-header">
+            <span class="service-icon">📦</span>
+            <div>
+              <div class="service-name">Catalog</div>
+              <div class="service-port">:5003</div>
+            </div>
+          </div>
+          <p class="service-desc">Resource registry, versioning</p>
+        </div>
+        <div class="service-card">
+          <div class="service-header">
+            <span class="service-icon">🤖</span>
+            <div>
+              <div class="service-name">Assistants</div>
+              <div class="service-port">:5004</div>
+            </div>
+          </div>
+          <p class="service-desc">AI orchestration, rules</p>
+        </div>
+        <div class="service-card">
+          <div class="service-header">
+            <span class="service-icon">💬</span>
+            <div>
+              <div class="service-name">Messaging</div>
+              <div class="service-port">:5005</div>
+            </div>
+          </div>
+          <p class="service-desc">Real-time, WebSocket</p>
+        </div>
+        <div class="service-card">
+          <div class="service-header">
+            <span class="service-icon">⚡</span>
+            <div>
+              <div class="service-name">Runtime</div>
+              <div class="service-port">:5006</div>
+            </div>
+          </div>
+          <p class="service-desc">Graph execution engine</p>
+        </div>
+        <div class="service-card">
+          <div class="service-header">
+            <span class="service-icon">🌐</span>
+            <div>
+              <div class="service-name">Network</div>
+              <div class="service-port">:5054</div>
+            </div>
+          </div>
+          <p class="service-desc">Event mesh, SDN</p>
+        </div>
+        <div class="service-card">
+          <div class="service-header">
+            <span class="service-icon">📊</span>
+            <div>
+              <div class="service-name">Logging</div>
+              <div class="service-port">:5002</div>
+            </div>
+          </div>
+          <p class="service-desc">Traces, metrics, AI analysis</p>
+        </div>
+        <div class="service-card">
+          <div class="service-header">
+            <span class="service-icon">🔗</span>
+            <div>
+              <div class="service-name">Integrations</div>
+              <div class="service-port">:5007</div>
+            </div>
+          </div>
+          <p class="service-desc">LLM gateway, providers</p>
+        </div>
+        <div class="service-card">
+          <div class="service-header">
+            <span class="service-icon">🖥️</span>
+            <div>
+              <div class="service-name">Server</div>
+              <div class="service-port">:5000</div>
+            </div>
+          </div>
+          <p class="service-desc">API gateway, builds</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Differentiators -->
+  <section class="differentiators">
+    <div class="diff-header">
+      <h2>AI-native by design</h2>
+      <p>Not AI bolted onto a traditional platform. Built from the ground up for a world where agents and humans work together.</p>
+    </div>
+    <div class="diff-grid">
+      <div class="diff-card">
+        <h3>Dual Principal Model</h3>
+        <p>Users and AI agents both have first-class identities. Agents get their own JWT tokens, declared capabilities, and audit trails.</p>
+        <div class="code-block">// Agent has its own identity
+{
+  principalId: "assistant:log-analyst",
+  principalType: "assistant",
+  capabilities: ["log.read", "log.analyze"]
+}</div>
+      </div>
+      <div class="diff-card">
+        <h3>Declarative Workflow Graphs</h3>
+        <p>Workflows are data, not code. Version-controlled, visually editable, no redeployment needed for changes.</p>
+        <div class="code-block">graph:
+  nodes:
+    - classify: llm-invoke
+    - route: condition
+    - respond: message-send
+  edges:
+    classify → route → respond</div>
+      </div>
+      <div class="diff-card">
+        <h3>Stream Control Semantics</h3>
+        <p>Pause, resume, preempt, or hand off AI responses mid-stream. Control long-running LLM interactions.</p>
+        <div class="code-block">socket.emit('stream:pause', { messageId });
+socket.emit('stream:preempt', {
+  messageId,
+  reason: 'user_interrupt'
+});</div>
+      </div>
+      <div class="diff-card">
+        <h3>Self-Documenting Services</h3>
+        <p>Every service exposes /docs/llms.txt for agent discovery. AI can explore and compose capabilities at runtime.</p>
+        <div class="code-block">GET /docs/llms.txt
+
+# Identity Service API
+> Authentication for Symbia platform
+POST /api/auth/login
+GET /api/users/me
+...</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Trust Signals -->
+  <section class="trust">
+    <div class="trust-inner">
+      <h2>Enterprise-ready from day one</h2>
+      <div class="trust-grid">
+        <div class="trust-item">
+          <div class="trust-metric">Multi-tenant</div>
+          <div class="trust-detail">Query-level isolation, no data leaks</div>
+        </div>
+        <div class="trust-item">
+          <div class="trust-metric">9 Services</div>
+          <div class="trust-detail">Modular, independently scalable</div>
+        </div>
+        <div class="trust-item">
+          <div class="trust-metric">200+ APIs</div>
+          <div class="trust-detail">Full OpenAPI 3.0 specs</div>
+        </div>
+        <div class="trust-item">
+          <div class="trust-metric">Zero Docker</div>
+          <div class="trust-detail">Local dev in under 60 seconds</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Developer Experience -->
+  <section class="devex">
+    <div class="devex-grid">
+      <div>
+        <div class="devex-label">Developer Experience</div>
+        <h2>Running in under a minute</h2>
+        <p>No Docker. No database provisioning. No environment variable maze.
+           In-memory mode means you can run the entire platform with a single command
+           and start building immediately.</p>
+        <button class="btn btn-primary btn-lg">Quick Start Guide</button>
+      </div>
+      <div class="terminal">
+        <div class="terminal-header">$ Terminal</div>
+        <div><span class="terminal-prompt">$</span> git clone symbia</div>
+        <div><span class="terminal-prompt">$</span> npm install</div>
+        <div><span class="terminal-prompt">$</span> npm run dev</div>
+        <div class="terminal-success">
+✓ Identity service running on :5001
+✓ Catalog service running on :5003
+✓ Messaging service running on :5005
+✓ All 9 services started in 3.2s
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Final CTA -->
+  <section class="final-cta">
+    <div class="final-cta-inner">
+      <h2>Ready to build AI-native?</h2>
+      <p>Join the private beta and start building products where AI agents
+         are first-class citizens.</p>
+      <div class="final-cta-buttons">
+        <button class="btn btn-primary btn-lg">Request Access</button>
+        <button class="btn btn-secondary btn-lg">Read the Docs</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- Footer -->
+  <footer>
+    <div class="footer-inner">
+      <div class="footer-logo">
+        <div class="footer-logo-mark">S</div>
+        <span class="footer-logo-text">Symbia Labs</span>
+      </div>
+      <div class="footer-copy">© 2026 Symbia Labs. All rights reserved.</div>
+    </div>
+  </footer>
+
+  <script>
+    let currentTheme = 'carbon';
+    let currentMode = 'dark';
+
+    function setTheme(theme) {
+      currentTheme = theme;
+      document.body.setAttribute('data-theme', theme);
+      updateButtons();
+    }
+
+    function setMode(mode) {
+      currentMode = mode;
+      if (mode === 'system') {
+        const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+        document.body.setAttribute('data-mode', prefersDark ? 'dark' : 'light');
+      } else {
+        document.body.setAttribute('data-mode', mode);
+      }
+      updateButtons();
+    }
+
+    function updateButtons() {
+      // Update theme buttons
+      document.querySelectorAll('.theme-btn').forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.theme === currentTheme);
+      });
+
+      // Update mode buttons
+      document.querySelectorAll('.mode-btn').forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.mode === currentMode);
+      });
+    }
+
+    // Listen for system theme changes
+    window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', (e) => {
+      if (currentMode === 'system') {
+        document.body.setAttribute('data-mode', e.matches ? 'dark' : 'light');
+      }
+    });
+
+    // Initialize
+    setMode('dark');
+  </script>
+</body>
+</html>

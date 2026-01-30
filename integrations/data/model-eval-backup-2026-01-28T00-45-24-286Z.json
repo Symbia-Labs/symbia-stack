@@ -1,0 +1,1362 @@
+{
+  "exportedAt": "2026-01-28T00:45:24.287Z",
+  "serviceId": "integrations-service",
+  "tables": {
+    "integration_execution_logs": [],
+    "model_evaluations": [
+      {
+        "provider": "openai",
+        "model_id": "gpt-4o-mini",
+        "benchmark_id": "routing.intent-classification",
+        "benchmark_version": "1.0.0",
+        "overall_score": 0.2692307692307692,
+        "accuracy": 0.5454545454545454,
+        "latency_p50_ms": 2075,
+        "latency_p95_ms": 2459,
+        "total_input_tokens": 173,
+        "total_output_tokens": 718,
+        "estimated_cost_cents": 0,
+        "test_case_results": [
+          {
+            "testCaseId": "routing.intent.code-review",
+            "output": {
+              "content": "Of course! Please provide the Python function you'd like me to review, and I'll help you identify any potential bugs or issues.",
+              "rawResponse": {
+                "id": "chatcmpl-D2nx4RgcJHUSMH5LKWstI3RqSzUIE",
+                "created": 1769561042,
+                "systemFingerprint": "fp_c4585b5b9c"
+              }
+            },
+            "passed": false,
+            "score": 0,
+            "reason": "Missing: \"code\"",
+            "latencyMs": 1346,
+            "inputTokens": 16,
+            "outputTokens": 25
+          },
+          {
+            "testCaseId": "routing.intent.code-generation",
+            "output": {
+              "content": "Certainly! Below is a Python function that calculates Fibonacci numbers using both an iterative approach and a recursive approach. You can choose either method based on your preference.\n\n### Iterative Approach\n\nThis approach uses a loop to calculate Fibonacci numbers efficiently.\n\n```python\ndef fibonacci_iterative(n):\n    if n <= 0:\n        return 0\n    elif n == 1:\n        return 1\n    \n    a, b = 0, 1\n    for _ in range(2, n",
+              "rawResponse": {
+                "id": "chatcmpl-D2nx4ijh3BCvdg6yIvklxAaVJi7QM",
+                "created": 1769561042,
+                "systemFingerprint": "fp_8bbc38b4db"
+              }
+            },
+            "passed": false,
+            "score": 0,
+            "reason": "Missing: \"code\"",
+            "latencyMs": 2276,
+            "inputTokens": 14,
+            "outputTokens": 100
+          },
+          {
+            "testCaseId": "routing.intent.debug",
+            "output": {
+              "content": "A `NullPointerException` in Java occurs when your code attempts to use an object reference that has not been initialized (i.e., it is `null`). Here are some common causes and steps to help you troubleshoot and resolve the issue:\n\n### Common Causes of NullPointerException\n\n1. **Uninitialized Object**: You are trying to call a method or access a field on an object that hasn't been instantiated.\n   ```java\n   MyClass obj = null;\n   obj.someMethod(); //",
+              "rawResponse": {
+                "id": "chatcmpl-D2nx4PnTmIReGmzMkqa1mxv75FS71",
+                "created": 1769561042,
+                "systemFingerprint": "fp_c4585b5b9c"
+              }
+            },
+            "passed": true,
+            "score": 0.5,
+            "reason": "Missing: \"debug\"",
+            "latencyMs": 2419,
+            "inputTokens": 17,
+            "outputTokens": 100
+          },
+          {
+            "testCaseId": "routing.intent.web-search",
+            "output": {
+              "content": "As of my last update in October 2023, several significant developments in quantum computing have been reported. Here are some of the key trends and advancements:\n\n1. **Increased Qubit Count and Quality**: Major companies like IBM, Google, and Rigetti have been working on increasing the number of qubits in their quantum processors while also improving qubit coherence times and gate fidelities. IBM's roadmap includes plans for quantum processors with over 1000 qubits.\n\n2. **Quantum Sup",
+              "rawResponse": {
+                "id": "chatcmpl-D2nx6MMQ7Cjs5fCAJvZm5dnqjjycF",
+                "created": 1769561044,
+                "systemFingerprint": "fp_8bbc38b4db"
+              }
+            },
+            "passed": false,
+            "score": 0,
+            "reason": "Missing: \"research\"; Missing: \"search\"",
+            "latencyMs": 2459,
+            "inputTokens": 16,
+            "outputTokens": 100
+          },
+          {
+            "testCaseId": "routing.intent.fact-check",
+            "output": {
+              "content": "The idea that the Great Wall of China is visible from space is a common myth. While the Great Wall is long, it is not particularly wide, and its color often blends in with the natural landscape. Astronauts have reported that it is difficult to see the wall from low Earth orbit without aid, and it is generally not visible to the naked eye from space. In fact, many man-made structures are not easily distinguishable from space due to their size and the vastness of the Earth’s",
+              "rawResponse": {
+                "id": "chatcmpl-D2nx6RP0EI843xxA2HPWkPiA2CqMG",
+                "created": 1769561044,
+                "systemFingerprint": "fp_c4585b5b9c"
+              }
+            },
+            "passed": true,
+            "score": 0.5,
+            "reason": "Missing: \"research\"",
+            "latencyMs": 2075,
+            "inputTokens": 21,
+            "outputTokens": 100
+          },
+          {
+            "testCaseId": "routing.intent.greeting",
+            "output": {
+              "content": "Hello! I'm just a program, so I don't have feelings, but I'm here and ready to help you. How can I assist you today?",
+              "rawResponse": {
+                "id": "chatcmpl-D2nx6zD71fa6M6c2jBEofbLPsz6Sh",
+                "created": 1769561044,
+                "systemFingerprint": "fp_c4585b5b9c"
+              }
+            },
+            "passed": false,
+            "score": 0,
+            "reason": "Missing: \"conversational\"; Missing: \"general\"",
+            "latencyMs": 1033,
+            "inputTokens": 15,
+            "outputTokens": 29
+          },
+          {
+            "testCaseId": "routing.intent.clarification",
+            "output": {
+              "content": "Of course! However, I need a bit more context to provide a clear explanation. Could you please specify what you would like me to clarify?",
+              "rawResponse": {
+                "id": "chatcmpl-D2nx8tQh2SXEFQJ8wplF9FwACP73e",
+                "created": 1769561046,
+                "systemFingerprint": "fp_8bbc38b4db"
+              }
+            },
+            "passed": true,
+            "score": 0.5,
+            "reason": "Missing: \"conversational\"",
+            "latencyMs": 1136,
+            "inputTokens": 16,
+            "outputTokens": 29
+          },
+          {
+            "testCaseId": "routing.intent.summarize",
+            "output": {
+              "content": "Of course! Please provide the article or its main points, and I'll summarize it for you.",
+              "rawResponse": {
+                "id": "chatcmpl-D2nx9lwSe0TIZcgjFKbltnTsOQwHg",
+                "created": 1769561047,
+                "systemFingerprint": "fp_c4585b5b9c"
+              }
+            },
+            "passed": true,
+            "score": 0.5,
+            "reason": "Missing: \"task\"",
+            "latencyMs": 971,
+            "inputTokens": 17,
+            "outputTokens": 19
+          },
+          {
+            "testCaseId": "routing.intent.translate",
+            "output": {
+              "content": "Of course! Please provide the text you would like me to translate into Spanish.",
+              "rawResponse": {
+                "id": "chatcmpl-D2nx8DwfkJ6Tbg2CQwzv3EVa6RsK6",
+                "created": 1769561046,
+                "systemFingerprint": "fp_c4585b5b9c"
+              }
+            },
+            "passed": true,
+            "score": 0.5,
+            "reason": "Missing: \"task\"",
+            "latencyMs": 440,
+            "inputTokens": 12,
+            "outputTokens": 16
+          },
+          {
+            "testCaseId": "routing.intent.ambiguous-code-question",
+            "output": {
+              "content": "Python is a high-level, interpreted programming language known for its readability and simplicity. It was created by Guido van Rossum and first released in 1991. Python emphasizes code readability and allows programmers to express concepts in fewer lines of code compared to languages like C++ or Java.\n\n### Key Features of Python:\n\n1. **Readability**: Python's syntax is designed to be clear and intuitive, making it easier for developers to write and maintain code.\n\n2. **Interpreted Language**:",
+              "rawResponse": {
+                "id": "chatcmpl-D2nx9V27eUm6ga6ta49RLr8O5sFpK",
+                "created": 1769561047,
+                "systemFingerprint": "fp_c4585b5b9c"
+              }
+            },
+            "passed": false,
+            "score": 0,
+            "reason": "Missing: \"clarify\"",
+            "latencyMs": 2274,
+            "inputTokens": 11,
+            "outputTokens": 100
+          },
+          {
+            "testCaseId": "routing.intent.multi-intent",
+            "output": {
+              "content": "Certainly! Here are some best practices for writing React components:\n\n### React Best Practices\n\n1. **Functional Components**: Prefer functional components over class components. They are simpler and easier to read.\n\n2. **Hooks**: Use React hooks (like `useState`, `useEffect`, etc.) for managing state and side effects in functional components.\n\n3. **Component Composition**: Break down your UI into smaller, reusable components. This makes your code more maintainable.\n\n4. **Prop Types",
+              "rawResponse": {
+                "id": "chatcmpl-D2nxAigBnKawx3k2Prh5gXHMQfIqz",
+                "created": 1769561048,
+                "systemFingerprint": "fp_8bbc38b4db"
+              }
+            },
+            "passed": true,
+            "score": 0.5,
+            "reason": "Missing: \"research\"",
+            "latencyMs": 2364,
+            "inputTokens": 18,
+            "outputTokens": 100
+          }
+        ],
+        "run_config": {
+          "provider": "openai",
+          "modelId": "gpt-4o-mini",
+          "benchmarkId": "routing.intent-classification",
+          "parallelism": 3,
+          "retries": 1,
+          "scope": "global"
+        },
+        "org_id": null,
+        "scope": "global",
+        "status": "completed",
+        "started_at": "2026-01-28T00:44:01.797Z",
+        "id": "06f22e08-17e3-4e5f-9d0a-2db0eaa2403c",
+        "latency_p99_ms": null,
+        "error_message": null,
+        "completed_at": "2026-01-28T00:44:10.186Z",
+        "created_at": "2026-01-28T00:37:46.472Z"
+      },
+      {
+        "provider": "openai",
+        "model_id": "gpt-4o-mini",
+        "benchmark_id": "routing.hybrid-decision",
+        "benchmark_version": "1.0.0",
+        "overall_score": 1,
+        "accuracy": 1,
+        "latency_p50_ms": 895,
+        "latency_p95_ms": 1076,
+        "total_input_tokens": 182,
+        "total_output_tokens": 101,
+        "estimated_cost_cents": 0,
+        "test_case_results": [
+          {
+            "testCaseId": "routing.hybrid.embedding-vs-llm",
+            "output": {
+              "content": "{ \"method\": \"embedding\", \"confidence\": 0.9, \"reason\": \"The request is clear and straightforward, asking for a specific function to sort a list in Python.\" }",
+              "rawResponse": {
+                "id": "chatcmpl-D2nxCbzzlMGiigEFfBjvgpOzTF9cJ",
+                "created": 1769561050,
+                "systemFingerprint": "fp_c4585b5b9c"
+              }
+            },
+            "passed": true,
+            "score": 1,
+            "reason": "Schema validation passed",
+            "latencyMs": 895,
+            "inputTokens": 95,
+            "outputTokens": 39
+          },
+          {
+            "testCaseId": "routing.hybrid.complex-query",
+            "output": {
+              "content": "{\n  \"method\": \"llm\",\n  \"confidence\": 0.85,\n  \"reason\": \"The query involves troubleshooting a specific issue in a React app, which may require nuanced understanding and explanation of concepts related to async state updates. An LLM can provide detailed insights and potential solutions.\"\n}",
+              "rawResponse": {
+                "id": "chatcmpl-D2nxC6PsGJCM0W6AbuyfSjzKHWc4j",
+                "created": 1769561050,
+                "systemFingerprint": "fp_c4585b5b9c"
+              }
+            },
+            "passed": true,
+            "score": 1,
+            "reason": "All expected content found",
+            "latencyMs": 1076,
+            "inputTokens": 87,
+            "outputTokens": 62
+          }
+        ],
+        "run_config": {
+          "provider": "openai",
+          "modelId": "gpt-4o-mini",
+          "benchmarkId": "routing.hybrid-decision",
+          "parallelism": 3,
+          "retries": 1,
+          "scope": "global"
+        },
+        "org_id": null,
+        "scope": "global",
+        "status": "completed",
+        "started_at": "2026-01-28T00:44:10.208Z",
+        "id": "351c6970-dd87-4df5-8fee-b9cfe146a46f",
+        "latency_p99_ms": null,
+        "error_message": null,
+        "completed_at": "2026-01-28T00:44:11.292Z",
+        "created_at": "2026-01-28T00:37:46.472Z"
+      },
+      {
+        "provider": "openai",
+        "model_id": "gpt-4o-mini",
+        "benchmark_id": "code.security-detection",
+        "benchmark_version": "1.0.0",
+        "overall_score": 0.8611111111111112,
+        "accuracy": 1,
+        "latency_p50_ms": 7709,
+        "latency_p95_ms": 9228,
+        "total_input_tokens": 547,
+        "total_output_tokens": 2648,
+        "estimated_cost_cents": 0,
+        "test_case_results": [
+          {
+            "testCaseId": "code.security.sql-injection-basic",
+            "output": {
+              "content": "{\n  \"vulnerabilities\": [\n    {\n      \"type\": \"SQL Injection\",\n      \"severity\": \"critical\",\n      \"line\": 2,\n      \"description\": \"The code constructs a SQL query using string interpolation, which allows for SQL injection attacks if the 'username' input is not properly sanitized.\"\n    }\n  ]\n}",
+              "rawResponse": {
+                "id": "chatcmpl-D2nxDeGcZHZMmWWjqkwxw6L5DdUmn",
+                "created": 1769561051,
+                "systemFingerprint": "fp_c4585b5b9c"
+              }
+            },
+            "passed": true,
+            "score": 1,
+            "reason": "All expected content found",
+            "latencyMs": 1503,
+            "inputTokens": 101,
+            "outputTokens": 69
+          },
+          {
+            "testCaseId": "code.security.sql-injection-subtle",
+            "output": {
+              "content": "The provided JavaScript code contains a function `searchProducts` that constructs a SQL query to search for products based on category and minimum price. However, it has several security vulnerabilities, primarily related to SQL injection. Here’s a detailed analysis:\n\n### Vulnerabilities:\n\n1. **SQL Injection**:\n   - The code concatenates user input directly into the SQL query string. This practice is highly vulnerable to SQL injection attacks, where an attacker can manipulate the input to execute arbitrary SQL commands.\n   - For example, if an attacker provides a malicious `category` value like `\"' OR '1'='1\"`, the resulting query could become:\n     ```sql\n     SELECT * FROM products WHERE 1=1 AND category = '' OR '1'='1'\n     ```\n     This would return all products instead of filtering by category.\n\n2. **Type Handling**:\n   - The `minPrice` parameter is concatenated directly into the query without any validation or type checking. If a non-numeric value is passed, it could lead to unexpected behavior or errors in the SQL execution.\n\n### Recommendations:\n\n1. **Use Prepared Statements**:\n   - To prevent SQL injection, use prepared statements or parameterized queries. This ensures that user input is treated as data rather than executable code. For example, if using a library like `pg` for PostgreSQL, the code could be modified as follows:\n     ```javascript\n     const searchProducts = (category, minPrice) => {\n       let query = \"SELECT * FROM products WHERE 1=1\";\n       const params = [];\n       if (category) {\n         query += \" AND category = $1\";\n         params.push(category);\n       }\n       if (minPrice) {\n         query += \" AND price >= $2\";\n         params.push(minPrice);\n       }\n       return db.query(query, params);\n     };\n     ```\n\n2. **Input Validation**:\n   - Validate and sanitize user inputs. Ensure that `category` is a string and `minPrice` is a number. You can implement checks to ensure that `minPrice` is a valid numeric value before including it in the query.\n\n3. **Error Handling**:\n   - Implement proper error handling to manage any exceptions that may arise during the database query execution. This can help prevent leaking sensitive information about the database structure in case of an error.\n\n4. **Logging**:\n   - Be cautious with logging user inputs or query strings, especially if they contain",
+              "rawResponse": {
+                "id": "chatcmpl-D2nxDRMyZZRVbPSAo0QOo4C7lkDQo",
+                "created": 1769561051,
+                "systemFingerprint": "fp_c4585b5b9c"
+              }
+            },
+            "passed": true,
+            "score": 1,
+            "reason": "All expected content found",
+            "latencyMs": 7726,
+            "inputTokens": 100,
+            "outputTokens": 500
+          },
+          {
+            "testCaseId": "code.security.xss-basic",
+            "output": {
+              "content": "The provided JavaScript code has a significant security vulnerability related to Cross-Site Scripting (XSS). Here’s a breakdown of the issues and recommendations for improvement:\n\n### Vulnerability Analysis\n\n1. **XSS Vulnerability**:\n   - The code directly inserts user-generated content (`comment.text`) into the HTML using `innerHTML`. If `comment.text` contains any malicious scripts or HTML, it will be executed in the context of the page. This can lead to XSS attacks, where an attacker can inject JavaScript code that could steal cookies, session tokens, or perform actions on behalf of the user.\n\n### Recommendations for Improvement\n\nTo mitigate the XSS vulnerability, you should sanitize the user input before inserting it into the DOM. Here are a few approaches:\n\n1. **Use Text Nodes**:\n   Instead of using `innerHTML`, you can create a text node, which automatically escapes any HTML characters:\n\n   ```javascript\n   function renderComment(comment) {\n     const commentDiv = document.createElement('div');\n     commentDiv.textContent = comment.text; // This will escape any HTML\n     document.getElementById('comments').appendChild(commentDiv);\n   }\n   ```\n\n2. **Sanitize Input**:\n   If you need to allow some HTML (like formatting), consider using a library that sanitizes HTML, such as DOMPurify:\n\n   ```javascript\n   function renderComment(comment) {\n     const commentDiv = document.createElement('div');\n     commentDiv.innerHTML = DOMPurify.sanitize(comment.text); // Sanitize the input\n     document.getElementById('comments').appendChild(commentDiv);\n   }\n   ```\n\n3. **Validation**:\n   Always validate and sanitize user input on the server side as well, as client-side measures can be bypassed.\n\n### Conclusion\n\nThe original code is vulnerable to XSS attacks due to the direct insertion of user input into the DOM. By using text nodes or a sanitization library, you can significantly reduce the risk of XSS and improve the security of your application. Always ensure that user input is handled safely to protect against potential attacks.",
+              "rawResponse": {
+                "id": "chatcmpl-D2nxDp8e3jnWBhV33ZSMG5DPEXI3W",
+                "created": 1769561051,
+                "systemFingerprint": "fp_c4585b5b9c"
+              }
+            },
+            "passed": true,
+            "score": 1,
+            "reason": "All expected content found",
+            "latencyMs": 7709,
+            "inputTokens": 62,
+            "outputTokens": 432
+          },
+          {
+            "testCaseId": "code.security.xss-react",
+            "output": {
+              "content": "The provided React component `UserBio` has a significant security issue related to the use of `dangerouslySetInnerHTML`. Here are the key points to consider:\n\n1. **Cross-Site Scripting (XSS) Vulnerability**: \n   - The use of `dangerouslySetInnerHTML` allows for the insertion of raw HTML into the DOM. If the `bio` prop contains any user-generated content that has not been properly sanitized, it can lead to XSS attacks. An attacker could inject malicious scripts that execute in the context of the user's browser, potentially stealing cookies, session tokens, or performing actions on behalf of the user.\n\n2. **Lack of Input Sanitization**:\n   - There is no indication that the `bio` content is being sanitized before being rendered. It is crucial to sanitize any HTML content to remove potentially harmful scripts or tags.\n\n### Recommendations:\n\n- **Sanitize Input**: Use a library like `DOMPurify` to sanitize the HTML content before rendering it. This will help ensure that any potentially harmful scripts are removed.\n\n  Example:\n  ```jsx\n  import DOMPurify from 'dompurify';\n\n  function UserBio({ bio }) {\n    const sanitizedBio = DOMPurify.sanitize(bio);\n    \n    return (\n      <div\n        className=\"bio\"\n        dangerouslySetInnerHTML={{ __html: sanitizedBio }}\n      />\n    );\n  }\n  ```\n\n- **Avoid `dangerouslySetInnerHTML` if Possible**: If you can avoid using `dangerouslySetInnerHTML` altogether, consider using React's built-in JSX capabilities to render content. This is safer as it automatically escapes any HTML.\n\n- **Validate Input**: Ensure that the `bio` content is validated on the server-side as well, to prevent malicious content from being sent to the client in the first place.\n\nBy addressing these issues, you can significantly improve the security of the `UserBio` component and protect against XSS vulnerabilities.",
+              "rawResponse": {
+                "id": "chatcmpl-D2nxLRIer3ljMtao9WinvoxjU0jne",
+                "created": 1769561059,
+                "systemFingerprint": "fp_8bbc38b4db"
+              }
+            },
+            "passed": true,
+            "score": 1,
+            "reason": "All expected content found",
+            "latencyMs": 7034,
+            "inputTokens": 67,
+            "outputTokens": 403
+          },
+          {
+            "testCaseId": "code.security.auth-bypass",
+            "output": {
+              "content": "The provided code snippet is a simple Express.js route handler that checks if a user is an admin based on a query parameter before returning a list of users. Here are some security vulnerabilities and concerns associated with this code:\n\n1. **Insecure Authorization Check**:\n   - The authorization check relies on a query parameter (`req.query.isAdmin`). This is easily manipulated by an attacker. A user could simply modify the URL to include `?isAdmin=true` and gain unauthorized access to the user list.\n   - **Recommendation**: Implement a proper authentication and authorization mechanism. Use session tokens, JWTs, or similar methods to verify the user's identity and their permissions.\n\n2. **Lack of Authentication**:\n   - There is no authentication mechanism in place. Anyone who can access this endpoint can attempt to retrieve user data if they can manipulate the query parameter.\n   - **Recommendation**: Ensure that users are authenticated before checking their roles. This could involve checking a session or a token that confirms the user's identity.\n\n3. **Information Disclosure**:\n   - If the `getAllUsers()` function returns sensitive user information, exposing this data to unauthorized users can lead to privacy violations and data breaches.\n   - **Recommendation**: Ensure that sensitive information is not returned unless the user has the appropriate permissions. Consider implementing role-based access control (RBAC).\n\n4. **Error Handling**:\n   - The error response is generic, which is good for security, but it could be improved by logging the unauthorized access attempts for monitoring purposes.\n   - **Recommendation**: Implement logging for unauthorized access attempts to help identify potential security threats.\n\n5. **Potential for Denial of Service (DoS)**:\n   - If `getAllUsers()` is resource-intensive, an attacker could repeatedly call this endpoint with the manipulated query parameter to exhaust server resources.\n   - **Recommendation**: Implement rate limiting on this endpoint to mitigate the risk of DoS attacks.\n\n6. **Use of HTTP Status Codes**:\n   - The code correctly uses a 403 status code for forbidden access, which is good practice. However, ensure that all other potential error cases are handled appropriately with the correct status codes.\n\nIn summary, the code needs significant improvements in terms of authentication and authorization mechanisms to prevent unauthorized access. Implementing secure coding practices and proper error handling will enhance the security of this endpoint.",
+              "rawResponse": {
+                "id": "chatcmpl-D2nxLMSO8EdOFgJJD2hpFg1UXPUjj",
+                "created": 1769561059,
+                "systemFingerprint": "fp_3683ee3deb"
+              }
+            },
+            "passed": true,
+            "score": 0.5,
+            "reason": "Missing: \"bypass\"",
+            "latencyMs": 9228,
+            "inputTokens": 92,
+            "outputTokens": 475
+          },
+          {
+            "testCaseId": "code.security.path-traversal",
+            "output": {
+              "content": "The provided code snippet is a Flask route that serves files from a specified directory. While it may seem straightforward, there are several potential security vulnerabilities and best practices to consider:\n\n1. **Path Traversal Vulnerability**:\n   - The most significant risk here is a path traversal vulnerability. An attacker could potentially manipulate the `filename` parameter to access files outside the intended directory. For example, if an attacker sends a request with `filename=../../etc/passwd`, they could access sensitive system files.\n   - **Mitigation**: Use `secure_filename` from `werkzeug.utils` to sanitize the filename. This function ensures that the filename is safe to use and does not contain any path traversal characters.\n\n   ```python\n   from werkzeug.utils import secure_filename\n\n   @app.route('/files/<filename>')\n   def serve_file(filename):\n       safe_filename = secure_filename(filename)\n       return send_from_directory('/uploads', safe_filename)\n   ```\n\n2. **Directory Traversal Protection**:\n   - Even with `secure_filename`, it is essential to ensure that the `/uploads` directory is properly secured and that the application does not allow access to sensitive files. Consider restricting the types of files that can be served or implementing additional checks.\n\n3. **File Type Validation**:\n   - Depending on the application, it may be necessary to validate the type of files being served. For example, if only certain file types (like images or documents) should be accessible, implement checks to ensure that only those types are served.\n\n4. **Error Handling**:\n   - The current implementation does not handle errors that may occur when trying to serve a file (e.g., if the file does not exist). Implementing proper error handling can prevent information leakage and improve user experience.\n\n   ```python\n   from flask import abort\n\n   @app.route('/files/<filename>')\n   def serve_file(filename):\n       safe_filename = secure_filename(filename)\n       try:\n           return send_from_directory('/uploads', safe_filename)\n       except FileNotFoundError:\n           abort(404)  # Return a 404 error if the file is not found\n   ```\n\n5. **Access Control**:\n   - Depending on the context, you may want to implement access control to ensure that only authorized users can access certain files. This could involve checking user authentication and authorization before serving files.\n\n6. **Logging and Monitoring**:\n   - Consider logging access to files, especially if sensitive data is involved.",
+              "rawResponse": {
+                "id": "chatcmpl-D2nxLnu9olGjHmLs5AJtJNUiCGAM6",
+                "created": 1769561059,
+                "systemFingerprint": "fp_c4585b5b9c"
+              }
+            },
+            "passed": true,
+            "score": 1,
+            "reason": "All expected content found",
+            "latencyMs": 7720,
+            "inputTokens": 55,
+            "outputTokens": 500
+          },
+          {
+            "testCaseId": "code.security.secure-query",
+            "output": {
+              "content": "The provided code snippet appears to be secure against SQL injection vulnerabilities due to the use of parameterized queries. The `db.execute` method is using a placeholder (`%s`) for the `username` parameter, which is a good practice to prevent SQL injection attacks.\n\nHowever, there are a few additional considerations to ensure overall security:\n\n1. **Input Validation**: While the parameterized query protects against SQL injection, it is still a good practice to validate the `username` input to ensure it meets expected criteria (e.g., length, allowed characters).\n\n2. **Error Handling**: The code does not include any error handling. If the database query fails, it could lead to unhandled exceptions. Implementing try-except blocks can help manage errors gracefully.\n\n3. **Database Connection Management**: Ensure that the database connection is properly managed (opened and closed) to prevent resource leaks.\n\n4. **Sensitive Data Exposure**: If the `get_user` function returns user data, ensure that sensitive information (like passwords or personal data) is not included in the returned data.\n\n5. **Logging**: Be cautious about logging database errors or user data, as this could expose sensitive information.\n\nOverall, the code is secure against SQL injection, but it could benefit from additional best practices regarding input validation, error handling, and data management.",
+              "rawResponse": {
+                "id": "chatcmpl-D2nxU2VjgWwmtHL2iWk511AxBoQBS",
+                "created": 1769561068,
+                "systemFingerprint": "fp_8bbc38b4db"
+              }
+            },
+            "passed": true,
+            "score": 0.75,
+            "reason": "Should not contain: \"injection\"",
+            "latencyMs": 5649,
+            "inputTokens": 70,
+            "outputTokens": 269
+          }
+        ],
+        "run_config": {
+          "provider": "openai",
+          "modelId": "gpt-4o-mini",
+          "benchmarkId": "code.security-detection",
+          "parallelism": 3,
+          "retries": 1,
+          "scope": "global"
+        },
+        "org_id": null,
+        "scope": "global",
+        "status": "completed",
+        "started_at": "2026-01-28T00:44:11.310Z",
+        "id": "d6e9d96f-f70f-461d-b5c9-17f7b4910927",
+        "latency_p99_ms": null,
+        "error_message": null,
+        "completed_at": "2026-01-28T00:44:33.921Z",
+        "created_at": "2026-01-28T00:37:46.472Z"
+      },
+      {
+        "provider": "openai",
+        "model_id": "gpt-4o-mini",
+        "benchmark_id": "code.performance-suggestions",
+        "benchmark_version": "1.0.0",
+        "overall_score": 1,
+        "accuracy": 1,
+        "latency_p50_ms": 7651,
+        "latency_p95_ms": 9334,
+        "total_input_tokens": 408,
+        "total_output_tokens": 1902,
+        "estimated_cost_cents": 0,
+        "test_case_results": [
+          {
+            "testCaseId": "code.performance.n-plus-one",
+            "output": {
+              "content": "The provided code has several performance issues, primarily due to the way it retrieves data from the database. Here are the identified issues and suggested improvements:\n\n### Performance Issues:\n\n1. **N+1 Query Problem**: The code retrieves all orders and then, for each order, it performs a separate query to fetch the associated order items. This results in one query to fetch all orders and `N` additional queries to fetch items for each order, where `N` is the number of orders. This can lead to a significant performance hit, especially if there are many orders.\n\n2. **Inefficient Data Retrieval**: The `OrderItem.objects.filter(order_id=order.id)` call inside the loop is inefficient because it queries the database for each order individually.\n\n3. **Unnecessary List Conversion**: The `list(items)` conversion is unnecessary if you are only going to use the items in a dictionary. This can be avoided if you directly append the queryset.\n\n### Suggested Improvements:\n\n1. **Use `select_related` or `prefetch_related`**: To optimize the retrieval of related objects, you can use `prefetch_related` to fetch all order items in a single query. This will reduce the number of database hits.\n\n2. **Use a Dictionary for Grouping**: Instead of appending to a list in a loop, you can create a dictionary that groups items by order, which can be more efficient.\n\nHere’s a revised version of the code that incorporates these improvements:\n\n```python\ndef get_orders_with_items():\n    # Prefetch related order items to avoid N+1 query problem\n    orders = Order.objects.prefetch_related('orderitem_set').all()\n    \n    result = []\n    for order in orders:\n        # Directly access the prefetched order items\n        items = order.orderitem_set.all()\n        result.append({'order': order, 'items': list(items)})\n    \n    return result\n```\n\n### Explanation of Improvements:\n\n- **`prefetch_related('orderitem_set')`**: This method fetches all related `OrderItem` objects in a single query, which significantly reduces the number of database queries.\n  \n- **Accessing Prefetched Items**: By accessing `order.orderitem_set.all()`, you are using the prefetched data, which is much more efficient than querying the database again.\n\nThese changes should lead to a significant performance improvement, especially when dealing with a large number of orders and order items.",
+              "rawResponse": {
+                "id": "chatcmpl-D2nxakUIht54x7ombfIQ7o5iKY9WT",
+                "created": 1769561074,
+                "systemFingerprint": "fp_c4585b5b9c"
+              }
+            },
+            "passed": true,
+            "score": 1,
+            "reason": "All expected content found",
+            "latencyMs": 7651,
+            "inputTokens": 89,
+            "outputTokens": 498
+          },
+          {
+            "testCaseId": "code.performance.memory-leak-listener",
+            "output": {
+              "content": "The provided React component `DataFetcher` has a few performance and memory issues that should be addressed:\n\n1. **Memory Leak due to Missing Cleanup**:\n   - The `useEffect` hook adds an event listener to the `window` object but does not remove it when the component unmounts or when the `url` changes. This can lead to memory leaks and unintended behavior, as the event listener will continue to exist even after the component is no longer in the DOM.\n   - **Solution**: Return a cleanup function from the `useEffect` to remove the event listener.\n\n   ```jsx\n   useEffect(() => {\n     const handler = () => fetch(url).then(r => r.json()).then(setData);\n     window.addEventListener('focus', handler);\n     \n     return () => {\n       window.removeEventListener('focus', handler);\n     };\n   }, [url]);\n   ```\n\n2. **Potential Multiple Fetch Calls**:\n   - The current implementation will trigger a fetch call every time the window gains focus. If the user frequently switches between tabs or applications, this could lead to multiple fetch calls being made unnecessarily, which can degrade performance and increase network usage.\n   - **Solution**: Consider debouncing the fetch calls or implementing a mechanism to prevent multiple fetches if the data is already being fetched or if the data has not changed.\n\n3. **Error Handling**:\n   - The fetch call does not include error handling. If the fetch fails (e.g., due to network issues or a bad URL), it will not update the state, and the user will not be informed of the error.\n   - **Solution**: Add error handling to manage fetch failures gracefully.\n\n   ```jsx\n   const handler = async () => {\n     try {\n       const response = await fetch(url);\n       if (!response.ok) {\n         throw new Error('Network response was not ok');\n       }\n       const jsonData = await response.json();\n       setData(jsonData);\n     } catch (error) {\n       console.error('Fetch error:', error);\n       setData(null); // or set an error state\n     }\n   };\n   ```\n\n4. **Initial State**:\n   - The initial state of `data` is set to `null`, which is fine, but if the component is rendered before the fetch completes, it may lead to rendering issues. Consider providing a loading state or a placeholder to improve user experience.\n\n5. **JSON.stringify**",
+              "rawResponse": {
+                "id": "chatcmpl-D2nxaxgOBQqPb1zNyhFTdDgVYZqVK",
+                "created": 1769561074,
+                "systemFingerprint": "fp_c4585b5b9c"
+              }
+            },
+            "passed": true,
+            "score": 1,
+            "reason": "All expected content found",
+            "latencyMs": 9334,
+            "inputTokens": 110,
+            "outputTokens": 500
+          },
+          {
+            "testCaseId": "code.performance.inefficient-loop",
+            "output": {
+              "content": "The provided code for finding duplicates in an array has several inefficiencies that can be improved. Here are the main issues:\n\n1. **Nested Loops**: The current implementation uses a nested loop, which results in a time complexity of O(n^2). This is inefficient for large arrays, as it checks each element against every other element.\n\n2. **Array.includes()**: The use of `duplicates.includes(arr[i])` inside the inner loop adds additional overhead. The `includes` method has a time complexity of O(n) in the worst case, which further compounds the inefficiency of the nested loops.\n\n3. **Redundant Checks**: The inner loop starts from `i + 1`, which is good to avoid checking the same pair twice, but it still leads to unnecessary comparisons.\n\n### Suggested Improvements\n\nTo improve the performance of this function, you can use a `Set` to track seen elements and another `Set` to track duplicates. This approach reduces the time complexity to O(n) and eliminates the need for nested loops. Here’s a revised version of the function:\n\n```javascript\nfunction findDuplicates(arr) {\n  const seen = new Set();\n  const duplicates = new Set();\n\n  for (const item of arr) {\n    if (seen.has(item)) {\n      duplicates.add(item);\n    } else {\n      seen.add(item);\n    }\n  }\n\n  return Array.from(duplicates);\n}\n```\n\n### Benefits of the Revised Code\n\n1. **Time Complexity**: The revised code runs in O(n) time, as it only requires a single pass through the array.\n\n2. **Space Complexity**: The space complexity remains O(n) in the worst case, but it is more efficient in terms of operations performed.\n\n3. **Clarity**: Using `Set` makes the code cleaner and easier to understand, as it clearly separates the logic for tracking seen items and duplicates.\n\nBy implementing these changes, the function will perform significantly better, especially with larger datasets.",
+              "rawResponse": {
+                "id": "chatcmpl-D2nxadgu5zJUAExf25rHZiu6rJTyD",
+                "created": 1769561074,
+                "systemFingerprint": "fp_c4585b5b9c"
+              }
+            },
+            "passed": true,
+            "score": 1,
+            "reason": "All expected content found",
+            "latencyMs": 6504,
+            "inputTokens": 112,
+            "outputTokens": 404
+          },
+          {
+            "testCaseId": "code.performance.unnecessary-rerender",
+            "output": {
+              "content": "The `UserList` component you provided has a few potential render inefficiencies that can be addressed to improve performance. Here are the key points to consider:\n\n1. **Inline Function in `onClick` Prop**:\n   - The `onClick` prop is defined as an inline arrow function: `onClick={() => console.log(user.id)}`. This creates a new function instance for each render, which can lead to unnecessary re-renders of the `UserCard` components if the parent component re-renders. Instead, you can define the click handler outside of the render method or use a memoization technique.\n\n   **Solution**: Move the click handler outside of the render method or use `useCallback` if the component is a functional component.\n\n   ```jsx\n   const handleClick = (id) => () => console.log(id);\n   ```\n\n   Then use it like this:\n   ```jsx\n   <UserCard\n     key={user.id}\n     user={user}\n     onClick={handleClick(user.id)}\n     style={{ margin: 10 }}\n   />\n   ```\n\n2. **Style Prop**:\n   - The `style` prop is being passed as an inline object: `style={{ margin: 10 }}`. This creates a new object on every render, which can lead to unnecessary re-renders of the `UserCard` components. \n\n   **Solution**: Define the style object outside of the render method or use `useMemo` to memoize it.\n\n   ```jsx\n   const userCardStyle = { margin: 10 };\n   ```\n\n   Then use it like this:\n   ```jsx\n   <UserCard\n     key={user.id}\n     user={user}\n     onClick={handleClick(user.id)}\n     style={userCardStyle}\n   />\n   ```\n\n3. **Key Prop**:\n   - Ensure that the `user.id` is unique across the list. If there are any duplicates, it can lead to issues with React's reconciliation process. If `user.id` is guaranteed to be unique, then this is fine.\n\n4. **Memoization of UserCard**:\n   - If the `UserCard` component is complex and does not need to re-render when the `user` prop hasn't changed, consider wrapping it in `React.memo`. This will prevent unnecessary re-renders when the parent component re-renders.\n\n   ```jsx\n   const UserCard = React.memo",
+              "rawResponse": {
+                "id": "chatcmpl-D2nxjt0tdjxaxAKSFAta6iMCHeEGZ",
+                "created": 1769561083,
+                "systemFingerprint": "fp_8bbc38b4db"
+              }
+            },
+            "passed": true,
+            "score": 1,
+            "reason": "All expected content found",
+            "latencyMs": 8584,
+            "inputTokens": 97,
+            "outputTokens": 500
+          }
+        ],
+        "run_config": {
+          "provider": "openai",
+          "modelId": "gpt-4o-mini",
+          "benchmarkId": "code.performance-suggestions",
+          "parallelism": 3,
+          "retries": 1,
+          "scope": "global"
+        },
+        "org_id": null,
+        "scope": "global",
+        "status": "completed",
+        "started_at": "2026-01-28T00:44:33.941Z",
+        "id": "1f7f7d11-4d35-467a-ae36-2146418b882a",
+        "latency_p99_ms": null,
+        "error_message": null,
+        "completed_at": "2026-01-28T00:44:51.866Z",
+        "created_at": "2026-01-28T00:37:46.472Z"
+      },
+      {
+        "provider": "openai",
+        "model_id": "gpt-4o-mini",
+        "benchmark_id": "reasoning.fact-checking",
+        "benchmark_version": "1.0.0",
+        "overall_score": 0.8333333333333334,
+        "accuracy": 1,
+        "latency_p50_ms": 1710,
+        "latency_p95_ms": 2138,
+        "total_input_tokens": 308,
+        "total_output_tokens": 326,
+        "estimated_cost_cents": 0,
+        "test_case_results": [
+          {
+            "testCaseId": "reasoning.fact.earth-sun",
+            "output": {
+              "content": "{\n  \"verdict\": \"true\",\n  \"confidence\": 1,\n  \"explanation\": \"The Earth orbits the Sun in an elliptical path, which is a well-established fact in astronomy supported by extensive scientific evidence and observations.\"\n}",
+              "rawResponse": {
+                "id": "chatcmpl-D2nxsZKloXSV9QctJawRbbXl7tWjg",
+                "created": 1769561092,
+                "systemFingerprint": "fp_c4585b5b9c"
+              }
+            },
+            "passed": true,
+            "score": 1,
+            "reason": "All expected content found",
+            "latencyMs": 1438,
+            "inputTokens": 73,
+            "outputTokens": 50
+          },
+          {
+            "testCaseId": "reasoning.fact.great-wall-space",
+            "output": {
+              "content": "{\n  \"verdict\": \"false\",\n  \"confidence\": 0.9,\n  \"explanation\": \"The claim that the Great Wall of China is visible from space with the naked eye is a common myth. While the wall is long, it is not wide enough to be easily distinguished from the surrounding landscape without aid. Astronauts have confirmed that it is difficult to see the wall from low Earth orbit without the use of binoculars or a telescope.\"\n}",
+              "rawResponse": {
+                "id": "chatcmpl-D2nxsyhRxc7RxdXtxlPJw9zftnYLC",
+                "created": 1769561092,
+                "systemFingerprint": "fp_c4585b5b9c"
+              }
+            },
+            "passed": true,
+            "score": 1,
+            "reason": "All expected content found",
+            "latencyMs": 2138,
+            "inputTokens": 80,
+            "outputTokens": 95
+          },
+          {
+            "testCaseId": "reasoning.fact.goldfish-memory",
+            "output": {
+              "content": "{\n  \"verdict\": \"false\",\n  \"confidence\": 0.9,\n  \"explanation\": \"The claim that goldfish have a 3-second memory is a myth. Research has shown that goldfish can actually remember information for months. They are capable of learning and retaining information about their environment, including recognizing their owners and navigating mazes.\"\n}",
+              "rawResponse": {
+                "id": "chatcmpl-D2nxsidcWs6b5EDC7QOWBlhw3HxmU",
+                "created": 1769561092,
+                "systemFingerprint": "fp_c4585b5b9c"
+              }
+            },
+            "passed": true,
+            "score": 1,
+            "reason": "All expected content found",
+            "latencyMs": 1710,
+            "inputTokens": 76,
+            "outputTokens": 74
+          },
+          {
+            "testCaseId": "reasoning.fact.http-secure",
+            "output": {
+              "content": "{\n  \"verdict\": \"false\",\n  \"confidence\": 0.9,\n  \"explanation\": \"HTTPS (Hypertext Transfer Protocol Secure) encrypts the data exchanged between a user's browser and a website, which helps protect against eavesdropping and man-in-the-middle attacks. However, it does not guarantee that a website is trustworthy or safe to use. A website can have HTTPS but still be malicious or fraudulent. Trustworthiness depends on other factors such as the website's content, ownership, and reputation.\"\n}",
+              "rawResponse": {
+                "id": "chatcmpl-D2nxu8bWeZ9akpd0UjYA62ueOpVfw",
+                "created": 1769561094,
+                "systemFingerprint": "fp_c4585b5b9c"
+              }
+            },
+            "passed": true,
+            "score": 0.5,
+            "reason": "Missing: \"partially\"",
+            "latencyMs": 1929,
+            "inputTokens": 79,
+            "outputTokens": 107
+          }
+        ],
+        "run_config": {
+          "provider": "openai",
+          "modelId": "gpt-4o-mini",
+          "benchmarkId": "reasoning.fact-checking",
+          "parallelism": 3,
+          "retries": 1,
+          "scope": "global"
+        },
+        "org_id": null,
+        "scope": "global",
+        "status": "completed",
+        "started_at": "2026-01-28T00:44:51.901Z",
+        "id": "d527c0d7-ddf1-44f7-b145-64d464debff5",
+        "latency_p99_ms": null,
+        "error_message": null,
+        "completed_at": "2026-01-28T00:44:55.975Z",
+        "created_at": "2026-01-28T00:37:46.472Z"
+      },
+      {
+        "provider": "openai",
+        "model_id": "gpt-4o-mini",
+        "benchmark_id": "reasoning.logical-analysis",
+        "benchmark_version": "1.0.0",
+        "overall_score": 0.75,
+        "accuracy": 1,
+        "latency_p50_ms": 1370,
+        "latency_p95_ms": 1826,
+        "total_input_tokens": 258,
+        "total_output_tokens": 327,
+        "estimated_cost_cents": 0,
+        "test_case_results": [
+          {
+            "testCaseId": "reasoning.logic.syllogism",
+            "output": {
+              "content": "{\n  \"valid\": true,\n  \"explanation\": \"The argument is valid because it follows a logical structure known as syllogism. The premises state that all dogs are mammals and all mammals are animals. From these premises, it logically follows that all dogs must also be animals, as they are included in the category of mammals, which in turn are included in the category of animals.\"\n}",
+              "rawResponse": {
+                "id": "chatcmpl-D2nxwMmXGlluGfpOeY8kJbjddFqLe",
+                "created": 1769561096,
+                "systemFingerprint": "fp_c4585b5b9c"
+              }
+            },
+            "passed": true,
+            "score": 1,
+            "reason": "All expected content found",
+            "latencyMs": 1370,
+            "inputTokens": 63,
+            "outputTokens": 80
+          },
+          {
+            "testCaseId": "reasoning.logic.invalid-syllogism",
+            "output": {
+              "content": "{\n  \"valid\": false,\n  \"explanation\": \"The premises state that all cats are animals and that some animals are dogs. However, this does not logically imply that some cats are dogs. The conclusion does not follow from the premises because it is possible for all cats to be animals without any overlap with dogs.\"\n}",
+              "rawResponse": {
+                "id": "chatcmpl-D2nxwE7XFTeZfIOrDtmlZvGTO0yzl",
+                "created": 1769561096,
+                "systemFingerprint": "fp_c4585b5b9c"
+              }
+            },
+            "passed": true,
+            "score": 0.5,
+            "reason": "Missing: \"invalid\"",
+            "latencyMs": 1195,
+            "inputTokens": 63,
+            "outputTokens": 66
+          },
+          {
+            "testCaseId": "reasoning.logic.modus-ponens",
+            "output": {
+              "content": "{\n  \"valid\": true,\n  \"rule\": \"Modus Ponens\",\n  \"explanation\": \"The argument follows the logical form of Modus Ponens, which states that if 'P implies Q' (if it rains, the ground gets wet) and 'P' is true (it is raining), then 'Q' must also be true (the ground is wet). Therefore, the conclusion is valid.\"\n}",
+              "rawResponse": {
+                "id": "chatcmpl-D2nxwJDGIarP1a2vwdQGdxfEjpm24",
+                "created": 1769561096,
+                "systemFingerprint": "fp_c4585b5b9c"
+              }
+            },
+            "passed": true,
+            "score": 1,
+            "reason": "All expected content found",
+            "latencyMs": 1826,
+            "inputTokens": 62,
+            "outputTokens": 87
+          },
+          {
+            "testCaseId": "reasoning.logic.affirming-consequent",
+            "output": {
+              "content": "{\n  \"valid\": false,\n  \"fallacy\": \"Affirming the Consequent\",\n  \"explanation\": \"The argument commits the fallacy of affirming the consequent. Just because the ground is wet does not necessarily mean that it rained; there could be other reasons for the ground being wet, such as someone watering the garden or a spilled drink. Therefore, the conclusion that it rained is not valid based solely on the premise provided.\"\n}",
+              "rawResponse": {
+                "id": "chatcmpl-D2nxx2f6UPxg54L2Lmtc97g3FdICF",
+                "created": 1769561097,
+                "systemFingerprint": "fp_c4585b5b9c"
+              }
+            },
+            "passed": true,
+            "score": 0.75,
+            "reason": "Missing: \"invalid\"",
+            "latencyMs": 1525,
+            "inputTokens": 70,
+            "outputTokens": 94
+          }
+        ],
+        "run_config": {
+          "provider": "openai",
+          "modelId": "gpt-4o-mini",
+          "benchmarkId": "reasoning.logical-analysis",
+          "parallelism": 3,
+          "retries": 1,
+          "scope": "global"
+        },
+        "org_id": null,
+        "scope": "global",
+        "status": "completed",
+        "started_at": "2026-01-28T00:44:56.007Z",
+        "id": "fa880787-2019-469a-9461-a2997c9a577e",
+        "latency_p99_ms": null,
+        "error_message": null,
+        "completed_at": "2026-01-28T00:44:59.365Z",
+        "created_at": "2026-01-28T00:37:46.472Z"
+      },
+      {
+        "provider": "openai",
+        "model_id": "gpt-4o-mini",
+        "benchmark_id": "reasoning.multi-step",
+        "benchmark_version": "1.0.0",
+        "overall_score": 0.7333333333333333,
+        "accuracy": 0.6666666666666666,
+        "latency_p50_ms": 5554,
+        "latency_p95_ms": 8275,
+        "total_input_tokens": 213,
+        "total_output_tokens": 882,
+        "estimated_cost_cents": 0,
+        "test_case_results": [
+          {
+            "testCaseId": "reasoning.multi.age-problem",
+            "output": {
+              "content": "Let's denote Alice's current age as \\( A \\) and Bob's current age as \\( B \\).\n\nFrom the problem, we have the following two pieces of information:\n\n1. Alice is twice as old as Bob:\n   \\[\n   A = 2B\n   \\]\n\n2. In 10 years, Alice will be 1.5 times as old as Bob:\n   \\[\n   A + 10 = 1.5(B + 10)\n   \\]\n\nNow, we can substitute the first equation into the second equation. \n\nSubstituting \\( A = 2B \\) into the second equation:\n\\[\n2B + 10 = 1.5(B + 10)\n\\]\n\nNow, let's simplify the right side:\n\\[\n2B + 10 = 1.5B + 15\n\\]\n\nNext, we will isolate \\( B \\) by moving all terms involving \\( B \\) to one side and constant terms to the other side:\n\\[\n2B - 1.5B = 15 - 10\n\\]\n\\[\n0.5B = 5\n\\]\n\nNow, divide both sides by 0.5 to solve for \\( B \\):\n\\[\nB = \\frac{5}{0.5} = 10\n\\]\n\nNow that we have Bob's age, we can find Alice's age using the first equation:\n\\[\nA = 2B = 2 \\times 10 = 20\n\\]\n\nThus, Alice's current age is:\n\\[\n\\boxed{20}\n\\]",
+              "rawResponse": {
+                "id": "chatcmpl-D2nxziWFQfpuGCK2cs7IT9fe7npYr",
+                "created": 1769561099,
+                "systemFingerprint": "fp_c4585b5b9c"
+              }
+            },
+            "passed": true,
+            "score": 1,
+            "reason": "All expected content found",
+            "latencyMs": 5554,
+            "inputTokens": 55,
+            "outputTokens": 326
+          },
+          {
+            "testCaseId": "reasoning.multi.meeting-schedule",
+            "output": {
+              "content": "To determine if Alice, Bob, and Charlie can all meet for 1 hour, we need to analyze their available time slots and find an overlap.\n\n1. **Alice's Availability:**\n   - 9:00 AM - 11:00 AM\n   - 2:00 PM - 4:00 PM\n\n2. **Bob's Availability:**\n   - 10:00 AM - 1:00 PM\n\n3. **Charlie's Availability:**\n   - 11:00 AM - 3:00 PM\n\nNext, we will find the overlapping time slots for all three individuals:\n\n- **From 9:00 AM to 11:00 AM:**\n  - Alice is available (9-11 AM).\n  - Bob is available only from 10:00 AM to 1:00 PM, so he is available from 10:00 AM to 11:00 AM.\n  - Charlie is not available during this time.\n\n  **Conclusion:** No overlap in this time slot.\n\n- **From 10:00 AM to 11:00 AM:**\n  - Alice is available (10-11 AM).\n  - Bob is available (10-11 AM).\n  - Charlie is not available until 11:00 AM.\n\n  **Conclusion:** No overlap in this time slot.\n\n- **From 11:00 AM to 1:00 PM:**\n  - Alice is not available (she is only available until 11:00 AM).\n  - Bob is available (11 AM - 1 PM).\n  - Charlie is available (11 AM - 3 PM).\n\n  **Conclusion:** No overlap in this time slot.\n\n- **From 1:00 PM to 2:00 PM:**\n  - Alice is not available (she is only available from 2 PM).\n  - Bob is available (1 PM - 1 PM).\n  - Charlie is available (1 PM - 3 PM).\n\n  **Conclusion:** No overlap in this time slot.\n\n- **From 2:00 PM to 3:00 PM:**\n  - Alice is available (2-4 PM).\n  - Bob is not available (he is only available until 1 PM).\n  - Charlie is available (2-3 PM).\n\n  **Conclusion:** No overlap in this time slot.\n\n- **From 3:00 PM to 4:00 PM:**\n  - Alice is available (3-4",
+              "rawResponse": {
+                "id": "chatcmpl-D2nxzcUOri46D0RP2d0UUEw99RC8k",
+                "created": 1769561099,
+                "systemFingerprint": "fp_c4585b5b9c"
+              }
+            },
+            "passed": false,
+            "score": 0.3333333333333333,
+            "reason": "Missing: \"12\"; Missing: \"yes\"",
+            "latencyMs": 8275,
+            "inputTokens": 79,
+            "outputTokens": 500
+          },
+          {
+            "testCaseId": "reasoning.multi.causal-chain",
+            "output": {
+              "content": "The root cause of the website going down is the bug in the user search feature that was introduced in last week's deployment. This bug led to the runaway query, which consumed excessive memory in the database, ultimately causing the server to run out of memory and the website to go down.",
+              "rawResponse": {
+                "id": "chatcmpl-D2nxzyrjyrEAmLz36Vz9egAlOHpyo",
+                "created": 1769561099,
+                "systemFingerprint": "fp_c4585b5b9c"
+              }
+            },
+            "passed": true,
+            "score": 1,
+            "reason": "All expected content found",
+            "latencyMs": 1119,
+            "inputTokens": 79,
+            "outputTokens": 56
+          }
+        ],
+        "run_config": {
+          "provider": "openai",
+          "modelId": "gpt-4o-mini",
+          "benchmarkId": "reasoning.multi-step",
+          "parallelism": 3,
+          "retries": 1,
+          "scope": "global"
+        },
+        "org_id": null,
+        "scope": "global",
+        "status": "completed",
+        "started_at": "2026-01-28T00:44:59.381Z",
+        "id": "a388081c-311f-49d0-9ec3-12f4aa094e97",
+        "latency_p99_ms": null,
+        "error_message": null,
+        "completed_at": "2026-01-28T00:45:07.662Z",
+        "created_at": "2026-01-28T00:37:46.472Z"
+      },
+      {
+        "provider": "openai",
+        "model_id": "gpt-4o-mini",
+        "benchmark_id": "function_calling.tool-selection",
+        "benchmark_version": "1.0.0",
+        "overall_score": 0,
+        "accuracy": 0,
+        "latency_p50_ms": 0,
+        "latency_p95_ms": 0,
+        "total_input_tokens": 0,
+        "total_output_tokens": 0,
+        "estimated_cost_cents": 0,
+        "test_case_results": [
+          {
+            "testCaseId": "function.selection.weather",
+            "output": {
+              "content": ""
+            },
+            "passed": false,
+            "score": 0,
+            "reason": "Execution failed: OpenAI API error: Missing required parameter: 'tools[0].type'.",
+            "latencyMs": 0,
+            "inputTokens": 0,
+            "outputTokens": 0,
+            "error": "OpenAI API error: Missing required parameter: 'tools[0].type'."
+          },
+          {
+            "testCaseId": "function.selection.search-vs-web",
+            "output": {
+              "content": ""
+            },
+            "passed": false,
+            "score": 0,
+            "reason": "Execution failed: OpenAI API error: Missing required parameter: 'tools[0].type'.",
+            "latencyMs": 0,
+            "inputTokens": 0,
+            "outputTokens": 0,
+            "error": "OpenAI API error: Missing required parameter: 'tools[0].type'."
+          },
+          {
+            "testCaseId": "function.selection.calculator",
+            "output": {
+              "content": ""
+            },
+            "passed": false,
+            "score": 0,
+            "reason": "Execution failed: OpenAI API error: Missing required parameter: 'tools[0].type'.",
+            "latencyMs": 0,
+            "inputTokens": 0,
+            "outputTokens": 0,
+            "error": "OpenAI API error: Missing required parameter: 'tools[0].type'."
+          },
+          {
+            "testCaseId": "function.selection.no-tool",
+            "output": {
+              "content": ""
+            },
+            "passed": false,
+            "score": 0,
+            "reason": "Execution failed: OpenAI API error: Missing required parameter: 'tools[0].type'.",
+            "latencyMs": 0,
+            "inputTokens": 0,
+            "outputTokens": 0,
+            "error": "OpenAI API error: Missing required parameter: 'tools[0].type'."
+          }
+        ],
+        "run_config": {
+          "provider": "openai",
+          "modelId": "gpt-4o-mini",
+          "benchmarkId": "function_calling.tool-selection",
+          "parallelism": 3,
+          "retries": 1,
+          "scope": "global"
+        },
+        "org_id": null,
+        "scope": "global",
+        "status": "completed",
+        "started_at": "2026-01-28T00:45:07.682Z",
+        "id": "112e7e33-a417-4bc2-819a-e95034694680",
+        "latency_p99_ms": null,
+        "error_message": null,
+        "completed_at": "2026-01-28T00:45:08.169Z",
+        "created_at": "2026-01-28T00:37:46.472Z"
+      },
+      {
+        "provider": "openai",
+        "model_id": "gpt-4o-mini",
+        "benchmark_id": "function_calling.parameter-extraction",
+        "benchmark_version": "1.0.0",
+        "overall_score": 0,
+        "accuracy": 0,
+        "latency_p50_ms": 0,
+        "latency_p95_ms": 0,
+        "total_input_tokens": 0,
+        "total_output_tokens": 0,
+        "estimated_cost_cents": 0,
+        "test_case_results": [
+          {
+            "testCaseId": "function.params.multi-param",
+            "output": {
+              "content": ""
+            },
+            "passed": false,
+            "score": 0,
+            "reason": "Execution failed: OpenAI API error: Missing required parameter: 'tools[0].type'.",
+            "latencyMs": 0,
+            "inputTokens": 0,
+            "outputTokens": 0,
+            "error": "OpenAI API error: Missing required parameter: 'tools[0].type'."
+          },
+          {
+            "testCaseId": "function.params.implicit",
+            "output": {
+              "content": ""
+            },
+            "passed": false,
+            "score": 0,
+            "reason": "Execution failed: OpenAI API error: Missing required parameter: 'tools[0].type'.",
+            "latencyMs": 0,
+            "inputTokens": 0,
+            "outputTokens": 0,
+            "error": "OpenAI API error: Missing required parameter: 'tools[0].type'."
+          },
+          {
+            "testCaseId": "function.params.nested",
+            "output": {
+              "content": ""
+            },
+            "passed": false,
+            "score": 0,
+            "reason": "Execution failed: OpenAI API error: Missing required parameter: 'tools[0].type'.",
+            "latencyMs": 0,
+            "inputTokens": 0,
+            "outputTokens": 0,
+            "error": "OpenAI API error: Missing required parameter: 'tools[0].type'."
+          }
+        ],
+        "run_config": {
+          "provider": "openai",
+          "modelId": "gpt-4o-mini",
+          "benchmarkId": "function_calling.parameter-extraction",
+          "parallelism": 3,
+          "retries": 1,
+          "scope": "global"
+        },
+        "org_id": null,
+        "scope": "global",
+        "status": "completed",
+        "started_at": "2026-01-28T00:45:08.203Z",
+        "id": "07a08d7c-4c83-40a1-b5a2-0cb03a978bbf",
+        "latency_p99_ms": null,
+        "error_message": null,
+        "completed_at": "2026-01-28T00:45:08.623Z",
+        "created_at": "2026-01-28T00:37:46.472Z"
+      },
+      {
+        "provider": "openai",
+        "model_id": "gpt-4o-mini",
+        "benchmark_id": "function_calling.multi-tool",
+        "benchmark_version": "1.0.0",
+        "overall_score": 0,
+        "accuracy": 0,
+        "latency_p50_ms": 0,
+        "latency_p95_ms": 0,
+        "total_input_tokens": 0,
+        "total_output_tokens": 0,
+        "estimated_cost_cents": 0,
+        "test_case_results": [
+          {
+            "testCaseId": "function.multi.sequential",
+            "output": {
+              "content": ""
+            },
+            "passed": false,
+            "score": 0,
+            "reason": "Execution failed: OpenAI API error: Missing required parameter: 'tools[0].type'.",
+            "latencyMs": 0,
+            "inputTokens": 0,
+            "outputTokens": 0,
+            "error": "OpenAI API error: Missing required parameter: 'tools[0].type'."
+          },
+          {
+            "testCaseId": "function.multi.parallel",
+            "output": {
+              "content": ""
+            },
+            "passed": false,
+            "score": 0,
+            "reason": "Execution failed: OpenAI API error: Missing required parameter: 'tools[0].type'.",
+            "latencyMs": 0,
+            "inputTokens": 0,
+            "outputTokens": 0,
+            "error": "OpenAI API error: Missing required parameter: 'tools[0].type'."
+          }
+        ],
+        "run_config": {
+          "provider": "openai",
+          "modelId": "gpt-4o-mini",
+          "benchmarkId": "function_calling.multi-tool",
+          "parallelism": 3,
+          "retries": 1,
+          "scope": "global"
+        },
+        "org_id": null,
+        "scope": "global",
+        "status": "completed",
+        "started_at": "2026-01-28T00:45:08.641Z",
+        "id": "679fbd34-c65a-40ec-82d4-6253eb01c159",
+        "latency_p99_ms": null,
+        "error_message": null,
+        "completed_at": "2026-01-28T00:45:08.836Z",
+        "created_at": "2026-01-28T00:37:46.472Z"
+      },
+      {
+        "provider": "openai",
+        "model_id": "gpt-4o",
+        "benchmark_id": "routing.intent-classification",
+        "benchmark_version": "1.0.0",
+        "overall_score": 0.19230769230769232,
+        "accuracy": 0.36363636363636365,
+        "latency_p50_ms": 1212,
+        "latency_p95_ms": 1880,
+        "total_input_tokens": 173,
+        "total_output_tokens": 711,
+        "estimated_cost_cents": 0,
+        "test_case_results": [
+          {
+            "testCaseId": "routing.intent.code-review",
+            "output": {
+              "content": "Of course! Please provide the Python function you'd like me to review, and I'll take a look for any potential bugs or issues.",
+              "rawResponse": {
+                "id": "chatcmpl-D2ny8XZh5gt1iycRduwwYbjMFywXe",
+                "created": 1769561108,
+                "systemFingerprint": "fp_a0e9480a2f"
+              }
+            },
+            "passed": false,
+            "score": 0,
+            "reason": "Missing: \"code\"",
+            "latencyMs": 659,
+            "inputTokens": 16,
+            "outputTokens": 26
+          },
+          {
+            "testCaseId": "routing.intent.code-generation",
+            "output": {
+              "content": "Certainly! The Fibonacci sequence is a series of numbers where each number is the sum of the two preceding ones, usually starting with 0 and 1. Here's a Python function to calculate Fibonacci numbers using both an iterative and a recursive approach:\n\n### Iterative Approach\n\n```python\ndef fibonacci_iterative(n):\n    if n <= 0:\n        return \"Input should be a positive integer\"\n    elif n == 1:\n        return 0\n    elif n == 2:\n        return",
+              "rawResponse": {
+                "id": "chatcmpl-D2ny8X02e0LcgqHO44Gvrv6OqWT5i",
+                "created": 1769561108,
+                "systemFingerprint": "fp_a0e9480a2f"
+              }
+            },
+            "passed": false,
+            "score": 0,
+            "reason": "Missing: \"code\"",
+            "latencyMs": 1212,
+            "inputTokens": 14,
+            "outputTokens": 100
+          },
+          {
+            "testCaseId": "routing.intent.debug",
+            "output": {
+              "content": "A `NullPointerException` in Java occurs when your code attempts to use an object reference that has not been initialized (i.e., it is `null`). Here are some steps to help you diagnose and fix the issue:\n\n1. **Identify the Source**: Check the stack trace in the exception message. It will show you the exact line number in your code where the exception occurred. This is your starting point.\n\n2. **Check for Null References**: On the line indicated by the stack",
+              "rawResponse": {
+                "id": "chatcmpl-D2ny8StJQtNwLR8gAC6y9dRFfrd5I",
+                "created": 1769561108,
+                "systemFingerprint": "fp_a0e9480a2f"
+              }
+            },
+            "passed": true,
+            "score": 0.5,
+            "reason": "Missing: \"debug\"",
+            "latencyMs": 1880,
+            "inputTokens": 17,
+            "outputTokens": 100
+          },
+          {
+            "testCaseId": "routing.intent.web-search",
+            "output": {
+              "content": "As of the latest updates in 2023, quantum computing continues to make significant strides in both theoretical and practical domains. Here are some of the key developments:\n\n1. **Increased Qubit Counts**: Several companies, including IBM, Google, and Rigetti, have announced quantum processors with increased qubit counts. IBM, for instance, has been working towards its roadmap of achieving thousands of qubits in the next few years.\n\n2. **Error Correction and Noise Reduction**: Error correction remains",
+              "rawResponse": {
+                "id": "chatcmpl-D2nyAGTKPsyKHQwyqVjgY15J8SSVy",
+                "created": 1769561110,
+                "systemFingerprint": "fp_a0e9480a2f"
+              }
+            },
+            "passed": false,
+            "score": 0,
+            "reason": "Missing: \"research\"; Missing: \"search\"",
+            "latencyMs": 1850,
+            "inputTokens": 16,
+            "outputTokens": 100
+          },
+          {
+            "testCaseId": "routing.intent.fact-check",
+            "output": {
+              "content": "The claim that the Great Wall of China is visible from space is a common myth. From low Earth orbit, where the International Space Station (ISS) orbits, the Great Wall is not easily visible to the naked eye. This is because the wall is relatively narrow and made of materials that blend in with the natural landscape. Astronauts have reported that it is very difficult to see the Great Wall without the aid of telescopic lenses or ideal lighting conditions.\n\nIn contrast, large cities, airports,",
+              "rawResponse": {
+                "id": "chatcmpl-D2nyA7mnvSv6230gDtBAnasTLtoAR",
+                "created": 1769561110,
+                "systemFingerprint": "fp_a0e9480a2f"
+              }
+            },
+            "passed": false,
+            "score": 0,
+            "reason": "Missing: \"research\"; Missing: \"fact\"",
+            "latencyMs": 1485,
+            "inputTokens": 21,
+            "outputTokens": 100
+          },
+          {
+            "testCaseId": "routing.intent.greeting",
+            "output": {
+              "content": "Hello! I'm just a computer program, so I don't have feelings, but I'm here and ready to help you. How can I assist you today?",
+              "rawResponse": {
+                "id": "chatcmpl-D2nyAhVUp0YggmneIvZOe4QFRUQCo",
+                "created": 1769561110,
+                "systemFingerprint": "fp_a0e9480a2f"
+              }
+            },
+            "passed": false,
+            "score": 0,
+            "reason": "Missing: \"conversational\"; Missing: \"general\"",
+            "latencyMs": 514,
+            "inputTokens": 15,
+            "outputTokens": 30
+          },
+          {
+            "testCaseId": "routing.intent.clarification",
+            "output": {
+              "content": "Of course! Could you please provide more context or specify what you're referring to? That way, I can give you a more accurate explanation.",
+              "rawResponse": {
+                "id": "chatcmpl-D2nyCr51qLzsqT52yn4Gwxj8UB5WY",
+                "created": 1769561112,
+                "systemFingerprint": "fp_a0e9480a2f"
+              }
+            },
+            "passed": false,
+            "score": 0,
+            "reason": "Missing: \"conversational\"; Missing: \"clarify\"",
+            "latencyMs": 582,
+            "inputTokens": 16,
+            "outputTokens": 28
+          },
+          {
+            "testCaseId": "routing.intent.summarize",
+            "output": {
+              "content": "Of course! Please provide the article you would like summarized.",
+              "rawResponse": {
+                "id": "chatcmpl-D2nyCl2UMQFKviBY25bvcPOpKuYew",
+                "created": 1769561112,
+                "systemFingerprint": "fp_a0e9480a2f"
+              }
+            },
+            "passed": true,
+            "score": 0.5,
+            "reason": "Missing: \"task\"",
+            "latencyMs": 480,
+            "inputTokens": 17,
+            "outputTokens": 12
+          },
+          {
+            "testCaseId": "routing.intent.translate",
+            "output": {
+              "content": "Sure, please provide the text you would like to have translated into Spanish.",
+              "rawResponse": {
+                "id": "chatcmpl-D2nyCL5w8tInhZrleGaUAVStOnaPB",
+                "created": 1769561112,
+                "systemFingerprint": "fp_a0e9480a2f"
+              }
+            },
+            "passed": true,
+            "score": 0.5,
+            "reason": "Missing: \"task\"",
+            "latencyMs": 524,
+            "inputTokens": 12,
+            "outputTokens": 15
+          },
+          {
+            "testCaseId": "routing.intent.ambiguous-code-question",
+            "output": {
+              "content": "Python is a high-level, interpreted programming language known for its readability, simplicity, and versatility. It was created by Guido van Rossum and first released in 1991. Python's design philosophy emphasizes code readability and simplicity, making it an excellent choice for both beginners and experienced programmers.\n\n### Key Features of Python:\n\n1. **Readability and Simplicity**: Python's syntax is clear and concise, which makes it easy to learn and use. This readability often translates into more maintainable code",
+              "rawResponse": {
+                "id": "chatcmpl-D2nyDKmL5KpAUQnf4LQegachjjXpA",
+                "created": 1769561113,
+                "systemFingerprint": "fp_a0e9480a2f"
+              }
+            },
+            "passed": false,
+            "score": 0,
+            "reason": "Missing: \"clarify\"",
+            "latencyMs": 1470,
+            "inputTokens": 11,
+            "outputTokens": 100
+          },
+          {
+            "testCaseId": "routing.intent.multi-intent",
+            "output": {
+              "content": "When writing a React component, it's important to follow best practices to ensure your code is maintainable, efficient, and easy to understand. Here are some best practices for writing React components:\n\n1. **Functional Components and Hooks**: Prefer functional components with hooks over class components. They are more concise and easier to understand.\n\n2. **Component Naming**: Use PascalCase for component names. This helps distinguish components from regular HTML elements.\n\n3. **Single Responsibility Principle**: Each component should have a",
+              "rawResponse": {
+                "id": "chatcmpl-D2nyDDWKoTYSLdFmjpn2IyjrjcqnF",
+                "created": 1769561113,
+                "systemFingerprint": "fp_a0e9480a2f"
+              }
+            },
+            "passed": true,
+            "score": 0.5,
+            "reason": "Missing: \"research\"",
+            "latencyMs": 1303,
+            "inputTokens": 18,
+            "outputTokens": 100
+          }
+        ],
+        "run_config": {
+          "provider": "openai",
+          "modelId": "gpt-4o",
+          "benchmarkId": "routing.intent-classification",
+          "parallelism": 3,
+          "retries": 1,
+          "scope": "global"
+        },
+        "org_id": null,
+        "scope": "global",
+        "status": "completed",
+        "started_at": "2026-01-28T00:45:08.856Z",
+        "id": "cc46c499-9123-40db-8416-2569a489f300",
+        "latency_p99_ms": null,
+        "error_message": null,
+        "completed_at": "2026-01-28T00:45:14.643Z",
+        "created_at": "2026-01-28T00:37:46.472Z"
+      },
+      {
+        "provider": "openai",
+        "model_id": "gpt-4o",
+        "benchmark_id": "routing.hybrid-decision",
+        "benchmark_version": "1.0.0",
+        "overall_score": 1,
+        "accuracy": 1,
+        "latency_p50_ms": 847,
+        "latency_p95_ms": 1258,
+        "total_input_tokens": 182,
+        "total_output_tokens": 112,
+        "estimated_cost_cents": 0,
+        "test_case_results": [
+          {
+            "testCaseId": "routing.hybrid.embedding-vs-llm",
+            "output": {
+              "content": "{ \"method\": \"embedding\", \"confidence\": 0.9, \"reason\": \"The request is straightforward and matches a known pattern of asking for a Python function to perform a specific task, which is sorting a list.\" }",
+              "rawResponse": {
+                "id": "chatcmpl-D2nyEbtIUYhYolNGa041XRGyXiwU6",
+                "created": 1769561114,
+                "systemFingerprint": "fp_a0e9480a2f"
+              }
+            },
+            "passed": true,
+            "score": 1,
+            "reason": "Schema validation passed",
+            "latencyMs": 847,
+            "inputTokens": 95,
+            "outputTokens": 47
+          },
+          {
+            "testCaseId": "routing.hybrid.complex-query",
+            "output": {
+              "content": "{ \"method\": \"llm\", \"confidence\": 0.9, \"reason\": \"The query involves a specific technical issue with a React app and also seeks understanding of a broader concept related to async state updates. This requires a detailed explanation and potentially troubleshooting steps, which are best handled by a language model.\" }",
+              "rawResponse": {
+                "id": "chatcmpl-D2nyEi8mPtPemMcofep2ib5x2jhFp",
+                "created": 1769561114,
+                "systemFingerprint": "fp_a0e9480a2f"
+              }
+            },
+            "passed": true,
+            "score": 1,
+            "reason": "All expected content found",
+            "latencyMs": 1258,
+            "inputTokens": 87,
+            "outputTokens": 65
+          }
+        ],
+        "run_config": {
+          "provider": "openai",
+          "modelId": "gpt-4o",
+          "benchmarkId": "routing.hybrid-decision",
+          "parallelism": 3,
+          "retries": 1,
+          "scope": "global"
+        },
+        "org_id": null,
+        "scope": "global",
+        "status": "completed",
+        "started_at": "2026-01-28T00:45:14.663Z",
+        "id": "9cdb3ee3-9983-49b7-aa02-161fc31e5fc9",
+        "latency_p99_ms": null,
+        "error_message": null,
+        "completed_at": "2026-01-28T00:45:15.925Z",
+        "created_at": "2026-01-28T00:37:46.472Z"
+      },
+      {
+        "provider": "openai",
+        "model_id": "gpt-4o",
+        "benchmark_id": "code.security-detection",
+        "benchmark_version": "1.0.0",
+        "overall_score": 0,
+        "accuracy": 0,
+        "latency_p50_ms": 0,
+        "latency_p95_ms": 0,
+        "total_input_tokens": 0,
+        "total_output_tokens": 0,
+        "estimated_cost_cents": 0,
+        "test_case_results": [],
+        "run_config": {
+          "provider": "openai",
+          "modelId": "gpt-4o",
+          "benchmarkId": "code.security-detection",
+          "parallelism": 3,
+          "retries": 1,
+          "scope": "global"
+        },
+        "org_id": null,
+        "scope": "global",
+        "status": "running",
+        "started_at": "2026-01-28T00:45:15.958Z",
+        "id": "7dc3d4d4-af0c-4ab3-90da-709114ed2b6b",
+        "latency_p99_ms": null,
+        "error_message": null,
+        "completed_at": null,
+        "created_at": "2026-01-28T00:37:46.472Z"
+      }
+    ],
+    "model_scores": [],
+    "model_recommendations": [],
+    "benchmark_definitions": [],
+    "evaluation_schedules": []
+  },
+  "_backupAvailable": true
+}

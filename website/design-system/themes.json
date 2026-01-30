@@ -1,0 +1,273 @@
+{
+  "$schema": "https://symbia.io/design-system/themes.schema.json",
+  "version": "3.0.0",
+  "description": "4 theme styles + Mono with 5 hue variants. Fewer choices, more depth.",
+
+  "themes": {
+    "carbon": {
+      "name": "Carbon",
+      "style": "neon",
+      "description": "Electric and technical. High-contrast neon on deep black.",
+      "dark": {
+        "surface": {
+          "base": "#08080a",
+          "subtle": "#111114",
+          "muted": "#1a1a1f",
+          "elevated": "#222228"
+        },
+        "border": {
+          "default": "#2a2a32",
+          "subtle": "#1f1f26",
+          "strong": "#3a3a45"
+        },
+        "text": {
+          "primary": "#fafafa",
+          "secondary": "#a1a1aa",
+          "tertiary": "#71717a"
+        },
+        "primary": { "base": "#3b82f6", "hover": "#60a5fa", "subtle": "#1e3a5f", "text": "#ffffff" },
+        "secondary": { "base": "#ec4899", "hover": "#f472b6", "subtle": "#4a1942", "text": "#ffffff" },
+        "tertiary": { "base": "#a3e635", "hover": "#bef264", "subtle": "#1a2e0a", "text": "#000000" },
+        "semantic": { "success": "#10b981", "warning": "#f59e0b", "error": "#ef4444", "info": "#06b6d4" },
+        "nodes": {
+          "input": "#22c55e", "output": "#f97316", "router": "#a855f7", "action": "#3b82f6",
+          "condition": "#eab308", "llm": "#ec4899", "recall": "#8b5cf6", "think": "#f43f5e"
+        }
+      },
+      "light": {
+        "surface": { "base": "#ffffff", "subtle": "#f8f9fa", "muted": "#f1f3f5", "elevated": "#ffffff" },
+        "border": { "default": "#e5e7eb", "subtle": "#f3f4f6", "strong": "#d1d5db" },
+        "text": { "primary": "#111827", "secondary": "#4b5563", "tertiary": "#9ca3af" },
+        "primary": { "base": "#2563eb", "hover": "#1d4ed8", "subtle": "#dbeafe", "text": "#ffffff" },
+        "secondary": { "base": "#db2777", "hover": "#be185d", "subtle": "#fce7f3", "text": "#ffffff" },
+        "tertiary": { "base": "#65a30d", "hover": "#4d7c0f", "subtle": "#ecfccb", "text": "#ffffff" },
+        "semantic": { "success": "#059669", "warning": "#d97706", "error": "#dc2626", "info": "#0891b2" },
+        "nodes": {
+          "input": "#16a34a", "output": "#ea580c", "router": "#9333ea", "action": "#2563eb",
+          "condition": "#ca8a04", "llm": "#db2777", "recall": "#7c3aed", "think": "#e11d48"
+        }
+      }
+    },
+
+    "sand": {
+      "name": "Sand",
+      "style": "organic",
+      "description": "Warm and grounded. Earth tones, natural materials, desert warmth.",
+      "dark": {
+        "surface": { "base": "#1a1612", "subtle": "#252019", "muted": "#302921", "elevated": "#3d342a" },
+        "border": { "default": "#4a3f33", "subtle": "#3d342a", "strong": "#5c4f40" },
+        "text": { "primary": "#f5f0e8", "secondary": "#c4b8a5", "tertiary": "#978a76" },
+        "primary": { "base": "#c2956b", "hover": "#d4ac82", "subtle": "#3d2e1f", "text": "#1a1612" },
+        "secondary": { "base": "#7d9a78", "hover": "#96b091", "subtle": "#2a3528", "text": "#1a1612" },
+        "tertiary": { "base": "#b8a07a", "hover": "#cbb896", "subtle": "#3a3122", "text": "#1a1612" },
+        "semantic": { "success": "#7d9a78", "warning": "#c9a45c", "error": "#c27066", "info": "#7a9ba8" },
+        "nodes": {
+          "input": "#7d9a78", "output": "#c2956b", "router": "#a08db8", "action": "#7a9ba8",
+          "condition": "#c9a45c", "llm": "#c49a9a", "recall": "#9a8ab8", "think": "#b89a8a"
+        }
+      },
+      "light": {
+        "surface": { "base": "#faf8f5", "subtle": "#f5f1eb", "muted": "#ebe5db", "elevated": "#ffffff" },
+        "border": { "default": "#d9d0c3", "subtle": "#e8e2d8", "strong": "#c4b8a5" },
+        "text": { "primary": "#2d261e", "secondary": "#5c5144", "tertiary": "#8a7c6a" },
+        "primary": { "base": "#9a7352", "hover": "#846344", "subtle": "#f0e6da", "text": "#ffffff" },
+        "secondary": { "base": "#5d7a58", "hover": "#4d6949", "subtle": "#e5ede4", "text": "#ffffff" },
+        "tertiary": { "base": "#8a7454", "hover": "#756344", "subtle": "#f0e8da", "text": "#ffffff" },
+        "semantic": { "success": "#5d7a58", "warning": "#a68a3c", "error": "#a35248", "info": "#5a7a88" },
+        "nodes": {
+          "input": "#5d7a58", "output": "#9a7352", "router": "#7a6890", "action": "#5a7a88",
+          "condition": "#a68a3c", "llm": "#a07070", "recall": "#706090", "think": "#907060"
+        }
+      }
+    },
+
+    "stone": {
+      "name": "Stone",
+      "style": "muted",
+      "description": "Refined and sophisticated. Desaturated, editorial, premium feel.",
+      "dark": {
+        "surface": { "base": "#121416", "subtle": "#1a1c20", "muted": "#24272c", "elevated": "#2e3238" },
+        "border": { "default": "#3a3f48", "subtle": "#2e3238", "strong": "#484e58" },
+        "text": { "primary": "#e8eaed", "secondary": "#9ea4ad", "tertiary": "#6a7280" },
+        "primary": { "base": "#7890a8", "hover": "#90a8c0", "subtle": "#202a35", "text": "#121416" },
+        "secondary": { "base": "#a89088", "hover": "#c0a8a0", "subtle": "#302825", "text": "#121416" },
+        "tertiary": { "base": "#88a090", "hover": "#a0b8a8", "subtle": "#252d28", "text": "#121416" },
+        "semantic": { "success": "#6a9878", "warning": "#b8a068", "error": "#a87070", "info": "#6888a8" },
+        "nodes": {
+          "input": "#6a9878", "output": "#a89080", "router": "#9080a0", "action": "#7890a8",
+          "condition": "#a8a070", "llm": "#a08090", "recall": "#8878a0", "think": "#a88888"
+        }
+      },
+      "light": {
+        "surface": { "base": "#fafafa", "subtle": "#f4f4f5", "muted": "#eaeaec", "elevated": "#ffffff" },
+        "border": { "default": "#d4d4d8", "subtle": "#e4e4e7", "strong": "#bbbbc2" },
+        "text": { "primary": "#27272a", "secondary": "#52525b", "tertiary": "#a1a1aa" },
+        "primary": { "base": "#526880", "hover": "#425868", "subtle": "#e8ecf0", "text": "#ffffff" },
+        "secondary": { "base": "#806058", "hover": "#705048", "subtle": "#f2ebe8", "text": "#ffffff" },
+        "tertiary": { "base": "#587060", "hover": "#486050", "subtle": "#e8f0ea", "text": "#ffffff" },
+        "semantic": { "success": "#4a7858", "warning": "#907848", "error": "#885050", "info": "#486888" },
+        "nodes": {
+          "input": "#4a7858", "output": "#806858", "router": "#685878", "action": "#526880",
+          "condition": "#807850", "llm": "#785868", "recall": "#605878", "think": "#786060"
+        }
+      }
+    },
+
+    "mono": {
+      "name": "Mono",
+      "style": "monochromatic",
+      "description": "Single hue, full tonal range. Pick your color.",
+      "hues": {
+        "blue": {
+          "name": "Blue",
+          "dark": {
+            "surface": { "base": "#0a0f18", "subtle": "#101825", "muted": "#182235", "elevated": "#1e2a40" },
+            "border": { "default": "#2a3a55", "subtle": "#1e2a40", "strong": "#3a4a68" },
+            "text": { "primary": "#e8eef5", "secondary": "#8aa0c0", "tertiary": "#5a7090" },
+            "primary": { "base": "#5a8ad0", "hover": "#7aa5e5", "subtle": "#1a2a45", "text": "#ffffff" },
+            "secondary": { "base": "#4070b0", "hover": "#5585c8", "subtle": "#152535", "text": "#ffffff" },
+            "tertiary": { "base": "#85a8d8", "hover": "#a0c0ea", "subtle": "#1e3050", "text": "#0a0f18" },
+            "semantic": { "success": "#4a9078", "warning": "#c0a050", "error": "#c06060", "info": "#5a8ad0" },
+            "nodes": {
+              "input": "#3a6898", "output": "#6090c0", "router": "#4878a8", "action": "#5a8ad0",
+              "condition": "#7aa0d0", "llm": "#5080b8", "recall": "#6898c8", "think": "#4a78a0"
+            }
+          },
+          "light": {
+            "surface": { "base": "#f8fafc", "subtle": "#f0f4f8", "muted": "#e4eaf2", "elevated": "#ffffff" },
+            "border": { "default": "#c8d4e4", "subtle": "#dce4f0", "strong": "#a8b8d0" },
+            "text": { "primary": "#1a2840", "secondary": "#3a5070", "tertiary": "#6080a8" },
+            "primary": { "base": "#3868a8", "hover": "#2a5898", "subtle": "#e4eef8", "text": "#ffffff" },
+            "secondary": { "base": "#4a78b8", "hover": "#3a68a8", "subtle": "#e8f0fa", "text": "#ffffff" },
+            "tertiary": { "base": "#5888c0", "hover": "#4878b0", "subtle": "#eaf2fc", "text": "#ffffff" },
+            "semantic": { "success": "#307058", "warning": "#a08030", "error": "#a04040", "info": "#3868a8" },
+            "nodes": {
+              "input": "#285880", "output": "#4878a0", "router": "#3868a0", "action": "#3868a8",
+              "condition": "#5888b8", "llm": "#4070a0", "recall": "#5080b0", "think": "#386090"
+            }
+          }
+        },
+
+        "slate": {
+          "name": "Slate",
+          "dark": {
+            "surface": { "base": "#101214", "subtle": "#181a1e", "muted": "#222528", "elevated": "#2a2e32" },
+            "border": { "default": "#383c42", "subtle": "#2a2e32", "strong": "#484c52" },
+            "text": { "primary": "#e8e9eb", "secondary": "#a0a4a8", "tertiary": "#707478" },
+            "primary": { "base": "#8890a0", "hover": "#a0a8b8", "subtle": "#252830", "text": "#101214" },
+            "secondary": { "base": "#707888", "hover": "#8890a0", "subtle": "#1e2028", "text": "#e8e9eb" },
+            "tertiary": { "base": "#a8b0b8", "hover": "#c0c8d0", "subtle": "#2a3038", "text": "#101214" },
+            "semantic": { "success": "#608070", "warning": "#a09060", "error": "#a07070", "info": "#7088a0" },
+            "nodes": {
+              "input": "#607870", "output": "#888078", "router": "#787080", "action": "#8890a0",
+              "condition": "#989080", "llm": "#887888", "recall": "#808890", "think": "#887878"
+            }
+          },
+          "light": {
+            "surface": { "base": "#fafafa", "subtle": "#f5f5f6", "muted": "#ebebed", "elevated": "#ffffff" },
+            "border": { "default": "#d8d8dc", "subtle": "#e8e8ea", "strong": "#c0c0c5" },
+            "text": { "primary": "#202225", "secondary": "#505458", "tertiary": "#909498" },
+            "primary": { "base": "#505860", "hover": "#404850", "subtle": "#eaecee", "text": "#ffffff" },
+            "secondary": { "base": "#606870", "hover": "#505860", "subtle": "#eceeef", "text": "#ffffff" },
+            "tertiary": { "base": "#707880", "hover": "#606870", "subtle": "#eef0f2", "text": "#ffffff" },
+            "semantic": { "success": "#406050", "warning": "#806840", "error": "#805050", "info": "#506880" },
+            "nodes": {
+              "input": "#406050", "output": "#686058", "router": "#585060", "action": "#505860",
+              "condition": "#787060", "llm": "#685868", "recall": "#606068", "think": "#685858"
+            }
+          }
+        },
+
+        "green": {
+          "name": "Green",
+          "dark": {
+            "surface": { "base": "#0a140e", "subtle": "#101d14", "muted": "#18281e", "elevated": "#1e3225" },
+            "border": { "default": "#2a4535", "subtle": "#1e3225", "strong": "#3a5848" },
+            "text": { "primary": "#e8f5ed", "secondary": "#8ac0a0", "tertiary": "#5a9070" },
+            "primary": { "base": "#5ac090", "hover": "#7ad8a8", "subtle": "#1a3528", "text": "#0a140e" },
+            "secondary": { "base": "#40a070", "hover": "#55b888", "subtle": "#152d20", "text": "#e8f5ed" },
+            "tertiary": { "base": "#85d8b0", "hover": "#a0eac5", "subtle": "#1e4030", "text": "#0a140e" },
+            "semantic": { "success": "#5ac090", "warning": "#c0a050", "error": "#c06060", "info": "#50a0c0" },
+            "nodes": {
+              "input": "#3a9868", "output": "#60c090", "router": "#48a078", "action": "#5ac090",
+              "condition": "#7ac0a0", "llm": "#50b080", "recall": "#68c098", "think": "#4a9870"
+            }
+          },
+          "light": {
+            "surface": { "base": "#f8fcfa", "subtle": "#f0f8f4", "muted": "#e4f2ea", "elevated": "#ffffff" },
+            "border": { "default": "#c8e4d4", "subtle": "#dceee4", "strong": "#a8d0b8" },
+            "text": { "primary": "#1a4028", "secondary": "#3a7050", "tertiary": "#60a080" },
+            "primary": { "base": "#38a868", "hover": "#2a9858", "subtle": "#e4f8ee", "text": "#ffffff" },
+            "secondary": { "base": "#48b878", "hover": "#38a868", "subtle": "#e8faef", "text": "#ffffff" },
+            "tertiary": { "base": "#58c088", "hover": "#48b078", "subtle": "#eafcf2", "text": "#ffffff" },
+            "semantic": { "success": "#38a868", "warning": "#a08030", "error": "#a04040", "info": "#3088a8" },
+            "nodes": {
+              "input": "#288050", "output": "#48a070", "router": "#38a060", "action": "#38a868",
+              "condition": "#58b888", "llm": "#40a070", "recall": "#50b080", "think": "#389060"
+            }
+          }
+        },
+
+        "violet": {
+          "name": "Violet",
+          "dark": {
+            "surface": { "base": "#10091a", "subtle": "#181025", "muted": "#221835", "elevated": "#2a2040" },
+            "border": { "default": "#3a2a55", "subtle": "#2a2040", "strong": "#4a3a68" },
+            "text": { "primary": "#f0e8f8", "secondary": "#b098d0", "tertiary": "#8068a0" },
+            "primary": { "base": "#9068d0", "hover": "#a880e8", "subtle": "#2a1848", "text": "#ffffff" },
+            "secondary": { "base": "#7050b0", "hover": "#8868c8", "subtle": "#201538", "text": "#ffffff" },
+            "tertiary": { "base": "#b090e0", "hover": "#c8a8f0", "subtle": "#302050", "text": "#10091a" },
+            "semantic": { "success": "#609878", "warning": "#c0a050", "error": "#c06080", "info": "#6080d0" },
+            "nodes": {
+              "input": "#6850a8", "output": "#9070c8", "router": "#7858b0", "action": "#9068d0",
+              "condition": "#a888d8", "llm": "#8060c0", "recall": "#9878d0", "think": "#7850a8"
+            }
+          },
+          "light": {
+            "surface": { "base": "#fcfaff", "subtle": "#f8f4fc", "muted": "#f0e8f8", "elevated": "#ffffff" },
+            "border": { "default": "#e0d0f0", "subtle": "#eae0f4", "strong": "#c8b8e0" },
+            "text": { "primary": "#281840", "secondary": "#503870", "tertiary": "#8060a8" },
+            "primary": { "base": "#6840a8", "hover": "#583098", "subtle": "#f4eafc", "text": "#ffffff" },
+            "secondary": { "base": "#7850b8", "hover": "#6840a8", "subtle": "#f6ecfd", "text": "#ffffff" },
+            "tertiary": { "base": "#8860c0", "hover": "#7850b0", "subtle": "#f8f0fe", "text": "#ffffff" },
+            "semantic": { "success": "#408058", "warning": "#a08030", "error": "#a04060", "info": "#4060a8" },
+            "nodes": {
+              "input": "#483088", "output": "#6850a0", "router": "#5840a0", "action": "#6840a8",
+              "condition": "#8068b8", "llm": "#6048a0", "recall": "#7058b0", "think": "#584098"
+            }
+          }
+        },
+
+        "amber": {
+          "name": "Amber",
+          "dark": {
+            "surface": { "base": "#14100a", "subtle": "#1e1810", "muted": "#282018", "elevated": "#32281e" },
+            "border": { "default": "#453828", "subtle": "#32281e", "strong": "#584838" },
+            "text": { "primary": "#f8f0e8", "secondary": "#c8b090", "tertiary": "#988060" },
+            "primary": { "base": "#d0a050", "hover": "#e8b868", "subtle": "#3a2810", "text": "#14100a" },
+            "secondary": { "base": "#b08030", "hover": "#c89848", "subtle": "#302008", "text": "#f8f0e8" },
+            "tertiary": { "base": "#e8c080", "hover": "#f0d098", "subtle": "#403018", "text": "#14100a" },
+            "semantic": { "success": "#80a060", "warning": "#d0a050", "error": "#c06050", "info": "#70a0c0" },
+            "nodes": {
+              "input": "#a88030", "output": "#d0a050", "router": "#b89040", "action": "#c89848",
+              "condition": "#d8b060", "llm": "#c09040", "recall": "#c8a058", "think": "#b08038"
+            }
+          },
+          "light": {
+            "surface": { "base": "#fffcf8", "subtle": "#faf6f0", "muted": "#f4ece0", "elevated": "#ffffff" },
+            "border": { "default": "#e8dcc8", "subtle": "#f0e8dc", "strong": "#d0c0a8" },
+            "text": { "primary": "#40301a", "secondary": "#705830", "tertiary": "#a88850" },
+            "primary": { "base": "#a87820", "hover": "#986810", "subtle": "#fcf4e8", "text": "#ffffff" },
+            "secondary": { "base": "#b88830", "hover": "#a87820", "subtle": "#fdf6ea", "text": "#ffffff" },
+            "tertiary": { "base": "#c89840", "hover": "#b88830", "subtle": "#fef8ec", "text": "#40301a" },
+            "semantic": { "success": "#608040", "warning": "#a87820", "error": "#a04030", "info": "#507898" },
+            "nodes": {
+              "input": "#886010", "output": "#a87820", "router": "#987018", "action": "#a87820",
+              "condition": "#b89030", "llm": "#a07018", "recall": "#b08028", "think": "#986818"
+            }
+          }
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,71 @@
+# Symbia Assistants Backend API
+
+> Backend APIs for prompt graphs, actor principals, run orchestration, rules engine, and LLM settings.
+
+## Overview
+
+Backend APIs for prompt graphs, actor principals, and run orchestration used by Collaborate.
+
+- Prompt graph CRUD and publishing workflow
+- Actor principal management with webhook configuration
+- Graph run history, logs, and execution tracking
+- Messaging webhooks for message and control events
+- Organization-scoped multi-tenancy
+
+## API Base URL
+
+Use /api as the base path for all endpoints.
+
+## Quick Reference
+
+- GET /api/health - Health check
+- GET /api/v1/status - Database connectivity status
+- GET /api/v1/graphs - List graphs
+- POST /api/v1/graphs - Create graph
+- GET /api/v1/graphs/{id} - Get graph
+- PUT /api/v1/graphs/{id} - Update graph
+- DELETE /api/v1/graphs/{id} - Delete graph
+- POST /api/v1/graphs/{id}/publish - Publish graph
+- GET /api/v1/graphs/{id}/runs - List runs for graph
+- GET /api/v1/runs - List runs
+- GET /api/v1/runs/{id} - Get run
+- GET /api/v1/runs/{id}/logs - Get run logs
+- GET /api/v1/actors - List actor principals
+- POST /api/v1/actors - Create actor principal
+- GET /api/v1/actors/{id} - Get actor principal
+- PUT /api/v1/actors/{id} - Update actor principal
+- DELETE /api/v1/actors/{id} - Delete actor principal
+- POST /api/webhook/message - Handle incoming message
+- POST /api/webhook/control - Handle control event
+- GET /api/rules - List all rule sets
+- POST /api/rules - Create rule set
+- GET /api/rules/{orgId} - Get rule set for org
+- PUT /api/rules/{orgId} - Update rule set
+- POST /api/rules/{orgId}/rules - Add rule to set
+- POST /api/rules/execute - Execute rules for event
+- GET /api/settings/llm - Get LLM settings
+- PUT /api/settings/llm - Update LLM settings
+- GET /api/assistants-admin - List custom assistants
+- POST /api/assistants-admin - Create custom assistant
+- GET /api/assistants-admin/{key} - Get custom assistant
+- PUT /api/assistants-admin/{key} - Update custom assistant
+- DELETE /api/assistants-admin/{key} - Delete custom assistant
+
+## Authentication
+
+Methods supported:
+- Bearer token (Authorization: Bearer <token>)
+- API key (X-API-Key header)
+- Session cookie
+
+- Most endpoints require orgId as a query parameter
+- Actor principals use webhook-based authentication
+
+## Custom Headers
+
+- orgId (query parameter): Organization ID required for most endpoints
+
+## Documentation
+
+- OpenAPI: /docs/openapi.json
+- Full docs: /docs/llms-full.txt

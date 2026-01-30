@@ -1,0 +1,17 @@
+.DS_Store
+node_modules/
+dist/
+.env
+.env.*
+!.env.example
+*.log
+*.tsbuildinfo
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+workbench/dist/
+workbench/tmp/
+docs/dist/
+symbia-runtime/dist/
+symbia-runtime/reports/component-harness-report.json

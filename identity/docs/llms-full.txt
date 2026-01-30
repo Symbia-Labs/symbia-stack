@@ -1,0 +1,909 @@
+# Symbia Identity Service API - Complete Documentation
+
+> Authentication, authorization, and entitlements API for the Symbia ecosystem. Use this service to manage users, organizations, projects, applications, services, and feature entitlements.
+
+**Scope Headers (optional)**: X-Org-Id, X-Service-Id, X-Env, X-Data-Class, X-Policy-Ref.
+
+## Overview
+
+Authentication and authorization service with multi-tenant support.
+
+- User authentication (register, login, password reset)
+- Organization management with role-based access control
+- Project, Application, and Service hierarchy
+- Polymorphic scoped entitlements with quotas
+- API key management for service-to-service auth
+- Token introspection for service-to-service validation
+- Entity Directory for UUID-based identity across services
+- Audit logging
+
+## Custom Headers (optional)
+
+- **X-Org-Id**: Organization ID for multi-tenant scoping
+- **X-Service-Id**: Service identifier for request routing
+- **X-Env**: Environment (dev|stage|prod)
+- **X-Data-Class**: Data classification (none|pii|phi|secret)
+- **X-Policy-Ref**: Policy reference for compliance
+
+## API Reference
+
+Base URL: /api
+
+### API Keys
+
+#### POST /api/auth/verify-api-key
+Verify an API key (for service-to-service auth)
+Validates an API key and returns the associated user/org principal if valid. Use this for service-to-service authentication.
+
+Request Body:
+```json
+{
+  "apiKey": "string"
+}
+```
+
+Response: Verification result
+
+#### POST /api/api-keys
+Create a new API key
+Mints a new API key for service-to-service authentication. The full key is returned only once.
+
+Request Body:
+```json
+{
+  "name": "string",
+  "orgId": "string",
+  "scopes": [],
+  "expiresAt": "string"
+}
+```
+
+Response: API key created - includes the full key (shown only once)
+
+#### GET /api/api-keys
+List your API keys
+
+Response: List of API keys (without the actual key values)
+
+#### GET /api/api-keys/{id}
+Get API key details
+
+Path Parameters:
+- id: string
+
+Response: API key details
+
+#### DELETE /api/api-keys/{id}
+Delete an API key permanently
+
+Path Parameters:
+- id: string
+
+Response: API key deleted
+
+#### POST /api/api-keys/{id}/revoke
+Revoke an API key
+Marks the key as revoked. It can no longer be used but remains in history.
+
+Path Parameters:
+- id: string
+
+Response: API key revoked
+
+#### POST /api/api-keys/{id}/rotate
+Rotate an API key
+Revokes the old key and creates a new one with the same settings.
+
+Path Parameters:
+- id: string
+
+Response: New API key created (old key revoked)
+
+### Applications
+
+#### GET /api/projects/{projectId}/applications
+List applications in a project
+
+Path Parameters:
+- projectId: string
+
+Response: List of applications
+
+#### POST /api/projects/{projectId}/applications
+Create a new application
+
+Path Parameters:
+- projectId: string
+
+Request Body:
+```json
+{
+  "name": "string",
+  "slug": "string",
+  "environment": "string",
+  "appType": "string",
+  "repoUrl": "string"
+}
+```
+
+Response: Application created
+
+#### GET /api/applications/{appId}
+Get application details
+
+Path Parameters:
+- appId: string
+
+Response: Application with services and entitlements
+
+#### PATCH /api/applications/{appId}
+Update application
+
+Path Parameters:
+- appId: string
+
+Response: Application updated
+
+#### DELETE /api/applications/{appId}
+Delete application
+
+Path Parameters:
+- appId: string
+
+Response: Application deleted
+
+#### POST /api/applications/{appId}/services/{serviceId}
+Link a service to an application
+
+Path Parameters:
+- appId: string
+- serviceId: string
+
+Response: Service linked to application
+
+#### DELETE /api/applications/{appId}/services/{serviceId}
+Unlink a service from an application
+
+Path Parameters:
+- appId: string
+- serviceId: string
+
+Response: Service unlinked
+
+### Authentication
+
+#### POST /api/auth/register
+Register a new user
+
+Request Body:
+```json
+{
+  "email": "string",
+  "password": "string",
+  "name": "string"
+}
+```
+
+Response: User registered successfully
+
+#### POST /api/auth/login
+Login user
+
+Request Body:
+```json
+{
+  "email": "string",
+  "password": "string"
+}
+```
+
+Response: Login successful, returns user data and sets auth cookie
+
+#### POST /api/auth/logout
+Logout user
+
+Response: Logged out successfully
+
+#### POST /api/auth/refresh
+Refresh authentication token
+
+Response: Token refreshed
+
+#### POST /api/auth/introspect
+Validate token and get user principal (RFC 7662)
+Token introspection endpoint for service-to-service auth. Returns user principal with organizations, entitlements, and roles if token is valid.
+
+Request Body:
+```json
+{
+  "token": "string"
+}
+```
+
+Response: Token introspection response
+
+#### POST /api/auth/verify-api-key
+Verify an API key (for service-to-service auth)
+Validates an API key and returns the associated user/org principal if valid. Use this for service-to-service authentication.
+
+Request Body:
+```json
+{
+  "apiKey": "string"
+}
+```
+
+Response: Verification result
+
+### Dashboard
+
+#### GET /api/dashboard
+Get dashboard data
+
+Response: Dashboard data with stats and recent activity
+
+### Entitlements
+
+#### GET /api/scoped-entitlements/{scopeType}/{scopeId}
+Get entitlements for a specific scope
+Retrieve entitlements scoped to an org, project, application, or service
+
+Path Parameters:
+- scopeType: string
+- scopeId: string
+
+Response: List of scoped entitlements
+
+#### POST /api/scoped-entitlements
+Create a scoped entitlement
+Admin only. Create an entitlement for org, project, application, or service scope.
+
+Request Body:
+```json
+{
+  "scopeType": "string",
+  "scopeId": "string",
+  "featureKey": "string",
+  "quota": {},
+  "enabled": false,
+  "expiresAt": "string"
+}
+```
+
+Response: Entitlement created
+
+#### PATCH /api/scoped-entitlements/{id}
+Update a scoped entitlement
+
+Path Parameters:
+- id: string
+
+Request Body:
+```json
+{
+  "quota": {},
+  "consumed": {},
+  "enabled": false,
+  "expiresAt": "string"
+}
+```
+
+Response: Entitlement updated
+
+#### DELETE /api/scoped-entitlements/{id}
+Delete a scoped entitlement
+
+Path Parameters:
+- id: string
+
+Response: Entitlement deleted
+
+#### GET /api/entitlements/{orgId}
+Get organization entitlements (legacy)
+
+Path Parameters:
+- orgId: string
+
+Response: Organization entitlements
+
+### License
+
+#### GET /api/license/{orgId}
+Get organization license status
+
+Path Parameters:
+- orgId: string
+
+Response: License status
+
+### Organizations
+
+#### GET /api/orgs
+List user's organizations
+
+Response: List of organizations
+
+#### POST /api/orgs
+Create a new organization
+
+Request Body:
+```json
+{
+  "name": "string",
+  "slug": "string"
+}
+```
+
+Response: Organization created
+
+#### GET /api/orgs/{orgId}
+Get organization details
+
+Path Parameters:
+- orgId: string
+
+Response: Organization details with members and entitlements
+
+### Projects
+
+#### GET /api/orgs/{orgId}/projects
+List projects in an organization
+
+Path Parameters:
+- orgId: string
+
+Response: List of projects
+
+#### POST /api/orgs/{orgId}/projects
+Create a new project
+Requires admin or member role
+
+Path Parameters:
+- orgId: string
+
+Request Body:
+```json
+{
+  "name": "string",
+  "slug": "string",
+  "description": "string"
+}
+```
+
+Response: Project created
+
+#### GET /api/projects/{projectId}
+Get project details
+Returns project with its applications, services, and entitlements
+
+Path Parameters:
+- projectId: string
+
+Response: Project details
+
+#### PATCH /api/projects/{projectId}
+Update project
+
+Path Parameters:
+- projectId: string
+
+Request Body:
+```json
+{
+  "name": "string",
+  "description": "string",
+  "status": "string"
+}
+```
+
+Response: Project updated
+
+#### DELETE /api/projects/{projectId}
+Delete project
+Admin only
+
+Path Parameters:
+- projectId: string
+
+Response: Project deleted
+
+### Service-to-Service
+
+#### POST /api/auth/introspect
+Validate token and get user principal (RFC 7662)
+Token introspection endpoint for service-to-service auth. Returns user principal with organizations, entitlements, and roles if token is valid.
+
+Request Body:
+```json
+{
+  "token": "string"
+}
+```
+
+Response: Token introspection response
+
+### Services
+
+#### GET /api/projects/{projectId}/services
+List services in a project
+
+Path Parameters:
+- projectId: string
+
+Response: List of services
+
+#### POST /api/projects/{projectId}/services
+Create a new service
+
+Path Parameters:
+- projectId: string
+
+Request Body:
+```json
+{
+  "name": "string",
+  "serviceType": "string",
+  "provider": "string",
+  "endpointUrl": "string",
+  "externalId": "string"
+}
+```
+
+Response: Service created
+
+#### GET /api/services/{serviceId}
+Get service details
+
+Path Parameters:
+- serviceId: string
+
+Response: Service with entitlements
+
+#### PATCH /api/services/{serviceId}
+Update service
+
+Path Parameters:
+- serviceId: string
+
+Response: Service updated
+
+#### DELETE /api/services/{serviceId}
+Delete service
+
+Path Parameters:
+- serviceId: string
+
+Response: Service deleted
+
+#### POST /api/applications/{appId}/services/{serviceId}
+Link a service to an application
+
+Path Parameters:
+- appId: string
+- serviceId: string
+
+Response: Service linked to application
+
+#### DELETE /api/applications/{appId}/services/{serviceId}
+Unlink a service from an application
+
+Path Parameters:
+- appId: string
+- serviceId: string
+
+Response: Service unlinked
+
+### Super Admin
+
+#### GET /api/admin/users/{userId}/entitlements
+Get user's capability entitlements
+Requires super admin privileges
+
+Path Parameters:
+- userId: string
+
+Response: List of user entitlements
+
+#### POST /api/admin/users/{userId}/entitlements
+Grant a capability entitlement to a user
+Requires super admin privileges
+
+Path Parameters:
+- userId: string
+
+Request Body:
+```json
+{
+  "entitlementKey": "string",
+  "expiresAt": "string"
+}
+```
+
+Response: Entitlement granted
+
+#### DELETE /api/admin/users/{userId}/entitlements/{entitlementKey}
+Revoke a capability entitlement from a user
+Requires super admin privileges
+
+Path Parameters:
+- userId: string
+- entitlementKey: string
+
+Response: Entitlement revoked
+
+#### GET /api/admin/users/{userId}/roles
+Get user's global roles
+Requires super admin privileges
+
+Path Parameters:
+- userId: string
+
+Response: List of user roles
+
+#### POST /api/admin/users/{userId}/roles
+Grant a global role to a user
+Requires super admin privileges
+
+Path Parameters:
+- userId: string
+
+Request Body:
+```json
+{
+  "roleKey": "string",
+  "expiresAt": "string"
+}
+```
+
+Response: Role granted
+
+#### DELETE /api/admin/users/{userId}/roles/{roleKey}
+Revoke a global role from a user
+Requires super admin privileges
+
+Path Parameters:
+- userId: string
+- roleKey: string
+
+Response: Role revoked
+
+### Users
+
+#### GET /api/users/me
+Get current user profile
+
+Response: User profile
+
+#### PATCH /api/users/me
+Update current user profile
+
+Request Body:
+```json
+{
+  "name": "string"
+}
+```
+
+Response: Profile updated
+
+## Data Models
+
+### User
+User profile with organizations, entitlements, and roles for Object Service integration
+
+```typescript
+{
+  id?: string;
+  email?: string;
+  name?: string;
+  isSuperAdmin?: boolean;
+  organizations?: array;  // Organizations the user belongs to with their role
+  entitlements?: array;  // Capability entitlements (e.g., cap:registry.write, cap:registry.publish)
+  roles?: array;  // Global roles (e.g., role:publisher, role:admin)
+  createdAt?: string;
+}
+```
+
+### UserEntitlement
+A capability grant for a user
+
+```typescript
+{
+  id?: string;
+  userId?: string;
+  entitlementKey?: string;  // e.g., cap:registry.write
+  grantedBy?: string;
+  expiresAt?: string;
+  createdAt?: string;
+}
+```
+
+### UserRole
+A global role for a user
+
+```typescript
+{
+  id?: string;
+  userId?: string;
+  roleKey?: string;  // e.g., role:publisher
+  grantedBy?: string;
+  expiresAt?: string;
+  createdAt?: string;
+}
+```
+
+### Organization
+```typescript
+{
+  id?: string;
+  name?: string;
+  slug?: string;
+  planId?: string;
+  createdAt?: string;
+}
+```
+
+### Project
+```typescript
+{
+  id?: string;
+  orgId?: string;
+  name?: string;
+  slug?: string;
+  description?: string;
+  status?: active|archived|suspended;
+  createdAt?: string;
+}
+```
+
+### Application
+```typescript
+{
+  id?: string;
+  projectId?: string;
+  orgId?: string;
+  name?: string;
+  slug?: string;
+  environment?: development|staging|production;
+  appType?: web|mobile|api|cli;
+  repoUrl?: string;
+  createdAt?: string;
+}
+```
+
+### Service
+```typescript
+{
+  id?: string;
+  projectId?: string;
+  orgId?: string;
+  name?: string;
+  serviceType?: database|api|auth|storage|messaging|analytics;
+  provider?: string;
+  endpointUrl?: string;
+  externalId?: string;
+  status?: active|inactive|error;
+  createdAt?: string;
+}
+```
+
+### ScopedEntitlement
+Polymorphic entitlement that can be scoped to org, project, application, or service
+
+```typescript
+{
+  id?: string;
+  orgId?: string;
+  scopeType?: org|project|application|service;
+  scopeId?: string;
+  featureKey?: string;
+  quota?: integer;  // Maximum allowed usage
+  consumed?: integer;  // Current usage count
+  enabled?: boolean;
+  expiresAt?: string;
+  createdAt?: string;
+}
+```
+
+### Plan
+```typescript
+{
+  id?: string;
+  name?: string;
+  featuresJson?: object;
+  limitsJson?: object;
+  priceCents?: integer;
+}
+```
+
+### ApiKey
+API key metadata (excludes actual key value)
+
+```typescript
+{
+  id?: string;
+  name?: string;
+  keyPrefix?: string;  // First 8 chars of the key for identification
+  orgId?: string;
+  scopes?: array;
+  expiresAt?: string;
+  lastUsedAt?: string;
+  revokedAt?: string;
+  createdAt?: string;
+}
+```
+
+### ApiKeyCreated
+API key response when creating or rotating (includes full key)
+
+```typescript
+{
+  id?: string;
+  name?: string;
+  key?: string;  // The full API key - only shown once, store securely
+  keyPrefix?: string;
+  orgId?: string;
+  scopes?: array;
+  expiresAt?: string;
+  createdAt?: string;
+  _warning?: string;
+}
+```
+
+### HealthCheck
+System health status including database connectivity
+
+```typescript
+{
+  status?: ok|degraded|error;
+  timestamp?: string;
+  database?: object;
+  email?: object;
+  version?: string;
+}
+```
+
+## Authentication
+
+All authenticated endpoints require one of:
+- Cookie: Session cookie (set automatically after login)
+- Header: `Authorization: Bearer <token>`
+- Header: `X-API-Key: <api-key>`
+
+- Cookie-based session authentication (token cookie)
+- Bearer token authentication (Authorization: Bearer <token>)
+- API key authentication (X-API-Key header)
+
+## Service-to-Service Auth
+
+For validating tokens from other services:
+- POST /api/auth/introspect - Validate JWT tokens
+- POST /api/auth/verify-api-key - Validate API keys
+
+## Organization Hierarchy
+
+Resources are organized in a hierarchy:
+- **Organization**: Top-level tenant container
+- **Project**: Logical grouping within an org
+- **Application**: Deployable unit within a project
+- **Service**: Runtime service instance
+
+## Entitlements
+
+Scoped permissions with optional quotas:
+- Entitlements can be scoped to org, project, app, or service
+- Quotas define usage limits (e.g., max API calls)
+- Super-admin bypasses all entitlement checks
+
+## Entity Directory
+
+The Entity Directory provides UUID-based identity for all addressable entities across the Symbia platform.
+
+### Entity Types
+
+| Type | Description | Example |
+|------|-------------|---------|
+| `user` | Human users | Brian, Alice |
+| `assistant` | AI assistants | log-analyst, coordinator |
+| `service` | Backend services | messaging, catalog |
+| `integration` | External integrations | Slack, GitHub |
+| `sandbox` | Workflow sandboxes | Execution environments |
+
+### Entity UUID Format
+
+All entities have a UUID as primary identifier with `ent_` prefix:
+
+```
+ent_550e8400-e29b-41d4-a716-446655440000
+```
+
+### Entity Schema
+
+```typescript
+interface Entity {
+  id: string;                    // UUID (ent_xxx format)
+  type: 'user' | 'assistant' | 'service' | 'integration' | 'sandbox';
+
+  // Human-readable addressing
+  slug: string;                  // e.g., "log-analyst"
+  displayName: string;           // e.g., "Log Analyst"
+
+  // Multi-instance support
+  instanceId?: string;           // For multiple instances
+  instanceIndex?: number;        // 1, 2, 3... ordered
+
+  // Org/Network scoping
+  orgId: string;
+  networkId?: string;            // For federation
+
+  // Resolution hints
+  capabilities: string[];
+  tags: string[];
+
+  // Lifecycle
+  status: 'active' | 'inactive' | 'suspended';
+  registeredAt: string;
+  lastSeenAt: string;
+
+  // Network binding
+  boundNodeId?: string;          // Current network node
+}
+```
+
+### Address Resolution
+
+Entities can be addressed multiple ways:
+
+| Format | Example | Description |
+|--------|---------|-------------|
+| UUID | `ent_550e8400...` | Primary identifier |
+| Local slug | `@log-analyst` | Within same org |
+| Qualified | `assistant:log-analyst:org:acme` | Explicit scoping |
+| Instance | `assistant:log-analyst#2` | Specific instance |
+
+### Entity Aliases
+
+```typescript
+interface EntityAlias {
+  id: string;
+  entityId: string;              // References entities.id
+  aliasType: 'slug' | 'mention' | 'qualified';
+  alias: string;                 // e.g., "log-analyst"
+  orgId: string;
+  isPrimary: boolean;
+}
+```
+
+### Entity Instances
+
+For multi-instance assistants:
+
+```typescript
+interface EntityInstance {
+  id: string;
+  entityId: string;              // Base entity UUID
+  instanceId: string;            // Instance identifier
+  instanceIndex: number;         // 1, 2, 3...
+  status: 'active' | 'inactive';
+  boundNodeId?: string;          // Current network node
+}
+```
+
+### Network Node Binding
+
+Entity UUIDs (persistent) bind to Network Nodes (ephemeral):
+
+```
+Entity ent_abc123 (log-analyst)
+        ↓
+   Binds to network node assistant:log-analyst:socket-xyz
+        ↓
+   Messages routed via SDN to bound node
+```
+
+When a node disconnects, the entity remains but becomes unreachable until a new instance binds.
+
+## Documentation
+
+- OpenAPI: /docs/openapi.json
+- LLM summary: /docs/llms.txt

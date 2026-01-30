@@ -1,0 +1,39 @@
+{
+  "name": "@symbia/relay",
+  "version": "1.0.0",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "require": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    }
+  },
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch"
+  },
+  "keywords": [
+    "symbia",
+    "network",
+    "relay",
+    "events"
+  ],
+  "author": "Symbia Labs",
+  "license": "MIT",
+  "description": "Client library for connecting to the Symbia Network Service",
+  "dependencies": {
+    "socket.io-client": "^4.8.3"
+  },
+  "peerDependencies": {
+    "@symbia/sys": "*"
+  },
+  "devDependencies": {
+    "@symbia/sys": "file:../symbia-sys",
+    "@types/express": "^5.0.6",
+    "@types/node": "^25.0.8",
+    "typescript": "^5.9.3"
+  }
+}

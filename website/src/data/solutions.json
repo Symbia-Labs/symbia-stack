@@ -1,0 +1,117 @@
+{
+  "solutions": [
+    {
+      "id": "dual-principal",
+      "title": "Dual Principal Model",
+      "icon": "layers",
+      "shortDesc": "AI assistants aren't just tools—they're first-class principals with their own authentication tokens, declared capabilities, audit trails, and access policies.",
+      "codeHint": "principal: user + agent context",
+      "problem": "Traditional auth models track users. But when an AI assistant makes a request on behalf of a user, you need to know: Who authorized this? Which assistant is executing? What capabilities were granted? What's the context?",
+      "solution": "Every request in Symbia carries two principals: the user who authorized the action and the assistant executing it. Both are authenticated, both have declared capabilities, and both are audited.",
+      "details": [
+        { "title": "User Principal", "desc": "Human identity with org membership and roles" },
+        { "title": "Assistant Principal", "desc": "AI identity with declared capabilities and rules" },
+        { "title": "Compound Token", "desc": "JWT encodes both principals with intersection of permissions" },
+        { "title": "Audit Trail", "desc": "Every action logged with full principal context" }
+      ],
+      "chatSuggestions": [
+        "How does capability intersection work?",
+        "Implementing custom permissions"
+      ]
+    },
+    {
+      "id": "stream-control",
+      "title": "Stream Control Semantics",
+      "icon": "square",
+      "shortDesc": "Pause, resume, preempt, and hand off AI responses mid-stream. Real-time control without losing context or state.",
+      "codeHint": "pause | resume | preempt | handoff",
+      "problem": "LLM responses stream over seconds or minutes. Users don't wait politely—they interrupt, correct, redirect. Traditional request/response has no concept of mid-stream control.",
+      "solution": "Every streaming response in Symbia is controllable. Pause it, resume it, preempt it with new context, or hand it off to another assistant—all without losing state.",
+      "details": [
+        { "title": "Pause", "desc": "Suspend streaming while preserving generation state" },
+        { "title": "Resume", "desc": "Continue from exact pause point with context intact" },
+        { "title": "Preempt", "desc": "Interrupt with new user input; assistant adapts mid-response" },
+        { "title": "Handoff", "desc": "Transfer stream to different assistant with full context" }
+      ],
+      "chatSuggestions": [
+        "When should I use preempt vs handoff?",
+        "Handle stream errors gracefully"
+      ]
+    },
+    {
+      "id": "graphs",
+      "title": "Graphs, Not Code",
+      "icon": "clock",
+      "shortDesc": "Workflows are declarative data structures. JSON-serializable, version-controlled, runtime-mutable. Change behavior without redeploying.",
+      "codeHint": "{ nodes: [], edges: [] }",
+      "problem": "AI behavior is complex—routing, branching, fallbacks, handoffs. Expressing this in imperative code creates tangled spaghetti that's impossible to visualize, version, or modify at runtime.",
+      "solution": "Workflows in Symbia are declarative JSON graphs. They're serializable, version-controlled, and runtime-mutable. Change behavior without redeploying code.",
+      "details": [
+        { "title": "Visual Editing", "desc": "Design workflows in the Control Center graph editor" },
+        { "title": "Hot Reload", "desc": "Update workflows without service restarts" },
+        { "title": "A/B Testing", "desc": "Run multiple workflow versions simultaneously" },
+        { "title": "Version Control", "desc": "Git-friendly JSON diffs for workflow history" }
+      ],
+      "chatSuggestions": [
+        "Build a simple routing workflow",
+        "How to A/B test workflows?"
+      ]
+    },
+    {
+      "id": "self-doc",
+      "title": "Self-Documenting Services",
+      "icon": "wrench",
+      "shortDesc": "Every service auto-generates LLM-optimized docs at /docs/llms.txt. Assistants can discover capabilities without human intervention.",
+      "codeHint": "GET /docs/llms.txt",
+      "problem": "AI assistants need to understand your system to act effectively. Static documentation written for humans is too verbose, often outdated, and not optimized for LLM comprehension.",
+      "solution": "Every Symbia service auto-generates LLM-optimized documentation at /docs/llms.txt. Concise, structured, always current. Assistants can discover and understand capabilities without human help.",
+      "details": [
+        { "title": "Service Description", "desc": "One-line purpose statement" },
+        { "title": "Endpoint Catalog", "desc": "All routes with method, path, description" },
+        { "title": "Request/Response Schemas", "desc": "TypeScript-style type definitions" },
+        { "title": "Example Payloads", "desc": "Concrete request/response examples" }
+      ],
+      "chatSuggestions": [
+        "How is llms.txt generated?",
+        "Customize documentation output"
+      ]
+    },
+    {
+      "id": "multi-tenant",
+      "title": "Multi-Tenant Native",
+      "icon": "users",
+      "shortDesc": "Workspace isolation, tenant-scoped execution, and header-based context propagation. Every request carries organizational context.",
+      "codeHint": "X-Org-Id: tenant-123",
+      "problem": "SaaS platforms serve multiple organizations. Each needs data isolation, but bolting multi-tenancy onto an existing architecture creates leaky abstractions and security risks.",
+      "solution": "Symbia is multi-tenant from the ground up. Every request carries organizational context via headers. Data boundaries are enforced at the query layer, not the application layer.",
+      "details": [
+        { "title": "Header-Based Context", "desc": "X-Org-Id propagates through all service calls" },
+        { "title": "Query Scoping", "desc": "Database queries automatically filter by tenant" },
+        { "title": "Workspace Isolation", "desc": "Assistants and workflows scoped to workspaces" },
+        { "title": "Credential Separation", "desc": "API keys and secrets isolated per organization" }
+      ],
+      "chatSuggestions": [
+        "How is tenant isolation enforced?",
+        "Configure workspace settings"
+      ]
+    },
+    {
+      "id": "integrations",
+      "title": "Universal Integrations",
+      "icon": "hub",
+      "shortDesc": "Connect to any third-party system. Drop in an OpenAPI spec, point to an MCP server, or wrap a JS SDK.",
+      "codeHint": "OpenAPI | MCP | JS SDK",
+      "problem": "AI assistants need to interact with external systems—CRMs, databases, APIs. Building custom integrations for each is expensive and brittle.",
+      "solution": "Symbia supports three universal integration patterns. Drop in an OpenAPI spec, connect an MCP server, or wrap a JS SDK. Assistants discover and use tools without custom code.",
+      "details": [
+        { "title": "OpenAPI Specs", "desc": "Auto-generate callable tools from any OpenAPI 3.x specification" },
+        { "title": "MCP Servers", "desc": "Connect to Model Context Protocol servers for standardized tool access" },
+        { "title": "JS SDK Wrappers", "desc": "Wrap any JavaScript/TypeScript SDK as assistant-callable tools" }
+      ],
+      "chatSuggestions": [
+        "Best practices for MCP servers",
+        "Wrap a custom JS SDK"
+      ]
+    }
+  ]
+}

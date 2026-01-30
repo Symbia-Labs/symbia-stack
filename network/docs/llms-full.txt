@@ -1,0 +1,620 @@
+# Symbia Network Service API - Complete Documentation
+
+> Event routing, policy enforcement, and SoftSDN observability API for the Symbia ecosystem.
+
+## Overview
+
+Event routing, policy enforcement, and SoftSDN observability for the Symbia ecosystem.
+
+- Node registration and service discovery
+- Contract-based event routing between nodes
+- Policy-driven event filtering (allow/deny/route/transform)
+- Hash-based security policy commitment
+- Bridge management for external system integration
+- SoftSDN observability API for assistants
+- WebSocket support for real-time event delivery
+
+## Custom Headers (optional)
+
+- **X-Org-Id**: Organization ID for multi-tenant scoping
+- **X-Service-Id**: Service identifier for request routing
+
+## API Reference
+
+Base URL: /api
+
+### Registry
+
+Node registration and discovery
+
+#### POST /api/registry/nodes
+Register a new node
+
+Request Body:
+```json
+// See NodeRegistration schema
+```
+
+Response: Node registered
+
+#### GET /api/registry/nodes
+List all nodes
+
+Response: List of nodes
+
+#### GET /api/registry/nodes/{id}
+Get a specific node
+
+Path Parameters:
+- id: string
+
+Response: Node details
+
+#### DELETE /api/registry/nodes/{id}
+Unregister a node
+
+Path Parameters:
+- id: string
+
+Response: Node unregistered
+
+#### POST /api/registry/nodes/{id}/heartbeat
+Send heartbeat
+
+Path Parameters:
+- id: string
+
+Response: Heartbeat recorded
+
+#### GET /api/registry/nodes/capability/{capability}
+Find nodes by capability
+
+Path Parameters:
+- capability: string
+
+Response: Nodes with capability
+
+#### GET /api/registry/nodes/type/{type}
+Find nodes by type
+
+Path Parameters:
+- type: string
+
+Response: Nodes of type
+
+### Contracts
+
+Node-to-node communication contracts
+
+#### POST /api/registry/contracts
+Create a contract
+
+Request Body:
+```json
+// See ContractCreate schema
+```
+
+Response: Contract created
+
+#### GET /api/registry/contracts
+List contracts
+
+Query Parameters:
+- nodeId (optional): string
+
+Response: List of contracts
+
+#### DELETE /api/registry/contracts/{id}
+Delete a contract
+
+Path Parameters:
+- id: string
+
+Response: Contract deleted
+
+### Bridges
+
+External system bridges
+
+#### POST /api/registry/bridges
+Register a bridge
+
+Request Body:
+```json
+// See BridgeCreate schema
+```
+
+Response: Bridge registered
+
+#### GET /api/registry/bridges
+List bridges
+
+Response: List of bridges
+
+#### GET /api/registry/bridges/{id}
+Get a bridge
+
+Path Parameters:
+- id: string
+
+Response: Bridge details
+
+#### PATCH /api/registry/bridges/{id}
+Update bridge status
+
+Path Parameters:
+- id: string
+
+Request Body:
+```json
+{
+  "active": false
+}
+```
+
+Response: Bridge updated
+
+#### DELETE /api/registry/bridges/{id}
+Delete a bridge
+
+Path Parameters:
+- id: string
+
+Response: Bridge deleted
+
+### Events
+
+Event routing and tracing
+
+#### POST /api/events
+Send an event
+
+Request Body:
+```json
+// See EventCreate schema
+```
+
+#### GET /api/events
+Get recent events
+
+Query Parameters:
+- limit (optional): integer
+- runId (optional): string
+
+Response: List of events
+
+#### GET /api/events/{id}/trace
+Get event trace
+
+Path Parameters:
+- id: string
+
+Response: Event trace
+
+#### GET /api/events/traces/{runId}
+Get traces for a run
+
+Path Parameters:
+- runId: string
+
+Response: Traces for run
+
+#### POST /api/events/hash
+Compute event hash
+
+Request Body:
+```json
+{
+  "payload": {},
+  "source": "string",
+  "runId": "string",
+  "boundary": "string"
+}
+```
+
+Response: Hash computed
+
+#### GET /api/events/stats
+Get routing statistics
+
+Response: Routing stats
+
+### Policies
+
+Routing policy management
+
+#### POST /api/policies
+Create a policy
+
+Request Body:
+```json
+// See PolicyCreate schema
+```
+
+Response: Policy created
+
+#### GET /api/policies
+List policies
+
+Response: List of policies
+
+#### GET /api/policies/{id}
+Get a policy
+
+Path Parameters:
+- id: string
+
+Response: Policy details
+
+#### PATCH /api/policies/{id}
+Update a policy
+
+Path Parameters:
+- id: string
+
+Response: Policy updated
+
+#### DELETE /api/policies/{id}
+Delete a policy
+
+Path Parameters:
+- id: string
+
+Response: Policy deleted
+
+#### POST /api/policies/test
+Test policy evaluation
+
+Request Body:
+```json
+{
+  "payload": {},
+  "source": "string",
+  "runId": "string",
+  "boundary": "string"
+}
+```
+
+Response: Evaluation result
+
+### SDN
+
+SoftSDN observability (read-only)
+
+#### GET /api/sdn/topology
+Get network topology
+
+Response: Network topology
+
+#### GET /api/sdn/summary
+Get network summary
+
+Response: Network summary
+
+#### GET /api/sdn/trace/{eventId}
+Trace an event
+
+Path Parameters:
+- eventId: string
+
+Response: Event trace
+
+#### GET /api/sdn/traces/{runId}
+Get traces for a run
+
+Path Parameters:
+- runId: string
+
+Response: Traces for run
+
+#### GET /api/sdn/flow/{runId}
+Get event flow
+
+Path Parameters:
+- runId: string
+
+Query Parameters:
+- limit (optional): integer
+
+Response: Event flow graph
+
+#### GET /api/sdn/policies
+Get policies (read-only)
+
+Response: List of policies
+
+#### POST /api/sdn/simulate
+Simulate event routing
+
+Request Body:
+```json
+{
+  "payload": {},
+  "source": "string",
+  "runId": "string",
+  "target": "string",
+  "boundary": "string"
+}
+```
+
+Response: Simulation result
+
+#### GET /api/sdn/graph
+Get network graph
+
+Response: Network graph
+
+## Data Models
+
+### EventPayload
+```typescript
+{
+  type: string;
+  data: any;
+}
+```
+
+### EventWrapper
+```typescript
+{
+  id?: string;
+  runId?: string;
+  timestamp?: string;
+  source?: string;
+  target?: string;
+  causedBy?: string;
+  path?: array;
+  boundary?: intra|inter|extra;
+}
+```
+
+### SandboxEvent
+```typescript
+{
+  payload?: any;
+  wrapper?: any;
+  hash?: string;
+}
+```
+
+### EventCreate
+```typescript
+{
+  payload: any;
+  source: string;
+  runId: string;
+  target?: string;
+  causedBy?: string;
+  boundary?: intra|inter|extra;
+}
+```
+
+### NetworkNode
+```typescript
+{
+  id?: string;
+  name?: string;
+  type?: service|assistant|sandbox|bridge|client;
+  capabilities?: array;
+  endpoint?: string;
+  socketId?: string;
+  registeredAt?: string;
+  lastHeartbeat?: string;
+  metadata?: object;
+}
+```
+
+### NodeRegistration
+```typescript
+{
+  id: string;
+  name: string;
+  type: service|assistant|sandbox|bridge|client;
+  capabilities: array;
+  endpoint: string;
+  metadata?: object;
+}
+```
+
+### NodeContract
+```typescript
+{
+  id?: string;
+  from?: string;
+  to?: string;
+  allowedEventTypes?: array;
+  boundaries?: array;
+  createdAt?: string;
+  expiresAt?: string;
+}
+```
+
+### ContractCreate
+```typescript
+{
+  from: string;
+  to: string;
+  allowedEventTypes: array;
+  boundaries: array;
+  expiresAt?: string;
+}
+```
+
+### NetworkBridge
+```typescript
+{
+  id?: string;
+  name?: string;
+  type?: webhook|websocket|grpc|custom;
+  endpoint?: string;
+  eventTypes?: array;
+  active?: boolean;
+  config?: object;
+  createdAt?: string;
+}
+```
+
+### BridgeCreate
+```typescript
+{
+  name: string;
+  type: webhook|websocket|grpc|custom;
+  endpoint: string;
+  eventTypes: array;
+  config?: object;
+}
+```
+
+### RoutingPolicy
+```typescript
+{
+  id?: string;
+  name?: string;
+  priority?: integer;
+  conditions?: array;
+  action?: any;
+  enabled?: boolean;
+  createdAt?: string;
+}
+```
+
+### PolicyCreate
+```typescript
+{
+  name: string;
+  priority: integer;
+  conditions: array;
+  action: any;
+}
+```
+
+### PolicyCondition
+```typescript
+{
+  field?: source|target|eventType|boundary|runId;
+  operator?: eq|neq|contains|startsWith|regex;
+  value?: string;
+}
+```
+
+### PolicyAction
+```typescript
+{
+  type?: allow|deny|route|transform|log;
+  reason?: string;
+  to?: string;
+  mapping?: object;
+  level?: debug|info|warn|error;
+}
+```
+
+### EventTrace
+```typescript
+{
+  eventId?: string;
+  runId?: string;
+  path?: array;
+  totalDurationMs?: number;
+  status?: delivered|dropped|pending|error;
+  error?: string;
+}
+```
+
+### TraceHop
+```typescript
+{
+  node?: string;
+  timestamp?: string;
+  durationMs?: number;
+  policyId?: string;
+  action?: forward|deliver|drop|transform;
+}
+```
+
+### NetworkTopology
+```typescript
+{
+  nodes?: array;
+  contracts?: array;
+  bridges?: array;
+  timestamp?: string;
+}
+```
+
+## Authentication
+
+All authenticated endpoints require one of:
+- Cookie: Session cookie (set automatically after login)
+- Header: `Authorization: Bearer <token>`
+- Header: `X-API-Key: <api-key>`
+
+- Bearer token authentication (Authorization: Bearer <token>)
+- API key authentication (X-API-Key header)
+- WebSocket authentication via handshake
+
+## Event Primitive
+
+Events consist of three parts:
+- **Payload**: { type: string, data: any } - what happened
+- **Wrapper**: { id, runId, timestamp, source, target, causedBy, path[], boundary } - routing metadata
+- **Hash**: SHA-256 hash for security policy commitment
+
+## Boundary Types
+
+Events are classified by boundary:
+- **intra**: Within a sandbox (internal communication)
+- **inter**: Between sandboxes (service-to-service)
+- **extra**: External systems (via bridges)
+
+## Node Types
+
+Four types of nodes can register:
+- **service**: Backend services (identity, catalog, etc.)
+- **assistant**: AI assistants
+- **sandbox**: Workflow execution sandboxes
+- **bridge**: External system connectors
+
+## Policy Actions
+
+Routing policies support these actions:
+- **allow**: Allow event to proceed
+- **deny**: Block event (optional reason)
+- **route**: Redirect to different target
+- **transform**: Transform event data
+- **log**: Log event at specified level
+
+## WebSocket Events
+
+Client events:
+- node:register, node:heartbeat, node:unregister
+- event:send
+- contract:create
+- sdn:watch, sdn:unwatch, sdn:topology
+
+Server events:
+- network:node:joined, network:node:left
+- event:received
+- sdn:event
+
+## Telemetry
+
+The Network Service emits comprehensive telemetry via @symbia/logging-client:
+
+**Metrics:**
+- Event routing: network.event.routed, network.event.dropped, network.event.latency_ms
+- Node lifecycle: network.node.registered, network.node.unregistered, network.node.heartbeat
+- Contracts: network.contract.created, network.contract.deleted, network.contract.expired
+- Bridges: network.bridge.registered, network.bridge.deleted, network.bridge.active_count
+- Policies: network.policy.evaluated, network.policy.denied, network.policy.evaluation_latency_ms
+- WebSocket: network.socket.connected, network.socket.disconnected
+- SDN: network.sdn.watch.subscribed, network.sdn.watch.active_count
+
+**Events:**
+- Lifecycle: network.service.started, network.service.stopped
+- Routing: network.event.routed, network.event.dropped, network.event.delivery_failed
+- Security: network.security.hash_failed, network.agent.authenticated
+
+## Documentation
+
+- OpenAPI: /docs/openapi.json
+- LLM summary: /docs/llms.txt

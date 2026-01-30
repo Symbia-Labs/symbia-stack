@@ -1,0 +1,78 @@
+# Symbia Network Service API
+
+> Event routing, policy enforcement, and SoftSDN observability API for the Symbia ecosystem.
+
+## Overview
+
+Event routing, policy enforcement, and SoftSDN observability for the Symbia ecosystem.
+
+- Node registration and service discovery
+- Contract-based event routing between nodes
+- Policy-driven event filtering (allow/deny/route/transform)
+- Hash-based security policy commitment
+- Bridge management for external system integration
+- SoftSDN observability API for assistants
+- WebSocket support for real-time event delivery
+
+## API Base URL
+
+Use /api as the base path for all endpoints.
+
+## Quick Reference
+
+- POST /api/registry/nodes - Register a new node
+- GET /api/registry/nodes - List all nodes
+- GET /api/registry/nodes/{id} - Get a specific node
+- DELETE /api/registry/nodes/{id} - Unregister a node
+- POST /api/registry/nodes/{id}/heartbeat - Send heartbeat
+- GET /api/registry/nodes/capability/{capability} - Find nodes by capability
+- GET /api/registry/nodes/type/{type} - Find nodes by type
+- POST /api/registry/contracts - Create a contract
+- GET /api/registry/contracts - List contracts
+- DELETE /api/registry/contracts/{id} - Delete a contract
+- POST /api/registry/bridges - Register a bridge
+- GET /api/registry/bridges - List bridges
+- GET /api/registry/bridges/{id} - Get a bridge
+- PATCH /api/registry/bridges/{id} - Update bridge status
+- DELETE /api/registry/bridges/{id} - Delete a bridge
+- POST /api/events - Send an event
+- GET /api/events - Get recent events
+- GET /api/events/{id}/trace - Get event trace
+- GET /api/events/traces/{runId} - Get traces for a run
+- POST /api/events/hash - Compute event hash
+- GET /api/events/stats - Get routing statistics
+- POST /api/policies - Create a policy
+- GET /api/policies - List policies
+- GET /api/policies/{id} - Get a policy
+- PATCH /api/policies/{id} - Update a policy
+- DELETE /api/policies/{id} - Delete a policy
+- POST /api/policies/test - Test policy evaluation
+- GET /api/sdn/topology - Get network topology
+- GET /api/sdn/summary - Get network summary
+- GET /api/sdn/trace/{eventId} - Trace an event
+- GET /api/sdn/traces/{runId} - Get traces for a run
+- GET /api/sdn/flow/{runId} - Get event flow
+- GET /api/sdn/policies - Get policies (read-only)
+- POST /api/sdn/simulate - Simulate event routing
+- GET /api/sdn/graph - Get network graph
+
+## Authentication
+
+Methods supported:
+- Bearer token (Authorization: Bearer <token>)
+- API key (X-API-Key header)
+- Session cookie
+
+- Bearer token authentication (Authorization: Bearer <token>)
+- API key authentication (X-API-Key header)
+- WebSocket authentication via handshake
+
+## Custom Headers
+
+- X-Org-Id: Organization ID for multi-tenant scoping
+- X-Service-Id: Service identifier for request routing
+
+## Documentation
+
+- OpenAPI: /docs/openapi.json
+- Full docs: /docs/llms-full.txt

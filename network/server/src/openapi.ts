@@ -1,0 +1,662 @@
+/**
+ * Network Service OpenAPI Specification
+ *
+ * Defines the API contract for the Network Service.
+ */
+
+import type { OpenAPIV3 } from 'openapi-types';
+
+export const apiDocumentation: OpenAPIV3.Document = {
+  openapi: '3.0.3',
+  info: {
+    title: 'Symbia Network Service API',
+    version: '1.0.0',
+    description:
+      'Event routing, policy enforcement, and SoftSDN observability API for the Symbia ecosystem.',
+  },
+  servers: [{ url: '/api', description: 'API Base URL' }],
+  tags: [
+    { name: 'Registry', description: 'Node registration and discovery' },
+    { name: 'Contracts', description: 'Node-to-node communication contracts' },
+    { name: 'Bridges', description: 'External system bridges' },
+    { name: 'Events', description: 'Event routing and tracing' },
+    { name: 'Policies', description: 'Routing policy management' },
+    { name: 'SDN', description: 'SoftSDN observability (read-only)' },
+  ],
+  security: [
+    { bearerAuth: [] },
+    { apiKeyAuth: [] },
+    { cookieAuth: [] },
+  ],
+  paths: {
+    '/registry/nodes': {
+      post: {
+        tags: ['Registry'],
+        summary: 'Register a new node',
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: { $ref: '#/components/schemas/NodeRegistration' },
+            },
+          },
+        },
+        responses: {
+          '201': {
+            description: 'Node registered',
+            content: {
+              'application/json': {
+                schema: { $ref: '#/components/schemas/NetworkNode' },
+              },
+            },
+          },
+          '400': { description: 'Invalid input' },
+        },
+      },
+      get: {
+        tags: ['Registry'],
+        summary: 'List all nodes',
+        responses: {
+          '200': {
+            description: 'List of nodes',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    nodes: { type: 'array', items: { $ref: '#/components/schemas/NetworkNode' } },
+                    count: { type: 'integer' },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    },
+    '/registry/nodes/{id}': {
+      get: {
+        tags: ['Registry'],
+        summary: 'Get a specific node',
+        parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string' } }],
+        responses: {
+          '200': {
+            description: 'Node details',
+            content: { 'application/json': { schema: { $ref: '#/components/schemas/NetworkNode' } } },
+          },
+          '404': { description: 'Node not found' },
+        },
+      },
+      delete: {
+        tags: ['Registry'],
+        summary: 'Unregister a node',
+        parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string' } }],
+        responses: {
+          '200': { description: 'Node unregistered' },
+          '404': { description: 'Node not found' },
+        },
+      },
+    },
+    '/registry/nodes/{id}/heartbeat': {
+      post: {
+        tags: ['Registry'],
+        summary: 'Send heartbeat',
+        parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string' } }],
+        responses: {
+          '200': { description: 'Heartbeat recorded' },
+          '404': { description: 'Node not found' },
+        },
+      },
+    },
+    '/registry/nodes/capability/{capability}': {
+      get: {
+        tags: ['Registry'],
+        summary: 'Find nodes by capability',
+        parameters: [{ name: 'capability', in: 'path', required: true, schema: { type: 'string' } }],
+        responses: {
+          '200': { description: 'Nodes with capability' },
+        },
+      },
+    },
+    '/registry/nodes/type/{type}': {
+      get: {
+        tags: ['Registry'],
+        summary: 'Find nodes by type',
+        parameters: [
+          {
+            name: 'type',
+            in: 'path',
+            required: true,
+            schema: { type: 'string', enum: ['service', 'assistant', 'sandbox', 'bridge', 'client'] },
+          },
+        ],
+        responses: { '200': { description: 'Nodes of type' } },
+      },
+    },
+    '/registry/contracts': {
+      post: {
+        tags: ['Contracts'],
+        summary: 'Create a contract',
+        requestBody: {
+          required: true,
+          content: { 'application/json': { schema: { $ref: '#/components/schemas/ContractCreate' } } },
+        },
+        responses: {
+          '201': {
+            description: 'Contract created',
+            content: { 'application/json': { schema: { $ref: '#/components/schemas/NodeContract' } } },
+          },
+          '400': { description: 'Invalid input' },
+        },
+      },
+      get: {
+        tags: ['Contracts'],
+        summary: 'List contracts',
+        parameters: [{ name: 'nodeId', in: 'query', schema: { type: 'string' } }],
+        responses: { '200': { description: 'List of contracts' } },
+      },
+    },
+    '/registry/contracts/{id}': {
+      delete: {
+        tags: ['Contracts'],
+        summary: 'Delete a contract',
+        parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string' } }],
+        responses: { '200': { description: 'Contract deleted' }, '404': { description: 'Not found' } },
+      },
+    },
+    '/registry/bridges': {
+      post: {
+        tags: ['Bridges'],
+        summary: 'Register a bridge',
+        requestBody: {
+          required: true,
+          content: { 'application/json': { schema: { $ref: '#/components/schemas/BridgeCreate' } } },
+        },
+        responses: {
+          '201': {
+            description: 'Bridge registered',
+            content: { 'application/json': { schema: { $ref: '#/components/schemas/NetworkBridge' } } },
+          },
+        },
+      },
+      get: {
+        tags: ['Bridges'],
+        summary: 'List bridges',
+        responses: { '200': { description: 'List of bridges' } },
+      },
+    },
+    '/registry/bridges/{id}': {
+      get: {
+        tags: ['Bridges'],
+        summary: 'Get a bridge',
+        parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string' } }],
+        responses: { '200': { description: 'Bridge details' }, '404': { description: 'Not found' } },
+      },
+      patch: {
+        tags: ['Bridges'],
+        summary: 'Update bridge status',
+        parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string' } }],
+        requestBody: {
+          content: {
+            'application/json': {
+              schema: { type: 'object', properties: { active: { type: 'boolean' } } },
+            },
+          },
+        },
+        responses: { '200': { description: 'Bridge updated' } },
+      },
+      delete: {
+        tags: ['Bridges'],
+        summary: 'Delete a bridge',
+        parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string' } }],
+        responses: { '200': { description: 'Bridge deleted' } },
+      },
+    },
+    '/events': {
+      post: {
+        tags: ['Events'],
+        summary: 'Send an event',
+        requestBody: {
+          required: true,
+          content: { 'application/json': { schema: { $ref: '#/components/schemas/EventCreate' } } },
+        },
+        responses: {
+          '202': {
+            description: 'Event accepted',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    eventId: { type: 'string' },
+                    trace: { $ref: '#/components/schemas/EventTrace' },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+      get: {
+        tags: ['Events'],
+        summary: 'Get recent events',
+        parameters: [
+          { name: 'limit', in: 'query', schema: { type: 'integer', default: 100 } },
+          { name: 'runId', in: 'query', schema: { type: 'string' } },
+        ],
+        responses: { '200': { description: 'List of events' } },
+      },
+    },
+    '/events/{id}/trace': {
+      get: {
+        tags: ['Events'],
+        summary: 'Get event trace',
+        parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string' } }],
+        responses: {
+          '200': {
+            description: 'Event trace',
+            content: { 'application/json': { schema: { $ref: '#/components/schemas/EventTrace' } } },
+          },
+          '404': { description: 'Trace not found' },
+        },
+      },
+    },
+    '/events/traces/{runId}': {
+      get: {
+        tags: ['Events'],
+        summary: 'Get traces for a run',
+        parameters: [{ name: 'runId', in: 'path', required: true, schema: { type: 'string' } }],
+        responses: { '200': { description: 'Traces for run' } },
+      },
+    },
+    '/events/hash': {
+      post: {
+        tags: ['Events'],
+        summary: 'Compute event hash',
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                required: ['payload', 'source', 'runId'],
+                properties: {
+                  payload: { $ref: '#/components/schemas/EventPayload' },
+                  source: { type: 'string' },
+                  runId: { type: 'string' },
+                  boundary: { type: 'string', enum: ['intra', 'inter', 'extra'] },
+                },
+              },
+            },
+          },
+        },
+        responses: { '200': { description: 'Hash computed' } },
+      },
+    },
+    '/events/stats': {
+      get: {
+        tags: ['Events'],
+        summary: 'Get routing statistics',
+        responses: { '200': { description: 'Routing stats' } },
+      },
+    },
+    '/policies': {
+      post: {
+        tags: ['Policies'],
+        summary: 'Create a policy',
+        requestBody: {
+          required: true,
+          content: { 'application/json': { schema: { $ref: '#/components/schemas/PolicyCreate' } } },
+        },
+        responses: {
+          '201': {
+            description: 'Policy created',
+            content: { 'application/json': { schema: { $ref: '#/components/schemas/RoutingPolicy' } } },
+          },
+        },
+      },
+      get: {
+        tags: ['Policies'],
+        summary: 'List policies',
+        responses: { '200': { description: 'List of policies' } },
+      },
+    },
+    '/policies/{id}': {
+      get: {
+        tags: ['Policies'],
+        summary: 'Get a policy',
+        parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string' } }],
+        responses: { '200': { description: 'Policy details' }, '404': { description: 'Not found' } },
+      },
+      patch: {
+        tags: ['Policies'],
+        summary: 'Update a policy',
+        parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string' } }],
+        responses: { '200': { description: 'Policy updated' } },
+      },
+      delete: {
+        tags: ['Policies'],
+        summary: 'Delete a policy',
+        parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string' } }],
+        responses: { '200': { description: 'Policy deleted' } },
+      },
+    },
+    '/policies/test': {
+      post: {
+        tags: ['Policies'],
+        summary: 'Test policy evaluation',
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                required: ['payload', 'source', 'runId'],
+                properties: {
+                  payload: { $ref: '#/components/schemas/EventPayload' },
+                  source: { type: 'string' },
+                  runId: { type: 'string' },
+                  boundary: { type: 'string' },
+                },
+              },
+            },
+          },
+        },
+        responses: { '200': { description: 'Evaluation result' } },
+      },
+    },
+    '/sdn/topology': {
+      get: {
+        tags: ['SDN'],
+        summary: 'Get network topology',
+        responses: {
+          '200': {
+            description: 'Network topology',
+            content: { 'application/json': { schema: { $ref: '#/components/schemas/NetworkTopology' } } },
+          },
+        },
+      },
+    },
+    '/sdn/summary': {
+      get: {
+        tags: ['SDN'],
+        summary: 'Get network summary',
+        responses: { '200': { description: 'Network summary' } },
+      },
+    },
+    '/sdn/trace/{eventId}': {
+      get: {
+        tags: ['SDN'],
+        summary: 'Trace an event',
+        parameters: [{ name: 'eventId', in: 'path', required: true, schema: { type: 'string' } }],
+        responses: { '200': { description: 'Event trace' }, '404': { description: 'Not found' } },
+      },
+    },
+    '/sdn/traces/{runId}': {
+      get: {
+        tags: ['SDN'],
+        summary: 'Get traces for a run',
+        parameters: [{ name: 'runId', in: 'path', required: true, schema: { type: 'string' } }],
+        responses: { '200': { description: 'Traces for run' } },
+      },
+    },
+    '/sdn/flow/{runId}': {
+      get: {
+        tags: ['SDN'],
+        summary: 'Get event flow',
+        parameters: [
+          { name: 'runId', in: 'path', required: true, schema: { type: 'string' } },
+          { name: 'limit', in: 'query', schema: { type: 'integer', default: 500 } },
+        ],
+        responses: { '200': { description: 'Event flow graph' } },
+      },
+    },
+    '/sdn/policies': {
+      get: {
+        tags: ['SDN'],
+        summary: 'Get policies (read-only)',
+        responses: { '200': { description: 'List of policies' } },
+      },
+    },
+    '/sdn/simulate': {
+      post: {
+        tags: ['SDN'],
+        summary: 'Simulate event routing',
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                required: ['payload', 'source', 'runId'],
+                properties: {
+                  payload: { $ref: '#/components/schemas/EventPayload' },
+                  source: { type: 'string' },
+                  runId: { type: 'string' },
+                  target: { type: 'string' },
+                  boundary: { type: 'string', enum: ['intra', 'inter', 'extra'] },
+                },
+              },
+            },
+          },
+        },
+        responses: { '200': { description: 'Simulation result' } },
+      },
+    },
+    '/sdn/graph': {
+      get: {
+        tags: ['SDN'],
+        summary: 'Get network graph',
+        responses: { '200': { description: 'Network graph' } },
+      },
+    },
+  },
+  components: {
+    securitySchemes: {
+      bearerAuth: {
+        type: 'http',
+        scheme: 'bearer',
+        bearerFormat: 'JWT',
+        description: 'JWT token from Identity Service',
+      },
+      apiKeyAuth: {
+        type: 'apiKey',
+        in: 'header',
+        name: 'X-API-Key',
+        description: 'API key from Identity Service',
+      },
+      cookieAuth: {
+        type: 'apiKey',
+        in: 'cookie',
+        name: 'token',
+        description: 'Session cookie from Identity Service',
+      },
+    },
+    schemas: {
+      EventPayload: {
+        type: 'object',
+        required: ['type', 'data'],
+        properties: {
+          type: { type: 'string' },
+          data: {},
+        },
+      },
+      EventWrapper: {
+        type: 'object',
+        properties: {
+          id: { type: 'string' },
+          runId: { type: 'string' },
+          timestamp: { type: 'string', format: 'date-time' },
+          source: { type: 'string' },
+          target: { type: 'string' },
+          causedBy: { type: 'string' },
+          path: { type: 'array', items: { type: 'string' } },
+          boundary: { type: 'string', enum: ['intra', 'inter', 'extra'] },
+        },
+      },
+      SandboxEvent: {
+        type: 'object',
+        properties: {
+          payload: { $ref: '#/components/schemas/EventPayload' },
+          wrapper: { $ref: '#/components/schemas/EventWrapper' },
+          hash: { type: 'string' },
+        },
+      },
+      EventCreate: {
+        type: 'object',
+        required: ['payload', 'source', 'runId'],
+        properties: {
+          payload: { $ref: '#/components/schemas/EventPayload' },
+          source: { type: 'string' },
+          runId: { type: 'string' },
+          target: { type: 'string' },
+          causedBy: { type: 'string' },
+          boundary: { type: 'string', enum: ['intra', 'inter', 'extra'] },
+        },
+      },
+      NetworkNode: {
+        type: 'object',
+        properties: {
+          id: { type: 'string' },
+          name: { type: 'string' },
+          type: { type: 'string', enum: ['service', 'assistant', 'sandbox', 'bridge', 'client'] },
+          capabilities: { type: 'array', items: { type: 'string' } },
+          endpoint: { type: 'string' },
+          socketId: { type: 'string' },
+          registeredAt: { type: 'string', format: 'date-time' },
+          lastHeartbeat: { type: 'string', format: 'date-time' },
+          metadata: { type: 'object' },
+        },
+      },
+      NodeRegistration: {
+        type: 'object',
+        required: ['id', 'name', 'type', 'capabilities', 'endpoint'],
+        properties: {
+          id: { type: 'string' },
+          name: { type: 'string' },
+          type: { type: 'string', enum: ['service', 'assistant', 'sandbox', 'bridge', 'client'] },
+          capabilities: { type: 'array', items: { type: 'string' } },
+          endpoint: { type: 'string' },
+          metadata: { type: 'object' },
+        },
+      },
+      NodeContract: {
+        type: 'object',
+        properties: {
+          id: { type: 'string' },
+          from: { type: 'string' },
+          to: { type: 'string' },
+          allowedEventTypes: { type: 'array', items: { type: 'string' } },
+          boundaries: { type: 'array', items: { type: 'string', enum: ['intra', 'inter', 'extra'] } },
+          createdAt: { type: 'string', format: 'date-time' },
+          expiresAt: { type: 'string', format: 'date-time' },
+        },
+      },
+      ContractCreate: {
+        type: 'object',
+        required: ['from', 'to', 'allowedEventTypes', 'boundaries'],
+        properties: {
+          from: { type: 'string' },
+          to: { type: 'string' },
+          allowedEventTypes: { type: 'array', items: { type: 'string' } },
+          boundaries: { type: 'array', items: { type: 'string', enum: ['intra', 'inter', 'extra'] } },
+          expiresAt: { type: 'string', format: 'date-time' },
+        },
+      },
+      NetworkBridge: {
+        type: 'object',
+        properties: {
+          id: { type: 'string' },
+          name: { type: 'string' },
+          type: { type: 'string', enum: ['webhook', 'websocket', 'grpc', 'custom'] },
+          endpoint: { type: 'string' },
+          eventTypes: { type: 'array', items: { type: 'string' } },
+          active: { type: 'boolean' },
+          config: { type: 'object' },
+          createdAt: { type: 'string', format: 'date-time' },
+        },
+      },
+      BridgeCreate: {
+        type: 'object',
+        required: ['name', 'type', 'endpoint', 'eventTypes'],
+        properties: {
+          name: { type: 'string' },
+          type: { type: 'string', enum: ['webhook', 'websocket', 'grpc', 'custom'] },
+          endpoint: { type: 'string' },
+          eventTypes: { type: 'array', items: { type: 'string' } },
+          config: { type: 'object' },
+        },
+      },
+      RoutingPolicy: {
+        type: 'object',
+        properties: {
+          id: { type: 'string' },
+          name: { type: 'string' },
+          priority: { type: 'integer' },
+          conditions: { type: 'array', items: { $ref: '#/components/schemas/PolicyCondition' } },
+          action: { $ref: '#/components/schemas/PolicyAction' },
+          enabled: { type: 'boolean' },
+          createdAt: { type: 'string', format: 'date-time' },
+        },
+      },
+      PolicyCreate: {
+        type: 'object',
+        required: ['name', 'priority', 'conditions', 'action'],
+        properties: {
+          name: { type: 'string' },
+          priority: { type: 'integer' },
+          conditions: { type: 'array', items: { $ref: '#/components/schemas/PolicyCondition' } },
+          action: { $ref: '#/components/schemas/PolicyAction' },
+        },
+      },
+      PolicyCondition: {
+        type: 'object',
+        properties: {
+          field: { type: 'string', enum: ['source', 'target', 'eventType', 'boundary', 'runId'] },
+          operator: { type: 'string', enum: ['eq', 'neq', 'contains', 'startsWith', 'regex'] },
+          value: { type: 'string' },
+        },
+      },
+      PolicyAction: {
+        type: 'object',
+        properties: {
+          type: { type: 'string', enum: ['allow', 'deny', 'route', 'transform', 'log'] },
+          reason: { type: 'string' },
+          to: { type: 'string' },
+          mapping: { type: 'object' },
+          level: { type: 'string', enum: ['debug', 'info', 'warn', 'error'] },
+        },
+      },
+      EventTrace: {
+        type: 'object',
+        properties: {
+          eventId: { type: 'string' },
+          runId: { type: 'string' },
+          path: { type: 'array', items: { $ref: '#/components/schemas/TraceHop' } },
+          totalDurationMs: { type: 'number' },
+          status: { type: 'string', enum: ['delivered', 'dropped', 'pending', 'error'] },
+          error: { type: 'string' },
+        },
+      },
+      TraceHop: {
+        type: 'object',
+        properties: {
+          node: { type: 'string' },
+          timestamp: { type: 'string', format: 'date-time' },
+          durationMs: { type: 'number' },
+          policyId: { type: 'string' },
+          action: { type: 'string', enum: ['forward', 'deliver', 'drop', 'transform'] },
+        },
+      },
+      NetworkTopology: {
+        type: 'object',
+        properties: {
+          nodes: { type: 'array', items: { $ref: '#/components/schemas/NetworkNode' } },
+          contracts: { type: 'array', items: { $ref: '#/components/schemas/NodeContract' } },
+          bridges: { type: 'array', items: { $ref: '#/components/schemas/NetworkBridge' } },
+          timestamp: { type: 'string', format: 'date-time' },
+        },
+      },
+    },
+  },
+};

@@ -1,0 +1,359 @@
+# Symbia Logging Service API - Complete Documentation
+
+> Comprehensive observability platform supporting Logs, Metrics, Traces, and Objects. Requests are scoped by X-Org-Id, X-Service-Id, and X-Env headers.
+
+## Overview
+
+Comprehensive observability platform supporting Logs, Metrics, Traces, and Objects.
+
+- Log stream and entry management with structured logging
+- Metric definitions and time-series data point tracking
+- Distributed tracing with span correlation
+- Binary object and file management with metadata
+- Multi-tenant scoping with organization, service, and environment isolation
+- Data classification support (none|pii|phi|secret)
+
+## Custom Headers (optional)
+
+- **X-Org-Id**: Organization ID (required for multi-org users)
+- **X-Service-Id**: Service identifier
+- **X-Env**: Environment (dev|stage|prod)
+- **X-Data-Class**: Data classification (none|pii|phi|secret)
+- **X-Policy-Ref**: Policy reference string
+
+## API Reference
+
+Base URL: /api
+
+### Logs
+
+Log stream and entry management
+
+#### GET /api/logs/streams
+List all log streams
+
+Response: List of log streams
+
+#### POST /api/logs/streams
+Create a new log stream
+
+Response: Log stream created
+
+#### POST /api/logs/query
+Query log entries
+
+Request Body:
+```json
+{
+  "streamIds": [],
+  "startTime": "string",
+  "endTime": "string",
+  "level": "string",
+  "search": "string",
+  "limit": {},
+  "offset": {}
+}
+```
+
+Response: Log query results
+
+#### POST /api/logs/ingest
+Ingest log entries
+
+Request Body:
+```json
+{
+  "entries": []
+}
+```
+
+Response: Logs ingested
+
+### Metrics
+
+Metric definition and data point management
+
+#### GET /api/metrics
+List all metrics
+
+Response: List of metrics
+
+#### POST /api/metrics
+Create a new metric
+
+Request Body:
+```json
+{
+  "name": "string",
+  "metricType": "string",
+  "unit": "string",
+  "description": "string",
+  "labels": []
+}
+```
+
+Response: Metric created
+
+#### POST /api/metrics/query
+Query metric data points
+
+Request Body:
+```json
+{
+  "metricIds": [],
+  "startTime": "string",
+  "endTime": "string",
+  "labels": {},
+  "aggregation": "string",
+  "interval": "string",
+  "limit": {},
+  "offset": {}
+}
+```
+
+Response: Metric query results
+
+#### POST /api/metrics/ingest
+Ingest metric data points
+
+Request Body:
+```json
+{
+  "dataPoints": []
+}
+```
+
+Response: Data points ingested
+
+### Traces
+
+Distributed tracing and span management
+
+#### GET /api/traces
+List all traces
+
+Response: List of traces
+
+#### GET /api/traces/{traceId}/spans
+Get spans for a specific trace
+
+Path Parameters:
+- traceId: string
+
+Response: List of spans for the trace
+
+#### POST /api/traces/query
+Query traces
+
+Request Body:
+```json
+{
+  "serviceName": "string",
+  "operationName": "string",
+  "startTime": "string",
+  "endTime": "string",
+  "tags": {},
+  "minDurationMs": {},
+  "maxDurationMs": {},
+  "limit": {},
+  "offset": {}
+}
+```
+
+Response: Trace query results
+
+#### POST /api/traces/ingest
+Ingest trace spans
+
+Request Body:
+```json
+{
+  "spans": []
+}
+```
+
+Response: Spans ingested
+
+### Objects
+
+Binary object and file management
+
+#### GET /api/objects/streams
+List all object streams
+
+Response: List of object streams
+
+#### POST /api/objects/streams
+Create a new object stream
+
+Response: Object stream created
+
+#### POST /api/objects/query
+Query object entries
+
+Request Body:
+```json
+{
+  "streamIds": [],
+  "startTime": "string",
+  "endTime": "string",
+  "contentType": "string",
+  "minSize": {},
+  "maxSize": {},
+  "limit": {},
+  "offset": {}
+}
+```
+
+Response: Object query results
+
+#### POST /api/objects/ingest
+Register an object entry
+
+Request Body:
+```json
+{
+  "streamId": "string",
+  "filename": "string",
+  "contentType": "string",
+  "size": {},
+  "checksum": "string",
+  "storageUrl": "string",
+  "metadata": {}
+}
+```
+
+Response: Object registered
+
+### Assistant
+
+AI-powered log analysis and insights
+
+#### GET /api/assistant/config
+Get assistant configuration
+Returns the current configuration status of the log assistant, including whether LLM is configured and available capabilities.
+
+Response: Assistant configuration
+
+#### POST /api/assistant/summarize
+Summarize logs with AI
+Analyzes log entries and generates a natural language summary with actionable insights. Uses LLM when configured, falls back to local analysis otherwise.
+
+Request Body:
+```json
+{
+  "logIds": [],
+  "startTime": "string",
+  "endTime": "string",
+  "streamIds": [],
+  "level": "string",
+  "search": "string",
+  "limit": {}
+}
+```
+
+Response: Log summary with insights
+
+#### POST /api/assistant/analyze
+Analyze errors with AI
+Deep analysis of error logs to identify root causes and suggest remediation actions.
+
+Request Body:
+```json
+{
+  "logIds": [],
+  "startTime": "string",
+  "endTime": "string",
+  "streamIds": [],
+  "search": "string",
+  "limit": {}
+}
+```
+
+Response: Error analysis results
+
+#### POST /api/assistant/investigate
+Investigate a specific insight
+Deep-dive investigation into a specific insight from the summary. Returns detailed explanation, related logs, and suggested actions.
+
+Request Body:
+```json
+{
+  "insight": {},
+  "startTime": "string",
+  "endTime": "string",
+  "streamIds": [],
+  "level": "string",
+  "search": "string",
+  "limit": {}
+}
+```
+
+Response: Investigation results
+
+#### POST /api/assistant/group
+Group related logs by pattern
+Groups log entries by detected message patterns, normalizing IDs, timestamps, and numbers. Useful for identifying repeated issues.
+
+Request Body:
+```json
+{
+  "logIds": [],
+  "startTime": "string",
+  "endTime": "string",
+  "limit": {}
+}
+```
+
+Response: Grouped log patterns
+
+## Authentication
+
+All authenticated endpoints require one of:
+- Cookie: Session cookie (set automatically after login)
+- Header: `Authorization: Bearer <token>`
+- Header: `X-API-Key: <api-key>`
+
+- Cookie-based session authentication for browser clients
+- JWT introspection with Identity Service
+
+## Data Types
+
+The logging service supports four primary data types:
+
+**Logs**: Structured log entries organized into streams
+- Create streams to organize logs by application/component
+- Ingest log entries with timestamp, level, message, and attributes
+- Query logs by time range, level, search text, and stream
+
+**Metrics**: Time-series numeric data points
+- Define metrics with type (counter|gauge|histogram|summary)
+- Ingest data points with labels for multi-dimensional analysis
+- Query metrics with aggregation and grouping
+
+**Traces**: Distributed tracing for request correlation
+- Ingest spans with trace ID, parent relationships, and timing
+- Query traces by service, operation, duration, and tags
+- Retrieve all spans for a specific trace
+
+**Objects**: Binary object and file storage references
+- Create streams to organize objects by type
+- Register object metadata including storage URL and checksum
+- Query objects by time, content type, and size
+
+## Scoping Model
+
+All data is scoped by:
+- **Organization ID** (orgId): Multi-tenant isolation
+- **Service ID** (serviceId): Logical service grouping
+- **Environment** (env): dev, stage, or prod
+- **Data Class** (dataClass): Security classification
+- **Policy Ref** (policyRef): Compliance policy reference
+
+Queries automatically filter to the current scope based on headers.
+Super-admin users can override scoping for cross-org queries.
+
+## Documentation
+
+- OpenAPI: /docs/openapi.json
+- LLM summary: /docs/llms.txt

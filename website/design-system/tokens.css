@@ -1,0 +1,330 @@
+/**
+ * Symbia Control Center — Design Tokens
+ *
+ * Import this file at the root of your application.
+ * Tokens automatically switch based on [data-theme="light"] attribute.
+ *
+ * Usage:
+ *   <html data-theme="dark">  (default)
+ *   <html data-theme="light">
+ */
+
+:root {
+  /* ========================================
+     SURFACES
+  ======================================== */
+  --surface-base: #0d1117;
+  --surface-raised: #161b22;
+  --surface-overlay: #1c2129;
+  --surface-sunken: #080b0f;
+  --surface-highlight: #1f2a38;
+
+  /* ========================================
+     BORDERS
+  ======================================== */
+  --border-default: #30363d;
+  --border-muted: #21262d;
+  --border-emphasis: #3fb8af;
+
+  /* ========================================
+     TEXT
+  ======================================== */
+  --text-primary: #e6edf3;
+  --text-secondary: #8b949e;
+  --text-muted: #6e7681;
+  --text-link: #3fb8af;
+  --text-inverse: #0d1117;
+
+  /* ========================================
+     PRIMARY (Cyan/Teal)
+  ======================================== */
+  --primary-50: #e6faf8;
+  --primary-100: #b3f0eb;
+  --primary-200: #80e6dd;
+  --primary-300: #4ddbd0;
+  --primary-400: #26d1c4;
+  --primary-500: #3fb8af;
+  --primary-600: #0d9488;
+  --primary-700: #0a7c72;
+  --primary-800: #08645c;
+  --primary-900: #064d47;
+
+  /* ========================================
+     SEMANTIC
+  ======================================== */
+  --success: #3fb950;
+  --success-muted: #1a4d3a;
+  --warning: #d29922;
+  --warning-muted: #4a3d1a;
+  --error: #f85149;
+  --error-muted: #5c1a1a;
+  --info: #58a6ff;
+  --info-muted: #1a3d5c;
+
+  /* ========================================
+     NODE COLORS (Workflow Graph)
+  ======================================== */
+  --node-input: #3fb950;
+  --node-input-bg: rgba(63, 185, 80, 0.15);
+  --node-output: #f97316;
+  --node-output-bg: rgba(249, 115, 22, 0.15);
+  --node-llm: #ec4899;
+  --node-llm-bg: rgba(236, 72, 153, 0.15);
+  --node-router: #a855f7;
+  --node-router-bg: rgba(168, 85, 247, 0.15);
+  --node-tool: #06b6d4;
+  --node-tool-bg: rgba(6, 182, 212, 0.15);
+  --node-condition: #eab308;
+  --node-condition-bg: rgba(234, 179, 8, 0.15);
+  --node-recall: #8b5cf6;
+  --node-recall-bg: rgba(139, 92, 246, 0.15);
+  --node-say: #f472b6;
+  --node-say-bg: rgba(244, 114, 182, 0.15);
+  --node-think: #c084fc;
+  --node-think-bg: rgba(192, 132, 252, 0.15);
+
+  /* ========================================
+     BADGE COLORS
+  ======================================== */
+  --badge-builtin-bg: #1a4d47;
+  --badge-builtin-text: #3fb8af;
+  --badge-active-bg: #1a4d3a;
+  --badge-active-text: #3fb950;
+  --badge-bootstrap-bg: #4a3d1a;
+  --badge-bootstrap-text: #d29922;
+  --badge-rules-bg: #1a3d5c;
+  --badge-rules-text: #58a6ff;
+  --badge-capabilities-bg: #3d1a4d;
+  --badge-capabilities-text: #a855f7;
+
+  /* ========================================
+     LOG LEVELS
+  ======================================== */
+  --log-debug: #8b949e;
+  --log-debug-bg: #21262d;
+  --log-info: #58a6ff;
+  --log-info-bg: #1a3d5c;
+  --log-warn: #d29922;
+  --log-warn-bg: #4a3d1a;
+  --log-error: #f85149;
+  --log-error-bg: #5c1a1a;
+
+  /* ========================================
+     TYPOGRAPHY
+  ======================================== */
+  --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --font-mono: 'JetBrains Mono', 'Fira Code', 'SF Mono', Consolas, monospace;
+
+  --text-xs: 11px;
+  --text-sm: 13px;
+  --text-base: 14px;
+  --text-md: 15px;
+  --text-lg: 18px;
+  --text-xl: 24px;
+  --text-2xl: 32px;
+
+  --font-normal: 400;
+  --font-medium: 500;
+  --font-semibold: 600;
+  --font-bold: 700;
+
+  --leading-tight: 1.25;
+  --leading-snug: 1.4;
+  --leading-normal: 1.5;
+  --leading-relaxed: 1.6;
+
+  /* ========================================
+     SPACING
+  ======================================== */
+  --space-0: 0;
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-10: 40px;
+  --space-12: 48px;
+  --space-16: 64px;
+
+  /* ========================================
+     BORDER RADIUS
+  ======================================== */
+  --radius-none: 0;
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 8px;
+  --radius-xl: 12px;
+  --radius-2xl: 16px;
+  --radius-full: 9999px;
+
+  /* ========================================
+     SHADOWS
+  ======================================== */
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
+  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.4);
+  --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.5);
+  --shadow-xl: 0 16px 48px rgba(0, 0, 0, 0.6);
+  --shadow-glow: 0 0 20px rgba(63, 184, 175, 0.15);
+  --shadow-glow-strong: 0 0 30px rgba(63, 184, 175, 0.25);
+
+  /* ========================================
+     TRANSITIONS
+  ======================================== */
+  --transition-fast: 150ms ease;
+  --transition-base: 200ms ease;
+  --transition-slow: 300ms ease;
+  --transition-colors: color 150ms ease, background-color 150ms ease, border-color 150ms ease;
+
+  /* ========================================
+     Z-INDEX
+  ======================================== */
+  --z-base: 0;
+  --z-dropdown: 100;
+  --z-sticky: 200;
+  --z-overlay: 300;
+  --z-modal: 400;
+  --z-popover: 500;
+  --z-tooltip: 600;
+  --z-toast: 700;
+
+  /* ========================================
+     LAYOUT
+  ======================================== */
+  --sidebar-width: 220px;
+  --sidebar-collapsed: 56px;
+  --header-height: 56px;
+  --content-max-width: 1400px;
+
+  /* ========================================
+     BREAKPOINTS (for reference in JS)
+  ======================================== */
+  --breakpoint-sm: 640px;
+  --breakpoint-md: 768px;
+  --breakpoint-lg: 1024px;
+  --breakpoint-xl: 1280px;
+  --breakpoint-2xl: 1536px;
+}
+
+/* ==========================================
+   LIGHT THEME OVERRIDES
+========================================== */
+[data-theme="light"] {
+  /* Surfaces */
+  --surface-base: #f6f8fa;
+  --surface-raised: #ffffff;
+  --surface-overlay: #ffffff;
+  --surface-sunken: #eaeef2;
+  --surface-highlight: #e8ecf0;
+
+  /* Borders */
+  --border-default: #d1d5da;
+  --border-muted: #e1e4e8;
+  --border-emphasis: #0d9488;
+
+  /* Text */
+  --text-primary: #1f2328;
+  --text-secondary: #57606a;
+  --text-muted: #8b949e;
+  --text-link: #0d9488;
+  --text-inverse: #ffffff;
+
+  /* Semantic */
+  --success: #1a7f37;
+  --success-muted: #dafbe1;
+  --warning: #9a6700;
+  --warning-muted: #fff8c5;
+  --error: #cf222e;
+  --error-muted: #ffebe9;
+  --info: #0969da;
+  --info-muted: #ddf4ff;
+
+  /* Badges */
+  --badge-builtin-bg: #ddf4ff;
+  --badge-builtin-text: #0969da;
+  --badge-active-bg: #dafbe1;
+  --badge-active-text: #1a7f37;
+  --badge-bootstrap-bg: #fff8c5;
+  --badge-bootstrap-text: #9a6700;
+  --badge-rules-bg: #ddf4ff;
+  --badge-rules-text: #0969da;
+  --badge-capabilities-bg: #fbefff;
+  --badge-capabilities-text: #8250df;
+
+  /* Log levels - darker text for light backgrounds */
+  --log-debug: #57606a;
+  --log-debug-bg: #eaeef2;
+  --log-info: #0550ae;
+  --log-info-bg: #ddf4ff;
+  --log-warn: #7a4c00;
+  --log-warn-bg: #fff8c5;
+  --log-error: #a40e26;
+  --log-error-bg: #ffebe9;
+
+  /* Node backgrounds (lighter for light mode) */
+  --node-input-bg: rgba(26, 127, 55, 0.1);
+  --node-output-bg: rgba(234, 88, 12, 0.1);
+  --node-llm-bg: rgba(219, 39, 119, 0.1);
+  --node-router-bg: rgba(147, 51, 234, 0.1);
+  --node-tool-bg: rgba(8, 145, 178, 0.1);
+  --node-condition-bg: rgba(202, 138, 4, 0.1);
+  --node-recall-bg: rgba(124, 58, 237, 0.1);
+  --node-say-bg: rgba(236, 72, 153, 0.1);
+  --node-think-bg: rgba(168, 85, 247, 0.1);
+
+  /* Shadows (softer for light mode) */
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.05);
+  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.08);
+  --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.12);
+  --shadow-xl: 0 16px 48px rgba(0, 0, 0, 0.15);
+  --shadow-glow: 0 0 20px rgba(13, 148, 136, 0.1);
+}
+
+/* ==========================================
+   UTILITY CLASSES
+========================================== */
+
+/* Text colors */
+.text-primary { color: var(--text-primary); }
+.text-secondary { color: var(--text-secondary); }
+.text-muted { color: var(--text-muted); }
+.text-link { color: var(--text-link); }
+.text-success { color: var(--success); }
+.text-warning { color: var(--warning); }
+.text-error { color: var(--error); }
+
+/* Node colors */
+.text-node-input { color: var(--node-input); }
+.text-node-output { color: var(--node-output); }
+.text-node-llm { color: var(--node-llm); }
+.text-node-router { color: var(--node-router); }
+.text-node-tool { color: var(--node-tool); }
+.text-node-condition { color: var(--node-condition); }
+
+/* Backgrounds */
+.bg-base { background-color: var(--surface-base); }
+.bg-raised { background-color: var(--surface-raised); }
+.bg-overlay { background-color: var(--surface-overlay); }
+.bg-sunken { background-color: var(--surface-sunken); }
+.bg-highlight { background-color: var(--surface-highlight); }
+
+/* Borders */
+.border-default { border-color: var(--border-default); }
+.border-muted { border-color: var(--border-muted); }
+.border-emphasis { border-color: var(--border-emphasis); }
+
+/* Font families */
+.font-sans { font-family: var(--font-sans); }
+.font-mono { font-family: var(--font-mono); }
+
+/* Focus ring utility */
+.focus-ring:focus-visible {
+  outline: 2px solid var(--primary-500);
+  outline-offset: 2px;
+}
+
+/* Transition utilities */
+.transition-fast { transition: var(--transition-fast); }
+.transition-base { transition: var(--transition-base); }
+.transition-colors { transition: var(--transition-colors); }

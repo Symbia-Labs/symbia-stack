@@ -1,0 +1,311 @@
+[
+  {
+    "id": "ctx-integrations-provider",
+    "key": "context/integrations.provider",
+    "name": "Provider Context",
+    "description": "Provider configuration context for LLM integrations. Provides access to provider settings and capabilities.",
+    "type": "context",
+    "status": "published",
+    "isBootstrap": true,
+    "tags": ["category:integrations", "context", "provider", "pack:Core"],
+    "orgId": null,
+    "accessPolicy": {
+      "visibility": "public",
+      "actions": {
+        "read": { "anyOf": ["public"] },
+        "write": { "anyOf": ["role:admin"] }
+      }
+    },
+    "metadata": {
+      "version": "1.0.0",
+      "contextId": "integrations.provider",
+      "schema": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "enum": ["openai", "huggingface", "anthropic"],
+            "description": "Provider identifier"
+          },
+          "displayName": {
+            "type": "string",
+            "description": "Human-readable provider name"
+          },
+          "defaultModel": {
+            "type": "string",
+            "description": "Default model for this provider"
+          },
+          "baseUrl": {
+            "type": "string",
+            "description": "API base URL"
+          },
+          "supportedOperations": {
+            "type": "array",
+            "items": { "type": "string" },
+            "description": "Supported operation types"
+          },
+          "rateLimits": {
+            "type": "object",
+            "properties": {
+              "requestsPerMinute": { "type": "number" },
+              "tokensPerMinute": { "type": "number" }
+            }
+          }
+        },
+        "required": ["name", "defaultModel"]
+      },
+      "defaults": {
+        "openai": {
+          "name": "openai",
+          "displayName": "OpenAI",
+          "defaultModel": "gpt-4o-mini",
+          "baseUrl": "https://api.openai.com/v1",
+          "supportedOperations": ["chat.completions", "embeddings"],
+          "rateLimits": { "requestsPerMinute": 60, "tokensPerMinute": 40000 }
+        },
+        "huggingface": {
+          "name": "huggingface",
+          "displayName": "HuggingFace",
+          "defaultModel": "meta-llama/Llama-3.2-3B-Instruct",
+          "baseUrl": "https://router.huggingface.co",
+          "supportedOperations": ["chat.completions", "text.generation"],
+          "rateLimits": { "requestsPerMinute": 30, "tokensPerMinute": 20000 }
+        }
+      }
+    }
+  },
+  {
+    "id": "ctx-integrations-credentials",
+    "key": "context/integrations.credentials",
+    "name": "Credentials Context",
+    "description": "Credential availability context. Indicates which providers have credentials configured (never contains actual secrets).",
+    "type": "context",
+    "status": "published",
+    "isBootstrap": true,
+    "tags": ["category:integrations", "context", "credentials", "pack:Core"],
+    "orgId": null,
+    "accessPolicy": {
+      "visibility": "public",
+      "actions": {
+        "read": { "anyOf": ["public"] },
+        "write": { "anyOf": ["role:admin"] }
+      }
+    },
+    "metadata": {
+      "version": "1.0.0",
+      "contextId": "integrations.credentials",
+      "schema": {
+        "type": "object",
+        "properties": {
+          "hasOpenAI": {
+            "type": "boolean",
+            "description": "Whether OpenAI credentials are configured"
+          },
+          "hasHuggingFace": {
+            "type": "boolean",
+            "description": "Whether HuggingFace credentials are configured"
+          },
+          "hasAnthropic": {
+            "type": "boolean",
+            "description": "Whether Anthropic credentials are configured"
+          },
+          "openAIPrefix": {
+            "type": "string",
+            "description": "First few characters of OpenAI key (e.g., 'sk-proj-')"
+          },
+          "huggingFacePrefix": {
+            "type": "string",
+            "description": "First few characters of HuggingFace key (e.g., 'hf_')"
+          },
+          "defaultProvider": {
+            "type": "string",
+            "description": "Recommended provider based on available credentials"
+          }
+        }
+      },
+      "resolver": {
+        "type": "service",
+        "service": "integrations",
+        "endpoint": "/api/integrations/credentials/status"
+      }
+    }
+  },
+  {
+    "id": "ctx-integrations-model",
+    "key": "context/integrations.model",
+    "name": "Model Context",
+    "description": "Model selection context for dynamic model configuration in graphs.",
+    "type": "context",
+    "status": "published",
+    "isBootstrap": true,
+    "tags": ["category:integrations", "context", "model", "pack:Core"],
+    "orgId": null,
+    "accessPolicy": {
+      "visibility": "public",
+      "actions": {
+        "read": { "anyOf": ["public"] },
+        "write": { "anyOf": ["role:admin"] }
+      }
+    },
+    "metadata": {
+      "version": "1.0.0",
+      "contextId": "integrations.model",
+      "schema": {
+        "type": "object",
+        "properties": {
+          "provider": {
+            "type": "string",
+            "description": "Provider for this model"
+          },
+          "modelId": {
+            "type": "string",
+            "description": "Model identifier (e.g., gpt-4o-mini)"
+          },
+          "displayName": {
+            "type": "string",
+            "description": "Human-readable model name"
+          },
+          "contextWindow": {
+            "type": "number",
+            "description": "Maximum context length in tokens"
+          },
+          "maxOutputTokens": {
+            "type": "number",
+            "description": "Maximum output tokens"
+          },
+          "capabilities": {
+            "type": "array",
+            "items": { "type": "string" },
+            "description": "Model capabilities (e.g., 'tools', 'vision', 'json_mode')"
+          },
+          "pricing": {
+            "type": "object",
+            "properties": {
+              "inputPricePerMillion": { "type": "number" },
+              "outputPricePerMillion": { "type": "number" }
+            }
+          }
+        },
+        "required": ["provider", "modelId"]
+      }
+    }
+  },
+  {
+    "id": "ctx-integrations-usage",
+    "key": "context/integrations.usage",
+    "name": "Usage Tracking Context",
+    "description": "Accumulated usage tracking across graph execution. Tracks tokens and requests for cost estimation.",
+    "type": "context",
+    "status": "published",
+    "isBootstrap": true,
+    "tags": ["category:integrations", "context", "usage", "tracking", "pack:Core"],
+    "orgId": null,
+    "accessPolicy": {
+      "visibility": "public",
+      "actions": {
+        "read": { "anyOf": ["public"] },
+        "write": { "anyOf": ["role:admin"] }
+      }
+    },
+    "metadata": {
+      "version": "1.0.0",
+      "contextId": "integrations.usage",
+      "schema": {
+        "type": "object",
+        "properties": {
+          "totalPromptTokens": {
+            "type": "number",
+            "default": 0,
+            "description": "Total input tokens across all calls"
+          },
+          "totalCompletionTokens": {
+            "type": "number",
+            "default": 0,
+            "description": "Total output tokens across all calls"
+          },
+          "totalTokens": {
+            "type": "number",
+            "default": 0,
+            "description": "Total tokens (prompt + completion)"
+          },
+          "requestCount": {
+            "type": "number",
+            "default": 0,
+            "description": "Number of API requests made"
+          },
+          "estimatedCost": {
+            "type": "number",
+            "description": "Estimated cost in USD"
+          },
+          "byProvider": {
+            "type": "object",
+            "description": "Usage breakdown by provider",
+            "additionalProperties": {
+              "type": "object",
+              "properties": {
+                "promptTokens": { "type": "number" },
+                "completionTokens": { "type": "number" },
+                "requests": { "type": "number" }
+              }
+            }
+          }
+        }
+      },
+      "accumulator": true,
+      "resetOnExecution": true
+    }
+  },
+  {
+    "id": "ctx-integrations-config",
+    "key": "context/integrations.config",
+    "name": "Integrations Config Context",
+    "description": "Global configuration for integrations service including URLs and timeouts.",
+    "type": "context",
+    "status": "published",
+    "isBootstrap": true,
+    "tags": ["category:integrations", "context", "config", "pack:Core"],
+    "orgId": null,
+    "accessPolicy": {
+      "visibility": "public",
+      "actions": {
+        "read": { "anyOf": ["public"] },
+        "write": { "anyOf": ["role:admin"] }
+      }
+    },
+    "metadata": {
+      "version": "1.0.0",
+      "contextId": "integrations.config",
+      "schema": {
+        "type": "object",
+        "properties": {
+          "serviceUrl": {
+            "type": "string",
+            "default": "http://localhost:5007",
+            "description": "Integrations service URL"
+          },
+          "defaultTimeout": {
+            "type": "number",
+            "default": 60000,
+            "description": "Default request timeout in milliseconds"
+          },
+          "retryConfig": {
+            "type": "object",
+            "properties": {
+              "maxRetries": { "type": "number", "default": 3 },
+              "initialDelayMs": { "type": "number", "default": 1000 },
+              "maxDelayMs": { "type": "number", "default": 10000 }
+            }
+          },
+          "defaultProvider": {
+            "type": "string",
+            "default": "openai",
+            "description": "Default provider when not specified"
+          }
+        }
+      },
+      "environment": {
+        "serviceUrl": "INTEGRATIONS_SERVICE_URL"
+      }
+    }
+  }
+]

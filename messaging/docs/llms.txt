@@ -1,0 +1,69 @@
+# Symbia Messaging API
+
+> Real-time messaging bus for users, agents, and services.
+
+## Overview
+
+Real-time messaging bus for users, agents, and services with WebSocket support.
+
+- Real-time conversation management with WebSocket support
+- Message creation, editing, and deletion with full history
+- Control events for stream management (pause, resume, preempt, route)
+- Participant management with role-based permissions
+- Typing indicators and presence tracking
+- Multi-tenant scoping with organization and service isolation
+
+## API Base URL
+
+Use /api as the base path for all endpoints.
+
+## Quick Reference
+
+- GET /api/health - Health check
+- GET /api/bootstrap - Service bootstrap
+- POST /api/auth/login - Login (proxy to Identity)
+- POST /api/auth/logout - Logout (proxy to Identity)
+- GET /api/auth/session - Get session
+- GET /api/conversations - List conversations
+- POST /api/conversations - Create a conversation
+- GET /api/conversations/{id} - Get conversation
+- PATCH /api/conversations/{id} - Update conversation
+- DELETE /api/conversations/{id} - Delete conversation
+- POST /api/conversations/{id}/join - Join conversation
+- POST /api/conversations/{id}/leave - Leave conversation
+- POST /api/conversations/{id}/participants - Add participant
+- DELETE /api/conversations/{id}/participants/{userId} - Remove participant
+- GET /api/conversations/{id}/messages - List messages
+- POST /api/conversations/{id}/messages - Send message
+- POST /api/conversations/{id}/control - Send control event
+- GET /api/admin/conversations - List conversations (admin)
+- GET /api/admin/conversations/{id} - Get conversation (admin)
+- DELETE /api/admin/conversations/{id} - Delete conversation (admin)
+- GET /api/admin/users/{userId}/conversations - List user conversations (admin)
+- POST /api/admin/conversations/{id}/participants - Add participant (admin)
+- DELETE /api/admin/conversations/{id}/participants/{userId} - Remove participant (admin)
+- GET /api/admin/stats - Service stats (admin)
+
+## Authentication
+
+Methods supported:
+- Bearer token (Authorization: Bearer <token>)
+- API key (X-API-Key header)
+- Session cookie
+
+- Bearer token authentication (Authorization: Bearer <token>)
+- API key authentication (X-API-Key header)
+- Cookie-based session authentication
+
+## Custom Headers
+
+- X-Org-Id: Organization ID for multi-tenant scoping
+- X-Service-Id: Service identifier for request routing
+- X-Env: Environment (dev|stage|prod)
+- X-Data-Class: Data classification (none|pii|phi|secret)
+- X-Policy-Ref: Policy reference for compliance
+
+## Documentation
+
+- OpenAPI: /docs/openapi.json
+- Full docs: /docs/llms-full.txt

@@ -1,0 +1,2613 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="carbon" data-mode="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Symbia — Infrastructure for AI-native systems</title>
+  <meta name="description" content="Symbia is the platform for building systems where AI assistants are first-class principals. Authentication, orchestration, and observability designed for AI-native systems.">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <style>
+    /* ============================================
+       SYMBIA DESIGN SYSTEM v3
+    ============================================ */
+    :root {
+      --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      --font-mono: 'JetBrains Mono', monospace;
+      --space-1: 4px; --space-2: 8px; --space-3: 12px; --space-4: 16px;
+      --space-5: 24px; --space-6: 32px; --space-7: 48px; --space-8: 64px;
+      --space-9: 96px; --space-10: 128px;
+      --radius-sm: 6px; --radius-md: 10px; --radius-lg: 16px; --radius-xl: 24px;
+      --transition-fast: 0.15s ease; --transition-med: 0.25s ease;
+    }
+
+    /* CARBON DARK (Default) */
+    [data-theme="carbon"][data-mode="dark"] {
+      --bg-base: #08080a; --bg-elevated: #0f0f12; --bg-muted: #1a1a1f; --bg-subtle: #242429;
+      --border: #2a2a32; --border-muted: #1f1f25;
+      --text: #fafafa; --text-secondary: #a1a1aa; --text-muted: #71717a;
+      --primary: #3b82f6; --primary-hover: #2563eb;
+      --secondary: #ec4899; --tertiary: #a3e635;
+      --accent-glow: rgba(59, 130, 246, 0.15);
+      --node-input: #22c55e; --node-router: #a855f7; --node-llm: #ec4899;
+      --node-output: #f97316; --node-tool: #06b6d4; --node-condition: #eab308;
+    }
+    [data-theme="carbon"][data-mode="light"] {
+      --bg-base: #ffffff; --bg-elevated: #fafafa; --bg-muted: #f1f3f5; --bg-subtle: #e5e7eb;
+      --border: #e5e7eb; --border-muted: #f1f3f5;
+      --text: #111827; --text-secondary: #4b5563; --text-muted: #9ca3af;
+      --primary: #2563eb; --primary-hover: #1d4ed8;
+      --secondary: #db2777; --tertiary: #65a30d;
+      --accent-glow: rgba(37, 99, 235, 0.1);
+      --node-input: #16a34a; --node-router: #9333ea; --node-llm: #db2777;
+      --node-output: #ea580c; --node-tool: #0891b2; --node-condition: #ca8a04;
+    }
+
+    /* SAND */
+    [data-theme="sand"][data-mode="dark"] {
+      --bg-base: #1a1612; --bg-elevated: #221c16; --bg-muted: #302921; --bg-subtle: #3d342a;
+      --border: #4a3f33; --border-muted: #3a3228;
+      --text: #f5f0e8; --text-secondary: #c4b8a5; --text-muted: #8a7e6d;
+      --primary: #c2956b; --primary-hover: #a87d55;
+      --secondary: #7d9a78; --tertiary: #b8a07a;
+      --accent-glow: rgba(194, 149, 107, 0.15);
+      --node-input: #7d9a78; --node-router: #a08db8; --node-llm: #c49a9a;
+      --node-output: #c2956b; --node-tool: #7aaa9a; --node-condition: #c4b078;
+    }
+    [data-theme="sand"][data-mode="light"] {
+      --bg-base: #faf8f5; --bg-elevated: #f5f2ed; --bg-muted: #ebe5db; --bg-subtle: #ddd5c8;
+      --border: #d9d0c3; --border-muted: #e8e0d5;
+      --text: #2d261e; --text-secondary: #5c5144; --text-muted: #8a7e6d;
+      --primary: #9a7352; --primary-hover: #7d5c40;
+      --secondary: #5d7a58; --tertiary: #8a7454;
+      --accent-glow: rgba(154, 115, 82, 0.1);
+      --node-input: #5d7a58; --node-router: #7a6890; --node-llm: #a07070;
+      --node-output: #9a7352; --node-tool: #5a8a7a; --node-condition: #9a8858;
+    }
+
+    /* STONE */
+    [data-theme="stone"][data-mode="dark"] {
+      --bg-base: #121416; --bg-elevated: #181a1d; --bg-muted: #24272c; --bg-subtle: #2e3238;
+      --border: #3a3f48; --border-muted: #2a2e35;
+      --text: #e8eaed; --text-secondary: #9ea4ad; --text-muted: #6b7280;
+      --primary: #7890a8; --primary-hover: #5a7490;
+      --secondary: #a89088; --tertiary: #88a090;
+      --accent-glow: rgba(120, 144, 168, 0.15);
+      --node-input: #6a9878; --node-router: #9080a0; --node-llm: #a08090;
+      --node-output: #a89080; --node-tool: #7090a0; --node-condition: #a0a078;
+    }
+    [data-theme="stone"][data-mode="light"] {
+      --bg-base: #fafafa; --bg-elevated: #f5f5f6; --bg-muted: #eaeaec; --bg-subtle: #dcdcde;
+      --border: #d4d4d8; --border-muted: #e4e4e7;
+      --text: #27272a; --text-secondary: #52525b; --text-muted: #a1a1aa;
+      --primary: #526880; --primary-hover: #3d5068;
+      --secondary: #806058; --tertiary: #587060;
+      --accent-glow: rgba(82, 104, 128, 0.1);
+      --node-input: #4a7858; --node-router: #685878; --node-llm: #785868;
+      --node-output: #806858; --node-tool: #507080; --node-condition: #787850;
+    }
+
+    /* MONO BLUE */
+    [data-theme="mono-blue"][data-mode="dark"] {
+      --bg-base: #0a0f18; --bg-elevated: #0f1520; --bg-muted: #182235; --bg-subtle: #203048;
+      --border: #2a3a55; --border-muted: #1a2a42;
+      --text: #e8eef5; --text-secondary: #8aa0c0; --text-muted: #5070a0;
+      --primary: #5a8ad0; --primary-hover: #4070b8;
+      --secondary: #4070b0; --tertiary: #85a8d8;
+      --accent-glow: rgba(90, 138, 208, 0.15);
+      --node-input: #3a6898; --node-router: #4878a8; --node-llm: #5080b8;
+      --node-output: #6090c0; --node-tool: #4a88b8; --node-condition: #5898c0;
+    }
+    [data-theme="mono-blue"][data-mode="light"] {
+      --bg-base: #f8fafc; --bg-elevated: #f0f5fa; --bg-muted: #e4eaf2; --bg-subtle: #d0dae8;
+      --border: #c8d4e4; --border-muted: #d8e2ef;
+      --text: #1a2840; --text-secondary: #3a5070; --text-muted: #6080a8;
+      --primary: #3868a8; --primary-hover: #2a5090;
+      --secondary: #4a78b8; --tertiary: #5888c0;
+      --accent-glow: rgba(56, 104, 168, 0.1);
+      --node-input: #285880; --node-router: #3868a0; --node-llm: #4070a0;
+      --node-output: #4878a0; --node-tool: #3878a8; --node-condition: #4888b0;
+    }
+
+    /* BASE STYLES */
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      font-family: var(--font-sans);
+      background: var(--bg-base);
+      color: var(--text);
+      line-height: 1.6;
+      transition: background var(--transition-med), color var(--transition-med);
+    }
+    a { color: var(--primary); text-decoration: none; transition: color var(--transition-fast); }
+    a:hover { color: var(--primary-hover); }
+    code, pre { font-family: var(--font-mono); }
+    .container { max-width: 1200px; margin: 0 auto; padding: 0 var(--space-5); }
+    .section { padding: var(--space-10) 0; }
+
+    /* NAV */
+    .nav {
+      position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+      border-bottom: 1px solid var(--border-muted);
+      backdrop-filter: blur(12px);
+      background: color-mix(in srgb, var(--bg-base) 85%, transparent);
+    }
+    .nav-inner { display: flex; align-items: center; justify-content: space-between; height: 64px; }
+    .nav-logo { display: flex; align-items: center; gap: var(--space-3); font-weight: 700; font-size: 1.25rem; color: var(--text); }
+    .nav-logo svg { width: 32px; height: 32px; }
+    .nav-links { display: flex; align-items: center; gap: var(--space-6); }
+    .nav-link { color: var(--text-secondary); font-size: 14px; font-weight: 500; transition: color var(--transition-fast); }
+    .nav-link:hover { color: var(--primary); }
+    .nav-actions { display: flex; align-items: center; gap: var(--space-3); }
+
+    /* BUTTONS */
+    .btn {
+      display: inline-flex; align-items: center; justify-content: center; gap: var(--space-2);
+      padding: var(--space-3) var(--space-5); border-radius: var(--radius-md);
+      font-size: 14px; font-weight: 500; cursor: pointer; border: none;
+      transition: all var(--transition-fast);
+    }
+    .btn-primary { background: var(--primary); color: white; }
+    .btn-primary:hover { background: var(--primary-hover); transform: translateY(-1px); }
+    .btn-secondary { background: var(--bg-muted); color: var(--text); border: 1px solid var(--border); }
+    .btn-secondary:hover { background: var(--bg-subtle); border-color: var(--primary); }
+    .btn-ghost { background: transparent; color: var(--text-secondary); }
+    .btn-ghost:hover { background: var(--bg-muted); color: var(--text); }
+    .btn-lg { padding: var(--space-4) var(--space-6); font-size: 15px; }
+
+    /* HERO */
+    .hero { padding-top: 140px; padding-bottom: var(--space-9); position: relative; overflow: hidden; }
+    .hero::before {
+      content: ''; position: absolute; top: -200px; left: 50%; transform: translateX(-50%);
+      width: 1000px; height: 1000px;
+      background: radial-gradient(circle, var(--accent-glow) 0%, transparent 60%);
+      pointer-events: none;
+    }
+    .hero-grid { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-9); align-items: center; }
+    .hero-content { position: relative; }
+    .hero-eyebrow {
+      display: inline-flex; align-items: center; gap: var(--space-2);
+      font-size: 13px; font-weight: 600;
+      background: linear-gradient(135deg, var(--primary), var(--secondary));
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+      background-clip: text;
+      margin-bottom: var(--space-5); text-transform: uppercase; letter-spacing: 1px;
+    }
+    .hero-title {
+      font-size: clamp(2.25rem, 4vw, 3.25rem); font-weight: 800;
+      letter-spacing: -0.03em; line-height: 1.15; margin-bottom: var(--space-5);
+    }
+    .hero-subtitle {
+      font-size: 1.125rem; color: var(--text-secondary);
+      line-height: 1.7; margin-bottom: var(--space-6); max-width: 540px;
+    }
+    .hero-actions { display: flex; gap: var(--space-4); margin-bottom: var(--space-7); }
+    .hero-meta { display: flex; gap: var(--space-6); }
+    .hero-meta-item { display: flex; flex-direction: column; gap: 2px; }
+    .hero-meta-value { font-size: 14px; font-weight: 600; color: var(--primary); }
+    .hero-meta-label { font-size: 12px; color: var(--text-muted); }
+
+    /* HERO VISUAL */
+    .hero-visual {
+      position: relative; border-radius: var(--radius-xl); overflow: hidden;
+      border: 1px solid var(--border); background: var(--bg-elevated);
+      box-shadow: 0 24px 80px rgba(0,0,0,0.25);
+    }
+    .hero-visual-header {
+      display: flex; align-items: center; gap: var(--space-2);
+      padding: var(--space-3) var(--space-4);
+      background: var(--bg-muted); border-bottom: 1px solid var(--border);
+    }
+    .hero-visual-dot { width: 12px; height: 12px; border-radius: 50%; }
+    .hero-visual-content { padding: var(--space-5); min-height: 320px; }
+
+    /* WORKFLOW VISUAL */
+    .workflow-visual { display: flex; flex-direction: column; gap: var(--space-4); }
+    .workflow-row { display: flex; align-items: center; gap: var(--space-3); }
+    .workflow-node {
+      display: flex; align-items: center; gap: var(--space-2);
+      padding: var(--space-2) var(--space-3);
+      background: var(--bg-subtle); border-radius: var(--radius-sm);
+      border: 1px solid var(--border); font-size: 12px; font-weight: 500;
+      white-space: nowrap;
+    }
+    .workflow-node-dot { width: 6px; height: 6px; border-radius: 50%; }
+    .workflow-arrow { color: var(--text-muted); font-size: 14px; }
+    .workflow-branch {
+      display: flex; flex-direction: column; gap: var(--space-2);
+      padding-left: var(--space-5); border-left: 2px solid var(--border);
+      margin-left: var(--space-4);
+    }
+    .workflow-label { font-size: 10px; color: var(--primary); text-transform: uppercase; letter-spacing: 1px; font-weight: 600; }
+
+    /* PROBLEM SECTION */
+    .problem { background: var(--bg-elevated); border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); }
+    .problem-header { text-align: center; margin-bottom: var(--space-8); }
+    .section-label {
+      font-size: 12px; font-weight: 600; text-transform: uppercase;
+      letter-spacing: 2px; color: var(--primary); margin-bottom: var(--space-3);
+    }
+    .section-title span { color: var(--primary); }
+    .highlight { color: var(--primary); }
+    .highlight-secondary { color: var(--secondary); }
+    .highlight-tertiary { color: var(--tertiary); }
+    .section-title {
+      font-size: clamp(1.5rem, 3vw, 2rem); font-weight: 700;
+      letter-spacing: -0.02em; margin-bottom: var(--space-4);
+    }
+    .section-desc { font-size: 1.05rem; color: var(--text-secondary); max-width: 680px; margin: 0 auto; line-height: 1.7; }
+
+    .problem-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: var(--space-5); }
+    .problem-card {
+      padding: var(--space-5);
+      background: var(--bg-base); border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+    }
+    .problem-card-header { display: flex; align-items: flex-start; gap: var(--space-3); margin-bottom: var(--space-3); }
+    .problem-icon {
+      width: 36px; height: 36px; display: flex; align-items: center; justify-content: center;
+      background: var(--bg-muted); border-radius: var(--radius-sm); color: var(--secondary); flex-shrink: 0;
+    }
+    .problem-title { font-size: 15px; font-weight: 600; line-height: 1.4; color: var(--text); }
+    .problem-card:nth-child(1) .problem-title { color: var(--secondary); }
+    .problem-card:nth-child(2) .problem-title { color: var(--primary); }
+    .problem-card:nth-child(3) .problem-title { color: var(--tertiary); }
+    .problem-card:nth-child(4) .problem-title { color: var(--secondary); }
+    .problem-desc { font-size: 14px; color: var(--text-secondary); line-height: 1.6; }
+
+    /* SOLUTION SECTION */
+    .solution-header { text-align: center; margin-bottom: var(--space-8); }
+    .solution-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--space-5); }
+    .solution-card {
+      padding: var(--space-6);
+      background: var(--bg-elevated); border: 1px solid var(--border);
+      border-radius: var(--radius-lg); transition: all var(--transition-med);
+    }
+    .solution-card:hover {
+      border-color: var(--primary); transform: translateY(-2px);
+      box-shadow: 0 12px 40px var(--accent-glow);
+    }
+    .solution-icon {
+      width: 48px; height: 48px; display: flex; align-items: center; justify-content: center;
+      background: var(--bg-muted); border-radius: var(--radius-md);
+      margin-bottom: var(--space-4); color: var(--primary);
+    }
+    .solution-title { font-size: 1.1rem; font-weight: 600; margin-bottom: var(--space-2); }
+    .solution-desc { font-size: 14px; color: var(--text-secondary); line-height: 1.6; margin-bottom: var(--space-4); }
+    .solution-detail {
+      font-size: 13px; color: var(--tertiary); font-family: var(--font-mono);
+      padding: var(--space-2) var(--space-3);
+      background: var(--bg-muted); border-radius: var(--radius-sm);
+      display: inline-block;
+    }
+
+    /* HOW IT WORKS */
+    .how-header { text-align: center; margin-bottom: var(--space-8); }
+    .how-steps { display: flex; flex-direction: column; gap: var(--space-6); max-width: 800px; margin: 0 auto; }
+    .how-step { display: grid; grid-template-columns: auto 1fr; gap: var(--space-5); align-items: start; }
+    .how-step-number {
+      width: 40px; height: 40px; display: flex; align-items: center; justify-content: center;
+      background: var(--primary); color: white; border-radius: 50%;
+      font-weight: 700; font-size: 16px;
+    }
+    .how-step-content { padding-top: var(--space-2); }
+    .how-step-title { font-size: 1.1rem; font-weight: 600; margin-bottom: var(--space-2); }
+    .how-step-desc { font-size: 14px; color: var(--text-secondary); line-height: 1.6; }
+    .how-step-code {
+      margin-top: var(--space-3); padding: var(--space-4);
+      background: var(--bg-muted); border-radius: var(--radius-md);
+      font-family: var(--font-mono); font-size: 13px;
+      border: 1px solid var(--border); overflow-x: auto;
+    }
+
+    /* ARCHITECTURE */
+    .arch-header { text-align: center; margin-bottom: var(--space-8); }
+    .arch-visual {
+      background: var(--bg-elevated); border: 1px solid var(--border);
+      border-radius: var(--radius-xl); padding: var(--space-7);
+      max-width: 900px; margin: 0 auto;
+    }
+    .arch-layer { margin-bottom: var(--space-6); }
+    .arch-layer:last-child { margin-bottom: 0; }
+    .arch-layer-label {
+      font-size: 11px; text-transform: uppercase; letter-spacing: 1.5px;
+      color: var(--primary); margin-bottom: var(--space-3); font-weight: 600;
+    }
+    .arch-services { display: flex; gap: var(--space-3); flex-wrap: wrap; justify-content: center; }
+    .arch-service {
+      padding: var(--space-3) var(--space-4);
+      background: var(--bg-muted); border: 1px solid var(--border);
+      border-radius: var(--radius-md); font-size: 13px; font-weight: 500;
+      display: flex; align-items: center; gap: var(--space-2);
+    }
+    .arch-service-dot { width: 8px; height: 8px; border-radius: 50%; }
+    .arch-divider {
+      height: 24px; display: flex; align-items: center; justify-content: center;
+      color: var(--text-muted); font-size: 18px;
+    }
+
+    /* Health indicator for live Symbia connection */
+    .health-indicator {
+      width: 6px; height: 6px; border-radius: 50%;
+      margin-left: auto; flex-shrink: 0;
+    }
+    .health-indicator.healthy { background: var(--node-input); box-shadow: 0 0 6px var(--node-input); }
+    .health-indicator.unhealthy { background: #f85149; box-shadow: 0 0 6px #f85149; }
+    [data-symbia-live="true"] .arch-service { position: relative; }
+    [data-symbia-enhanced="true"] .symbia-badge { display: inline-flex; }
+    .symbia-badge {
+      display: none; font-size: 10px; padding: 2px 6px; border-radius: 4px;
+      background: var(--primary); color: white; font-weight: 600; margin-left: var(--space-2);
+    }
+
+    /* CTA */
+    .cta { text-align: center; }
+    .cta-card {
+      padding: var(--space-9);
+      background: linear-gradient(135deg, var(--bg-muted) 0%, var(--bg-elevated) 100%);
+      border: 1px solid var(--border); border-radius: var(--radius-xl);
+      position: relative; overflow: hidden;
+    }
+    .cta-card::before {
+      content: ''; position: absolute; top: 0; left: 0; right: 0; height: 1px;
+      background: linear-gradient(90deg, transparent, var(--primary), transparent);
+    }
+    .cta-title {
+      font-size: 2rem; font-weight: 700; margin-bottom: var(--space-4);
+      background: linear-gradient(135deg, var(--text) 0%, var(--primary) 100%);
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+    .cta-desc { color: var(--text-secondary); margin-bottom: var(--space-6); max-width: 500px; margin-left: auto; margin-right: auto; }
+    .cta-actions { display: flex; justify-content: center; gap: var(--space-4); }
+
+    /* FOOTER */
+    .footer { padding: var(--space-8) 0; border-top: 1px solid var(--border); }
+    .footer-inner { display: flex; justify-content: space-between; align-items: center; }
+    .footer-copy { font-size: 13px; color: var(--text-muted); }
+    .footer-links { display: flex; gap: var(--space-5); }
+    .footer-link { font-size: 13px; color: var(--text-muted); }
+    .footer-link:hover { color: var(--primary); }
+
+    /* THEME CONTROLS */
+    .theme-controls {
+      position: fixed; bottom: var(--space-5); right: var(--space-5);
+      display: flex; flex-direction: column; align-items: flex-end; gap: var(--space-3); z-index: 1000;
+    }
+    .theme-toggle-btn {
+      width: 40px; height: 40px; border-radius: var(--radius-md);
+      background: var(--bg-elevated); border: 1px solid var(--border);
+      color: var(--text-secondary); cursor: pointer; display: flex;
+      align-items: center; justify-content: center;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+      transition: all var(--transition-fast);
+    }
+    .theme-toggle-btn:hover { background: var(--bg-muted); color: var(--text); }
+    .theme-panel {
+      background: var(--bg-elevated); border: 1px solid var(--border);
+      border-radius: var(--radius-lg); padding: var(--space-4);
+      box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+      transform: translateY(10px) scale(0.95); opacity: 0;
+      pointer-events: none; transition: all var(--transition-med);
+    }
+    .theme-panel.open { transform: translateY(0) scale(1); opacity: 1; pointer-events: auto; }
+    .theme-panel-title { font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: var(--text-muted); margin-bottom: var(--space-3); }
+    .mode-toggle { display: flex; background: var(--bg-muted); border-radius: var(--radius-md); padding: 3px; }
+    .mode-btn {
+      padding: var(--space-2) var(--space-4); border: none; background: transparent;
+      color: var(--text-muted); font-size: 12px; font-weight: 500; cursor: pointer;
+      border-radius: var(--radius-sm); transition: all var(--transition-fast);
+    }
+    .mode-btn.active { background: var(--primary); color: white; }
+    .theme-swatches { display: grid; grid-template-columns: repeat(4, 1fr); gap: var(--space-2); margin-top: var(--space-3); }
+    .theme-swatch {
+      width: 32px; height: 32px; border-radius: var(--radius-sm);
+      border: 2px solid transparent; cursor: pointer;
+      transition: all var(--transition-fast);
+    }
+    .theme-swatch:hover { transform: scale(1.1); }
+    .theme-swatch.active { border-color: var(--text); }
+
+    /* PRODUCT SHOWCASE */
+    .showcase-header { text-align: center; margin-bottom: var(--space-7); }
+    .showcase-tabs {
+      display: flex; justify-content: center; gap: var(--space-2);
+      margin-bottom: var(--space-6); flex-wrap: wrap;
+    }
+    .showcase-tab {
+      padding: var(--space-3) var(--space-5);
+      background: var(--bg-muted); border: 1px solid var(--border);
+      border-radius: var(--radius-md); font-size: 14px; font-weight: 500;
+      color: var(--text-secondary); cursor: pointer;
+      transition: all var(--transition-fast);
+    }
+    .showcase-tab:hover { border-color: var(--primary); color: var(--text); }
+    .showcase-tab.active {
+      background: var(--primary); border-color: var(--primary); color: white;
+    }
+    .showcase-content { position: relative; }
+    .showcase-panel {
+      display: none;
+      animation: fadeIn 0.3s ease;
+    }
+    .showcase-panel.active { display: block; }
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    .showcase-image {
+      border-radius: var(--radius-xl); overflow: hidden;
+      border: 1px solid var(--border); background: var(--bg-elevated);
+      margin-bottom: var(--space-5);
+    }
+    .showcase-image img {
+      width: 100%; height: auto; display: block;
+    }
+    .showcase-placeholder {
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      min-height: 500px; background: var(--bg-muted);
+      color: var(--text-muted); font-size: 14px; text-align: center;
+      gap: var(--space-2);
+    }
+    .showcase-placeholder span {
+      font-family: var(--font-mono); font-size: 12px; color: var(--text-muted);
+      opacity: 0.7;
+    }
+    .showcase-caption { text-align: center; max-width: 600px; margin: 0 auto; }
+    .showcase-caption h3 {
+      font-size: 1.25rem; font-weight: 600; margin-bottom: var(--space-2);
+      color: var(--primary);
+    }
+    .showcase-caption p {
+      font-size: 15px; color: var(--text-secondary); line-height: 1.6;
+    }
+
+    /* DRILL-DOWN MODAL */
+    .modal-overlay {
+      position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+      background: rgba(0,0,0,0.7); backdrop-filter: blur(8px);
+      z-index: 500; opacity: 0; visibility: hidden;
+      transition: all var(--transition-med);
+    }
+    .modal-overlay.active { opacity: 1; visibility: visible; }
+    .modal-panel {
+      position: fixed; top: 0; right: 0; bottom: 0;
+      width: min(640px, 90vw); background: var(--bg-elevated);
+      border-left: 1px solid var(--border);
+      transform: translateX(100%); z-index: 501;
+      transition: transform var(--transition-med);
+      overflow-y: auto;
+    }
+    .modal-panel.active { transform: translateX(0); }
+    .modal-header {
+      position: sticky; top: 0; z-index: 10;
+      display: flex; align-items: center; justify-content: space-between;
+      padding: var(--space-5) var(--space-6);
+      background: var(--bg-elevated); border-bottom: 1px solid var(--border);
+    }
+    .modal-close {
+      width: 36px; height: 36px; display: flex; align-items: center; justify-content: center;
+      background: var(--bg-muted); border: 1px solid var(--border);
+      border-radius: var(--radius-md); cursor: pointer; color: var(--text-secondary);
+      transition: all var(--transition-fast);
+    }
+    .modal-close:hover { background: var(--bg-subtle); color: var(--text); border-color: var(--primary); }
+    .modal-title { font-size: 1.25rem; font-weight: 600; }
+    .modal-badge {
+      display: inline-flex; align-items: center; gap: var(--space-2);
+      padding: var(--space-1) var(--space-3); border-radius: var(--radius-full);
+      font-size: 12px; font-weight: 500; background: var(--bg-muted);
+    }
+    .modal-body { padding: var(--space-6); }
+    .modal-section { margin-bottom: var(--space-6); }
+    .modal-section:last-child { margin-bottom: 0; }
+    .modal-section-title {
+      font-size: 12px; text-transform: uppercase; letter-spacing: 1px;
+      color: var(--primary); margin-bottom: var(--space-3); font-weight: 600;
+    }
+    .modal-desc { font-size: 15px; color: var(--text-secondary); line-height: 1.7; }
+    .modal-list { list-style: none; display: flex; flex-direction: column; gap: var(--space-3); }
+    .modal-list-item {
+      padding: var(--space-3) var(--space-4);
+      background: var(--bg-muted); border: 1px solid var(--border);
+      border-radius: var(--radius-md); font-size: 14px;
+    }
+    .modal-list-item strong { color: var(--text); display: block; margin-bottom: 2px; }
+    .modal-list-item span { color: var(--text-secondary); font-size: 13px; }
+    .modal-code {
+      background: var(--bg-muted); border: 1px solid var(--border);
+      border-radius: var(--radius-md); padding: var(--space-4);
+      font-family: var(--font-mono); font-size: 13px;
+      overflow-x: auto; line-height: 1.6;
+    }
+    .modal-code .comment { color: var(--text-muted); }
+    .modal-code .keyword { color: var(--secondary); }
+    .modal-code .string { color: var(--tertiary); }
+    .modal-stats {
+      display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--space-3);
+    }
+    .modal-stat {
+      text-align: center; padding: var(--space-4);
+      background: var(--bg-muted); border-radius: var(--radius-md);
+    }
+    .modal-stat-value { font-size: 1.5rem; font-weight: 700; color: var(--primary); }
+    .modal-stat-label { font-size: 12px; color: var(--text-muted); margin-top: 2px; }
+
+    /* CLICKABLE CARDS */
+    .arch-service.clickable,
+    .solution-card.clickable {
+      cursor: pointer;
+    }
+    .arch-service.clickable:hover {
+      border-color: var(--primary); background: var(--bg-subtle);
+    }
+    .solution-card.clickable::after {
+      content: '→';
+      position: absolute; top: var(--space-4); right: var(--space-4);
+      color: var(--text-muted); font-size: 18px;
+      transition: all var(--transition-fast);
+    }
+    .solution-card.clickable:hover::after {
+      color: var(--primary); transform: translateX(4px);
+    }
+    .solution-card { position: relative; }
+
+    /* ASSISTANTS LISTING */
+    .assistants-header { text-align: center; margin-bottom: var(--space-7); }
+    .assistants-filters {
+      display: flex; justify-content: center; gap: var(--space-2);
+      margin-bottom: var(--space-6); flex-wrap: wrap;
+    }
+    .assistant-filter {
+      padding: var(--space-2) var(--space-4);
+      background: var(--bg-muted); border: 1px solid var(--border);
+      border-radius: var(--radius-full); font-size: 13px; font-weight: 500;
+      color: var(--text-secondary); cursor: pointer;
+      transition: all var(--transition-fast);
+    }
+    .assistant-filter:hover { border-color: var(--primary); color: var(--text); }
+    .assistant-filter.active { background: var(--primary); border-color: var(--primary); color: white; }
+    .assistants-grid {
+      display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+      gap: var(--space-4);
+    }
+    .assistant-card {
+      padding: var(--space-5);
+      background: var(--bg-elevated); border: 1px solid var(--border);
+      border-radius: var(--radius-lg); cursor: pointer;
+      transition: all var(--transition-med);
+    }
+    .assistant-card:hover {
+      border-color: var(--primary); transform: translateY(-2px);
+      box-shadow: 0 8px 24px var(--accent-glow);
+    }
+    .assistant-card-header { display: flex; align-items: center; gap: var(--space-3); margin-bottom: var(--space-3); }
+    .assistant-icon {
+      width: 40px; height: 40px; display: flex; align-items: center; justify-content: center;
+      background: var(--bg-muted); border-radius: var(--radius-md); font-size: 18px;
+    }
+    .assistant-name { font-size: 15px; font-weight: 600; }
+    .assistant-alias {
+      font-size: 12px; color: var(--primary); font-family: var(--font-mono);
+      margin-top: 2px;
+    }
+    .assistant-desc { font-size: 13px; color: var(--text-secondary); line-height: 1.5; margin-bottom: var(--space-3); }
+    .assistant-tags { display: flex; flex-wrap: wrap; gap: var(--space-2); }
+    .assistant-tag {
+      padding: 2px var(--space-2); background: var(--bg-muted);
+      border-radius: var(--radius-sm); font-size: 11px; color: var(--text-muted);
+    }
+    .assistant-tag.capability { color: var(--tertiary); background: color-mix(in srgb, var(--tertiary) 15%, transparent); }
+    .assistant-tag.status-active { color: var(--node-input); background: color-mix(in srgb, var(--node-input) 15%, transparent); }
+    .assistant-tag.status-bootstrap { color: var(--node-condition); background: color-mix(in srgb, var(--node-condition) 15%, transparent); }
+
+    /* MODAL CHAT INTERFACE */
+    .modal-chat {
+      position: sticky; bottom: 0; left: 0; right: 0;
+      background: var(--bg-elevated);
+      border-top: 1px solid var(--border);
+      padding: var(--space-4) var(--space-6);
+    }
+    .modal-chat-messages {
+      max-height: 200px; overflow-y: auto;
+      display: flex; flex-direction: column; gap: var(--space-3);
+      margin-bottom: var(--space-4);
+    }
+    .modal-chat-messages:empty { display: none; }
+    .modal-chat-messages:empty + .modal-chat-suggestions { display: flex; }
+    .chat-message {
+      padding: var(--space-3) var(--space-4);
+      border-radius: var(--radius-lg);
+      font-size: 14px; line-height: 1.6;
+      max-width: 85%; animation: messageIn 0.2s ease;
+    }
+    @keyframes messageIn {
+      from { opacity: 0; transform: translateY(8px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    .chat-message.user {
+      background: var(--primary);
+      color: white;
+      align-self: flex-end;
+      border-bottom-right-radius: var(--radius-sm);
+    }
+    .chat-message.assistant {
+      background: var(--bg-muted);
+      border: 1px solid var(--border);
+      align-self: flex-start;
+      border-bottom-left-radius: var(--radius-sm);
+    }
+    .chat-message.assistant .typing {
+      display: inline-flex; gap: 4px; padding: 4px 0;
+    }
+    .chat-message.assistant .typing span {
+      width: 6px; height: 6px; background: var(--text-muted);
+      border-radius: 50%; animation: typing 1.4s infinite;
+    }
+    .chat-message.assistant .typing span:nth-child(2) { animation-delay: 0.2s; }
+    .chat-message.assistant .typing span:nth-child(3) { animation-delay: 0.4s; }
+    @keyframes typing {
+      0%, 60%, 100% { transform: translateY(0); opacity: 0.4; }
+      30% { transform: translateY(-4px); opacity: 1; }
+    }
+    .modal-chat-suggestions {
+      display: flex; flex-wrap: wrap; gap: var(--space-2);
+      margin-bottom: var(--space-4);
+    }
+    .chat-suggestion {
+      padding: var(--space-2) var(--space-3);
+      background: var(--bg-muted); border: 1px solid var(--border);
+      border-radius: var(--radius-full); font-size: 12px;
+      color: var(--text-secondary); cursor: pointer;
+      transition: all var(--transition-fast);
+    }
+    .chat-suggestion:hover {
+      border-color: var(--primary); color: var(--primary);
+      background: color-mix(in srgb, var(--primary) 10%, transparent);
+    }
+    .modal-chat-input {
+      display: flex; gap: var(--space-3);
+    }
+    .modal-chat-input input {
+      flex: 1; padding: var(--space-3) var(--space-4);
+      background: var(--bg-muted); border: 1px solid var(--border);
+      border-radius: var(--radius-md); font-size: 14px;
+      color: var(--text); font-family: var(--font-sans);
+      transition: all var(--transition-fast);
+    }
+    .modal-chat-input input:focus {
+      outline: none; border-color: var(--primary);
+      box-shadow: 0 0 0 3px var(--accent-glow);
+    }
+    .modal-chat-input input::placeholder { color: var(--text-muted); }
+    .modal-chat-input button {
+      padding: var(--space-3) var(--space-4);
+      background: var(--primary); border: none;
+      border-radius: var(--radius-md); color: white;
+      cursor: pointer; display: flex; align-items: center;
+      transition: all var(--transition-fast);
+    }
+    .modal-chat-input button:hover { background: var(--primary-hover); }
+    .modal-chat-input button:disabled { opacity: 0.5; cursor: not-allowed; }
+    .modal-chat-label {
+      font-size: 11px; text-transform: uppercase; letter-spacing: 1px;
+      color: var(--text-muted); margin-bottom: var(--space-3);
+      display: flex; align-items: center; gap: var(--space-2);
+    }
+    .modal-chat-label svg { width: 14px; height: 14px; }
+
+    /* RESPONSIVE */
+    @media (max-width: 968px) {
+      .hero-grid { grid-template-columns: 1fr; gap: var(--space-7); }
+      .hero-visual { max-width: 500px; }
+      .problem-grid { grid-template-columns: 1fr; }
+      .solution-grid { grid-template-columns: 1fr; }
+      .modal-stats { grid-template-columns: repeat(2, 1fr); }
+    }
+    @media (max-width: 768px) {
+      .nav-links { display: none; }
+      .hero-actions { flex-direction: column; }
+      .hero-meta { flex-wrap: wrap; gap: var(--space-4); }
+      .footer-inner { flex-direction: column; gap: var(--space-4); text-align: center; }
+      .modal-panel { width: 100%; }
+    }
+  </style>
+</head>
+<body>
+  <!-- Navigation -->
+  <nav class="nav">
+    <div class="container nav-inner">
+      <a href="/" class="nav-logo">
+        <svg viewBox="0 0 32 32" fill="none">
+          <rect width="32" height="32" rx="8" fill="var(--primary)"/>
+          <path d="M8 16L14 10L20 16L14 22L8 16Z" fill="white" fill-opacity="0.9"/>
+          <path d="M14 16L20 10L26 16L20 22L14 16Z" fill="white" fill-opacity="0.6"/>
+        </svg>
+        Symbia
+      </a>
+      <div class="nav-links">
+        <a href="#problem" class="nav-link">Why Symbia</a>
+        <a href="#solution" class="nav-link">Platform</a>
+        <a href="#architecture" class="nav-link">Architecture</a>
+        <a href="#assistants" class="nav-link">Assistants</a>
+        <a href="/docs" class="nav-link">Docs</a>
+      </div>
+      <div class="nav-actions">
+        <button class="btn btn-ghost">Sign In</button>
+        <button class="btn btn-primary">Get Started</button>
+      </div>
+    </div>
+  </nav>
+
+  <!-- Hero -->
+  <section class="hero">
+    <div class="container">
+      <div class="hero-grid">
+        <div class="hero-content">
+          <div class="hero-eyebrow">AI-Native Infrastructure</div>
+          <h1 class="hero-title">Build systems where AI assistants are first-class citizens</h1>
+          <p class="hero-subtitle">
+            Traditional backends treat AI as an integration—an API call you make. Symbia treats AI assistants as <strong style="color: var(--primary)">principals</strong>—entities with <strong style="color: var(--secondary)">identity</strong>, <strong style="color: var(--tertiary)">permissions</strong>, and the ability to coordinate and act. That's not a feature. It's a different architecture.
+          </p>
+          <div class="hero-actions">
+            <button class="btn btn-primary btn-lg">Start Building</button>
+            <button class="btn btn-secondary btn-lg">Read the Docs</button>
+          </div>
+          <div class="hero-meta">
+            <div class="hero-meta-item">
+              <span class="hero-meta-value">9 Services</span>
+              <span class="hero-meta-label">Microservice Architecture</span>
+            </div>
+            <div class="hero-meta-item">
+              <span class="hero-meta-value">~45K LOC</span>
+              <span class="hero-meta-label">TypeScript</span>
+            </div>
+            <div class="hero-meta-item">
+              <span class="hero-meta-value">Zero Config</span>
+              <span class="hero-meta-label">Dev Startup</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="hero-visual">
+          <div class="hero-visual-header">
+            <div class="hero-visual-dot" style="background: var(--node-llm)"></div>
+            <div class="hero-visual-dot" style="background: var(--node-condition)"></div>
+            <div class="hero-visual-dot" style="background: var(--node-input)"></div>
+          </div>
+          <div class="hero-visual-content">
+            <div class="workflow-visual">
+              <div class="workflow-row">
+                <div class="workflow-node">
+                  <div class="workflow-node-dot" style="background: var(--node-input)"></div>
+                  User Message
+                </div>
+                <span class="workflow-arrow">→</span>
+                <div class="workflow-node">
+                  <div class="workflow-node-dot" style="background: var(--node-llm)"></div>
+                  Intent Classifier
+                </div>
+                <span class="workflow-arrow">→</span>
+                <div class="workflow-node">
+                  <div class="workflow-node-dot" style="background: var(--node-router)"></div>
+                  Router
+                </div>
+              </div>
+
+              <div class="workflow-branch">
+                <span class="workflow-label">Routes to:</span>
+                <div class="workflow-row">
+                  <div class="workflow-node">
+                    <div class="workflow-node-dot" style="background: var(--node-tool)"></div>
+                    Refund Processor
+                  </div>
+                  <span class="workflow-arrow">→</span>
+                  <div class="workflow-node">
+                    <div class="workflow-node-dot" style="background: var(--node-output)"></div>
+                    Confirm Action
+                  </div>
+                </div>
+                <div class="workflow-row">
+                  <div class="workflow-node">
+                    <div class="workflow-node-dot" style="background: var(--node-llm)"></div>
+                    Knowledge Agent
+                  </div>
+                  <span class="workflow-arrow">→</span>
+                  <div class="workflow-node">
+                    <div class="workflow-node-dot" style="background: var(--node-output)"></div>
+                    Stream Response
+                  </div>
+                </div>
+                <div class="workflow-row">
+                  <div class="workflow-node">
+                    <div class="workflow-node-dot" style="background: var(--node-condition)"></div>
+                    Human Handoff
+                  </div>
+                  <span class="workflow-arrow">→</span>
+                  <div class="workflow-node">
+                    <div class="workflow-node-dot" style="background: var(--node-output)"></div>
+                    Assign Agent
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Problem Section -->
+  <section class="section problem" id="problem">
+    <div class="container">
+      <div class="problem-header">
+        <div class="section-label">The Problem</div>
+        <h2 class="section-title">Your architecture assumes AI is a tool. <span style="color: var(--secondary)">It's not.</span></h2>
+        <p class="section-desc">
+          AI assistants make decisions, take actions, and coordinate with each other. They need identity, context, and orchestration—not just API wrappers. Every product treating AI as "just another integration" will hit the same walls.
+        </p>
+      </div>
+
+      <div class="problem-grid">
+        <div class="problem-card">
+          <div class="problem-card-header">
+            <div class="problem-icon">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="12" cy="12" r="10"/>
+                <path d="M12 8v4l3 3"/>
+              </svg>
+            </div>
+            <div class="problem-title">Who is acting? The user, or their assistant?</div>
+          </div>
+          <p class="problem-desc">
+            When an AI assistant makes a request, you need to know: which user authorized it, which assistant is executing, what capabilities were granted, and what context it's operating in. Traditional auth models have no answer.
+          </p>
+        </div>
+
+        <div class="problem-card">
+          <div class="problem-card-header">
+            <div class="problem-icon">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>
+              </svg>
+            </div>
+            <div class="problem-title">AI doesn't fit request/response</div>
+          </div>
+          <p class="problem-desc">
+            Agent operations span seconds to hours. They stream, pause, branch, and hand off. They need interruption, resumption, and priority handling. The transactional model breaks immediately.
+          </p>
+        </div>
+
+        <div class="problem-card">
+          <div class="problem-card-header">
+            <div class="problem-icon">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/>
+              </svg>
+            </div>
+            <div class="problem-title">Assistants coordinate—code doesn't</div>
+          </div>
+          <p class="problem-desc">
+            Assistants route to each other, defer to humans, spawn sub-tasks, and make decisions based on context. Imperative code can't express this. You need a coordination layer.
+          </p>
+        </div>
+
+        <div class="problem-card">
+          <div class="problem-card-header">
+            <div class="problem-icon">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/>
+                <path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/>
+              </svg>
+            </div>
+            <div class="problem-title">Assistants need to understand your system</div>
+          </div>
+          <p class="problem-desc">
+            For AI to act effectively, it needs to discover capabilities, understand interfaces, and navigate your architecture. Static docs written for humans don't cut it. Services need to be machine-readable.
+          </p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Solution Section -->
+  <section class="section" id="solution">
+    <div class="container">
+      <div class="solution-header">
+        <div class="section-label">The Platform</div>
+        <h2 class="section-title">Architecture for <span style="color: var(--primary)">AI-native systems</span></h2>
+        <p class="section-desc">
+          Symbia is the operational backbone for systems where AI assistants act as first-class principals—with identity, permissions, coordination, and observability built in from the ground up.
+        </p>
+      </div>
+
+      <div class="solution-grid">
+        <div class="solution-card clickable" data-detail="dual-principal">
+          <div class="solution-icon">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M12 2L2 7l10 5 10-5-10-5z"/>
+              <path d="M2 17l10 5 10-5"/>
+              <path d="M2 12l10 5 10-5"/>
+            </svg>
+          </div>
+          <h3 class="solution-title">Dual Principal Model</h3>
+          <p class="solution-desc">
+            AI assistants aren't just tools—they're first-class principals with their own authentication tokens, declared capabilities, audit trails, and access policies. Same permission model, new paradigm.
+          </p>
+          <div class="solution-detail">principal: user + agent context</div>
+        </div>
+
+        <div class="solution-card clickable" data-detail="stream-control">
+          <div class="solution-icon">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <rect x="3" y="3" width="18" height="18" rx="2"/>
+              <path d="M9 9h6v6H9z"/>
+            </svg>
+          </div>
+          <h3 class="solution-title">Stream Control Semantics</h3>
+          <p class="solution-desc">
+            Pause, resume, preempt, and hand off AI responses mid-stream. Real-time control without losing context or state. Because users don't wait politely for LLMs to finish.
+          </p>
+          <div class="solution-detail">pause | resume | preempt | handoff</div>
+        </div>
+
+        <div class="solution-card clickable" data-detail="graphs">
+          <div class="solution-icon">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="12" cy="12" r="10"/>
+              <path d="M12 6v6l4 2"/>
+            </svg>
+          </div>
+          <h3 class="solution-title">Graphs, Not Code</h3>
+          <p class="solution-desc">
+            Workflows are declarative data structures. JSON-serializable, version-controlled, runtime-mutable. Change behavior without redeploying. A/B test entire flows.
+          </p>
+          <div class="solution-detail">{ nodes: [], edges: [] }</div>
+        </div>
+
+        <div class="solution-card clickable" data-detail="self-doc">
+          <div class="solution-icon">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/>
+            </svg>
+          </div>
+          <h3 class="solution-title">Self-Documenting Services</h3>
+          <p class="solution-desc">
+            Every service auto-generates LLM-optimized docs at /docs/llms.txt. Assistants can discover capabilities without human intervention. Services read themselves into understanding.
+          </p>
+          <div class="solution-detail">GET /docs/llms.txt</div>
+        </div>
+
+        <div class="solution-card clickable" data-detail="multi-tenant">
+          <div class="solution-icon">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+              <circle cx="9" cy="7" r="4"/>
+              <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
+              <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+            </svg>
+          </div>
+          <h3 class="solution-title">Multi-Tenant Native</h3>
+          <p class="solution-desc">
+            Workspace isolation, tenant-scoped execution, and header-based context propagation. Every request carries organizational context. Data boundaries enforced at the query layer.
+          </p>
+          <div class="solution-detail">X-Org-Id: tenant-123</div>
+        </div>
+
+        <div class="solution-card clickable" data-detail="integrations">
+          <div class="solution-icon">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="12" cy="12" r="3"/>
+              <path d="M12 1v6m0 6v10"/>
+              <path d="M21 12h-6m-6 0H1"/>
+              <path d="m19.07 4.93-4.24 4.24m-5.66 5.66-4.24 4.24"/>
+              <path d="m4.93 4.93 4.24 4.24m5.66 5.66 4.24 4.24"/>
+            </svg>
+          </div>
+          <h3 class="solution-title">Universal Integrations</h3>
+          <p class="solution-desc">
+            Connect to any third-party system. Drop in an OpenAPI spec, point to an MCP server, or wrap a JS SDK. Assistants discover and use external tools without custom code.
+          </p>
+          <div class="solution-detail">OpenAPI | MCP | JS SDK</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Product Showcase -->
+  <section class="section" id="product">
+    <div class="container">
+      <div class="showcase-header">
+        <div class="section-label">The Product</div>
+        <h2 class="section-title">See it <span style="color: var(--secondary)">in action</span></h2>
+        <p class="section-desc">
+          A control center for AI-native systems. Manage assistants, inspect workflows, monitor services, and coordinate operations—all in one place.
+        </p>
+      </div>
+
+      <div class="showcase-tabs">
+        <button class="showcase-tab active" data-tab="dashboard">Dashboard</button>
+        <button class="showcase-tab" data-tab="workflow">Workflow Editor</button>
+        <button class="showcase-tab" data-tab="assistants">Assistants</button>
+        <button class="showcase-tab" data-tab="chat">Chat</button>
+        <button class="showcase-tab" data-tab="logs">Logs</button>
+      </div>
+
+      <div class="showcase-content">
+        <div class="showcase-panel active" data-panel="dashboard">
+          <div class="showcase-image">
+            <img src="images/product/dashboard.png" alt="Platform Overview Dashboard" onerror="this.parentElement.innerHTML='<div class=\'showcase-placeholder\'>Dashboard Screenshot<br><span>images/product/dashboard.png</span></div>'">
+          </div>
+          <div class="showcase-caption">
+            <h3>Platform Overview</h3>
+            <p>Real-time health across all 9 services. Telemetry summaries, service latencies, active runs, and LLM provider status at a glance.</p>
+          </div>
+        </div>
+
+        <div class="showcase-panel" data-panel="workflow">
+          <div class="showcase-image">
+            <img src="images/product/workflow.png" alt="Visual Workflow Editor" onerror="this.parentElement.innerHTML='<div class=\'showcase-placeholder\'>Workflow Screenshot<br><span>images/product/workflow.png</span></div>'">
+          </div>
+          <div class="showcase-caption">
+            <h3>Visual Behavior Editor</h3>
+            <p>Define assistant behavior as declarative graphs. Route, branch, recall context, and coordinate—all without writing orchestration code.</p>
+          </div>
+        </div>
+
+        <div class="showcase-panel" data-panel="assistants">
+          <div class="showcase-image">
+            <img src="images/product/assistants.png" alt="Assistants Grid" onerror="this.parentElement.innerHTML='<div class=\'showcase-placeholder\'>Assistants Screenshot<br><span>images/product/assistants.png</span></div>'">
+          </div>
+          <div class="showcase-caption">
+            <h3>Assistant Ecosystem</h3>
+            <p>30+ assistants with @mention aliases, declared capabilities, and customizable rules. Each assistant is a first-class principal.</p>
+          </div>
+        </div>
+
+        <div class="showcase-panel" data-panel="chat">
+          <div class="showcase-image">
+            <img src="images/product/chat.png" alt="Chat Interface" onerror="this.parentElement.innerHTML='<div class=\'showcase-placeholder\'>Chat Screenshot<br><span>images/product/chat.png</span></div>'">
+          </div>
+          <div class="showcase-caption">
+            <h3>@mention Coordination</h3>
+            <p>Invoke specialized assistants with @mentions. The Log Analyst queries real system data. The Coordinator routes to the right specialist.</p>
+          </div>
+        </div>
+
+        <div class="showcase-panel" data-panel="logs">
+          <div class="showcase-image">
+            <img src="images/product/logs.png" alt="Log Search Interface" onerror="this.parentElement.innerHTML='<div class=\'showcase-placeholder\'>Logs Screenshot<br><span>images/product/logs.png</span></div>'">
+          </div>
+          <div class="showcase-caption">
+            <h3>Observability Built In</h3>
+            <p>Faceted log search with real-time streaming. Filter by level, source, HTTP method, status code. Pause, restart, export.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Architecture Section -->
+  <section class="section" id="architecture" style="background: var(--bg-elevated); border-top: 1px solid var(--border);">
+    <div class="container">
+      <div class="arch-header">
+        <div class="section-label">Architecture</div>
+        <h2 class="section-title"><span style="color: var(--tertiary)">9 services.</span> One coherent platform.</h2>
+        <p class="section-desc">
+          Each service has a single mission. They compose through well-defined contracts. Run them all, or just the ones you need.
+        </p>
+      </div>
+
+      <div class="arch-visual">
+        <div class="arch-layer">
+          <div class="arch-layer-label">Gateway</div>
+          <div class="arch-services">
+            <div class="arch-service clickable" data-service="server">
+              <div class="arch-service-dot" style="background: var(--primary)"></div>
+              Server — API Gateway & Static Serving
+            </div>
+          </div>
+        </div>
+
+        <div class="arch-divider">↓</div>
+
+        <div class="arch-layer">
+          <div class="arch-layer-label">Core Infrastructure</div>
+          <div class="arch-services">
+            <div class="arch-service clickable" data-service="identity">
+              <div class="arch-service-dot" style="background: var(--node-input)"></div>
+              Identity — Auth, RBAC, API Keys
+            </div>
+            <div class="arch-service clickable" data-service="catalog">
+              <div class="arch-service-dot" style="background: var(--node-condition)"></div>
+              Catalog — Resource Registry
+            </div>
+            <div class="arch-service clickable" data-service="logging">
+              <div class="arch-service-dot" style="background: var(--tertiary)"></div>
+              Logging — Telemetry & Traces
+            </div>
+          </div>
+        </div>
+
+        <div class="arch-divider">↓</div>
+
+        <div class="arch-layer">
+          <div class="arch-layer-label">AI Operations</div>
+          <div class="arch-services">
+            <div class="arch-service clickable" data-service="assistants">
+              <div class="arch-service-dot" style="background: var(--node-llm)"></div>
+              Assistants — Assistant Orchestration
+            </div>
+            <div class="arch-service clickable" data-service="messaging">
+              <div class="arch-service-dot" style="background: var(--node-tool)"></div>
+              Messaging — Real-time Streams
+            </div>
+            <div class="arch-service clickable" data-service="runtime">
+              <div class="arch-service-dot" style="background: var(--node-router)"></div>
+              Runtime — Graph Execution
+            </div>
+          </div>
+        </div>
+
+        <div class="arch-divider">↓</div>
+
+        <div class="arch-layer">
+          <div class="arch-layer-label">External Integration</div>
+          <div class="arch-services">
+            <div class="arch-service clickable" data-service="integrations">
+              <div class="arch-service-dot" style="background: var(--node-output)"></div>
+              Integrations — LLM Gateway
+            </div>
+            <div class="arch-service clickable" data-service="network">
+              <div class="arch-service-dot" style="background: var(--secondary)"></div>
+              Network — Service Mesh & SDN
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Assistants Listing -->
+  <section class="section" id="assistants">
+    <div class="container">
+      <div class="assistants-header">
+        <div class="section-label">Assistants</div>
+        <h2 class="section-title">30+ <span style="color: var(--secondary)">built-in assistants</span></h2>
+        <p class="section-desc">
+          Each assistant is a first-class principal with @mention aliases, declared capabilities, and customizable rules. Use them as-is or extend them for your domain.
+        </p>
+      </div>
+
+      <div class="assistants-filters">
+        <button class="assistant-filter active" data-filter="all">All</button>
+        <button class="assistant-filter" data-filter="active">Active</button>
+        <button class="assistant-filter" data-filter="bootstrap">Bootstrap</button>
+        <button class="assistant-filter" data-filter="routing">Routing</button>
+        <button class="assistant-filter" data-filter="code">Code</button>
+        <button class="assistant-filter" data-filter="analytics">Analytics</button>
+      </div>
+
+      <div class="assistants-grid">
+        <div class="assistant-card" data-category="routing active" data-assistant="coordinator">
+          <div class="assistant-card-header">
+            <div class="assistant-icon">🎯</div>
+            <div>
+              <div class="assistant-name">Coordinator</div>
+              <div class="assistant-alias">@coordinator</div>
+            </div>
+          </div>
+          <p class="assistant-desc">Routes messages to the most appropriate specialist assistant based on intent classification and context.</p>
+          <div class="assistant-tags">
+            <span class="assistant-tag status-active">Active</span>
+            <span class="assistant-tag capability">messaging</span>
+            <span class="assistant-tag capability">routing</span>
+          </div>
+        </div>
+
+        <div class="assistant-card" data-category="analytics active" data-assistant="log-analyst">
+          <div class="assistant-card-header">
+            <div class="assistant-icon">📊</div>
+            <div>
+              <div class="assistant-name">Log Analyst</div>
+              <div class="assistant-alias">@logs</div>
+            </div>
+          </div>
+          <p class="assistant-desc">Queries and analyzes system logs in real-time. Identifies patterns, anomalies, and troubleshoots issues.</p>
+          <div class="assistant-tags">
+            <span class="assistant-tag status-active">Active</span>
+            <span class="assistant-tag capability">logging.query</span>
+            <span class="assistant-tag capability">llm.chat</span>
+          </div>
+        </div>
+
+        <div class="assistant-card" data-category="analytics bootstrap" data-assistant="model-evaluator">
+          <div class="assistant-card-header">
+            <div class="assistant-icon">⚖️</div>
+            <div>
+              <div class="assistant-name">Model Evaluator</div>
+              <div class="assistant-alias">@eval</div>
+            </div>
+          </div>
+          <p class="assistant-desc">Runs benchmarks against LLM models and provides recommendations based on task requirements.</p>
+          <div class="assistant-tags">
+            <span class="assistant-tag status-bootstrap">Bootstrap</span>
+            <span class="assistant-tag capability">integrations.query</span>
+            <span class="assistant-tag capability">llm.chat</span>
+          </div>
+        </div>
+
+        <div class="assistant-card" data-category="code active" data-assistant="code-reviewer">
+          <div class="assistant-card-header">
+            <div class="assistant-icon">🔍</div>
+            <div>
+              <div class="assistant-name">Code Reviewer</div>
+              <div class="assistant-alias">@review</div>
+            </div>
+          </div>
+          <p class="assistant-desc">Analyzes code for security vulnerabilities, performance issues, and best practice violations.</p>
+          <div class="assistant-tags">
+            <span class="assistant-tag status-active">Active</span>
+            <span class="assistant-tag capability">code.analyze</span>
+            <span class="assistant-tag capability">llm.chat</span>
+          </div>
+        </div>
+
+        <div class="assistant-card" data-category="routing bootstrap" data-assistant="intent-classifier">
+          <div class="assistant-card-header">
+            <div class="assistant-icon">🏷️</div>
+            <div>
+              <div class="assistant-name">Intent Classifier</div>
+              <div class="assistant-alias">@intent</div>
+            </div>
+          </div>
+          <p class="assistant-desc">Classifies user messages into intent categories for routing and workflow triggering.</p>
+          <div class="assistant-tags">
+            <span class="assistant-tag status-bootstrap">Bootstrap</span>
+            <span class="assistant-tag capability">messaging</span>
+            <span class="assistant-tag capability">llm.classify</span>
+          </div>
+        </div>
+
+        <div class="assistant-card" data-category="analytics active" data-assistant="metrics-analyst">
+          <div class="assistant-card-header">
+            <div class="assistant-icon">📈</div>
+            <div>
+              <div class="assistant-name">Metrics Analyst</div>
+              <div class="assistant-alias">@metrics</div>
+            </div>
+          </div>
+          <p class="assistant-desc">Analyzes service metrics, latencies, and performance data. Generates reports and alerts.</p>
+          <div class="assistant-tags">
+            <span class="assistant-tag status-active">Active</span>
+            <span class="assistant-tag capability">telemetry.query</span>
+            <span class="assistant-tag capability">llm.chat</span>
+          </div>
+        </div>
+
+        <div class="assistant-card" data-category="code bootstrap" data-assistant="doc-generator">
+          <div class="assistant-card-header">
+            <div class="assistant-icon">📝</div>
+            <div>
+              <div class="assistant-name">Doc Generator</div>
+              <div class="assistant-alias">@docs</div>
+            </div>
+          </div>
+          <p class="assistant-desc">Generates API documentation, README files, and inline code comments from source code.</p>
+          <div class="assistant-tags">
+            <span class="assistant-tag status-bootstrap">Bootstrap</span>
+            <span class="assistant-tag capability">code.analyze</span>
+            <span class="assistant-tag capability">llm.generate</span>
+          </div>
+        </div>
+
+        <div class="assistant-card" data-category="routing active" data-assistant="handoff-manager">
+          <div class="assistant-card-header">
+            <div class="assistant-icon">🤝</div>
+            <div>
+              <div class="assistant-name">Handoff Manager</div>
+              <div class="assistant-alias">@handoff</div>
+            </div>
+          </div>
+          <p class="assistant-desc">Manages transitions between AI assistants and human agents with context preservation.</p>
+          <div class="assistant-tags">
+            <span class="assistant-tag status-active">Active</span>
+            <span class="assistant-tag capability">messaging</span>
+            <span class="assistant-tag capability">routing</span>
+          </div>
+        </div>
+
+        <div class="assistant-card" data-category="analytics bootstrap" data-assistant="anomaly-detector">
+          <div class="assistant-card-header">
+            <div class="assistant-icon">🚨</div>
+            <div>
+              <div class="assistant-name">Anomaly Detector</div>
+              <div class="assistant-alias">@anomaly</div>
+            </div>
+          </div>
+          <p class="assistant-desc">Monitors system behavior and detects unusual patterns that may indicate issues or attacks.</p>
+          <div class="assistant-tags">
+            <span class="assistant-tag status-bootstrap">Bootstrap</span>
+            <span class="assistant-tag capability">telemetry.query</span>
+            <span class="assistant-tag capability">llm.reason</span>
+          </div>
+        </div>
+
+        <div class="assistant-card" data-category="code active" data-assistant="test-generator">
+          <div class="assistant-card-header">
+            <div class="assistant-icon">🧪</div>
+            <div>
+              <div class="assistant-name">Test Generator</div>
+              <div class="assistant-alias">@test</div>
+            </div>
+          </div>
+          <p class="assistant-desc">Generates unit tests, integration tests, and test fixtures from function signatures and documentation.</p>
+          <div class="assistant-tags">
+            <span class="assistant-tag status-active">Active</span>
+            <span class="assistant-tag capability">code.generate</span>
+            <span class="assistant-tag capability">llm.chat</span>
+          </div>
+        </div>
+
+        <div class="assistant-card" data-category="routing bootstrap" data-assistant="context-manager">
+          <div class="assistant-card-header">
+            <div class="assistant-icon">🧠</div>
+            <div>
+              <div class="assistant-name">Context Manager</div>
+              <div class="assistant-alias">@context</div>
+            </div>
+          </div>
+          <p class="assistant-desc">Maintains conversation context across assistant handoffs and session boundaries.</p>
+          <div class="assistant-tags">
+            <span class="assistant-tag status-bootstrap">Bootstrap</span>
+            <span class="assistant-tag capability">memory.store</span>
+            <span class="assistant-tag capability">messaging</span>
+          </div>
+        </div>
+
+        <div class="assistant-card" data-category="analytics active" data-assistant="cost-analyzer">
+          <div class="assistant-card-header">
+            <div class="assistant-icon">💰</div>
+            <div>
+              <div class="assistant-name">Cost Analyzer</div>
+              <div class="assistant-alias">@cost</div>
+            </div>
+          </div>
+          <p class="assistant-desc">Tracks LLM token usage, estimates costs, and recommends optimization strategies.</p>
+          <div class="assistant-tags">
+            <span class="assistant-tag status-active">Active</span>
+            <span class="assistant-tag capability">integrations.query</span>
+            <span class="assistant-tag capability">llm.chat</span>
+          </div>
+        </div>
+      </div>
+
+      <div style="text-align: center; margin-top: var(--space-6);">
+        <button class="btn btn-secondary" onclick="document.querySelector('[data-service=assistants]').click()">View All 31 Assistants →</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- CTA -->
+  <section class="section cta">
+    <div class="container">
+      <div class="cta-card">
+        <h2 class="cta-title">Ready to build AI-native systems?</h2>
+        <p class="cta-desc">
+          Stop treating AI as an integration. Start building systems where assistants are principals.
+        </p>
+        <div class="cta-actions">
+          <button class="btn btn-primary btn-lg">Get Started Free</button>
+          <button class="btn btn-secondary btn-lg">Schedule a Demo</button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Footer -->
+  <footer class="footer">
+    <div class="container footer-inner">
+      <div class="footer-copy">© 2026 Symbia Labs. All rights reserved.</div>
+      <div class="footer-links">
+        <a href="/docs" class="footer-link">Documentation</a>
+        <a href="/blog" class="footer-link">Blog</a>
+        <a href="/privacy" class="footer-link">Privacy</a>
+        <a href="/terms" class="footer-link">Terms</a>
+      </div>
+    </div>
+  </footer>
+
+  <!-- Theme Controls -->
+  <div class="theme-controls">
+    <div class="theme-panel" id="themePanel">
+      <div class="theme-panel-title">Mode</div>
+      <div class="mode-toggle">
+        <button class="mode-btn active" data-mode="dark">Dark</button>
+        <button class="mode-btn" data-mode="light">Light</button>
+        <button class="mode-btn" data-mode="system">Auto</button>
+      </div>
+      <div class="theme-panel-title" style="margin-top: var(--space-4);">Theme</div>
+      <div class="theme-swatches">
+        <button class="theme-swatch active" data-theme="carbon" style="background: linear-gradient(135deg, #3b82f6, #ec4899)"></button>
+        <button class="theme-swatch" data-theme="sand" style="background: linear-gradient(135deg, #c2956b, #7d9a78)"></button>
+        <button class="theme-swatch" data-theme="stone" style="background: linear-gradient(135deg, #7890a8, #a89088)"></button>
+        <button class="theme-swatch" data-theme="mono-blue" style="background: #5a8ad0"></button>
+      </div>
+    </div>
+    <button class="theme-toggle-btn" id="themeToggle" title="Toggle theme panel">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <circle cx="12" cy="12" r="5"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/>
+      </svg>
+    </button>
+  </div>
+
+  <!-- Modal Overlay -->
+  <div class="modal-overlay" id="modalOverlay"></div>
+
+  <!-- Service Modals -->
+  <div class="modal-panel" id="modal-server">
+    <div class="modal-header">
+      <div style="display: flex; align-items: center; gap: var(--space-3);">
+        <div class="modal-badge" style="color: var(--primary);"><span style="width:8px;height:8px;border-radius:50%;background:var(--primary);"></span> Gateway</div>
+        <h2 class="modal-title">Server Service</h2>
+      </div>
+      <button class="modal-close" onclick="closeModal()">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="modal-section">
+        <h3 class="modal-section-title">Overview</h3>
+        <p class="modal-desc">The Server service is the unified API gateway and static asset server for the entire Symbia platform. It handles all incoming HTTP requests, manages WebSocket connections, and serves the Control Center UI.</p>
+      </div>
+      <div class="modal-section">
+        <div class="modal-stats">
+          <div class="modal-stat"><div class="modal-stat-value">:5001</div><div class="modal-stat-label">Default Port</div></div>
+          <div class="modal-stat"><div class="modal-stat-value">Express</div><div class="modal-stat-label">Framework</div></div>
+          <div class="modal-stat"><div class="modal-stat-value">~3K</div><div class="modal-stat-label">Lines of Code</div></div>
+        </div>
+      </div>
+      <div class="modal-section">
+        <h3 class="modal-section-title">Key Features</h3>
+        <ul class="modal-list">
+          <li class="modal-list-item"><strong>Reverse Proxy</strong><span>Routes requests to appropriate microservices based on path prefixes</span></li>
+          <li class="modal-list-item"><strong>Static Serving</strong><span>Serves the React Control Center UI with code splitting support</span></li>
+          <li class="modal-list-item"><strong>WebSocket Hub</strong><span>Manages real-time connections for streaming responses</span></li>
+          <li class="modal-list-item"><strong>Health Aggregation</strong><span>Collects health status from all services at /health</span></li>
+        </ul>
+      </div>
+      <div class="modal-section">
+        <h3 class="modal-section-title">Example Routing</h3>
+        <div class="modal-code">
+<span class="comment">// Request routing configuration</span>
+/api/identity/*  → identity-service:5002
+/api/catalog/*   → catalog-service:5003
+/api/assistants/* → assistants-service:5004
+/api/messaging/* → messaging-service:5005
+/api/runtime/*   → runtime-service:5006
+/api/integrations/* → integrations-service:5007</div>
+      </div>
+    </div>
+    <div class="modal-chat" data-context="server">
+      <div class="modal-chat-label">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+        Ask about this service
+      </div>
+      <div class="modal-chat-messages"></div>
+      <div class="modal-chat-suggestions">
+        <button class="chat-suggestion">How does request routing work?</button>
+        <button class="chat-suggestion">What's the health endpoint?</button>
+        <button class="chat-suggestion">How do I add middleware?</button>
+      </div>
+      <div class="modal-chat-input">
+        <input type="text" placeholder="Ask a question about the Server service...">
+        <button><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 2L11 13"/><path d="M22 2L15 22l-4-9-9-4 20-7z"/></svg></button>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal-panel" id="modal-identity">
+    <div class="modal-header">
+      <div style="display: flex; align-items: center; gap: var(--space-3);">
+        <div class="modal-badge" style="color: var(--node-input);"><span style="width:8px;height:8px;border-radius:50%;background:var(--node-input);"></span> Core</div>
+        <h2 class="modal-title">Identity Service</h2>
+      </div>
+      <button class="modal-close" onclick="closeModal()">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="modal-section">
+        <h3 class="modal-section-title">Overview</h3>
+        <p class="modal-desc">The Identity service manages authentication, authorization, and the Dual Principal Model. It issues tokens for both users and AI assistants, enabling fine-grained access control across the platform.</p>
+      </div>
+      <div class="modal-section">
+        <div class="modal-stats">
+          <div class="modal-stat"><div class="modal-stat-value">:5002</div><div class="modal-stat-label">Default Port</div></div>
+          <div class="modal-stat"><div class="modal-stat-value">JWT + RBAC</div><div class="modal-stat-label">Auth Model</div></div>
+          <div class="modal-stat"><div class="modal-stat-value">~5K</div><div class="modal-stat-label">Lines of Code</div></div>
+        </div>
+      </div>
+      <div class="modal-section">
+        <h3 class="modal-section-title">Key Features</h3>
+        <ul class="modal-list">
+          <li class="modal-list-item"><strong>Dual Principal Model</strong><span>Tracks both user identity and assistant identity in every request</span></li>
+          <li class="modal-list-item"><strong>API Key Management</strong><span>Issue, rotate, and revoke API keys with scoped permissions</span></li>
+          <li class="modal-list-item"><strong>Role-Based Access Control</strong><span>Define roles with granular capability assignments</span></li>
+          <li class="modal-list-item"><strong>Audit Logging</strong><span>Complete audit trail of all authentication events</span></li>
+        </ul>
+      </div>
+      <div class="modal-section">
+        <h3 class="modal-section-title">Principal Token Structure</h3>
+        <div class="modal-code">
+{
+  <span class="string">"userId"</span>: <span class="string">"user_abc123"</span>,
+  <span class="string">"assistantId"</span>: <span class="string">"assistant:coordinator"</span>,
+  <span class="string">"orgId"</span>: <span class="string">"org_xyz789"</span>,
+  <span class="string">"capabilities"</span>: [<span class="string">"messaging"</span>, <span class="string">"llm.chat"</span>],
+  <span class="string">"exp"</span>: 1706486400
+}</div>
+      </div>
+    </div>
+    <div class="modal-chat" data-context="identity">
+      <div class="modal-chat-label">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+        Ask about this service
+      </div>
+      <div class="modal-chat-messages"></div>
+      <div class="modal-chat-suggestions">
+        <button class="chat-suggestion">How does dual principal work?</button>
+        <button class="chat-suggestion">How do I issue API keys?</button>
+        <button class="chat-suggestion">Explain RBAC capabilities</button>
+      </div>
+      <div class="modal-chat-input">
+        <input type="text" placeholder="Ask a question about the Identity service...">
+        <button><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 2L11 13"/><path d="M22 2L15 22l-4-9-9-4 20-7z"/></svg></button>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal-panel" id="modal-catalog">
+    <div class="modal-header">
+      <div style="display: flex; align-items: center; gap: var(--space-3);">
+        <div class="modal-badge" style="color: var(--node-condition);"><span style="width:8px;height:8px;border-radius:50%;background:var(--node-condition);"></span> Core</div>
+        <h2 class="modal-title">Catalog Service</h2>
+      </div>
+      <button class="modal-close" onclick="closeModal()">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="modal-section">
+        <h3 class="modal-section-title">Overview</h3>
+        <p class="modal-desc">The Catalog service is the centralized registry for all resources in the platform—services, assistants, integrations, workflows, and more. It enables runtime discovery and cross-service namespace resolution.</p>
+      </div>
+      <div class="modal-section">
+        <div class="modal-stats">
+          <div class="modal-stat"><div class="modal-stat-value">:5003</div><div class="modal-stat-label">Default Port</div></div>
+          <div class="modal-stat"><div class="modal-stat-value">9</div><div class="modal-stat-label">Resource Types</div></div>
+          <div class="modal-stat"><div class="modal-stat-value">~4K</div><div class="modal-stat-label">Lines of Code</div></div>
+        </div>
+      </div>
+      <div class="modal-section">
+        <h3 class="modal-section-title">Key Features</h3>
+        <ul class="modal-list">
+          <li class="modal-list-item"><strong>Service Discovery</strong><span>Register and discover services with health-aware routing</span></li>
+          <li class="modal-list-item"><strong>Namespace Resolution</strong><span>Cross-service references via catalog:// URIs</span></li>
+          <li class="modal-list-item"><strong>Schema Registry</strong><span>Store and version API schemas for validation</span></li>
+          <li class="modal-list-item"><strong>Dependency Graph</strong><span>Track and visualize service dependencies</span></li>
+        </ul>
+      </div>
+      <div class="modal-section">
+        <h3 class="modal-section-title">Resource Types</h3>
+        <div class="modal-code">
+<span class="comment">// Registered resource types</span>
+service     → Microservice endpoints
+assistant   → AI assistant definitions
+integration → External system connectors
+workflow    → Behavior graphs
+preset      → LLM configuration presets
+schema      → API schemas
+webhook     → Event callbacks
+credential  → Encrypted secrets
+tenant      → Organization configs</div>
+      </div>
+    </div>
+    <div class="modal-chat" data-context="catalog">
+      <div class="modal-chat-label">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+        Ask about this service
+      </div>
+      <div class="modal-chat-messages"></div>
+      <div class="modal-chat-suggestions">
+        <button class="chat-suggestion">How does service discovery work?</button>
+        <button class="chat-suggestion">Explain catalog:// URIs</button>
+        <button class="chat-suggestion">How to register a resource?</button>
+      </div>
+      <div class="modal-chat-input">
+        <input type="text" placeholder="Ask a question about the Catalog service...">
+        <button><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 2L11 13"/><path d="M22 2L15 22l-4-9-9-4 20-7z"/></svg></button>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal-panel" id="modal-logging">
+    <div class="modal-header">
+      <div style="display: flex; align-items: center; gap: var(--space-3);">
+        <div class="modal-badge" style="color: var(--tertiary);"><span style="width:8px;height:8px;border-radius:50%;background:var(--tertiary);"></span> Core</div>
+        <h2 class="modal-title">Logging Service</h2>
+      </div>
+      <button class="modal-close" onclick="closeModal()">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="modal-section">
+        <h3 class="modal-section-title">Overview</h3>
+        <p class="modal-desc">The Logging service provides unified observability across the platform. It collects logs, metrics, and traces from all services, enabling real-time monitoring and historical analysis.</p>
+      </div>
+      <div class="modal-section">
+        <div class="modal-stats">
+          <div class="modal-stat"><div class="modal-stat-value">:5008</div><div class="modal-stat-label">Default Port</div></div>
+          <div class="modal-stat"><div class="modal-stat-value">SSE</div><div class="modal-stat-label">Real-time Protocol</div></div>
+          <div class="modal-stat"><div class="modal-stat-value">~3K</div><div class="modal-stat-label">Lines of Code</div></div>
+        </div>
+      </div>
+      <div class="modal-section">
+        <h3 class="modal-section-title">Key Features</h3>
+        <ul class="modal-list">
+          <li class="modal-list-item"><strong>Structured Logging</strong><span>JSON logs with automatic context enrichment</span></li>
+          <li class="modal-list-item"><strong>Real-time Streaming</strong><span>Server-Sent Events for live log tailing</span></li>
+          <li class="modal-list-item"><strong>Faceted Search</strong><span>Filter by level, source, HTTP method, status code</span></li>
+          <li class="modal-list-item"><strong>Trace Correlation</strong><span>Link logs across services via trace IDs</span></li>
+        </ul>
+      </div>
+      <div class="modal-section">
+        <h3 class="modal-section-title">Log Entry Structure</h3>
+        <div class="modal-code">
+{
+  <span class="string">"timestamp"</span>: <span class="string">"2026-01-27T14:32:01.234Z"</span>,
+  <span class="string">"level"</span>: <span class="string">"info"</span>,
+  <span class="string">"source"</span>: <span class="string">"messaging-service"</span>,
+  <span class="string">"message"</span>: <span class="string">"Stream started"</span>,
+  <span class="string">"traceId"</span>: <span class="string">"abc123"</span>,
+  <span class="string">"orgId"</span>: <span class="string">"org_xyz789"</span>,
+  <span class="string">"metadata"</span>: { ... }
+}</div>
+      </div>
+    </div>
+    <div class="modal-chat" data-context="logging">
+      <div class="modal-chat-label">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+        Ask about this service
+      </div>
+      <div class="modal-chat-messages"></div>
+      <div class="modal-chat-suggestions">
+        <button class="chat-suggestion">How do I query logs?</button>
+        <button class="chat-suggestion">Explain trace correlation</button>
+        <button class="chat-suggestion">Set up real-time streaming</button>
+      </div>
+      <div class="modal-chat-input">
+        <input type="text" placeholder="Ask a question about the Logging service...">
+        <button><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 2L11 13"/><path d="M22 2L15 22l-4-9-9-4 20-7z"/></svg></button>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal-panel" id="modal-assistants">
+    <div class="modal-header">
+      <div style="display: flex; align-items: center; gap: var(--space-3);">
+        <div class="modal-badge" style="color: var(--node-llm);"><span style="width:8px;height:8px;border-radius:50%;background:var(--node-llm);"></span> AI Ops</div>
+        <h2 class="modal-title">Assistants Service</h2>
+      </div>
+      <button class="modal-close" onclick="closeModal()">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="modal-section">
+        <h3 class="modal-section-title">Overview</h3>
+        <p class="modal-desc">The Assistants service manages AI assistant lifecycle, configuration, and orchestration. Each assistant is a first-class principal with identity, capabilities, rules, and @mention aliases.</p>
+      </div>
+      <div class="modal-section">
+        <div class="modal-stats">
+          <div class="modal-stat"><div class="modal-stat-value">:5004</div><div class="modal-stat-label">Default Port</div></div>
+          <div class="modal-stat"><div class="modal-stat-value">31</div><div class="modal-stat-label">Built-in Assistants</div></div>
+          <div class="modal-stat"><div class="modal-stat-value">~6K</div><div class="modal-stat-label">Lines of Code</div></div>
+        </div>
+      </div>
+      <div class="modal-section">
+        <h3 class="modal-section-title">Key Features</h3>
+        <ul class="modal-list">
+          <li class="modal-list-item"><strong>@mention Routing</strong><span>Invoke assistants with @alias syntax in conversations</span></li>
+          <li class="modal-list-item"><strong>Rule Engine</strong><span>Pattern-matched rules trigger assistant behaviors</span></li>
+          <li class="modal-list-item"><strong>Capability Declarations</strong><span>Explicit capability requirements for access control</span></li>
+          <li class="modal-list-item"><strong>LLM Presets</strong><span>Configure model, temperature, and reasoning per assistant</span></li>
+        </ul>
+      </div>
+      <div class="modal-section">
+        <h3 class="modal-section-title">Assistant Definition</h3>
+        <div class="modal-code">
+{
+  <span class="string">"key"</span>: <span class="string">"coordinator"</span>,
+  <span class="string">"alias"</span>: <span class="string">"@coordinator"</span>,
+  <span class="string">"principalId"</span>: <span class="string">"assistant:coordinator"</span>,
+  <span class="string">"capabilities"</span>: [<span class="string">"messaging"</span>, <span class="string">"routing"</span>],
+  <span class="string">"llm"</span>: {
+    <span class="string">"preset"</span>: <span class="string">"balanced"</span>,
+    <span class="string">"model"</span>: <span class="string">"claude-3.5-sonnet"</span>
+  },
+  <span class="string">"rules"</span>: [ ... ]
+}</div>
+      </div>
+    </div>
+    <div class="modal-chat" data-context="assistants">
+      <div class="modal-chat-label">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+        Ask about this service
+      </div>
+      <div class="modal-chat-messages"></div>
+      <div class="modal-chat-suggestions">
+        <button class="chat-suggestion">How do @mentions work?</button>
+        <button class="chat-suggestion">Create a custom assistant</button>
+        <button class="chat-suggestion">Explain the rule engine</button>
+      </div>
+      <div class="modal-chat-input">
+        <input type="text" placeholder="Ask a question about the Assistants service...">
+        <button><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 2L11 13"/><path d="M22 2L15 22l-4-9-9-4 20-7z"/></svg></button>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal-panel" id="modal-messaging">
+    <div class="modal-header">
+      <div style="display: flex; align-items: center; gap: var(--space-3);">
+        <div class="modal-badge" style="color: var(--node-tool);"><span style="width:8px;height:8px;border-radius:50%;background:var(--node-tool);"></span> AI Ops</div>
+        <h2 class="modal-title">Messaging Service</h2>
+      </div>
+      <button class="modal-close" onclick="closeModal()">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="modal-section">
+        <h3 class="modal-section-title">Overview</h3>
+        <p class="modal-desc">The Messaging service handles real-time conversation orchestration with stream control semantics. It manages message routing, streaming responses, and cross-assistant coordination.</p>
+      </div>
+      <div class="modal-section">
+        <div class="modal-stats">
+          <div class="modal-stat"><div class="modal-stat-value">:5005</div><div class="modal-stat-label">Default Port</div></div>
+          <div class="modal-stat"><div class="modal-stat-value">SSE/WS</div><div class="modal-stat-label">Protocols</div></div>
+          <div class="modal-stat"><div class="modal-stat-value">~5K</div><div class="modal-stat-label">Lines of Code</div></div>
+        </div>
+      </div>
+      <div class="modal-section">
+        <h3 class="modal-section-title">Key Features</h3>
+        <ul class="modal-list">
+          <li class="modal-list-item"><strong>Stream Control</strong><span>Pause, resume, preempt, and hand off mid-stream</span></li>
+          <li class="modal-list-item"><strong>Channel Management</strong><span>Persistent conversation channels with history</span></li>
+          <li class="modal-list-item"><strong>Priority Handling</strong><span>Urgent messages can preempt ongoing responses</span></li>
+          <li class="modal-list-item"><strong>Backpressure</strong><span>Flow control prevents overwhelming clients</span></li>
+        </ul>
+      </div>
+      <div class="modal-section">
+        <h3 class="modal-section-title">Stream Control Commands</h3>
+        <div class="modal-code">
+<span class="comment">// Stream control operations</span>
+POST /api/messaging/streams/:id/pause
+POST /api/messaging/streams/:id/resume
+POST /api/messaging/streams/:id/preempt
+POST /api/messaging/streams/:id/handoff
+
+<span class="comment">// Event types</span>
+stream:start | stream:chunk | stream:pause
+stream:resume | stream:complete | stream:error</div>
+      </div>
+    </div>
+    <div class="modal-chat" data-context="messaging">
+      <div class="modal-chat-label">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+        Ask about this service
+      </div>
+      <div class="modal-chat-messages"></div>
+      <div class="modal-chat-suggestions">
+        <button class="chat-suggestion">How does stream pause work?</button>
+        <button class="chat-suggestion">Implement handoff flow</button>
+        <button class="chat-suggestion">Backpressure handling</button>
+      </div>
+      <div class="modal-chat-input">
+        <input type="text" placeholder="Ask a question about the Messaging service...">
+        <button><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 2L11 13"/><path d="M22 2L15 22l-4-9-9-4 20-7z"/></svg></button>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal-panel" id="modal-runtime">
+    <div class="modal-header">
+      <div style="display: flex; align-items: center; gap: var(--space-3);">
+        <div class="modal-badge" style="color: var(--node-router);"><span style="width:8px;height:8px;border-radius:50%;background:var(--node-router);"></span> AI Ops</div>
+        <h2 class="modal-title">Runtime Service</h2>
+      </div>
+      <button class="modal-close" onclick="closeModal()">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="modal-section">
+        <h3 class="modal-section-title">Overview</h3>
+        <p class="modal-desc">The Runtime service executes declarative behavior graphs (workflows). It interprets node definitions, manages execution state, and coordinates cross-node data flow.</p>
+      </div>
+      <div class="modal-section">
+        <div class="modal-stats">
+          <div class="modal-stat"><div class="modal-stat-value">:5006</div><div class="modal-stat-label">Default Port</div></div>
+          <div class="modal-stat"><div class="modal-stat-value">9</div><div class="modal-stat-label">Node Types</div></div>
+          <div class="modal-stat"><div class="modal-stat-value">~7K</div><div class="modal-stat-label">Lines of Code</div></div>
+        </div>
+      </div>
+      <div class="modal-section">
+        <h3 class="modal-section-title">Node Types</h3>
+        <ul class="modal-list">
+          <li class="modal-list-item"><strong style="color: var(--node-input);">Input</strong><span>Entry point for workflow execution</span></li>
+          <li class="modal-list-item"><strong style="color: var(--node-llm);">LLM</strong><span>Execute language model prompts</span></li>
+          <li class="modal-list-item"><strong style="color: var(--node-router);">Router</strong><span>Conditional branching based on rules</span></li>
+          <li class="modal-list-item"><strong style="color: var(--node-tool);">Tool</strong><span>Execute external integrations</span></li>
+          <li class="modal-list-item"><strong style="color: var(--node-condition);">Condition</strong><span>Boolean logic gates</span></li>
+          <li class="modal-list-item"><strong style="color: var(--node-output);">Output</strong><span>Terminal nodes that emit results</span></li>
+        </ul>
+      </div>
+      <div class="modal-section">
+        <h3 class="modal-section-title">Workflow Structure</h3>
+        <div class="modal-code">
+{
+  <span class="string">"id"</span>: <span class="string">"customer-support-v2"</span>,
+  <span class="string">"nodes"</span>: [
+    { <span class="string">"id"</span>: <span class="string">"n1"</span>, <span class="string">"type"</span>: <span class="string">"input"</span> },
+    { <span class="string">"id"</span>: <span class="string">"n2"</span>, <span class="string">"type"</span>: <span class="string">"llm"</span>, <span class="string">"preset"</span>: <span class="string">"classify"</span> },
+    { <span class="string">"id"</span>: <span class="string">"n3"</span>, <span class="string">"type"</span>: <span class="string">"router"</span> }
+  ],
+  <span class="string">"edges"</span>: [
+    { <span class="string">"from"</span>: <span class="string">"n1"</span>, <span class="string">"to"</span>: <span class="string">"n2"</span> },
+    { <span class="string">"from"</span>: <span class="string">"n2"</span>, <span class="string">"to"</span>: <span class="string">"n3"</span> }
+  ]
+}</div>
+      </div>
+    </div>
+    <div class="modal-chat" data-context="runtime">
+      <div class="modal-chat-label">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+        Ask about this service
+      </div>
+      <div class="modal-chat-messages"></div>
+      <div class="modal-chat-suggestions">
+        <button class="chat-suggestion">How do I create a workflow?</button>
+        <button class="chat-suggestion">Explain node types</button>
+        <button class="chat-suggestion">Debug workflow execution</button>
+      </div>
+      <div class="modal-chat-input">
+        <input type="text" placeholder="Ask a question about the Runtime service...">
+        <button><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 2L11 13"/><path d="M22 2L15 22l-4-9-9-4 20-7z"/></svg></button>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal-panel" id="modal-integrations">
+    <div class="modal-header">
+      <div style="display: flex; align-items: center; gap: var(--space-3);">
+        <div class="modal-badge" style="color: var(--node-output);"><span style="width:8px;height:8px;border-radius:50%;background:var(--node-output);"></span> External</div>
+        <h2 class="modal-title">Integrations Service</h2>
+      </div>
+      <button class="modal-close" onclick="closeModal()">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="modal-section">
+        <h3 class="modal-section-title">Overview</h3>
+        <p class="modal-desc">The Integrations service is the gateway to external systems—LLM providers, third-party APIs, and tool connectors. It normalizes interfaces and manages credentials securely.</p>
+      </div>
+      <div class="modal-section">
+        <div class="modal-stats">
+          <div class="modal-stat"><div class="modal-stat-value">:5007</div><div class="modal-stat-label">Default Port</div></div>
+          <div class="modal-stat"><div class="modal-stat-value">58</div><div class="modal-stat-label">Models Discovered</div></div>
+          <div class="modal-stat"><div class="modal-stat-value">~8K</div><div class="modal-stat-label">Lines of Code</div></div>
+        </div>
+      </div>
+      <div class="modal-section">
+        <h3 class="modal-section-title">Integration Types</h3>
+        <ul class="modal-list">
+          <li class="modal-list-item"><strong>OpenAPI</strong><span>Auto-generate tools from OpenAPI 3.x specifications</span></li>
+          <li class="modal-list-item"><strong>MCP Servers</strong><span>Connect Model Context Protocol servers</span></li>
+          <li class="modal-list-item"><strong>JS SDK Wrappers</strong><span>Wrap any JavaScript SDK as callable tools</span></li>
+          <li class="modal-list-item"><strong>LLM Providers</strong><span>Unified interface to OpenAI, Anthropic, Google, etc.</span></li>
+        </ul>
+      </div>
+      <div class="modal-section">
+        <h3 class="modal-section-title">LLM Provider Support</h3>
+        <div class="modal-code">
+<span class="comment">// Supported providers</span>
+openai    → GPT-4o, GPT-5, o4-mini, etc.
+anthropic → Claude 3.5, Claude 4
+google    → Gemini Pro, Gemini Ultra
+mistral   → Mistral Large, Codestral
+groq      → Llama 3.1, Mixtral
+
+<span class="comment">// Unified chat interface</span>
+POST /api/integrations/llm/chat
+{ provider, model, messages, ...options }</div>
+      </div>
+    </div>
+    <div class="modal-chat" data-context="integrations">
+      <div class="modal-chat-label">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+        Ask about this service
+      </div>
+      <div class="modal-chat-messages"></div>
+      <div class="modal-chat-suggestions">
+        <button class="chat-suggestion">Add an OpenAPI integration</button>
+        <button class="chat-suggestion">Configure LLM provider</button>
+        <button class="chat-suggestion">Connect an MCP server</button>
+      </div>
+      <div class="modal-chat-input">
+        <input type="text" placeholder="Ask a question about the Integrations service...">
+        <button><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 2L11 13"/><path d="M22 2L15 22l-4-9-9-4 20-7z"/></svg></button>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal-panel" id="modal-network">
+    <div class="modal-header">
+      <div style="display: flex; align-items: center; gap: var(--space-3);">
+        <div class="modal-badge" style="color: var(--secondary);"><span style="width:8px;height:8px;border-radius:50%;background:var(--secondary);"></span> External</div>
+        <h2 class="modal-title">Network Service</h2>
+      </div>
+      <button class="modal-close" onclick="closeModal()">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="modal-section">
+        <h3 class="modal-section-title">Overview</h3>
+        <p class="modal-desc">The Network service provides software-defined networking capabilities—service mesh, traffic management, and observability middleware. It enables zero-config inter-service communication.</p>
+      </div>
+      <div class="modal-section">
+        <div class="modal-stats">
+          <div class="modal-stat"><div class="modal-stat-value">:5009</div><div class="modal-stat-label">Default Port</div></div>
+          <div class="modal-stat"><div class="modal-stat-value">SDN</div><div class="modal-stat-label">Architecture</div></div>
+          <div class="modal-stat"><div class="modal-stat-value">~4K</div><div class="modal-stat-label">Lines of Code</div></div>
+        </div>
+      </div>
+      <div class="modal-section">
+        <h3 class="modal-section-title">Key Features</h3>
+        <ul class="modal-list">
+          <li class="modal-list-item"><strong>Service Mesh</strong><span>Automatic mTLS, retries, and circuit breaking</span></li>
+          <li class="modal-list-item"><strong>Traffic Shaping</strong><span>Rate limiting, load balancing, canary routing</span></li>
+          <li class="modal-list-item"><strong>Header Propagation</strong><span>Automatic context headers (org, trace, principal)</span></li>
+          <li class="modal-list-item"><strong>Observability Middleware</strong><span>Request/response logging with timing metrics</span></li>
+        </ul>
+      </div>
+      <div class="modal-section">
+        <h3 class="modal-section-title">Propagated Headers</h3>
+        <div class="modal-code">
+<span class="comment">// Auto-propagated context headers</span>
+X-Org-Id        → Tenant isolation
+X-Trace-Id      → Distributed tracing
+X-Principal-Id  → User + assistant context
+X-Request-Id    → Request correlation
+X-Upstream-Latency → Timing propagation</div>
+      </div>
+    </div>
+    <div class="modal-chat" data-context="network">
+      <div class="modal-chat-label">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+        Ask about this service
+      </div>
+      <div class="modal-chat-messages"></div>
+      <div class="modal-chat-suggestions">
+        <button class="chat-suggestion">How does mTLS work?</button>
+        <button class="chat-suggestion">Configure rate limiting</button>
+        <button class="chat-suggestion">Set up canary routing</button>
+      </div>
+      <div class="modal-chat-input">
+        <input type="text" placeholder="Ask a question about the Network service...">
+        <button><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 2L11 13"/><path d="M22 2L15 22l-4-9-9-4 20-7z"/></svg></button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Solution Feature Modals -->
+  <div class="modal-panel" id="modal-dual-principal">
+    <div class="modal-header">
+      <h2 class="modal-title">Dual Principal Model</h2>
+      <button class="modal-close" onclick="closeModal()">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="modal-section">
+        <h3 class="modal-section-title">The Problem</h3>
+        <p class="modal-desc">Traditional auth models track users. But when an AI assistant makes a request on behalf of a user, you need to know: Who authorized this? Which assistant is executing? What capabilities were granted? What's the context?</p>
+      </div>
+      <div class="modal-section">
+        <h3 class="modal-section-title">The Solution</h3>
+        <p class="modal-desc">Every request in Symbia carries two principals: the user who authorized the action and the assistant executing it. Both are authenticated, both have declared capabilities, and both are audited.</p>
+      </div>
+      <div class="modal-section">
+        <h3 class="modal-section-title">How It Works</h3>
+        <ul class="modal-list">
+          <li class="modal-list-item"><strong>User Principal</strong><span>Human identity with org membership and roles</span></li>
+          <li class="modal-list-item"><strong>Assistant Principal</strong><span>AI identity with declared capabilities and rules</span></li>
+          <li class="modal-list-item"><strong>Compound Token</strong><span>JWT encodes both principals with intersection of permissions</span></li>
+          <li class="modal-list-item"><strong>Audit Trail</strong><span>Every action logged with full principal context</span></li>
+        </ul>
+      </div>
+      <div class="modal-section">
+        <h3 class="modal-section-title">Example Token Payload</h3>
+        <div class="modal-code">
+{
+  <span class="string">"user"</span>: {
+    <span class="string">"id"</span>: <span class="string">"user_abc123"</span>,
+    <span class="string">"orgId"</span>: <span class="string">"org_xyz789"</span>,
+    <span class="string">"roles"</span>: [<span class="string">"member"</span>, <span class="string">"billing"</span>]
+  },
+  <span class="string">"assistant"</span>: {
+    <span class="string">"id"</span>: <span class="string">"assistant:coordinator"</span>,
+    <span class="string">"capabilities"</span>: [<span class="string">"messaging"</span>, <span class="string">"routing"</span>]
+  },
+  <span class="string">"effectiveCapabilities"</span>: [<span class="string">"messaging"</span>]
+}</div>
+      </div>
+    </div>
+    <div class="modal-chat" data-context="dual-principal">
+      <div class="modal-chat-label">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+        Ask about this feature
+      </div>
+      <div class="modal-chat-messages"></div>
+      <div class="modal-chat-suggestions">
+        <button class="chat-suggestion">How does capability intersection work?</button>
+        <button class="chat-suggestion">Implementing custom permissions</button>
+      </div>
+      <div class="modal-chat-input">
+        <input type="text" placeholder="Ask about Dual Principal Model...">
+        <button><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 2L11 13"/><path d="M22 2L15 22l-4-9-9-4 20-7z"/></svg></button>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal-panel" id="modal-stream-control">
+    <div class="modal-header">
+      <h2 class="modal-title">Stream Control Semantics</h2>
+      <button class="modal-close" onclick="closeModal()">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="modal-section">
+        <h3 class="modal-section-title">The Problem</h3>
+        <p class="modal-desc">LLM responses stream over seconds or minutes. Users don't wait politely—they interrupt, correct, redirect. Traditional request/response has no concept of mid-stream control.</p>
+      </div>
+      <div class="modal-section">
+        <h3 class="modal-section-title">The Solution</h3>
+        <p class="modal-desc">Every streaming response in Symbia is controllable. Pause it, resume it, preempt it with new context, or hand it off to another assistant—all without losing state.</p>
+      </div>
+      <div class="modal-section">
+        <h3 class="modal-section-title">Control Operations</h3>
+        <ul class="modal-list">
+          <li class="modal-list-item"><strong>Pause</strong><span>Suspend streaming while preserving generation state</span></li>
+          <li class="modal-list-item"><strong>Resume</strong><span>Continue from exact pause point with context intact</span></li>
+          <li class="modal-list-item"><strong>Preempt</strong><span>Interrupt with new user input; assistant adapts mid-response</span></li>
+          <li class="modal-list-item"><strong>Handoff</strong><span>Transfer stream to different assistant with full context</span></li>
+        </ul>
+      </div>
+      <div class="modal-section">
+        <h3 class="modal-section-title">Stream Lifecycle</h3>
+        <div class="modal-code">
+<span class="comment">// Stream state machine</span>
+PENDING → STREAMING → PAUSED → STREAMING → COMPLETE
+                   ↓
+              PREEMPTED → STREAMING → COMPLETE
+                   ↓
+              HANDED_OFF → [new stream]</div>
+      </div>
+    </div>
+    <div class="modal-chat" data-context="stream-control">
+      <div class="modal-chat-label">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+        Ask about this feature
+      </div>
+      <div class="modal-chat-messages"></div>
+      <div class="modal-chat-suggestions">
+        <button class="chat-suggestion">When should I use preempt vs handoff?</button>
+        <button class="chat-suggestion">Handle stream errors gracefully</button>
+      </div>
+      <div class="modal-chat-input">
+        <input type="text" placeholder="Ask about Stream Control...">
+        <button><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 2L11 13"/><path d="M22 2L15 22l-4-9-9-4 20-7z"/></svg></button>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal-panel" id="modal-graphs">
+    <div class="modal-header">
+      <h2 class="modal-title">Graphs, Not Code</h2>
+      <button class="modal-close" onclick="closeModal()">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="modal-section">
+        <h3 class="modal-section-title">The Problem</h3>
+        <p class="modal-desc">AI behavior is complex—routing, branching, fallbacks, handoffs. Expressing this in imperative code creates tangled spaghetti that's impossible to visualize, version, or modify at runtime.</p>
+      </div>
+      <div class="modal-section">
+        <h3 class="modal-section-title">The Solution</h3>
+        <p class="modal-desc">Workflows in Symbia are declarative JSON graphs. They're serializable, version-controlled, and runtime-mutable. Change behavior without redeploying code.</p>
+      </div>
+      <div class="modal-section">
+        <h3 class="modal-section-title">Benefits</h3>
+        <ul class="modal-list">
+          <li class="modal-list-item"><strong>Visual Editing</strong><span>Design workflows in the Control Center graph editor</span></li>
+          <li class="modal-list-item"><strong>Hot Reload</strong><span>Update workflows without service restarts</span></li>
+          <li class="modal-list-item"><strong>A/B Testing</strong><span>Run multiple workflow versions simultaneously</span></li>
+          <li class="modal-list-item"><strong>Version Control</strong><span>Git-friendly JSON diffs for workflow history</span></li>
+        </ul>
+      </div>
+      <div class="modal-section">
+        <h3 class="modal-section-title">Node Types</h3>
+        <div class="modal-code">
+<span class="keyword">input</span>     Entry point
+<span class="keyword">llm</span>       Language model prompt
+<span class="keyword">router</span>    Conditional routing
+<span class="keyword">tool</span>      External integration call
+<span class="keyword">condition</span> Boolean logic gate
+<span class="keyword">recall</span>    Memory/context retrieval
+<span class="keyword">say</span>       Output to user
+<span class="keyword">think</span>     Internal reasoning step
+<span class="keyword">output</span>    Terminal node</div>
+      </div>
+    </div>
+    <div class="modal-chat" data-context="graphs">
+      <div class="modal-chat-label">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+        Ask about this feature
+      </div>
+      <div class="modal-chat-messages"></div>
+      <div class="modal-chat-suggestions">
+        <button class="chat-suggestion">Build a simple routing workflow</button>
+        <button class="chat-suggestion">How to A/B test workflows?</button>
+      </div>
+      <div class="modal-chat-input">
+        <input type="text" placeholder="Ask about Graph Workflows...">
+        <button><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 2L11 13"/><path d="M22 2L15 22l-4-9-9-4 20-7z"/></svg></button>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal-panel" id="modal-self-doc">
+    <div class="modal-header">
+      <h2 class="modal-title">Self-Documenting Services</h2>
+      <button class="modal-close" onclick="closeModal()">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="modal-section">
+        <h3 class="modal-section-title">The Problem</h3>
+        <p class="modal-desc">AI assistants need to understand your system to act effectively. Static documentation written for humans is too verbose, often outdated, and not optimized for LLM comprehension.</p>
+      </div>
+      <div class="modal-section">
+        <h3 class="modal-section-title">The Solution</h3>
+        <p class="modal-desc">Every Symbia service auto-generates LLM-optimized documentation at /docs/llms.txt. Concise, structured, always current. Assistants can discover and understand capabilities without human help.</p>
+      </div>
+      <div class="modal-section">
+        <h3 class="modal-section-title">llms.txt Format</h3>
+        <ul class="modal-list">
+          <li class="modal-list-item"><strong>Service Description</strong><span>One-line purpose statement</span></li>
+          <li class="modal-list-item"><strong>Endpoint Catalog</strong><span>All routes with method, path, description</span></li>
+          <li class="modal-list-item"><strong>Request/Response Schemas</strong><span>TypeScript-style type definitions</span></li>
+          <li class="modal-list-item"><strong>Example Payloads</strong><span>Concrete request/response examples</span></li>
+        </ul>
+      </div>
+      <div class="modal-section">
+        <h3 class="modal-section-title">Example Output</h3>
+        <div class="modal-code">
+<span class="comment"># Messaging Service</span>
+Real-time conversation orchestration with stream control.
+
+<span class="comment">## Endpoints</span>
+POST /channels        Create conversation channel
+GET  /channels/:id    Get channel with history
+POST /streams         Start streaming response
+POST /streams/:id/pause   Pause active stream
+POST /streams/:id/resume  Resume paused stream
+
+<span class="comment">## Types</span>
+Channel { id, participants, createdAt }
+Stream { id, channelId, status, chunks[] }</div>
+      </div>
+    </div>
+    <div class="modal-chat" data-context="self-doc">
+      <div class="modal-chat-label">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+        Ask about this feature
+      </div>
+      <div class="modal-chat-messages"></div>
+      <div class="modal-chat-suggestions">
+        <button class="chat-suggestion">How is llms.txt generated?</button>
+        <button class="chat-suggestion">Customize documentation output</button>
+      </div>
+      <div class="modal-chat-input">
+        <input type="text" placeholder="Ask about Self-Documenting Services...">
+        <button><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 2L11 13"/><path d="M22 2L15 22l-4-9-9-4 20-7z"/></svg></button>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal-panel" id="modal-multi-tenant">
+    <div class="modal-header">
+      <h2 class="modal-title">Multi-Tenant Native</h2>
+      <button class="modal-close" onclick="closeModal()">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="modal-section">
+        <h3 class="modal-section-title">The Problem</h3>
+        <p class="modal-desc">SaaS platforms serve multiple organizations. Each needs data isolation, but bolting multi-tenancy onto an existing architecture creates leaky abstractions and security risks.</p>
+      </div>
+      <div class="modal-section">
+        <h3 class="modal-section-title">The Solution</h3>
+        <p class="modal-desc">Symbia is multi-tenant from the ground up. Every request carries organizational context via headers. Data boundaries are enforced at the query layer, not the application layer.</p>
+      </div>
+      <div class="modal-section">
+        <h3 class="modal-section-title">Isolation Mechanisms</h3>
+        <ul class="modal-list">
+          <li class="modal-list-item"><strong>Header-Based Context</strong><span>X-Org-Id propagates through all service calls</span></li>
+          <li class="modal-list-item"><strong>Query Scoping</strong><span>Database queries automatically filter by tenant</span></li>
+          <li class="modal-list-item"><strong>Workspace Isolation</strong><span>Assistants and workflows scoped to workspaces</span></li>
+          <li class="modal-list-item"><strong>Credential Separation</strong><span>API keys and secrets isolated per organization</span></li>
+        </ul>
+      </div>
+      <div class="modal-section">
+        <h3 class="modal-section-title">Context Propagation</h3>
+        <div class="modal-code">
+<span class="comment">// Incoming request</span>
+Authorization: Bearer eyJhbGciOiJ...
+X-Org-Id: org_acme_corp
+
+<span class="comment">// All downstream calls include</span>
+X-Org-Id: org_acme_corp
+X-Trace-Id: trace_abc123
+X-Principal-Id: user_123+assistant:coordinator
+
+<span class="comment">// Database queries auto-scope</span>
+SELECT * FROM channels
+WHERE org_id = 'org_acme_corp' AND ...</div>
+      </div>
+    </div>
+    <div class="modal-chat" data-context="multi-tenant">
+      <div class="modal-chat-label">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+        Ask about this feature
+      </div>
+      <div class="modal-chat-messages"></div>
+      <div class="modal-chat-suggestions">
+        <button class="chat-suggestion">How is tenant isolation enforced?</button>
+        <button class="chat-suggestion">Configure workspace settings</button>
+      </div>
+      <div class="modal-chat-input">
+        <input type="text" placeholder="Ask about Multi-Tenancy...">
+        <button><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 2L11 13"/><path d="M22 2L15 22l-4-9-9-4 20-7z"/></svg></button>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal-panel" id="modal-integrations-detail">
+    <div class="modal-header">
+      <h2 class="modal-title">Universal Integrations</h2>
+      <button class="modal-close" onclick="closeModal()">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="modal-section">
+        <h3 class="modal-section-title">The Problem</h3>
+        <p class="modal-desc">AI assistants need to interact with external systems—CRMs, databases, APIs. Building custom integrations for each is expensive and brittle.</p>
+      </div>
+      <div class="modal-section">
+        <h3 class="modal-section-title">The Solution</h3>
+        <p class="modal-desc">Symbia supports three universal integration patterns. Drop in an OpenAPI spec, connect an MCP server, or wrap a JS SDK. Assistants discover and use tools without custom code.</p>
+      </div>
+      <div class="modal-section">
+        <h3 class="modal-section-title">Integration Types</h3>
+        <ul class="modal-list">
+          <li class="modal-list-item"><strong>OpenAPI Specs</strong><span>Auto-generate callable tools from any OpenAPI 3.x specification</span></li>
+          <li class="modal-list-item"><strong>MCP Servers</strong><span>Connect to Model Context Protocol servers for standardized tool access</span></li>
+          <li class="modal-list-item"><strong>JS SDK Wrappers</strong><span>Wrap any JavaScript/TypeScript SDK as assistant-callable tools</span></li>
+        </ul>
+      </div>
+      <div class="modal-section">
+        <h3 class="modal-section-title">Example: OpenAPI Integration</h3>
+        <div class="modal-code">
+<span class="comment">// Register integration</span>
+POST /api/integrations
+{
+  <span class="string">"type"</span>: <span class="string">"openapi"</span>,
+  <span class="string">"name"</span>: <span class="string">"stripe"</span>,
+  <span class="string">"specUrl"</span>: <span class="string">"https://api.stripe.com/openapi.json"</span>,
+  <span class="string">"auth"</span>: {
+    <span class="string">"type"</span>: <span class="string">"bearer"</span>,
+    <span class="string">"credentialRef"</span>: <span class="string">"catalog://credentials/stripe"</span>
+  }
+}
+
+<span class="comment">// Assistant can now call</span>
+@tools stripe.createCustomer({ email: "..." })
+@tools stripe.listPaymentMethods({ customer: "..." })</div>
+      </div>
+    </div>
+    <div class="modal-chat" data-context="integrations-detail">
+      <div class="modal-chat-label">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+        Ask about this feature
+      </div>
+      <div class="modal-chat-messages"></div>
+      <div class="modal-chat-suggestions">
+        <button class="chat-suggestion">Best practices for MCP servers</button>
+        <button class="chat-suggestion">Wrap a custom JS SDK</button>
+      </div>
+      <div class="modal-chat-input">
+        <input type="text" placeholder="Ask about Universal Integrations...">
+        <button><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 2L11 13"/><path d="M22 2L15 22l-4-9-9-4 20-7z"/></svg></button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const html = document.documentElement;
+
+    // Theme panel toggle
+    const themeToggle = document.getElementById('themeToggle');
+    const themePanel = document.getElementById('themePanel');
+    themeToggle.addEventListener('click', () => {
+      themePanel.classList.toggle('open');
+    });
+    // Close panel when clicking outside
+    document.addEventListener('click', (e) => {
+      if (!e.target.closest('.theme-controls')) {
+        themePanel.classList.remove('open');
+      }
+    });
+
+    // Showcase tabs
+    document.querySelectorAll('.showcase-tab').forEach(tab => {
+      tab.addEventListener('click', () => {
+        const target = tab.dataset.tab;
+        document.querySelectorAll('.showcase-tab').forEach(t => t.classList.remove('active'));
+        document.querySelectorAll('.showcase-panel').forEach(p => p.classList.remove('active'));
+        tab.classList.add('active');
+        document.querySelector(`.showcase-panel[data-panel="${target}"]`).classList.add('active');
+      });
+    });
+
+    document.querySelectorAll('.mode-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const mode = btn.dataset.mode;
+        document.querySelectorAll('.mode-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        if (mode === 'system') {
+          const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+          html.setAttribute('data-mode', prefersDark ? 'dark' : 'light');
+        } else {
+          html.setAttribute('data-mode', mode);
+        }
+      });
+    });
+    document.querySelectorAll('.theme-swatch').forEach(swatch => {
+      swatch.addEventListener('click', () => {
+        document.querySelectorAll('.theme-swatch').forEach(s => s.classList.remove('active'));
+        swatch.classList.add('active');
+        html.setAttribute('data-theme', swatch.dataset.theme);
+      });
+    });
+    window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', e => {
+      if (document.querySelector('.mode-btn[data-mode="system"]').classList.contains('active')) {
+        html.setAttribute('data-mode', e.matches ? 'dark' : 'light');
+      }
+    });
+
+    // Modal functions
+    const modalOverlay = document.getElementById('modalOverlay');
+
+    function openModal(modalId) {
+      const modal = document.getElementById(modalId);
+      if (modal) {
+        modalOverlay.classList.add('active');
+        modal.classList.add('active');
+        document.body.style.overflow = 'hidden';
+      }
+    }
+
+    function closeModal() {
+      document.querySelectorAll('.modal-panel').forEach(m => m.classList.remove('active'));
+      modalOverlay.classList.remove('active');
+      document.body.style.overflow = '';
+    }
+
+    modalOverlay.addEventListener('click', closeModal);
+    document.addEventListener('keydown', e => {
+      if (e.key === 'Escape') closeModal();
+    });
+
+    // Service drill-downs
+    document.querySelectorAll('.arch-service.clickable').forEach(service => {
+      service.addEventListener('click', () => {
+        const serviceId = service.dataset.service;
+        openModal(`modal-${serviceId}`);
+      });
+    });
+
+    // Solution card drill-downs
+    document.querySelectorAll('.solution-card.clickable').forEach(card => {
+      card.addEventListener('click', () => {
+        const detailId = card.dataset.detail;
+        // Map solution detail IDs to modal IDs
+        const modalMap = {
+          'dual-principal': 'modal-dual-principal',
+          'stream-control': 'modal-stream-control',
+          'graphs': 'modal-graphs',
+          'self-doc': 'modal-self-doc',
+          'multi-tenant': 'modal-multi-tenant',
+          'integrations': 'modal-integrations-detail'
+        };
+        openModal(modalMap[detailId] || `modal-${detailId}`);
+      });
+    });
+
+    // Assistant filtering
+    document.querySelectorAll('.assistant-filter').forEach(filter => {
+      filter.addEventListener('click', () => {
+        const category = filter.dataset.filter;
+        document.querySelectorAll('.assistant-filter').forEach(f => f.classList.remove('active'));
+        filter.classList.add('active');
+
+        document.querySelectorAll('.assistant-card').forEach(card => {
+          if (category === 'all') {
+            card.style.display = 'block';
+          } else {
+            const cardCategories = card.dataset.category || '';
+            card.style.display = cardCategories.includes(category) ? 'block' : 'none';
+          }
+        });
+      });
+    });
+
+    // Assistant card clicks (open assistants service modal)
+    document.querySelectorAll('.assistant-card').forEach(card => {
+      card.addEventListener('click', () => {
+        openModal('modal-assistants');
+      });
+    });
+
+    // Chat functionality
+    const mockResponses = {
+      'server': [
+        "The Server service routes requests based on URL path prefixes. Each microservice gets its own prefix like /api/identity/*, /api/catalog/*, etc.",
+        "The health endpoint at /health aggregates status from all 9 services and returns a unified health check response.",
+        "To add middleware, you can use Express middleware patterns in the server/src/middleware directory. The service auto-discovers and loads them."
+      ],
+      'identity': [
+        "Dual principal works by encoding both user and assistant identities in a compound JWT token. The effective permissions are the intersection of both principal's capabilities.",
+        "API keys are issued via POST /api/identity/api-keys. You can scope them to specific capabilities and set expiration times.",
+        "RBAC capabilities are hierarchical. A role can have multiple capabilities, and capabilities can include wildcards like 'messaging.*' for all messaging operations."
+      ],
+      'catalog': [
+        "Service discovery uses the Catalog service as a registry. Services register on startup and the Catalog tracks their health status.",
+        "catalog:// URIs resolve through the Catalog service. For example, catalog://assistants/coordinator resolves to the coordinator assistant's full definition.",
+        "Register resources via POST /api/catalog/resources with a type, key, and payload. The Catalog validates the schema and stores it."
+      ],
+      'logging': [
+        "Query logs via GET /api/logging/query with filters like level, source, timeRange, and text search. Results are paginated.",
+        "Trace correlation uses the X-Trace-Id header. All services propagate this header, so you can follow a request across the entire platform.",
+        "Real-time streaming uses Server-Sent Events. Subscribe to GET /api/logging/stream with optional filters."
+      ],
+      'assistants': [
+        "@mentions work by parsing message content for @alias patterns. The messaging service routes to the matching assistant based on the Catalog registration.",
+        "Create a custom assistant by defining a JSON config with key, alias, capabilities, LLM preset, and rules. Register it via POST /api/assistants.",
+        "The rule engine matches patterns in user messages and triggers behaviors. Rules can invoke tools, route to other assistants, or modify response behavior."
+      ],
+      'messaging': [
+        "Stream pause preserves the LLM generation state. The token buffer is held in memory, and resuming continues from the exact position.",
+        "Handoff transfers the full conversation context to another assistant. Use POST /streams/:id/handoff with the target assistant ID.",
+        "Backpressure is managed via acknowledgments. Clients must ACK chunks before receiving more, preventing memory overflow on slow connections."
+      ],
+      'runtime': [
+        "Create a workflow via POST /api/runtime/workflows with a JSON graph structure. Define nodes with types and configs, then connect them with edges.",
+        "Node types include: input, llm, router, tool, condition, recall, say, think, and output. Each has specific configuration options.",
+        "Debug execution via the /runs endpoint. Each run has a trace showing node execution order, inputs, outputs, and timing."
+      ],
+      'integrations': [
+        "To add OpenAPI integration, POST to /api/integrations with type: 'openapi', the spec URL, and authentication config.",
+        "LLM provider configuration is stored in the Catalog. Use presets to define model, temperature, max tokens, and other parameters.",
+        "MCP servers connect via POST /api/integrations with type: 'mcp' and the server URL. The service auto-discovers available tools."
+      ],
+      'network': [
+        "mTLS is automatic. The Network service issues certificates to services on registration and validates all inter-service communication.",
+        "Rate limiting is configured per-endpoint in the Catalog. Set requests-per-second, burst limits, and penalty behaviors.",
+        "Canary routing splits traffic by percentage. Configure via the Network service with source, target, and weight parameters."
+      ],
+      'default': [
+        "That's a great question! The Symbia platform is designed to make AI assistants first-class principals in your system architecture.",
+        "For more details, check out the /docs/llms.txt endpoint on any service—it's auto-generated documentation optimized for AI consumption.",
+        "Feel free to explore the specific service modals for detailed technical information about each component."
+      ]
+    };
+
+    function getRandomResponse(context) {
+      const responses = mockResponses[context] || mockResponses['default'];
+      return responses[Math.floor(Math.random() * responses.length)];
+    }
+
+    function addChatMessage(chatContainer, text, isUser) {
+      const messagesContainer = chatContainer.querySelector('.modal-chat-messages');
+      const message = document.createElement('div');
+      message.className = `chat-message ${isUser ? 'user' : 'assistant'}`;
+      message.textContent = text;
+      messagesContainer.appendChild(message);
+      messagesContainer.scrollTop = messagesContainer.scrollHeight;
+
+      // Hide suggestions after first message
+      const suggestions = chatContainer.querySelector('.modal-chat-suggestions');
+      if (suggestions) suggestions.style.display = 'none';
+    }
+
+    function showTypingIndicator(chatContainer) {
+      const messagesContainer = chatContainer.querySelector('.modal-chat-messages');
+      const typing = document.createElement('div');
+      typing.className = 'chat-message assistant typing-indicator';
+      typing.innerHTML = '<div class="typing"><span></span><span></span><span></span></div>';
+      messagesContainer.appendChild(typing);
+      messagesContainer.scrollTop = messagesContainer.scrollHeight;
+      return typing;
+    }
+
+    function handleChatSubmit(chatContainer, question) {
+      const context = chatContainer.dataset.context;
+      const input = chatContainer.querySelector('input');
+
+      // Add user message
+      addChatMessage(chatContainer, question, true);
+      input.value = '';
+      input.disabled = true;
+
+      // Show typing indicator
+      const typingIndicator = showTypingIndicator(chatContainer);
+
+      // Simulate response delay
+      setTimeout(() => {
+        typingIndicator.remove();
+        const response = getRandomResponse(context);
+        addChatMessage(chatContainer, response, false);
+        input.disabled = false;
+        input.focus();
+      }, 1000 + Math.random() * 1000);
+    }
+
+    // Set up chat interactions
+    document.querySelectorAll('.modal-chat').forEach(chat => {
+      const input = chat.querySelector('input');
+      const button = chat.querySelector('button');
+
+      // Handle send button click
+      button.addEventListener('click', () => {
+        const question = input.value.trim();
+        if (question) handleChatSubmit(chat, question);
+      });
+
+      // Handle Enter key
+      input.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' && !e.shiftKey) {
+          e.preventDefault();
+          const question = input.value.trim();
+          if (question) handleChatSubmit(chat, question);
+        }
+      });
+
+      // Handle suggestion clicks
+      chat.querySelectorAll('.chat-suggestion').forEach(suggestion => {
+        suggestion.addEventListener('click', () => {
+          handleChatSubmit(chat, suggestion.textContent);
+        });
+      });
+    });
+
+    // Clear chat when modal closes
+    const originalCloseModal = closeModal;
+    closeModal = function() {
+      document.querySelectorAll('.modal-chat-messages').forEach(m => m.innerHTML = '');
+      document.querySelectorAll('.modal-chat-suggestions').forEach(s => s.style.display = 'flex');
+      document.querySelectorAll('.modal-chat input').forEach(i => { i.value = ''; i.disabled = false; });
+      originalCloseModal();
+    };
+
+    // Make functions available globally for enhancement module
+    window.openModal = openModal;
+    window.closeModal = closeModal;
+    window.handleChatSubmit = handleChatSubmit;
+    window.addChatMessage = addChatMessage;
+    window.getRandomResponse = getRandomResponse;
+  </script>
+
+  <!-- Dynamic Enhancement Module (optional - connects to Symbia platform) -->
+  <script type="module" src="./src/lib/enhance.js"></script>
+</body>
+</html>

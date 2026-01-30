@@ -1,0 +1,495 @@
+# Symbia Messaging API - Complete Documentation
+
+> Real-time messaging bus for users, agents, and services.
+
+Scope headers (optional): X-Org-Id, X-Service-Id, X-Env, X-Environment, X-Data-Class, X-Policy-Ref.
+
+WebSocket events:
+Client: join:conversation, leave:conversation, message:send, message:edit, message:delete, control:send, typing:start, typing:stop, presence:update.
+Server: message:new, message:updated, message:deleted, typing:started, typing:stopped, presence:changed, stream.pause, stream.resume, stream.preempt, stream.route, stream.handoff, stream.cancel, stream.priority.
+
+## Overview
+
+Real-time messaging bus for users, agents, and services with WebSocket support.
+
+- Real-time conversation management with WebSocket support
+- Message creation, editing, and deletion with full history
+- Control events for stream management (pause, resume, preempt, route)
+- Participant management with role-based permissions
+- Typing indicators and presence tracking
+- Multi-tenant scoping with organization and service isolation
+
+## Custom Headers (optional)
+
+- **X-Org-Id**: Organization ID for multi-tenant scoping
+- **X-Service-Id**: Service identifier for request routing
+- **X-Env**: Environment (dev|stage|prod)
+- **X-Data-Class**: Data classification (none|pii|phi|secret)
+- **X-Policy-Ref**: Policy reference for compliance
+
+## API Reference
+
+Base URL: /api
+
+### health
+
+#### GET /api/health
+Health check
+
+Response: Service health
+
+### bootstrap
+
+#### GET /api/bootstrap
+Service bootstrap
+
+Response: Service metadata
+
+### auth
+
+#### POST /api/auth/login
+Login (proxy to Identity)
+
+Request Body:
+```json
+// See AuthLoginRequest schema
+```
+
+Response: Login response
+
+#### POST /api/auth/logout
+Logout (proxy to Identity)
+
+Response: Logged out
+
+#### GET /api/auth/session
+Get session
+
+Response: Session status
+
+### conversations
+
+#### GET /api/conversations
+List conversations
+
+Query Parameters:
+- orgId (optional): string
+
+Response: Conversation list
+
+#### POST /api/conversations
+Create a conversation
+
+Request Body:
+```json
+// See CreateConversationRequest schema
+```
+
+Response: Conversation created
+
+#### GET /api/conversations/{id}
+Get conversation
+
+Response: Conversation with participants
+
+#### PATCH /api/conversations/{id}
+Update conversation
+
+Request Body:
+```json
+// See UpdateConversationRequest schema
+```
+
+Response: Conversation updated
+
+#### DELETE /api/conversations/{id}
+Delete conversation
+
+Response: Deleted
+
+### messages
+
+#### GET /api/conversations/{id}/messages
+List messages
+
+Query Parameters:
+- limit (optional): integer
+- before (optional): string
+- after (optional): string
+
+Response: Message list
+
+#### POST /api/conversations/{id}/messages
+Send message
+
+Request Body:
+```json
+// See CreateMessageRequest schema
+```
+
+Response: Message created
+
+### control
+
+#### POST /api/conversations/{id}/control
+Send control event
+
+Request Body:
+```json
+// See CreateControlRequest schema
+```
+
+Response: Control message created
+
+### participants
+
+#### POST /api/conversations/{id}/join
+Join conversation
+
+Response: Joined
+
+#### POST /api/conversations/{id}/leave
+Leave conversation
+
+Response: Left
+
+#### POST /api/conversations/{id}/participants
+Add participant
+
+Request Body:
+```json
+// See AddParticipantRequest schema
+```
+
+Response: Participant added
+
+#### DELETE /api/conversations/{id}/participants/{userId}
+Remove participant
+
+Response: Removed
+
+### admin
+
+#### GET /api/admin/conversations
+List conversations (admin)
+
+Query Parameters:
+- orgId (optional): string
+- type (optional): string
+- limit (optional): integer
+- offset (optional): integer
+
+Response: Paginated conversations
+
+#### GET /api/admin/conversations/{id}
+Get conversation (admin)
+
+Response: Conversation with participants and recent messages
+
+#### DELETE /api/admin/conversations/{id}
+Delete conversation (admin)
+
+Response: Deleted
+
+#### GET /api/admin/users/{userId}/conversations
+List user conversations (admin)
+
+Response: Conversation list
+
+#### POST /api/admin/conversations/{id}/participants
+Add participant (admin)
+
+Request Body:
+```json
+// See AdminAddParticipantRequest schema
+```
+
+Response: Participant added
+
+#### DELETE /api/admin/conversations/{id}/participants/{userId}
+Remove participant (admin)
+
+Response: Removed
+
+#### GET /api/admin/stats
+Service stats (admin)
+
+Query Parameters:
+- orgId (optional): string
+
+Response: Statistics
+
+## Data Models
+
+### Health
+```typescript
+{
+  status: string;
+  service: string;
+}
+```
+
+### Bootstrap
+```typescript
+{
+  service: string;
+  version: string;
+  description?: string;
+  docsUrls?: object;
+  endpoints?: object;
+  authentication?: array;
+  websocketEvents?: object;
+}
+```
+
+### Conversation
+```typescript
+{
+  id: string;
+  type: private|group;
+  name?: string;
+  description?: string;
+  org_id?: string;
+  created_by: string;
+  created_at: string;
+  updated_at: string;
+  metadata?: object;
+}
+```
+
+### Participant
+```typescript
+{
+  id: string;
+  conversation_id: string;
+  user_id: string;
+  user_type: user|agent;
+  role: owner|admin|member;
+  joined_at: string;
+  last_read_at?: string;
+}
+```
+
+### Message
+```typescript
+{
+  id: string;
+  conversation_id: string;
+  sender_id: string;
+  sender_type: user|agent|service|bot;
+  content: string;
+  content_type: string;
+  reply_to?: string;
+  org_id?: string;
+  run_id?: string;
+  trace_id?: string;
+  sequence?: integer;
+  priority?: low|normal|high|critical;
+  interruptible?: boolean;
+  preempted_by?: string;
+  created_at: string;
+  updated_at?: string;
+  deleted_at?: string;
+  metadata?: object;
+}
+```
+
+### ConversationWithParticipants
+```typescript
+{
+}
+```
+
+### CreateConversationRequest
+```typescript
+{
+  type: private|group;
+  name?: string;
+  description?: string;
+  orgId?: string;
+  metadata?: object;
+  participants?: array;
+}
+```
+
+### UpdateConversationRequest
+```typescript
+{
+  name?: string;
+  description?: string;
+  metadata?: object;
+}
+```
+
+### AddParticipantRequest
+```typescript
+{
+  userId: string;
+  userType?: user|agent;
+}
+```
+
+### AdminAddParticipantRequest
+```typescript
+{
+  userId: string;
+  userType?: user|agent;
+  role: owner|admin|member;
+}
+```
+
+### CreateMessageRequest
+```typescript
+{
+  id?: string;
+  content: string;
+  contentType?: string;
+  replyTo?: string;
+  metadata?: object;
+  runId?: string;
+  traceId?: string;
+  priority?: low|normal|high|critical;
+  interruptible?: boolean;
+  preemptedBy?: string;
+}
+```
+
+### CreateControlRequest
+```typescript
+{
+  event: stream.pause|stream.resume|stream.preempt|stream.route|stream.handoff|stream.cancel|stream.priority;
+  target?: object;
+  reason?: string;
+  preemptedBy?: string;
+  runId?: string;
+  traceId?: string;
+  metadata?: object;
+}
+```
+
+### AuthLoginRequest
+```typescript
+{
+  email: string;
+  password: string;
+}
+```
+
+### AuthLoginResponse
+```typescript
+{
+  token?: string;
+  user?: object;
+}
+```
+
+### AuthSession
+```typescript
+{
+  authenticated: boolean;
+  user?: object;
+}
+```
+
+### AdminConversationList
+```typescript
+{
+  items: array;
+  limit?: integer;
+  offset?: integer;
+  total?: integer;
+}
+```
+
+### AdminConversationDetail
+```typescript
+{
+  conversation: any;
+  participants: array;
+  recentMessages?: array;
+}
+```
+
+### AdminStats
+```typescript
+{
+  totalConversations: integer;
+  totalMessages: integer;
+  uniqueParticipants: integer;
+  activeConversations24h: integer;
+}
+```
+
+### Error
+```typescript
+{
+  error: string;
+}
+```
+
+## Authentication
+
+All authenticated endpoints require one of:
+- Cookie: Session cookie (set automatically after login)
+- Header: `Authorization: Bearer <token>`
+- Header: `X-API-Key: <api-key>`
+
+- Bearer token authentication (Authorization: Bearer <token>)
+- API key authentication (X-API-Key header)
+- Cookie-based session authentication
+
+## WebSocket Connection
+
+Connect to WebSocket at: ws://host/api/ws
+
+**Client Events:**
+- join:conversation - Join a conversation
+- leave:conversation - Leave a conversation
+- message:send - Send a new message
+- message:edit - Edit an existing message
+- message:delete - Delete a message
+- control:send - Send a control event
+- typing:start - Start typing indicator
+- typing:stop - Stop typing indicator
+- presence:update - Update presence status
+
+**Server Events:**
+- message:new - New message received
+- message:updated - Message was updated
+- message:deleted - Message was deleted
+- typing:started - User started typing
+- typing:stopped - User stopped typing
+- presence:changed - Presence status changed
+- stream.pause - Stream paused
+- stream.resume - Stream resumed
+- stream.preempt - Stream preempted
+- stream.route - Stream routed
+- stream.handoff - Stream handed off
+- stream.cancel - Stream cancelled
+- stream.priority - Priority changed
+
+## Message Structure
+
+Messages support:
+- **Content Types**: text/plain, text/markdown, application/json
+- **Metadata**: Custom key-value pairs for extensibility
+- **Threading**: Parent message references for conversation threading
+- **Versioning**: Full edit history with timestamps
+- **Sequences**: Ordered message delivery with sequence numbers
+- **Priority**: Message priority levels (low, normal, high, critical)
+
+## Control Events
+
+Control events enable stream management:
+- **pause**: Temporarily pause a stream
+- **resume**: Resume a paused stream
+- **preempt**: Preempt current stream with higher priority
+- **route**: Route stream to different handler
+- **handoff**: Hand off stream to another participant
+- **cancel**: Cancel an active stream
+- **priority**: Change stream priority level
+
+## Documentation
+
+- OpenAPI: /docs/openapi.json
+- LLM summary: /docs/llms.txt

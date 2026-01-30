@@ -1,0 +1,214 @@
+import express, { type Request, Response, NextFunction } from "express";
+import cookieParser from "cookie-parser";
+import { registerRoutes } from "./routes";
+import { serveStatic } from "./static";
+import { createServer } from "http";
+import { randomUUID } from "crypto";
+import { createTelemetryClient } from "@symbia/telem";
+
+const app = express();
+app.use(cookieParser());
+const httpServer = createServer(app);
+const telemetry = createTelemetryClient({
+  serviceId: process.env.TELEMETRY_SERVICE_ID || "symbia-object-service",
+});
+
+function getScopeHeaders(req: Request): {
+  orgId: string | null;
+  serviceId: string | null;
+  env: string | null;
+  dataClass: string | null;
+  policyRef: string | null;
+} {
+  const orgId = req.get("x-org-id") || null;
+  const serviceId = req.get("x-service-id") || null;
+  const env = req.get("x-env") || req.get("x-environment") || null;
+  const dataClass = req.get("x-data-class") || null;
+  const policyRef = req.get("x-policy-ref") || null;
+  return { orgId, serviceId, env, dataClass, policyRef };
+}
+
+function buildScopeLabels(scope: ReturnType<typeof getScopeHeaders>): Record<string, string> {
+  const labels: Record<string, string> = {};
+  if (scope.orgId) labels.orgId = scope.orgId;
+  if (scope.serviceId) labels.serviceId = scope.serviceId;
+  if (scope.env) labels.env = scope.env;
+  if (scope.dataClass) labels.dataClass = scope.dataClass;
+  if (scope.policyRef) labels.policyRef = scope.policyRef;
+  return labels;
+}
+
+declare module "http" {
+  interface IncomingMessage {
+    rawBody: unknown;
+  }
+}
+
+app.use(
+  express.json({
+    verify: (req, _res, buf) => {
+      req.rawBody = buf;
+    },
+  }),
+);
+
+app.use(express.urlencoded({ extended: false }));
+
+app.use((req, res, next) => {
+  const start = Date.now();
+  const inboundTrace = req.headers["x-trace-id"];
+  const traceId = typeof inboundTrace === "string" && inboundTrace ? inboundTrace : randomUUID();
+  const spanId = randomUUID();
+
+  res.setHeader("x-trace-id", traceId);
+
+  res.on("finish", () => {
+    const durationMs = Date.now() - start;
+    const status = res.statusCode;
+    const path = req.path;
+    const scopeLabels = buildScopeLabels(getScopeHeaders(req));
+
+    telemetry.metric("service.request.count", 1, {
+      endpoint: path,
+      method: req.method,
+      status: String(status),
+      ...scopeLabels,
+    });
+
+    telemetry.metric("service.request.latency_ms", durationMs, {
+      endpoint: path,
+      method: req.method,
+      status: String(status),
+      ...scopeLabels,
+    });
+
+    telemetry.span({
+      traceId,
+      spanId,
+      parentSpanId: null,
+      name: `${req.method} ${path}`,
+      kind: "server",
+      status: status >= 500 ? "error" : "ok",
+      startTime: new Date(start).toISOString(),
+      endTime: new Date().toISOString(),
+      attributes: {
+        status,
+        ...scopeLabels,
+      },
+    });
+
+    if (status >= 500) {
+      telemetry.event("service.error", "HTTP request failed", {
+        status,
+        endpoint: path,
+        method: req.method,
+        ...scopeLabels,
+      }, "error");
+      telemetry.metric("service.error.count", 1, {
+        endpoint: path,
+        method: req.method,
+        status: String(status),
+        ...scopeLabels,
+      });
+    }
+  });
+
+  next();
+});
+
+export function log(message: string, source = "express") {
+  const formattedTime = new Date().toLocaleTimeString("en-US", {
+    hour: "numeric",
+    minute: "2-digit",
+    second: "2-digit",
+    hour12: true,
+  });
+
+  console.log(`${formattedTime} [${source}] ${message}`);
+}
+
+app.use((req, res, next) => {
+  const start = Date.now();
+  const path = req.path;
+  let capturedJsonResponse: Record<string, any> | undefined = undefined;
+
+  const originalResJson = res.json;
+  res.json = function (bodyJson, ...args) {
+    capturedJsonResponse = bodyJson;
+    return originalResJson.apply(res, [bodyJson, ...args]);
+  };
+
+  res.on("finish", () => {
+    const duration = Date.now() - start;
+    if (path.startsWith("/api")) {
+      let logLine = `${req.method} ${path} ${res.statusCode} in ${duration}ms`;
+      if (capturedJsonResponse) {
+        logLine += ` :: ${JSON.stringify(capturedJsonResponse)}`;
+      }
+
+      log(logLine);
+    }
+  });
+
+  next();
+});
+
+(async () => {
+  try {
+    log(`Starting server in ${process.env.NODE_ENV || 'development'} mode`);
+    
+    await registerRoutes(httpServer, app);
+    log('Routes registered successfully');
+
+    app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
+      const status = err.status || err.statusCode || 500;
+      const message = err.message || "Internal Server Error";
+      log(`Error: ${message}`);
+      res.status(status).json({ message });
+    });
+
+    // importantly only setup vite in development and after
+    // setting up all the other routes so the catch-all route
+    // doesn't interfere with the other routes
+    if (process.env.NODE_ENV === "production") {
+      log('Setting up static file serving for production');
+      serveStatic(app);
+      log('Static file serving configured');
+    } else {
+      const { setupVite } = await import("./vite");
+      await setupVite(httpServer, app);
+    }
+
+    // ALWAYS serve the app on the port specified in the environment variable PORT
+    // Other ports are firewalled. Default to 5000 if not specified.
+    // this serves both the API and the client.
+    // It is the only port that is not firewalled.
+    const port = parseInt(process.env.PORT || "5000", 10);
+    const host = process.env.HOST || "0.0.0.0";
+    const reusePort = process.platform === "linux";
+    httpServer.listen(
+      {
+        port,
+        host,
+        reusePort,
+      },
+      () => {
+        log(`Server listening on http://${host}:${port}`);
+        telemetry.event("service.started", "Object service started", {
+          mode: process.env.NODE_ENV || "development",
+          port,
+        });
+      },
+    );
+  } catch (error) {
+    console.error('Failed to start server:', error);
+    process.exit(1);
+  }
+})();
+
+const shutdownSignals = ["SIGINT", "SIGTERM"];
+shutdownSignals.forEach((signal) => {
+  process.on(signal, () => {
+    telemetry.shutdown().finally(() => process.exit(0));
+  });
+});

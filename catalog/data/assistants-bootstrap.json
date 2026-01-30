@@ -1,0 +1,1121 @@
+[
+  {
+    "id": "ast-echo",
+    "key": "assistants/echo",
+    "name": "Echo",
+    "description": "The simplest assistant - mirrors your input back. Perfect for understanding basic message handling.",
+    "type": "assistant",
+    "status": "published",
+    "isBootstrap": true,
+    "tags": ["assistant", "bootstrap", "tutorial", "level-1", "deterministic"],
+    "accessPolicy": {
+      "visibility": "public",
+      "actions": {
+        "read": { "anyOf": ["public"] },
+        "write": { "anyOf": ["role:admin"] }
+      }
+    },
+    "metadata": {
+      "alias": "echo",
+      "curriculumLevel": 1,
+      "curriculumTitle": "Hello World",
+      "curriculumDescription": "Learn basic message handling with a pure deterministic assistant",
+      "llmConfig": null,
+      "assistantConfig": {
+        "principalId": "assistant:echo",
+        "principalType": "assistant",
+        "capabilities": ["messaging"]
+      },
+      "ruleSet": {
+        "id": "ruleset-echo",
+        "name": "Echo Rules",
+        "description": "Pure deterministic echo - no LLM, just mirrors input",
+        "version": 1,
+        "isActive": true,
+        "rules": [
+          {
+            "id": "echo-help",
+            "name": "Help Command",
+            "description": "Show help when user asks",
+            "priority": 200,
+            "enabled": true,
+            "trigger": "message.received",
+            "conditions": {
+              "logic": "or",
+              "conditions": [
+                { "field": "message.content", "operator": "matches", "value": "^/help$" },
+                { "field": "message.content", "operator": "matches", "value": "^help$" }
+              ]
+            },
+            "actions": [
+              {
+                "type": "message.send",
+                "params": {
+                  "content": "**Echo Assistant** (Level 1)\n\nI'm the simplest assistant - I repeat everything you say!\n\n**How it works:**\n- Send me any message\n- I'll echo it back with a speaker icon\n\n**Why this matters:**\nThis demonstrates pure deterministic behavior - no AI, no unpredictability. The same input always produces the same output.\n\n**Try it:** Just type something!"
+                }
+              }
+            ]
+          },
+          {
+            "id": "echo-empty",
+            "name": "Empty Message Handler",
+            "description": "Handle empty or whitespace-only messages",
+            "priority": 150,
+            "enabled": true,
+            "trigger": "message.received",
+            "conditions": {
+              "logic": "or",
+              "conditions": [
+                { "field": "message.content", "operator": "equals", "value": "" },
+                { "field": "message.content", "operator": "matches", "value": "^\\s*$" }
+              ]
+            },
+            "actions": [
+              {
+                "type": "message.send",
+                "params": {
+                  "content": "(empty message received)"
+                }
+              }
+            ]
+          },
+          {
+            "id": "echo-respond",
+            "name": "Echo Response",
+            "description": "Return the exact message back to the user",
+            "priority": 100,
+            "enabled": true,
+            "trigger": "message.received",
+            "conditions": {
+              "logic": "and",
+              "conditions": [
+                { "field": "message.content", "operator": "exists", "value": true }
+              ]
+            },
+            "actions": [
+              {
+                "type": "message.send",
+                "params": {
+                  "template": "{{message.content}}"
+                }
+              }
+            ]
+          }
+        ]
+      }
+    }
+  },
+  {
+    "id": "ast-calculator",
+    "key": "assistants/calculator",
+    "name": "Calculator",
+    "description": "Performs mathematical calculations. Demonstrates deterministic tool execution with structured input/output.",
+    "type": "assistant",
+    "status": "published",
+    "isBootstrap": true,
+    "tags": ["assistant", "bootstrap", "tutorial", "level-2", "deterministic", "math"],
+    "accessPolicy": {
+      "visibility": "public",
+      "actions": {
+        "read": { "anyOf": ["public"] },
+        "write": { "anyOf": ["role:admin"] }
+      }
+    },
+    "metadata": {
+      "alias": "calc",
+      "curriculumLevel": 2,
+      "curriculumTitle": "Deterministic Logic",
+      "curriculumDescription": "Learn how assistants execute deterministic operations with tools",
+      "llmConfig": null,
+      "assistantConfig": {
+        "principalId": "assistant:calculator",
+        "principalType": "assistant",
+        "capabilities": ["messaging", "tools.math"]
+      },
+      "ruleSet": {
+        "id": "ruleset-calculator",
+        "name": "Calculator Rules",
+        "description": "Parse and evaluate mathematical expressions deterministically",
+        "version": 1,
+        "isActive": true,
+        "rules": [
+          {
+            "id": "calc-help",
+            "name": "Help Command",
+            "description": "Show calculator help and examples",
+            "priority": 200,
+            "enabled": true,
+            "trigger": "message.received",
+            "conditions": {
+              "logic": "or",
+              "conditions": [
+                { "field": "message.content", "operator": "matches", "value": "^/help$" },
+                { "field": "message.content", "operator": "matches", "value": "^help$" }
+              ]
+            },
+            "actions": [
+              {
+                "type": "message.send",
+                "params": {
+                  "content": "**Calculator** (Level 2)\n\nI evaluate mathematical expressions with precision.\n\n**Supported operations:**\n- Basic: `+` `-` `*` `/`\n- Powers: `^` or `**`\n- Parentheses: `(` `)`\n- Functions: `sqrt()`, `sin()`, `cos()`, `log()`\n- Constants: `pi`, `e`\n\n**Examples:**\n- `2 + 2` → 4\n- `(10 + 5) * 2` → 30\n- `sqrt(16)` → 4\n- `pi * 2` → 6.283...\n\n**Why this matters:**\nThis shows deterministic tool execution - the math engine always returns exact results, unlike LLM approximations."
+                }
+              }
+            ]
+          },
+          {
+            "id": "calc-evaluate",
+            "name": "Evaluate Expression",
+            "description": "Parse mathematical expression and return precise result",
+            "priority": 100,
+            "enabled": true,
+            "trigger": "message.received",
+            "conditions": {
+              "logic": "and",
+              "conditions": [
+                { "field": "message.content", "operator": "exists", "value": true },
+                { "field": "message.content", "operator": "matches", "value": "[0-9+\\-*/^().%]" }
+              ]
+            },
+            "actions": [
+              {
+                "type": "tool.invoke",
+                "id": "step-evaluate",
+                "params": {
+                  "tool": "math.evaluate",
+                  "input": "{{message.content}}"
+                },
+                "onError": {
+                  "action": "message.send",
+                  "params": {
+                    "content": "I couldn't parse that expression. Try something like `2 + 2` or `sqrt(16)`."
+                  }
+                }
+              },
+              {
+                "type": "message.send",
+                "params": {
+                  "template": "= {{steps.step-evaluate.result}}"
+                }
+              }
+            ]
+          },
+          {
+            "id": "calc-invalid",
+            "name": "Invalid Input",
+            "description": "Handle non-mathematical input",
+            "priority": 50,
+            "enabled": true,
+            "trigger": "message.received",
+            "conditions": {
+              "logic": "and",
+              "conditions": [
+                { "field": "message.content", "operator": "exists", "value": true },
+                { "field": "message.content", "operator": "not_matches", "value": "[0-9]" }
+              ]
+            },
+            "actions": [
+              {
+                "type": "message.send",
+                "params": {
+                  "content": "I only understand math expressions. Try `2 + 2` or type `help` for examples."
+                }
+              }
+            ]
+          }
+        ]
+      }
+    }
+  },
+  {
+    "id": "ast-converter",
+    "key": "assistants/converter",
+    "name": "Converter",
+    "description": "Converts between units, currencies, and formats. Shows lookup tables and transformation logic.",
+    "type": "assistant",
+    "status": "published",
+    "isBootstrap": true,
+    "tags": ["assistant", "bootstrap", "tutorial", "level-2", "deterministic", "conversion"],
+    "accessPolicy": {
+      "visibility": "public",
+      "actions": {
+        "read": { "anyOf": ["public"] },
+        "write": { "anyOf": ["role:admin"] }
+      }
+    },
+    "metadata": {
+      "alias": "convert",
+      "curriculumLevel": 2,
+      "curriculumTitle": "Deterministic Logic",
+      "curriculumDescription": "Learn how assistants use lookup tables and conversion formulas",
+      "llmConfig": null,
+      "assistantConfig": {
+        "principalId": "assistant:converter",
+        "principalType": "assistant",
+        "capabilities": ["messaging", "tools.convert"]
+      },
+      "ruleSet": {
+        "id": "ruleset-converter",
+        "name": "Converter Rules",
+        "description": "Parse conversion requests and execute transformations deterministically",
+        "version": 1,
+        "isActive": true,
+        "rules": [
+          {
+            "id": "convert-help",
+            "name": "Help Command",
+            "description": "Show conversion help and supported units",
+            "priority": 200,
+            "enabled": true,
+            "trigger": "message.received",
+            "conditions": {
+              "logic": "or",
+              "conditions": [
+                { "field": "message.content", "operator": "matches", "value": "^/help$" },
+                { "field": "message.content", "operator": "matches", "value": "^help$" }
+              ]
+            },
+            "actions": [
+              {
+                "type": "message.send",
+                "params": {
+                  "content": "**Converter** (Level 2)\n\nI convert between units using precise formulas.\n\n**Syntax:** `[value] [from_unit] to [to_unit]`\n\n**Supported units:**\n\n*Length:* m, km, ft, mi, in, cm, mm\n*Weight:* kg, g, lb, oz\n*Temperature:* C, F, K\n*Data:* B, KB, MB, GB, TB\n*Time:* s, min, hr, day\n\n**Examples:**\n- `100 km to mi`\n- `72 F to C`\n- `1024 MB to GB`\n- `2.5 hr to min`\n\n**Why this matters:**\nThis shows deterministic transformation - conversion formulas are exact, not approximated."
+                }
+              }
+            ]
+          },
+          {
+            "id": "convert-parse",
+            "name": "Parse and Convert",
+            "description": "Parse conversion syntax and execute",
+            "priority": 100,
+            "enabled": true,
+            "trigger": "message.received",
+            "conditions": {
+              "logic": "and",
+              "conditions": [
+                { "field": "message.content", "operator": "exists", "value": true },
+                { "field": "message.content", "operator": "matches", "value": "(?i)\\d+\\.?\\d*\\s*\\w+\\s+(to|in|as)\\s+\\w+" }
+              ]
+            },
+            "actions": [
+              {
+                "type": "tool.invoke",
+                "id": "step-convert",
+                "params": {
+                  "tool": "convert.units",
+                  "input": "{{message.content}}"
+                },
+                "onError": {
+                  "action": "message.send",
+                  "params": {
+                    "content": "I couldn't parse that conversion. Use format: `100 km to mi`"
+                  }
+                }
+              },
+              {
+                "type": "message.send",
+                "params": {
+                  "template": "{{steps.step-convert.result.fromValue}} {{steps.step-convert.result.fromUnit}} = **{{steps.step-convert.result.toValue}} {{steps.step-convert.result.toUnit}}**"
+                }
+              }
+            ]
+          },
+          {
+            "id": "convert-invalid",
+            "name": "Invalid Syntax",
+            "description": "Guide user on correct syntax",
+            "priority": 50,
+            "enabled": true,
+            "trigger": "message.received",
+            "conditions": {
+              "logic": "and",
+              "conditions": [
+                { "field": "message.content", "operator": "exists", "value": true },
+                { "field": "message.content", "operator": "not_matches", "value": "(?i)\\d+.*to\\s+\\w+" }
+              ]
+            },
+            "actions": [
+              {
+                "type": "message.send",
+                "params": {
+                  "content": "Use format: `[value] [unit] to [unit]`\n\nExamples: `100 km to mi`, `32 F to C`\n\nType `help` for all supported units."
+                }
+              }
+            ]
+          }
+        ]
+      }
+    }
+  },
+  {
+    "id": "ast-data-explainer",
+    "key": "assistants/data-explainer",
+    "name": "Data Explainer",
+    "description": "Computes statistics on data, then uses AI to explain what the numbers mean in plain language.",
+    "type": "assistant",
+    "status": "published",
+    "isBootstrap": true,
+    "tags": ["assistant", "bootstrap", "tutorial", "level-3", "hybrid", "deterministic-to-llm"],
+    "accessPolicy": {
+      "visibility": "public",
+      "actions": {
+        "read": { "anyOf": ["public"] },
+        "write": { "anyOf": ["role:admin"] }
+      }
+    },
+    "metadata": {
+      "alias": "explain",
+      "curriculumLevel": 3,
+      "curriculumTitle": "Hybrid: Logic then AI",
+      "curriculumDescription": "Learn how deterministic computation feeds into AI explanation",
+      "llmConfig": {
+        "provider": "anthropic",
+        "model": "claude-3-haiku-20240307",
+        "temperature": 0.5,
+        "maxTokens": 512
+      },
+      "assistantConfig": {
+        "principalId": "assistant:data-explainer",
+        "principalType": "assistant",
+        "capabilities": ["messaging", "tools.stats", "llm.chat"]
+      },
+      "ruleSet": {
+        "id": "ruleset-data-explainer",
+        "name": "Data Explainer Rules",
+        "description": "Compute statistics then explain with AI",
+        "version": 1,
+        "isActive": true,
+        "rules": [
+          {
+            "id": "explain-help",
+            "name": "Help Command",
+            "description": "Show data explainer help",
+            "priority": 200,
+            "enabled": true,
+            "trigger": "message.received",
+            "conditions": {
+              "logic": "or",
+              "conditions": [
+                { "field": "message.content", "operator": "matches", "value": "^/help$" },
+                { "field": "message.content", "operator": "matches", "value": "^help$" }
+              ]
+            },
+            "actions": [
+              {
+                "type": "message.send",
+                "params": {
+                  "content": "**Data Explainer** (Level 3 - Hybrid)\n\nI compute statistics precisely, then explain them in plain English.\n\n**How it works:**\n1. You give me numbers\n2. I calculate exact statistics (deterministic)\n3. AI explains what they mean (LLM)\n\n**Send data as:**\n- Comma-separated: `10, 20, 30, 40, 50`\n- Space-separated: `10 20 30 40 50`\n- One per line\n\n**Statistics computed:**\nMean, median, mode, min, max, range, std deviation\n\n**Why this matters:**\nThe math is exact (deterministic), the explanation is natural (AI). Best of both worlds!"
+                }
+              }
+            ]
+          },
+          {
+            "id": "explain-data",
+            "name": "Analyze and Explain",
+            "description": "Run statistical analysis, then have LLM explain findings",
+            "priority": 100,
+            "enabled": true,
+            "trigger": "message.received",
+            "conditions": {
+              "logic": "and",
+              "conditions": [
+                { "field": "message.content", "operator": "exists", "value": true },
+                { "field": "message.content", "operator": "matches", "value": "-?\\d+\\.?\\d*" }
+              ]
+            },
+            "actions": [
+              {
+                "type": "tool.invoke",
+                "id": "step-stats",
+                "params": {
+                  "tool": "stats.analyze",
+                  "input": "{{message.content}}"
+                },
+                "onError": {
+                  "action": "message.send",
+                  "params": {
+                    "content": "I couldn't parse those numbers. Try: `10, 20, 30, 40, 50`"
+                  }
+                }
+              },
+              {
+                "type": "llm.invoke",
+                "id": "step-explain",
+                "params": {
+                  "systemPrompt": "You are a data analyst explaining statistics to a non-technical person. Be concise (2-3 sentences max). Focus on what the numbers mean practically, not the math formulas.",
+                  "userPrompt": "Data provided: {{message.content}}\n\nStatistics:\n- Count: {{steps.step-stats.result.count}}\n- Mean: {{steps.step-stats.result.mean}}\n- Median: {{steps.step-stats.result.median}}\n- Min: {{steps.step-stats.result.min}}\n- Max: {{steps.step-stats.result.max}}\n- Std Dev: {{steps.step-stats.result.stdDev}}\n\nExplain what these statistics tell us about this data."
+                }
+              },
+              {
+                "type": "message.send",
+                "params": {
+                  "template": "**Statistics:**\n- Count: {{steps.step-stats.result.count}}\n- Mean: {{steps.step-stats.result.mean}}\n- Median: {{steps.step-stats.result.median}}\n- Range: {{steps.step-stats.result.min}} to {{steps.step-stats.result.max}}\n\n**What this means:**\n{{steps.step-explain.response}}"
+                }
+              }
+            ]
+          }
+        ]
+      }
+    }
+  },
+  {
+    "id": "ast-code-runner",
+    "key": "assistants/code-runner",
+    "name": "Code Runner",
+    "description": "Executes code snippets safely, then uses AI to explain what happened and why.",
+    "type": "assistant",
+    "status": "published",
+    "isBootstrap": true,
+    "tags": ["assistant", "bootstrap", "tutorial", "level-3", "hybrid", "deterministic-to-llm", "code"],
+    "accessPolicy": {
+      "visibility": "public",
+      "actions": {
+        "read": { "anyOf": ["public"] },
+        "write": { "anyOf": ["role:admin"] }
+      }
+    },
+    "metadata": {
+      "alias": "run",
+      "curriculumLevel": 3,
+      "curriculumTitle": "Hybrid: Logic then AI",
+      "curriculumDescription": "Learn how code execution results feed into AI explanation",
+      "llmConfig": {
+        "provider": "anthropic",
+        "model": "claude-3-haiku-20240307",
+        "temperature": 0.5,
+        "maxTokens": 512
+      },
+      "assistantConfig": {
+        "principalId": "assistant:code-runner",
+        "principalType": "assistant",
+        "capabilities": ["messaging", "tools.code", "llm.chat"]
+      },
+      "ruleSet": {
+        "id": "ruleset-code-runner",
+        "name": "Code Runner Rules",
+        "description": "Execute code in sandbox then explain the output",
+        "version": 1,
+        "isActive": true,
+        "rules": [
+          {
+            "id": "run-help",
+            "name": "Help Command",
+            "description": "Show code runner help",
+            "priority": 200,
+            "enabled": true,
+            "trigger": "message.received",
+            "conditions": {
+              "logic": "or",
+              "conditions": [
+                { "field": "message.content", "operator": "matches", "value": "^/help$" },
+                { "field": "message.content", "operator": "matches", "value": "^help$" }
+              ]
+            },
+            "actions": [
+              {
+                "type": "message.send",
+                "params": {
+                  "content": "**Code Runner** (Level 3 - Hybrid)\n\nI execute code safely, then explain what happened.\n\n**How it works:**\n1. You send code\n2. I run it in a sandbox (deterministic)\n3. AI explains the result (LLM)\n\n**Supported languages:**\n- JavaScript\n- Python\n- TypeScript\n\n**Examples:**\n```js\nconsole.log([1,2,3].map(x => x * 2))\n```\n\n```python\nprint([x**2 for x in range(5)])\n```\n\n**Why this matters:**\nCode execution is exact (deterministic), but understanding errors needs intelligence (AI)."
+                }
+              }
+            ]
+          },
+          {
+            "id": "run-code",
+            "name": "Run and Explain",
+            "description": "Execute code in sandbox, then explain the result",
+            "priority": 100,
+            "enabled": true,
+            "trigger": "message.received",
+            "conditions": {
+              "logic": "and",
+              "conditions": [
+                { "field": "message.content", "operator": "exists", "value": true },
+                { "field": "message.content", "operator": "length_gte", "value": 5 }
+              ]
+            },
+            "actions": [
+              {
+                "type": "tool.invoke",
+                "id": "step-execute",
+                "params": {
+                  "tool": "code.execute",
+                  "input": "{{message.content}}",
+                  "config": {
+                    "sandbox": true,
+                    "timeout": 5000
+                  }
+                },
+                "onError": {
+                  "continue": true,
+                  "storeAs": "step-execute"
+                }
+              },
+              {
+                "type": "llm.invoke",
+                "id": "step-explain",
+                "params": {
+                  "systemPrompt": "You are a coding tutor. Explain code execution results clearly in 2-3 sentences. If there's an error, explain what went wrong and suggest a fix. Be encouraging for beginners.",
+                  "userPrompt": "Code submitted:\n```\n{{message.content}}\n```\n\nExecution result:\n{{steps.step-execute.result}}\n\nExplain what happened."
+                }
+              },
+              {
+                "type": "message.send",
+                "params": {
+                  "template": "**Output:**\n```\n{{steps.step-execute.result.output}}\n```\n\n**Explanation:**\n{{steps.step-explain.response}}"
+                }
+              }
+            ]
+          }
+        ]
+      }
+    }
+  },
+  {
+    "id": "ast-smart-calc",
+    "key": "assistants/smart-calc",
+    "name": "Smart Calculator",
+    "description": "Understands natural language math problems ('what's 15% tip on $47.50?'), extracts the math, then computes precisely.",
+    "type": "assistant",
+    "status": "published",
+    "isBootstrap": true,
+    "tags": ["assistant", "bootstrap", "tutorial", "level-4", "hybrid", "llm-to-deterministic", "math"],
+    "accessPolicy": {
+      "visibility": "public",
+      "actions": {
+        "read": { "anyOf": ["public"] },
+        "write": { "anyOf": ["role:admin"] }
+      }
+    },
+    "metadata": {
+      "alias": "smartcalc",
+      "curriculumLevel": 4,
+      "curriculumTitle": "Hybrid: AI then Logic",
+      "curriculumDescription": "Learn how AI understanding enables precise deterministic execution",
+      "llmConfig": {
+        "provider": "openai",
+        "model": "gpt-4o-mini",
+        "temperature": 0,
+        "maxTokens": 100
+      },
+      "assistantConfig": {
+        "principalId": "assistant:smart-calc",
+        "principalType": "assistant",
+        "capabilities": ["messaging", "llm.chat", "tools.math"]
+      },
+      "ruleSet": {
+        "id": "ruleset-smart-calc",
+        "name": "Smart Calculator Rules",
+        "description": "Parse natural language math, then compute precisely",
+        "version": 1,
+        "isActive": true,
+        "rules": [
+          {
+            "id": "smart-help",
+            "name": "Help Command",
+            "description": "Show smart calculator help",
+            "priority": 200,
+            "enabled": true,
+            "trigger": "message.received",
+            "conditions": {
+              "logic": "or",
+              "conditions": [
+                { "field": "message.content", "operator": "matches", "value": "^/help$" },
+                { "field": "message.content", "operator": "matches", "value": "^help$" }
+              ]
+            },
+            "actions": [
+              {
+                "type": "message.send",
+                "params": {
+                  "content": "**Smart Calculator** (Level 4 - Hybrid)\n\nI understand natural language math and compute precise answers.\n\n**How it works:**\n1. You describe a math problem in plain English\n2. AI extracts the mathematical expression (LLM)\n3. I calculate the exact answer (deterministic)\n\n**Examples:**\n- \"What's 15% tip on $47.50?\"\n- \"Split $120 between 4 people\"\n- \"How much is 3 dozen eggs?\"\n- \"If I drive 65mph for 2.5 hours, how far?\"\n\n**Why this matters:**\nAI handles ambiguous language, but math is computed exactly - no hallucinated arithmetic!"
+                }
+              }
+            ]
+          },
+          {
+            "id": "smart-compute",
+            "name": "Parse and Compute",
+            "description": "Use LLM to extract math expression, then evaluate deterministically",
+            "priority": 100,
+            "enabled": true,
+            "trigger": "message.received",
+            "conditions": {
+              "logic": "and",
+              "conditions": [
+                { "field": "message.content", "operator": "exists", "value": true },
+                { "field": "message.content", "operator": "length_gte", "value": 3 }
+              ]
+            },
+            "actions": [
+              {
+                "type": "llm.invoke",
+                "id": "step-parse",
+                "params": {
+                  "systemPrompt": "Extract the mathematical expression from the user's natural language. Return ONLY the mathematical expression, nothing else. No explanation, no words - just the math.\n\nExamples:\n- \"what's 15% tip on $47.50\" -> 47.50 * 0.15\n- \"split $120 between 4 people\" -> 120 / 4\n- \"3 dozen eggs\" -> 3 * 12\n- \"65mph for 2.5 hours\" -> 65 * 2.5\n- \"20% off $80\" -> 80 * 0.20\n- \"total with 20% off $80\" -> 80 - (80 * 0.20)\n- \"add 8.5% tax to $50\" -> 50 * 1.085",
+                  "userPrompt": "{{message.content}}"
+                }
+              },
+              {
+                "type": "tool.invoke",
+                "id": "step-evaluate",
+                "params": {
+                  "tool": "math.evaluate",
+                  "input": "{{steps.step-parse.response}}"
+                },
+                "onError": {
+                  "action": "message.send",
+                  "params": {
+                    "content": "I understood \"{{steps.step-parse.response}}\" but couldn't compute it. Try rephrasing?"
+                  }
+                }
+              },
+              {
+                "type": "message.send",
+                "params": {
+                  "template": "**Understood:** {{steps.step-parse.response}}\n**Answer:** {{steps.step-evaluate.result}}"
+                }
+              }
+            ]
+          }
+        ]
+      }
+    }
+  },
+  {
+    "id": "ast-intent-router",
+    "key": "assistants/intent-router",
+    "name": "Intent Router",
+    "description": "Uses AI to understand what the user wants, then routes to the correct deterministic tool or assistant.",
+    "type": "assistant",
+    "status": "published",
+    "isBootstrap": true,
+    "tags": ["assistant", "bootstrap", "tutorial", "level-4", "hybrid", "llm-to-deterministic", "routing"],
+    "accessPolicy": {
+      "visibility": "public",
+      "actions": {
+        "read": { "anyOf": ["public"] },
+        "write": { "anyOf": ["role:admin"] }
+      }
+    },
+    "metadata": {
+      "alias": "router",
+      "curriculumLevel": 4,
+      "curriculumTitle": "Hybrid: AI then Logic",
+      "curriculumDescription": "Learn how AI classification drives deterministic routing",
+      "llmConfig": {
+        "provider": "openai",
+        "model": "gpt-4o-mini",
+        "temperature": 0,
+        "maxTokens": 20
+      },
+      "assistantConfig": {
+        "principalId": "assistant:intent-router",
+        "principalType": "assistant",
+        "capabilities": ["messaging", "llm.chat", "routing"]
+      },
+      "ruleSet": {
+        "id": "ruleset-intent-router",
+        "name": "Intent Router Rules",
+        "description": "Classify intent then route deterministically",
+        "version": 1,
+        "isActive": true,
+        "rules": [
+          {
+            "id": "router-help",
+            "name": "Help Command",
+            "description": "Show router help",
+            "priority": 200,
+            "enabled": true,
+            "trigger": "message.received",
+            "conditions": {
+              "logic": "or",
+              "conditions": [
+                { "field": "message.content", "operator": "matches", "value": "^/help$" },
+                { "field": "message.content", "operator": "matches", "value": "^help$" }
+              ]
+            },
+            "actions": [
+              {
+                "type": "message.send",
+                "params": {
+                  "content": "**Intent Router** (Level 4 - Hybrid)\n\nI figure out what you need and route you to the right assistant.\n\n**How it works:**\n1. You send any message\n2. AI classifies your intent (LLM)\n3. I route to the correct specialist (deterministic)\n\n**Detected intents:**\n- `CALCULATE` → @calc\n- `CONVERT` → @convert\n- `ANALYZE` → @explain\n- `CODE` → @run\n- `BUILD` → @builder\n- `HELP` → shows guidance\n\n**Examples:**\n- \"What's 25 times 4?\" → routes to calculator\n- \"Convert 100km to miles\" → routes to converter\n- \"Run this Python code\" → routes to code runner\n\n**Why this matters:**\nAI handles fuzzy intent detection, but routing is deterministic and predictable."
+                }
+              }
+            ]
+          },
+          {
+            "id": "router-classify",
+            "name": "Classify and Route",
+            "description": "Use LLM to classify intent, then route deterministically",
+            "priority": 100,
+            "enabled": true,
+            "trigger": "message.received",
+            "conditions": {
+              "logic": "and",
+              "conditions": [
+                { "field": "message.content", "operator": "exists", "value": true },
+                { "field": "message.content", "operator": "length_gte", "value": 2 }
+              ]
+            },
+            "actions": [
+              {
+                "type": "llm.invoke",
+                "id": "step-classify",
+                "params": {
+                  "systemPrompt": "Classify the user's intent into exactly one category. Return ONLY the category name, nothing else:\n\n- CALCULATE: math, arithmetic, numbers, percentages, computation\n- CONVERT: unit conversion, currency, measurement, format transformation\n- ANALYZE: statistics, data analysis, patterns, explain numbers\n- CODE: programming, run code, execute script, debug\n- BUILD: create assistant, make bot, design automation\n- HELP: questions about the system, how to use, what can you do",
+                  "userPrompt": "{{message.content}}"
+                }
+              },
+              {
+                "type": "route.byValue",
+                "id": "step-route",
+                "params": {
+                  "value": "{{steps.step-classify.response}}",
+                  "routes": {
+                    "CALCULATE": { "target": "assistant:calculator", "message": "{{message.content}}" },
+                    "CONVERT": { "target": "assistant:converter", "message": "{{message.content}}" },
+                    "ANALYZE": { "target": "assistant:data-explainer", "message": "{{message.content}}" },
+                    "CODE": { "target": "assistant:code-runner", "message": "{{message.content}}" },
+                    "BUILD": { "target": "assistant:builder", "message": "{{message.content}}" },
+                    "HELP": { "target": "self", "action": "showHelp" }
+                  },
+                  "fallback": {
+                    "target": "assistant:coordinator",
+                    "message": "{{message.content}}"
+                  }
+                }
+              },
+              {
+                "type": "message.send",
+                "params": {
+                  "template": "Detected intent: **{{steps.step-classify.response}}**\nRouting to the appropriate assistant..."
+                }
+              }
+            ]
+          }
+        ]
+      }
+    }
+  },
+  {
+    "id": "ast-coordinator",
+    "key": "assistants/coordinator",
+    "name": "Coordinator",
+    "description": "The team lead. Orchestrates multiple specialists to solve complex problems collaboratively.",
+    "type": "assistant",
+    "status": "published",
+    "isBootstrap": true,
+    "tags": ["assistant", "bootstrap", "tutorial", "level-5", "multi-agent", "orchestration"],
+    "accessPolicy": {
+      "visibility": "public",
+      "actions": {
+        "read": { "anyOf": ["public"] },
+        "write": { "anyOf": ["role:admin"] }
+      }
+    },
+    "metadata": {
+      "alias": "symbia",
+      "curriculumLevel": 5,
+      "curriculumTitle": "Multi-Agent Collaboration",
+      "curriculumDescription": "See how multiple specialists work together on complex tasks",
+      "llmConfig": {
+        "provider": "anthropic",
+        "model": "claude-3-5-sonnet-20241022",
+        "temperature": 0.7,
+        "maxTokens": 1500
+      },
+      "assistantConfig": {
+        "principalId": "assistant:coordinator",
+        "principalType": "assistant",
+        "capabilities": ["messaging", "llm.chat", "routing", "orchestration", "delegation"]
+      },
+      "ruleSet": {
+        "id": "ruleset-coordinator",
+        "name": "Coordinator Rules",
+        "description": "Orchestrate team of specialists to solve complex problems",
+        "version": 1,
+        "isActive": true,
+        "rules": [
+          {
+            "id": "coord-help",
+            "name": "Help Command",
+            "description": "Show coordinator help and team roster",
+            "priority": 200,
+            "enabled": true,
+            "trigger": "message.received",
+            "conditions": {
+              "logic": "or",
+              "conditions": [
+                { "field": "message.content", "operator": "matches", "value": "^/help$" },
+                { "field": "message.content", "operator": "matches", "value": "^help$" }
+              ]
+            },
+            "actions": [
+              {
+                "type": "message.send",
+                "params": {
+                  "content": "**Coordinator (Symbia)** (Level 5 - Multi-Agent)\n\nI'm your team lead. I orchestrate specialists to solve complex problems.\n\n**My team:**\n\n*Level 1 - Basics:*\n- `@echo` - Message mirroring (testing)\n\n*Level 2 - Deterministic:*\n- `@calc` - Precise math\n- `@convert` - Unit conversion\n\n*Level 3 - Logic then AI:*\n- `@explain` - Data analysis + explanation\n- `@run` - Code execution + explanation\n\n*Level 4 - AI then Logic:*\n- `@smartcalc` - Natural language math\n- `@router` - Intent classification\n\n*Level 5 - Collaboration:*\n- `@analyst` - Research specialist\n- `@builder` - Creates new assistants\n\n**How to use me:**\n- Simple questions: I'll answer directly\n- Complex tasks: I'll coordinate the team\n- Mention specialists: I'll bring them in\n\n**Example:** \"I need to analyze sales data and create a report\""
+                }
+              }
+            ]
+          },
+          {
+            "id": "coord-team",
+            "name": "Team Roster",
+            "description": "Show available team members",
+            "priority": 180,
+            "enabled": true,
+            "trigger": "message.received",
+            "conditions": {
+              "logic": "or",
+              "conditions": [
+                { "field": "message.content", "operator": "matches", "value": "(?i)who.*team" },
+                { "field": "message.content", "operator": "matches", "value": "(?i)list.*assistant" },
+                { "field": "message.content", "operator": "matches", "value": "(?i)available.*specialist" }
+              ]
+            },
+            "actions": [
+              {
+                "type": "tool.invoke",
+                "id": "step-roster",
+                "params": {
+                  "tool": "assistants.list",
+                  "input": { "status": "published", "isBootstrap": true }
+                }
+              },
+              {
+                "type": "message.send",
+                "params": {
+                  "template": "**Available Team Members:**\n\n{{#each steps.step-roster.result}}\n- **@{{this.alias}}** - {{this.description}}\n{{/each}}"
+                }
+              }
+            ]
+          },
+          {
+            "id": "coord-orchestrate",
+            "name": "Orchestrate Response",
+            "description": "Analyze request and coordinate team response",
+            "priority": 100,
+            "enabled": true,
+            "trigger": "message.received",
+            "conditions": {
+              "logic": "and",
+              "conditions": [
+                { "field": "message.content", "operator": "exists", "value": true }
+              ]
+            },
+            "actions": [
+              {
+                "type": "llm.invoke",
+                "id": "step-respond",
+                "params": {
+                  "systemPrompt": "You are Symbia, the coordinator of a team of AI specialists. You help users accomplish tasks by either answering directly or coordinating your team.\n\n**Your team (use @alias to mention):**\n- @echo - Simple echo (Level 1, testing)\n- @calc - Math calculations (Level 2)\n- @convert - Unit conversion (Level 2)\n- @explain - Data analysis + plain English explanation (Level 3)\n- @run - Code execution + explanation (Level 3)\n- @smartcalc - Natural language math (Level 4)\n- @router - Intent classification and routing (Level 4)\n- @analyst - Research and analysis specialist (Level 5)\n- @builder - Creates new assistants (Level 5)\n\n**Guidelines:**\n1. For simple questions, answer directly\n2. For tasks matching a specialist, mention them with @ and explain why\n3. For complex tasks, describe how you'd coordinate multiple specialists\n4. Be concise but helpful\n5. Show the collaborative nature of the platform\n\n**Response format:**\nKeep responses focused. Use @mentions naturally when delegating.",
+                  "userPrompt": "{{message.content}}"
+                }
+              },
+              {
+                "type": "message.send",
+                "params": {
+                  "template": "{{steps.step-respond.response}}"
+                }
+              }
+            ]
+          }
+        ]
+      }
+    }
+  },
+  {
+    "id": "ast-analyst",
+    "key": "assistants/analyst",
+    "name": "Analyst",
+    "description": "Research and data specialist. Gathers information, analyzes patterns, and provides insights.",
+    "type": "assistant",
+    "status": "published",
+    "isBootstrap": true,
+    "tags": ["assistant", "bootstrap", "tutorial", "level-5", "multi-agent", "specialist", "research"],
+    "accessPolicy": {
+      "visibility": "public",
+      "actions": {
+        "read": { "anyOf": ["public"] },
+        "write": { "anyOf": ["role:admin"] }
+      }
+    },
+    "metadata": {
+      "alias": "analyst",
+      "curriculumLevel": 5,
+      "curriculumTitle": "Multi-Agent Collaboration",
+      "curriculumDescription": "A specialist that works with the coordinator on research tasks",
+      "llmConfig": {
+        "provider": "anthropic",
+        "model": "claude-3-5-sonnet-20241022",
+        "temperature": 0.5,
+        "maxTokens": 2000
+      },
+      "assistantConfig": {
+        "principalId": "assistant:analyst",
+        "principalType": "assistant",
+        "capabilities": ["messaging", "llm.chat", "tools.search", "tools.stats"]
+      },
+      "ruleSet": {
+        "id": "ruleset-analyst",
+        "name": "Analyst Rules",
+        "description": "Research, analyze, and provide data-driven insights",
+        "version": 1,
+        "isActive": true,
+        "rules": [
+          {
+            "id": "analyst-help",
+            "name": "Help Command",
+            "description": "Show analyst capabilities",
+            "priority": 200,
+            "enabled": true,
+            "trigger": "message.received",
+            "conditions": {
+              "logic": "or",
+              "conditions": [
+                { "field": "message.content", "operator": "matches", "value": "^/help$" },
+                { "field": "message.content", "operator": "matches", "value": "^help$" }
+              ]
+            },
+            "actions": [
+              {
+                "type": "message.send",
+                "params": {
+                  "content": "**Analyst** (Level 5 - Specialist)\n\nI'm a research and analysis specialist on the Symbia team.\n\n**What I do:**\n- Research topics and gather information\n- Analyze data and identify patterns\n- Provide insights with supporting evidence\n- Create structured reports\n\n**I work well with:**\n- @explain - For statistical analysis\n- @calc - For precise computations\n- @coordinator - For complex multi-step research\n\n**How to use me:**\n- Ask research questions\n- Send data for analysis\n- Request competitive analysis\n- Ask for trend identification\n\n**Example:** \"What are the key trends in renewable energy adoption?\""
+                }
+              }
+            ]
+          },
+          {
+            "id": "analyst-analyze",
+            "name": "Analyze and Research",
+            "description": "Perform research and analysis on user requests",
+            "priority": 100,
+            "enabled": true,
+            "trigger": "message.received",
+            "conditions": {
+              "logic": "and",
+              "conditions": [
+                { "field": "message.content", "operator": "exists", "value": true }
+              ]
+            },
+            "actions": [
+              {
+                "type": "llm.invoke",
+                "id": "step-analyze",
+                "params": {
+                  "systemPrompt": "You are a research analyst on the Symbia team. Your role is to:\n\n1. **Understand the request** - What does the user need to know?\n2. **Gather relevant information** - What facts, data, or context matters?\n3. **Identify patterns** - What trends or insights emerge?\n4. **Present findings clearly** - Use structure, bullets, and evidence\n5. **Suggest next steps** - What deeper analysis could help?\n\n**Collaboration:**\nIf the task would benefit from other specialists, mention them:\n- @calc for precise computations\n- @explain for statistical analysis\n- @run for code-based analysis\n- @coordinator for orchestrating complex research\n\n**Format guidelines:**\n- Use headers (##) for sections\n- Use bullet points for lists\n- Bold **key findings**\n- Keep insights actionable",
+                  "userPrompt": "Research request: {{message.content}}\n\nProvide your analysis."
+                }
+              },
+              {
+                "type": "message.send",
+                "params": {
+                  "template": "{{steps.step-analyze.response}}"
+                }
+              }
+            ]
+          }
+        ]
+      }
+    }
+  },
+  {
+    "id": "ast-builder",
+    "key": "assistants/builder",
+    "name": "Builder",
+    "description": "Creates new assistants from natural language descriptions. The meta-assistant that builds other assistants.",
+    "type": "assistant",
+    "status": "published",
+    "isBootstrap": true,
+    "tags": ["assistant", "bootstrap", "tutorial", "level-5", "multi-agent", "specialist", "meta", "creation"],
+    "accessPolicy": {
+      "visibility": "public",
+      "actions": {
+        "read": { "anyOf": ["public"] },
+        "write": { "anyOf": ["role:admin"] }
+      }
+    },
+    "metadata": {
+      "alias": "builder",
+      "curriculumLevel": 5,
+      "curriculumTitle": "Multi-Agent Collaboration",
+      "curriculumDescription": "The meta-assistant that helps you create your own assistants",
+      "llmConfig": {
+        "provider": "anthropic",
+        "model": "claude-3-5-sonnet-20241022",
+        "temperature": 0.7,
+        "maxTokens": 2500
+      },
+      "assistantConfig": {
+        "principalId": "assistant:builder",
+        "principalType": "assistant",
+        "capabilities": ["messaging", "llm.chat", "catalog.write", "assistant.create"]
+      },
+      "ruleSet": {
+        "id": "ruleset-builder",
+        "name": "Builder Rules",
+        "description": "Generate assistant configurations from natural language descriptions",
+        "version": 1,
+        "isActive": true,
+        "rules": [
+          {
+            "id": "builder-help",
+            "name": "Help Command",
+            "description": "Show builder capabilities and guide",
+            "priority": 200,
+            "enabled": true,
+            "trigger": "message.received",
+            "conditions": {
+              "logic": "or",
+              "conditions": [
+                { "field": "message.content", "operator": "matches", "value": "^/help$" },
+                { "field": "message.content", "operator": "matches", "value": "^help$" }
+              ]
+            },
+            "actions": [
+              {
+                "type": "message.send",
+                "params": {
+                  "content": "**Builder** (Level 5 - Meta-Assistant)\n\nI help you create new assistants from descriptions.\n\n**How it works:**\n1. Describe what you want your assistant to do\n2. I'll ask clarifying questions if needed\n3. I design the rules and capabilities\n4. You review and I create it\n\n**Assistant complexity levels:**\n\n*Level 1 - Pure Deterministic:*\nNo AI, just rules. Fast and predictable.\nExample: Echo, simple responders\n\n*Level 2 - Deterministic + Tools:*\nRules that call tools. Precise outputs.\nExample: Calculator, converter\n\n*Level 3 - Tools then AI:*\nRun tools, then AI explains results.\nExample: Data explainer, code runner\n\n*Level 4 - AI then Tools:*\nAI understands intent, tools execute.\nExample: Smart calculator, router\n\n*Level 5 - Multi-Agent:*\nCoordinates with other assistants.\nExample: Coordinator, analyst\n\n**Start simple!** Type something like:\n\"I want an assistant that answers FAQ questions\""
+                }
+              }
+            ]
+          },
+          {
+            "id": "builder-design",
+            "name": "Design Assistant",
+            "description": "Help user design and create a new assistant",
+            "priority": 100,
+            "enabled": true,
+            "trigger": "message.received",
+            "conditions": {
+              "logic": "and",
+              "conditions": [
+                { "field": "message.content", "operator": "exists", "value": true }
+              ]
+            },
+            "actions": [
+              {
+                "type": "llm.invoke",
+                "id": "step-design",
+                "params": {
+                  "systemPrompt": "You are the Builder, a meta-assistant that helps users create new assistants on the Symbia platform.\n\n**Your process:**\n1. **Understand the goal** - What should this assistant do?\n2. **Determine complexity** - Which level fits best?\n3. **Design the rules** - What triggers, conditions, and actions?\n4. **Choose capabilities** - What tools and integrations?\n5. **Generate spec** - Produce the complete configuration\n\n**Assistant Levels (use as reference):**\n\n*Level 1 (Pure Deterministic):*\n- No LLM, just rules\n- Example: Echo (mirrors input)\n- Use when: Simple, predictable responses\n\n*Level 2 (Deterministic + Tools):*\n- Rules + tool calls\n- Example: Calculator, Converter\n- Use when: Precise computation needed\n\n*Level 3 (Tools → AI):*\n- Run tool, then LLM explains\n- Example: Data Explainer, Code Runner\n- Use when: Need human-friendly explanations of tool output\n\n*Level 4 (AI → Tools):*\n- LLM understands intent, tool executes\n- Example: Smart Calculator, Intent Router\n- Use when: Natural language input needs precise execution\n\n*Level 5 (Multi-Agent):*\n- Coordinates with other assistants\n- Example: Coordinator, Analyst\n- Use when: Complex tasks need multiple specialists\n\n**Guidelines:**\n- Start simple - suggest lowest complexity that works\n- Ask clarifying questions if requirements are vague\n- When ready, generate a complete assistant spec in JSON\n- Explain your design choices\n\n**Response format:**\nFor initial discussions, use plain text. When generating the final spec, wrap it in ```json blocks.",
+                  "userPrompt": "User wants to create an assistant: {{message.content}}\n\nHelp them design it. Ask questions if needed, or if you have enough info, generate the specification."
+                }
+              },
+              {
+                "type": "message.send",
+                "params": {
+                  "template": "{{steps.step-design.response}}"
+                }
+              }
+            ]
+          }
+        ]
+      }
+    }
+  }
+]

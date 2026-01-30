@@ -1,0 +1,36 @@
+{
+  "name": "@symbia/runtime-service",
+  "version": "1.0.0",
+  "type": "module",
+  "main": "dist/index.cjs",
+  "license": "MIT",
+  "description": "Symbia Runtime Service - Graph execution engine for Symbia Script workflows",
+  "scripts": {
+    "dev": "NODE_ENV=development tsx watch server/src/index.ts",
+    "build": "tsx scripts/build.ts",
+    "start": "NODE_ENV=production node dist/index.cjs"
+  },
+  "dependencies": {
+    "@symbia/http": "file:../symbia-http",
+    "@symbia/logging-client": "file:../symbia-logging-client",
+    "@symbia/relay": "file:../symbia-relay",
+    "@symbia/sys": "file:../symbia-sys",
+    "cookie-parser": "^1.4.7",
+    "dotenv": "^17.2.3",
+    "express": "^5.2.1",
+    "jose": "^6.1.3",
+    "socket.io": "^4.8.3",
+    "uuid": "^13.0.0",
+    "yaml": "^2.7.0"
+  },
+  "devDependencies": {
+    "@symbia/md": "file:../symbia-md",
+    "@types/cookie-parser": "^1.4.10",
+    "@types/express": "^5.0.6",
+    "@types/node": "^22.10.2",
+    "@types/uuid": "^10.0.0",
+    "esbuild": "^0.25.6",
+    "tsx": "^4.21.0",
+    "typescript": "^5.9.3"
+  }
+}

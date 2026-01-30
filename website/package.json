@@ -1,0 +1,29 @@
+{
+  "name": "@symbia/website",
+  "version": "0.1.0",
+  "license": "MIT",
+  "description": "Symbia marketing website with live platform integration - example app",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc && vite build",
+    "preview": "vite preview",
+    "check": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@symbia/catalog-client": "file:../symbia-catalog-client",
+    "@symbia/http": "file:../symbia-http",
+    "@symbia/messaging-client": "file:../symbia-messaging-client",
+    "@symbia/sys": "file:../symbia-sys",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1"
+  },
+  "devDependencies": {
+    "@types/react": "^18.3.12",
+    "@types/react-dom": "^18.3.1",
+    "@vitejs/plugin-react": "^4.3.4",
+    "typescript": "^5.7.2",
+    "vite": "^6.0.5"
+  }
+}

@@ -1,0 +1,235 @@
+{
+  "services": [
+    {
+      "id": "server",
+      "name": "Server",
+      "layer": "Gateway",
+      "color": "primary",
+      "port": 5001,
+      "description": "API Gateway & Static Serving",
+      "overview": "The Server service is the unified API gateway and static asset server for the entire Symbia platform. It handles all incoming HTTP requests, manages WebSocket connections, and serves the Control Center UI.",
+      "stats": {
+        "port": ":5001",
+        "framework": "Express",
+        "loc": "~3K"
+      },
+      "features": [
+        { "title": "Reverse Proxy", "desc": "Routes requests to appropriate microservices based on path prefixes" },
+        { "title": "Static Serving", "desc": "Serves the React Control Center UI with code splitting support" },
+        { "title": "WebSocket Hub", "desc": "Manages real-time connections for streaming responses" },
+        { "title": "Health Aggregation", "desc": "Collects health status from all services at /health" }
+      ],
+      "codeExample": {
+        "title": "Example Routing",
+        "code": "// Request routing configuration\n/api/identity/*  → identity-service:5002\n/api/catalog/*   → catalog-service:5003\n/api/assistants/* → assistants-service:5004\n/api/messaging/* → messaging-service:5005\n/api/runtime/*   → runtime-service:5006\n/api/integrations/* → integrations-service:5007"
+      },
+      "chatSuggestions": [
+        "How does request routing work?",
+        "What's the health endpoint?",
+        "How do I add middleware?"
+      ]
+    },
+    {
+      "id": "identity",
+      "name": "Identity",
+      "layer": "Core Infrastructure",
+      "color": "node-input",
+      "port": 5002,
+      "description": "Auth, RBAC, API Keys",
+      "overview": "The Identity service manages authentication, authorization, and the Dual Principal Model. It issues tokens for both users and AI assistants, enabling fine-grained access control across the platform.",
+      "stats": {
+        "port": ":5002",
+        "framework": "JWT + RBAC",
+        "loc": "~5K"
+      },
+      "features": [
+        { "title": "Dual Principal Model", "desc": "Tracks both user identity and assistant identity in every request" },
+        { "title": "API Key Management", "desc": "Issue, rotate, and revoke API keys with scoped permissions" },
+        { "title": "Role-Based Access Control", "desc": "Define roles with granular capability assignments" },
+        { "title": "Audit Logging", "desc": "Complete audit trail of all authentication events" }
+      ],
+      "chatSuggestions": [
+        "How does dual principal work?",
+        "How do I issue API keys?",
+        "Explain RBAC capabilities"
+      ]
+    },
+    {
+      "id": "catalog",
+      "name": "Catalog",
+      "layer": "Core Infrastructure",
+      "color": "node-condition",
+      "port": 5003,
+      "description": "Resource Registry",
+      "overview": "The Catalog service is the centralized registry for all resources in the platform—services, assistants, integrations, workflows, and more. It enables runtime discovery and cross-service namespace resolution.",
+      "stats": {
+        "port": ":5003",
+        "framework": "9 Resource Types",
+        "loc": "~4K"
+      },
+      "features": [
+        { "title": "Service Discovery", "desc": "Register and discover services with health-aware routing" },
+        { "title": "Namespace Resolution", "desc": "Cross-service references via catalog:// URIs" },
+        { "title": "Schema Registry", "desc": "Store and version API schemas for validation" },
+        { "title": "Dependency Graph", "desc": "Track and visualize service dependencies" }
+      ],
+      "chatSuggestions": [
+        "How does service discovery work?",
+        "Explain catalog:// URIs",
+        "How to register a resource?"
+      ]
+    },
+    {
+      "id": "logging",
+      "name": "Logging",
+      "layer": "Core Infrastructure",
+      "color": "tertiary",
+      "port": 5008,
+      "description": "Telemetry & Traces",
+      "overview": "The Logging service provides unified observability across the platform. It collects logs, metrics, and traces from all services, enabling real-time monitoring and historical analysis.",
+      "stats": {
+        "port": ":5008",
+        "framework": "SSE",
+        "loc": "~3K"
+      },
+      "features": [
+        { "title": "Structured Logging", "desc": "JSON logs with automatic context enrichment" },
+        { "title": "Real-time Streaming", "desc": "Server-Sent Events for live log tailing" },
+        { "title": "Faceted Search", "desc": "Filter by level, source, HTTP method, status code" },
+        { "title": "Trace Correlation", "desc": "Link logs across services via trace IDs" }
+      ],
+      "chatSuggestions": [
+        "How do I query logs?",
+        "Explain trace correlation",
+        "Set up real-time streaming"
+      ]
+    },
+    {
+      "id": "assistants",
+      "name": "Assistants",
+      "layer": "AI Operations",
+      "color": "node-llm",
+      "port": 5004,
+      "description": "Assistant Orchestration",
+      "overview": "The Assistants service manages AI assistant lifecycle, configuration, and orchestration. Each assistant is a first-class principal with identity, capabilities, rules, and @mention aliases.",
+      "stats": {
+        "port": ":5004",
+        "framework": "31 Built-in",
+        "loc": "~6K"
+      },
+      "features": [
+        { "title": "@mention Routing", "desc": "Invoke assistants with @alias syntax in conversations" },
+        { "title": "Rule Engine", "desc": "Pattern-matched rules trigger assistant behaviors" },
+        { "title": "Capability Declarations", "desc": "Explicit capability requirements for access control" },
+        { "title": "LLM Presets", "desc": "Configure model, temperature, and reasoning per assistant" }
+      ],
+      "chatSuggestions": [
+        "How do @mentions work?",
+        "Create a custom assistant",
+        "Explain the rule engine"
+      ]
+    },
+    {
+      "id": "messaging",
+      "name": "Messaging",
+      "layer": "AI Operations",
+      "color": "node-tool",
+      "port": 5005,
+      "description": "Real-time Streams",
+      "overview": "The Messaging service handles real-time conversation orchestration with stream control semantics. It manages message routing, streaming responses, and cross-assistant coordination.",
+      "stats": {
+        "port": ":5005",
+        "framework": "SSE/WS",
+        "loc": "~5K"
+      },
+      "features": [
+        { "title": "Stream Control", "desc": "Pause, resume, preempt, and hand off mid-stream" },
+        { "title": "Channel Management", "desc": "Persistent conversation channels with history" },
+        { "title": "Priority Handling", "desc": "Urgent messages can preempt ongoing responses" },
+        { "title": "Backpressure", "desc": "Flow control prevents overwhelming clients" }
+      ],
+      "chatSuggestions": [
+        "How does stream pause work?",
+        "Implement handoff flow",
+        "Backpressure handling"
+      ]
+    },
+    {
+      "id": "runtime",
+      "name": "Runtime",
+      "layer": "AI Operations",
+      "color": "node-router",
+      "port": 5006,
+      "description": "Graph Execution",
+      "overview": "The Runtime service executes declarative behavior graphs (workflows). It interprets node definitions, manages execution state, and coordinates cross-node data flow.",
+      "stats": {
+        "port": ":5006",
+        "framework": "9 Node Types",
+        "loc": "~7K"
+      },
+      "features": [
+        { "title": "Input", "desc": "Entry point for workflow execution", "color": "node-input" },
+        { "title": "LLM", "desc": "Execute language model prompts", "color": "node-llm" },
+        { "title": "Router", "desc": "Conditional branching based on rules", "color": "node-router" },
+        { "title": "Tool", "desc": "Execute external integrations", "color": "node-tool" },
+        { "title": "Condition", "desc": "Boolean logic gates", "color": "node-condition" },
+        { "title": "Output", "desc": "Terminal nodes that emit results", "color": "node-output" }
+      ],
+      "chatSuggestions": [
+        "How do I create a workflow?",
+        "Explain node types",
+        "Debug workflow execution"
+      ]
+    },
+    {
+      "id": "integrations",
+      "name": "Integrations",
+      "layer": "External Integration",
+      "color": "node-output",
+      "port": 5007,
+      "description": "LLM Gateway",
+      "overview": "The Integrations service is the gateway to external systems—LLM providers, third-party APIs, and tool connectors. It normalizes interfaces and manages credentials securely.",
+      "stats": {
+        "port": ":5007",
+        "framework": "58 Models",
+        "loc": "~8K"
+      },
+      "features": [
+        { "title": "OpenAPI", "desc": "Auto-generate tools from OpenAPI 3.x specifications" },
+        { "title": "MCP Servers", "desc": "Connect Model Context Protocol servers" },
+        { "title": "JS SDK Wrappers", "desc": "Wrap any JavaScript SDK as callable tools" },
+        { "title": "LLM Providers", "desc": "Unified interface to OpenAI, Anthropic, Google, etc." }
+      ],
+      "chatSuggestions": [
+        "Add an OpenAPI integration",
+        "Configure LLM provider",
+        "Connect an MCP server"
+      ]
+    },
+    {
+      "id": "network",
+      "name": "Network",
+      "layer": "External Integration",
+      "color": "secondary",
+      "port": 5009,
+      "description": "Service Mesh & SDN",
+      "overview": "The Network service provides software-defined networking capabilities—service mesh, traffic management, and observability middleware. It enables zero-config inter-service communication.",
+      "stats": {
+        "port": ":5009",
+        "framework": "SDN",
+        "loc": "~4K"
+      },
+      "features": [
+        { "title": "Service Mesh", "desc": "Automatic mTLS, retries, and circuit breaking" },
+        { "title": "Traffic Shaping", "desc": "Rate limiting, load balancing, canary routing" },
+        { "title": "Header Propagation", "desc": "Automatic context headers (org, trace, principal)" },
+        { "title": "Observability Middleware", "desc": "Request/response logging with timing metrics" }
+      ],
+      "chatSuggestions": [
+        "How does mTLS work?",
+        "Configure rate limiting",
+        "Set up canary routing"
+      ]
+    }
+  ]
+}

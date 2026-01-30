@@ -1,0 +1,60 @@
+# Symbia Integrations Service
+
+> Centralized gateway for third-party API traffic. Sole bridge to the external world in most Symbia networks.
+
+## Overview
+
+Centralized gateway for third-party API traffic including LLM providers.
+
+- Execute LLM operations (chat completions, text generation, embeddings)
+- Supports OpenAI and HuggingFace providers
+- Normalized response format across all providers
+- Credential management via Identity service
+- Provider configuration via Catalog service
+- Execution logging and usage tracking
+
+## API Base URL
+
+Use http://localhost:5007 as the base path for all endpoints.
+
+## Quick Reference
+
+- POST /api/api/integrations/execute - Execute an LLM operation
+- POST /api/api/integrations/invoke - Invoke any registered integration operation
+- GET /api/api/integrations/providers - List available providers
+- GET /api/api/integrations/providers/{provider} - Get provider configuration
+- GET /api/api/integrations/providers/{provider}/models - Get available models for a provider
+- GET /api/api/integrations/capabilities - Get comprehensive provider capabilities
+- GET /api/api/integrations/registry - List all registered integrations
+- POST /api/api/integrations/register - Register a new integration
+- GET /api/api/integrations/registry/{key}/operations - Get operations for an integration
+- POST /api/api/integrations/mcp - MCP JSON-RPC endpoint
+- GET /api/api/integrations/mcp/info - Get MCP server info
+- POST /api/api/integrations/mcp/register - Register an external MCP server
+- GET /api/api/integrations/usage - Get usage summary for organization
+- GET /api/api/integrations/status - Get service status
+- GET /api/api/integrations/circuit-breaker - Get circuit breaker status
+- POST /api/api/integrations/circuit-breaker/reset - Reset all circuit breakers
+- POST /api/api/integrations/circuit-breaker/reset/{provider} - Reset circuit breaker for a provider
+- POST /api/api/integrations/db/export - Export in-memory database to file
+- GET /api/api/integrations/db/status - Get database status
+
+## Authentication
+
+Methods supported:
+- Bearer token (Authorization: Bearer <token>)
+- API key (X-API-Key header)
+- Session cookie
+
+- Bearer token authentication (Authorization: Bearer <token>)
+- Cookie-based session authentication (token cookie)
+
+## Custom Headers
+
+- Authorization: Bearer token for authentication
+- X-Org-Id: Organization ID for credential scoping
+
+## Documentation
+
+- OpenAPI: /docs/openapi.json
+- Full docs: /docs/llms-full.txt

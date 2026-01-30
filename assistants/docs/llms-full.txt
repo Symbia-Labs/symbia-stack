@@ -1,0 +1,431 @@
+# Symbia Assistants Backend API - Complete Documentation
+
+> Backend APIs for prompt graphs, actor principals, run orchestration, rules engine, and LLM settings.
+
+## Overview
+
+Backend APIs for prompt graphs, actor principals, and run orchestration used by Collaborate.
+
+- Prompt graph CRUD and publishing workflow
+- Actor principal management with webhook configuration
+- Graph run history, logs, and execution tracking
+- Messaging webhooks for message and control events
+- Organization-scoped multi-tenancy
+
+## Custom Headers (optional)
+
+- **orgId (query parameter)**: Organization ID required for most endpoints
+
+## API Reference
+
+Base URL: /api
+
+### health
+
+Service health and status
+
+#### GET /api/health
+Health check
+
+Response: Service is healthy
+
+#### GET /api/v1/status
+Database connectivity status
+
+Response: Database connected
+
+### graphs
+
+Prompt graph management
+
+#### GET /api/v1/graphs
+List graphs
+
+Response: List of graphs
+
+#### POST /api/v1/graphs
+Create graph
+
+Request Body:
+```json
+{
+  "orgId": "string",
+  "name": "string",
+  "description": "string",
+  "graphJson": {},
+  "triggerConditions": {},
+  "logLevel": "string"
+}
+```
+
+Response: Graph created
+
+#### GET /api/v1/graphs/{id}
+Get graph
+
+Path Parameters:
+- id: string
+
+Response: Graph
+
+#### PUT /api/v1/graphs/{id}
+Update graph
+
+Path Parameters:
+- id: string
+
+Request Body:
+```json
+{
+  "name": "string",
+  "description": "string",
+  "graphJson": {},
+  "triggerConditions": {},
+  "logLevel": "string"
+}
+```
+
+Response: Graph updated
+
+#### DELETE /api/v1/graphs/{id}
+Delete graph
+
+Path Parameters:
+- id: string
+
+Response: Graph deleted
+
+#### POST /api/v1/graphs/{id}/publish
+Publish graph
+
+Path Parameters:
+- id: string
+
+Response: Graph published
+
+### runs
+
+Graph run history and logs
+
+#### GET /api/v1/graphs/{id}/runs
+List runs for graph
+
+Path Parameters:
+- id: string
+
+Response: List of runs
+
+#### GET /api/v1/runs
+List runs
+
+Query Parameters:
+- conversationId (optional): string
+- graphId (optional): string
+- status (optional): string
+
+Response: List of runs
+
+#### GET /api/v1/runs/{id}
+Get run
+
+Path Parameters:
+- id: string
+
+Response: Run details
+
+#### GET /api/v1/runs/{id}/logs
+Get run logs
+
+Path Parameters:
+- id: string
+
+Query Parameters:
+- level (optional): string
+
+Response: Run logs
+
+### actors
+
+Actor principal management
+
+#### GET /api/v1/actors
+List actor principals
+
+Response: List of actors
+
+#### POST /api/v1/actors
+Create actor principal
+
+Request Body:
+```json
+{
+  "orgId": "string",
+  "principalId": "string",
+  "name": "string",
+  "defaultGraphId": "string",
+  "capabilities": [],
+  "webhooks": {}
+}
+```
+
+Response: Actor created
+
+#### GET /api/v1/actors/{id}
+Get actor principal
+
+Path Parameters:
+- id: string
+
+Response: Actor
+
+#### PUT /api/v1/actors/{id}
+Update actor principal
+
+Path Parameters:
+- id: string
+
+Request Body:
+```json
+{
+  "name": "string",
+  "defaultGraphId": "string",
+  "capabilities": [],
+  "webhooks": {},
+  "isActive": false
+}
+```
+
+Response: Actor updated
+
+#### DELETE /api/v1/actors/{id}
+Delete actor principal
+
+Path Parameters:
+- id: string
+
+Response: Actor deleted
+
+### webhooks
+
+Messaging webhooks
+
+#### POST /api/webhook/message
+Handle incoming message
+
+Request Body:
+```json
+{
+  "id": "string",
+  "conversationId": "string",
+  "orgId": "string",
+  "from": {},
+  "to": {},
+  "content": "string",
+  "contentType": "string",
+  "metadata": {},
+  "runId": "string",
+  "traceId": "string",
+  "sequence": {},
+  "priority": "string",
+  "interruptible": false,
+  "preemptedBy": "string",
+  "createdAt": "string"
+}
+```
+
+Response: Message accepted
+
+#### POST /api/webhook/control
+Handle control event
+
+Request Body:
+```json
+{
+  "event": "string",
+  "conversationId": "string",
+  "orgId": "string",
+  "target": {},
+  "reason": "string",
+  "preemptedBy": "string",
+  "effectiveAt": "string"
+}
+```
+
+Response: Control event accepted
+
+### rules
+
+Rules engine management (requires auth)
+
+#### GET /api/rules
+List all rule sets
+
+Response: List of rule sets
+
+#### POST /api/rules
+Create rule set
+
+Request Body:
+```json
+{
+  "orgId": "string",
+  "name": "string",
+  "description": "string",
+  "rules": [],
+  "isActive": false
+}
+```
+
+Response: Rule set created
+
+#### GET /api/rules/{orgId}
+Get rule set for org
+
+Path Parameters:
+- orgId: string
+
+Response: Rule set
+
+#### PUT /api/rules/{orgId}
+Update rule set
+
+Path Parameters:
+- orgId: string
+
+Response: Rule set updated
+
+#### POST /api/rules/{orgId}/rules
+Add rule to set
+
+Path Parameters:
+- orgId: string
+
+Response: Rule added
+
+#### POST /api/rules/execute
+Execute rules for event
+
+Response: Execution result
+
+### settings
+
+LLM settings management (requires auth)
+
+#### GET /api/settings/llm
+Get LLM settings
+
+Response: LLM settings (API key masked)
+
+#### PUT /api/settings/llm
+Update LLM settings
+
+Request Body:
+```json
+{
+  "provider": "string",
+  "model": "string",
+  "temperature": {},
+  "maxTokens": {},
+  "apiKey": "string"
+}
+```
+
+Response: Settings updated
+
+### assistants-admin
+
+Custom assistant management (requires auth)
+
+#### GET /api/assistants-admin
+List custom assistants
+
+Response: List of custom assistants
+
+#### POST /api/assistants-admin
+Create custom assistant
+
+Request Body:
+```json
+{
+  "key": "string",
+  "name": "string",
+  "description": "string",
+  "capabilities": [],
+  "status": "string",
+  "systemPrompt": "string",
+  "model": "string",
+  "temperature": {}
+}
+```
+
+Response: Assistant created
+
+#### GET /api/assistants-admin/{key}
+Get custom assistant
+
+Path Parameters:
+- key: string
+
+Response: Assistant details
+
+#### PUT /api/assistants-admin/{key}
+Update custom assistant
+
+Path Parameters:
+- key: string
+
+Response: Assistant updated
+
+#### DELETE /api/assistants-admin/{key}
+Delete custom assistant
+
+Path Parameters:
+- key: string
+
+Response: Assistant deleted
+
+## Authentication
+
+All authenticated endpoints require one of:
+- Cookie: Session cookie (set automatically after login)
+- Header: `Authorization: Bearer <token>`
+- Header: `X-API-Key: <api-key>`
+
+- Most endpoints require orgId as a query parameter
+- Actor principals use webhook-based authentication
+
+## Workflow
+
+Typical workflow for using the Assistants Backend:
+
+1. **Create a Graph**: POST /api/v1/graphs with orgId, name, and graphJson
+2. **Publish the Graph**: POST /api/v1/graphs/{id}/publish to make it available
+3. **Create an Actor**: POST /api/v1/actors to create an actor principal linked to the graph
+4. **Handle Messages**: POST /api/webhook/message when messages arrive for the actor
+5. **Monitor Runs**: GET /api/v1/runs to track execution history
+6. **View Logs**: GET /api/v1/runs/{id}/logs for detailed run diagnostics
+
+## Graph Structure
+
+Graphs are defined using JSON with:
+- **Nodes**: Individual steps in the workflow
+- **Edges**: Connections between nodes
+- **Trigger Conditions**: When the graph should execute
+- **Log Level**: Verbosity of execution logging
+
+Graphs can be in draft or published state. Only published graphs can be executed.
+
+## Actor Principals
+
+Actors are principals that can:
+- Receive messages via webhooks
+- Execute associated graphs automatically
+- Have configurable capabilities
+- Be active or inactive
+
+Each actor can have a default graph that executes when messages are received.
+
+## Documentation
+
+- OpenAPI: /docs/openapi.json
+- LLM summary: /docs/llms.txt

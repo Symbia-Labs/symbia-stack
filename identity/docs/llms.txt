@@ -1,0 +1,105 @@
+# Symbia Identity Service API
+
+> Authentication, authorization, and entitlements API for the Symbia ecosystem. Use this service to manage users, organizations, projects, applications, services, and feature entitlements.
+
+## Overview
+
+Authentication and authorization service with multi-tenant support.
+
+- User authentication (register, login, password reset)
+- Organization management with role-based access control
+- Project, Application, and Service hierarchy
+- Polymorphic scoped entitlements with quotas
+- API key management for service-to-service auth
+- Token introspection for service-to-service validation
+- Entity Directory for UUID-based identity across services
+- Audit logging
+
+## API Base URL
+
+Use /api as the base path for all endpoints.
+
+## Quick Reference
+
+- POST /api/auth/register - Register a new user
+- POST /api/auth/login - Login user
+- POST /api/auth/logout - Logout user
+- POST /api/auth/refresh - Refresh authentication token
+- POST /api/auth/introspect - Validate token and get user principal (RFC 7662)
+- POST /api/auth/verify-api-key - Verify an API key (for service-to-service auth)
+- POST /api/api-keys - Create a new API key
+- GET /api/api-keys - List your API keys
+- GET /api/api-keys/{id} - Get API key details
+- DELETE /api/api-keys/{id} - Delete an API key permanently
+- POST /api/api-keys/{id}/revoke - Revoke an API key
+- POST /api/api-keys/{id}/rotate - Rotate an API key
+- GET /api/users/me - Get current user profile
+- PATCH /api/users/me - Update current user profile
+- GET /api/orgs - List user's organizations
+- POST /api/orgs - Create a new organization
+- GET /api/orgs/{orgId} - Get organization details
+- GET /api/orgs/{orgId}/projects - List projects in an organization
+- POST /api/orgs/{orgId}/projects - Create a new project
+- GET /api/projects/{projectId} - Get project details
+- PATCH /api/projects/{projectId} - Update project
+- DELETE /api/projects/{projectId} - Delete project
+- GET /api/projects/{projectId}/applications - List applications in a project
+- POST /api/projects/{projectId}/applications - Create a new application
+- GET /api/applications/{appId} - Get application details
+- PATCH /api/applications/{appId} - Update application
+- DELETE /api/applications/{appId} - Delete application
+- GET /api/projects/{projectId}/services - List services in a project
+- POST /api/projects/{projectId}/services - Create a new service
+- GET /api/services/{serviceId} - Get service details
+- PATCH /api/services/{serviceId} - Update service
+- DELETE /api/services/{serviceId} - Delete service
+- POST /api/applications/{appId}/services/{serviceId} - Link a service to an application
+- DELETE /api/applications/{appId}/services/{serviceId} - Unlink a service from an application
+- GET /api/scoped-entitlements/{scopeType}/{scopeId} - Get entitlements for a specific scope
+- POST /api/scoped-entitlements - Create a scoped entitlement
+- PATCH /api/scoped-entitlements/{id} - Update a scoped entitlement
+- DELETE /api/scoped-entitlements/{id} - Delete a scoped entitlement
+- GET /api/entitlements/{orgId} - Get organization entitlements (legacy)
+- GET /api/license/{orgId} - Get organization license status
+- GET /api/dashboard - Get dashboard data
+- GET /api/admin/users/{userId}/entitlements - Get user's capability entitlements
+- POST /api/admin/users/{userId}/entitlements - Grant a capability entitlement to a user
+- DELETE /api/admin/users/{userId}/entitlements/{entitlementKey} - Revoke a capability entitlement from a user
+- GET /api/admin/users/{userId}/roles - Get user's global roles
+- POST /api/admin/users/{userId}/roles - Grant a global role to a user
+- DELETE /api/admin/users/{userId}/roles/{roleKey} - Revoke a global role from a user
+- GET /api/entities - List entities
+- GET /api/entities/{id} - Get entity by ID
+- POST /api/entities - Create entity
+- PATCH /api/entities/{id} - Update entity
+- POST /api/entities/resolve - Resolve address to entity UUID
+- POST /api/entities/{id}/bind - Bind entity to network node
+- POST /api/entities/{id}/unbind - Unbind entity from network node
+- GET /api/entities/by-node/{nodeId} - Get entity by bound node ID
+- GET /api/credentials - List user's credentials
+- POST /api/credentials - Store a credential
+- DELETE /api/credentials/{id} - Delete a credential
+
+## Authentication
+
+Methods supported:
+- Bearer token (Authorization: Bearer <token>)
+- API key (X-API-Key header)
+- Session cookie
+
+- Cookie-based session authentication (token cookie)
+- Bearer token authentication (Authorization: Bearer <token>)
+- API key authentication (X-API-Key header)
+
+## Custom Headers
+
+- X-Org-Id: Organization ID for multi-tenant scoping
+- X-Service-Id: Service identifier for request routing
+- X-Env: Environment (dev|stage|prod)
+- X-Data-Class: Data classification (none|pii|phi|secret)
+- X-Policy-Ref: Policy reference for compliance
+
+## Documentation
+
+- OpenAPI: /docs/openapi.json
+- Full docs: /docs/llms-full.txt

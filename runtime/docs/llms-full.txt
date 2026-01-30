@@ -1,0 +1,393 @@
+# Symbia Runtime API - Complete Documentation
+
+> Graph execution engine for Symbia Script workflows.
+
+The Runtime service executes dataflow graphs defined in Symbia Script format, managing component lifecycle, message routing, and execution state.
+
+## Overview
+
+Graph execution engine for Symbia Script workflows with real-time WebSocket support.
+
+- Load and execute Symbia Script graph definitions
+- Built-in dataflow components (filter, map, merge, split, etc.)
+- Real-time execution monitoring via WebSocket
+- Backpressure management and flow control
+- Custom component registration with JavaScript/TypeScript
+- Execution lifecycle management (start, pause, resume, stop)
+
+## Custom Headers (optional)
+
+- **X-Org-Id**: Organization ID for multi-tenant scoping
+- **X-Service-Id**: Service identifier for request routing
+
+## API Reference
+
+Base URL: /api
+
+### health
+
+#### GET /api/health
+Health check
+
+Response: Service health
+
+### bootstrap
+
+#### GET /api/bootstrap/service
+Service bootstrap
+
+Response: Service metadata
+
+### graphs
+
+#### GET /api/graphs
+List loaded graphs
+
+Response: Graph list
+
+#### POST /api/graphs
+Load a graph definition
+
+Request Body:
+```json
+// See GraphDefinition schema
+```
+
+Response: Graph loaded
+
+#### GET /api/graphs/{id}
+Get graph details
+
+Response: Graph details
+
+#### DELETE /api/graphs/{id}
+Unload a graph
+
+Response: Graph unloaded
+
+#### POST /api/graphs/{id}/execute
+Start graph execution
+
+Response: Execution started
+
+### executions
+
+#### GET /api/executions
+List all executions
+
+Response: Execution list
+
+#### GET /api/executions/{id}
+Get execution status
+
+Response: Execution status
+
+#### GET /api/executions/{id}/metrics
+Get execution metrics
+
+Response: Execution metrics
+
+#### POST /api/executions/{id}/inject
+Inject message into execution
+
+Request Body:
+```json
+// See InjectRequest schema
+```
+
+Response: Message injected
+
+#### POST /api/executions/{id}/pause
+Pause execution
+
+Response: Execution paused
+
+#### POST /api/executions/{id}/resume
+Resume execution
+
+Response: Execution resumed
+
+#### POST /api/executions/{id}/stop
+Stop execution
+
+Response: Execution stopped
+
+### components
+
+#### GET /api/components
+List available components
+
+Response: Component list
+
+#### POST /api/components
+Register custom component
+
+Request Body:
+```json
+// See ComponentDefinition schema
+```
+
+Response: Component registered
+
+#### GET /api/components/{id}
+Get component definition
+
+Response: Component definition
+
+## Data Models
+
+### Health
+```typescript
+{
+  status: string;
+  service: string;
+}
+```
+
+### Bootstrap
+```typescript
+{
+  service: string;
+  version: string;
+  description?: string;
+  endpoints?: object;
+  websocketEvents?: object;
+}
+```
+
+### GraphDefinition
+```typescript
+{
+  symbia: string;
+  name: string;
+  version: string;
+  description?: string;
+  nodes: array;
+  edges: array;
+}
+```
+
+### GraphNode
+```typescript
+{
+  id: string;
+  component: string;
+  version?: string;
+  config?: object;
+}
+```
+
+### GraphEdge
+```typescript
+{
+  id?: string;
+  source: object;
+  target: object;
+}
+```
+
+### GraphList
+```typescript
+{
+  loadedGraphs?: integer;
+  activeExecutions?: integer;
+  graphs?: array;
+}
+```
+
+### LoadedGraph
+```typescript
+{
+  id?: string;
+  name?: string;
+  version?: string;
+  nodeCount?: integer;
+  edgeCount?: integer;
+  topology?: object;
+  loadedAt?: string;
+}
+```
+
+### GraphDetail
+```typescript
+{
+  id?: string;
+  name?: string;
+  version?: string;
+  description?: string;
+  nodes?: array;
+  edges?: array;
+  topology?: object;
+  loadedAt?: string;
+}
+```
+
+### ExecutionStarted
+```typescript
+{
+  executionId?: string;
+  graphId?: string;
+  state?: string;
+  startedAt?: string;
+}
+```
+
+### ExecutionList
+```typescript
+{
+  executions?: array;
+  total?: integer;
+}
+```
+
+### ExecutionDetail
+```typescript
+{
+  id?: string;
+  graphId?: string;
+  state?: string;
+  instances?: array;
+  metrics?: any;
+  error?: object;
+  startedAt?: string;
+  completedAt?: string;
+}
+```
+
+### ExecutionMetrics
+```typescript
+{
+  messagesProcessed?: integer;
+  messagesEmitted?: integer;
+  componentInvocations?: integer;
+  avgLatencyMs?: number;
+  maxLatencyMs?: number;
+  errorCount?: integer;
+  backpressureEvents?: integer;
+}
+```
+
+### InjectRequest
+```typescript
+{
+  nodeId: string;
+  port: string;
+  value: any;
+}
+```
+
+### ComponentList
+```typescript
+{
+  components?: array;
+  stats?: object;
+}
+```
+
+### ComponentDefinition
+```typescript
+{
+  id: string;
+  name: string;
+  version: string;
+  description?: string;
+  category?: string;
+  ports: object;
+  config?: object;
+  execution: object;
+}
+```
+
+### Error
+```typescript
+{
+  error: string;
+}
+```
+
+## Authentication
+
+All authenticated endpoints require one of:
+- Cookie: Session cookie (set automatically after login)
+- Header: `Authorization: Bearer <token>`
+- Header: `X-API-Key: <api-key>`
+
+- Bearer token authentication (Authorization: Bearer <token>)
+- API key authentication (X-API-Key header)
+- Cookie-based session authentication
+
+## WebSocket Connection
+
+Connect to WebSocket at: ws://host/
+
+**Client Events:**
+- execution:subscribe - Subscribe to execution events
+- execution:unsubscribe - Unsubscribe from execution events
+- execution:start - Start a graph execution
+- execution:pause - Pause a running execution
+- execution:resume - Resume a paused execution
+- execution:stop - Stop an execution
+- execution:inject - Inject a message into an execution
+
+**Server Events:**
+- execution:started - Execution has started
+- execution:paused - Execution paused
+- execution:resumed - Execution resumed
+- execution:completed - Execution completed
+- execution:failed - Execution failed
+- execution:state - Current execution state
+- port:emit - Data emitted from component port
+- component:invoked - Component was invoked
+- metrics:update - Execution metrics updated
+- error - Error occurred
+
+## Built-in Components
+
+The runtime includes these built-in components:
+
+**Core:**
+- symbia.core.passthrough - Forward input unchanged
+- symbia.core.logger - Log and forward values
+- symbia.core.delay - Delay messages
+- symbia.core.filter - Filter values by predicate
+- symbia.core.map - Transform values
+- symbia.core.merge - Combine multiple inputs
+- symbia.core.split - Route values conditionally
+- symbia.core.accumulator - Batch values
+
+**I/O:**
+- symbia.io.http-request - Make HTTP requests
+
+**Data:**
+- symbia.data.json-transform - Extract data with path notation
+
+## Graph Definition Format
+
+Graphs are defined in YAML or JSON:
+
+```yaml
+symbia: "1.0"
+name: my-workflow
+version: "1.0.0"
+
+nodes:
+  - id: input
+    component: symbia.core.passthrough
+  - id: transform
+    component: symbia.core.map
+    config:
+      transform: "value * 2"
+  - id: output
+    component: symbia.core.logger
+
+edges:
+  - source: { node: input, port: output }
+    target: { node: transform, port: input }
+  - source: { node: transform, port: output }
+    target: { node: output, port: input }
+```
+
+## Documentation
+
+- OpenAPI: /docs/openapi.json
+- LLM summary: /docs/llms.txt

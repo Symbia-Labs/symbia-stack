@@ -1,0 +1,109 @@
+{
+  "$schema": "./bootstrap-assistants.schema.json",
+  "description": "Bootstrap assistant definitions for Catalog seeding",
+  "assistants": [
+    {
+      "key": "log-analyst",
+      "name": "Log Analyst",
+      "description": "Analyzes logs from the Logging service. Provides summaries, pattern detection, and anomaly alerts.",
+      "tags": ["analysis", "logs", "monitoring", "bootstrap"],
+      "capabilities": ["logs.query", "logs.analyze", "logs.summarize"],
+      "serviceConfig": {
+        "loggingEndpoint": "${LOGGING_ENDPOINT}"
+      },
+      "modelConfig": {
+        "provider": "openai",
+        "model": "gpt-4o-mini",
+        "temperature": 0.3
+      }
+    },
+    {
+      "key": "catalog-search",
+      "name": "Catalog Search",
+      "description": "Search and discover resources in the Catalog. Find graphs, components, assistants, and other resources by name, tag, or description.",
+      "tags": ["search", "catalog", "discovery", "bootstrap"],
+      "capabilities": ["catalog.search", "catalog.list", "catalog.describe"],
+      "serviceConfig": {
+        "catalogEndpoint": "${CATALOG_ENDPOINT}"
+      },
+      "modelConfig": {
+        "provider": "openai",
+        "model": "gpt-4o-mini",
+        "temperature": 0.5
+      }
+    },
+    {
+      "key": "run-debugger",
+      "name": "Run Debugger",
+      "description": "Debug and analyze graph run failures. Explains errors, identifies root causes, and suggests fixes.",
+      "tags": ["debugging", "runs", "troubleshooting", "bootstrap"],
+      "capabilities": ["runs.inspect", "runs.logs", "runs.diagnose"],
+      "serviceConfig": {},
+      "modelConfig": {
+        "provider": "openai",
+        "model": "gpt-4o",
+        "temperature": 0.2
+      }
+    },
+    {
+      "key": "usage-reporter",
+      "name": "Usage Reporter",
+      "description": "Reports on organization usage metrics. Tracks API calls, graph executions, token usage, and costs.",
+      "tags": ["usage", "metrics", "billing", "bootstrap"],
+      "capabilities": ["usage.query", "usage.summarize", "usage.forecast"],
+      "serviceConfig": {
+        "loggingEndpoint": "${LOGGING_ENDPOINT}",
+        "identityEndpoint": "${IDENTITY_ENDPOINT}"
+      },
+      "modelConfig": {
+        "provider": "openai",
+        "model": "gpt-4o-mini",
+        "temperature": 0.3
+      }
+    },
+    {
+      "key": "onboarding",
+      "name": "Onboarding Guide",
+      "description": "Guides new users through Symbia setup. Helps configure first graph, connect services, and understand the platform.",
+      "tags": ["onboarding", "help", "tutorial", "bootstrap"],
+      "capabilities": ["onboarding.guide", "onboarding.check", "onboarding.suggest"],
+      "serviceConfig": {
+        "catalogEndpoint": "${CATALOG_ENDPOINT}",
+        "identityEndpoint": "${IDENTITY_ENDPOINT}"
+      },
+      "modelConfig": {
+        "provider": "openai",
+        "model": "gpt-4o",
+        "temperature": 0.7
+      }
+    },
+    {
+      "key": "cli-assistant",
+      "name": "CLI Assistant",
+      "description": "Generates perfect Symbia CLI commands and scripts from natural language descriptions. Knows all CLI commands, options, and scripting patterns.",
+      "tags": ["cli", "commands", "scripting", "automation", "bootstrap"],
+      "capabilities": ["cli.generate", "cli.script", "cli.explain"],
+      "serviceConfig": {},
+      "modelConfig": {
+        "provider": "openai",
+        "model": "gpt-4o",
+        "temperature": 0.2
+      }
+    },
+    {
+      "key": "model-evaluator",
+      "name": "Model Evaluator",
+      "description": "Evaluates AI models against Symbia-specific benchmarks. Runs evaluations, analyzes results, and recommends the best models for specific tasks like routing, code review, reasoning, and function calling.",
+      "tags": ["models", "evaluation", "benchmarks", "recommendations", "bootstrap"],
+      "capabilities": ["eval.run", "eval.analyze", "eval.recommend", "eval.compare"],
+      "serviceConfig": {
+        "integrationsEndpoint": "${INTEGRATIONS_ENDPOINT}"
+      },
+      "modelConfig": {
+        "provider": "openai",
+        "model": "gpt-4o",
+        "temperature": 0.3
+      }
+    }
+  ]
+}

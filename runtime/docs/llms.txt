@@ -1,0 +1,59 @@
+# Symbia Runtime API
+
+> Graph execution engine for Symbia Script workflows.
+
+## Overview
+
+Graph execution engine for Symbia Script workflows with real-time WebSocket support.
+
+- Load and execute Symbia Script graph definitions
+- Built-in dataflow components (filter, map, merge, split, etc.)
+- Real-time execution monitoring via WebSocket
+- Backpressure management and flow control
+- Custom component registration with JavaScript/TypeScript
+- Execution lifecycle management (start, pause, resume, stop)
+
+## API Base URL
+
+Use /api as the base path for all endpoints.
+
+## Quick Reference
+
+- GET /api/health - Health check
+- GET /api/bootstrap/service - Service bootstrap
+- GET /api/graphs - List loaded graphs
+- POST /api/graphs - Load a graph definition
+- GET /api/graphs/{id} - Get graph details
+- DELETE /api/graphs/{id} - Unload a graph
+- POST /api/graphs/{id}/execute - Start graph execution
+- GET /api/executions - List all executions
+- GET /api/executions/{id} - Get execution status
+- GET /api/executions/{id}/metrics - Get execution metrics
+- POST /api/executions/{id}/inject - Inject message into execution
+- POST /api/executions/{id}/pause - Pause execution
+- POST /api/executions/{id}/resume - Resume execution
+- POST /api/executions/{id}/stop - Stop execution
+- GET /api/components - List available components
+- POST /api/components - Register custom component
+- GET /api/components/{id} - Get component definition
+
+## Authentication
+
+Methods supported:
+- Bearer token (Authorization: Bearer <token>)
+- API key (X-API-Key header)
+- Session cookie
+
+- Bearer token authentication (Authorization: Bearer <token>)
+- API key authentication (X-API-Key header)
+- Cookie-based session authentication
+
+## Custom Headers
+
+- X-Org-Id: Organization ID for multi-tenant scoping
+- X-Service-Id: Service identifier for request routing
+
+## Documentation
+
+- OpenAPI: /docs/openapi.json
+- Full docs: /docs/llms-full.txt

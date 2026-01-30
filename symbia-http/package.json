@@ -1,0 +1,45 @@
+{
+  "name": "@symbia/http",
+  "version": "1.0.0",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "require": "./dist/index.js",
+      "default": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "npx tsc",
+    "dev": "npx tsc --watch"
+  },
+  "keywords": ["symbia", "http", "express", "middleware", "server", "websocket"],
+  "author": "Symbia",
+  "license": "MIT",
+  "description": "HTTP server, WebSocket, and middleware utilities for Symbia services",
+  "dependencies": {
+    "@types/cookie-parser": "^1.4.7",
+    "@types/express": "^5.0.0",
+    "@types/express-session": "^1.18.1",
+    "@types/node": "^22.10.2",
+    "cookie-parser": "^1.4.7",
+    "express": "^5.0.1",
+    "express-session": "^1.18.1",
+    "memorystore": "^1.6.7",
+    "socket.io": "^4.8.3",
+    "typescript": "^5.7.2"
+  },
+  "peerDependencies": {
+    "@symbia/logging-client": "*",
+    "@symbia/relay": "*",
+    "@symbia/sys": "*"
+  },
+  "devDependencies": {
+    "@symbia/logging-client": "file:../symbia-logging-client",
+    "@symbia/relay": "file:../symbia-relay",
+    "@symbia/sys": "file:../symbia-sys"
+  }
+}

@@ -1,0 +1,220 @@
+# Symbia Stack - Local Development
+# Start all services: docker-compose up -d
+# View logs: docker-compose logs -f
+
+version: '3.8'
+
+services:
+  # PostgreSQL database
+  postgres:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_USER: symbia
+      POSTGRES_PASSWORD: symbia_dev
+      POSTGRES_DB: symbia
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U symbia"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Identity Service - Authentication & Authorization
+  identity:
+    build:
+      context: .
+      dockerfile: identity/Dockerfile
+    environment:
+      NODE_ENV: production
+      PORT: 5001
+      DATABASE_URL: postgresql://symbia:symbia_dev@postgres:5432/symbia
+      SESSION_SECRET: ${SESSION_SECRET:-symbia-dev-secret-change-in-production}
+    ports:
+      - "5001:5001"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:5001/health/live"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Logging Service - Telemetry & Observability
+  logging:
+    build:
+      context: .
+      dockerfile: logging/Dockerfile
+    environment:
+      NODE_ENV: production
+      PORT: 5002
+      DATABASE_URL: postgresql://symbia:symbia_dev@postgres:5432/symbia
+      IDENTITY_SERVICE_URL: http://identity:5001
+    ports:
+      - "5002:5002"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      identity:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:5002/health/live"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Catalog Service - Resource Registry
+  catalog:
+    build:
+      context: .
+      dockerfile: catalog/Dockerfile
+    environment:
+      NODE_ENV: production
+      PORT: 5003
+      DATABASE_URL: postgresql://symbia:symbia_dev@postgres:5432/symbia
+      IDENTITY_SERVICE_URL: http://identity:5001
+      LOGGING_SERVICE_URL: http://logging:5002
+    ports:
+      - "5003:5003"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      identity:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:5003/health/live"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Messaging Service - Real-time Communication
+  messaging:
+    build:
+      context: .
+      dockerfile: messaging/Dockerfile
+    environment:
+      NODE_ENV: production
+      PORT: 5005
+      DATABASE_URL: postgresql://symbia:symbia_dev@postgres:5432/symbia
+      IDENTITY_SERVICE_URL: http://identity:5001
+      LOGGING_SERVICE_URL: http://logging:5002
+    ports:
+      - "5005:5005"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      identity:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:5005/health/live"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Network Service - Service Mesh & Event Routing
+  network:
+    build:
+      context: .
+      dockerfile: network/Dockerfile
+    environment:
+      NODE_ENV: production
+      PORT: 5054
+      IDENTITY_SERVICE_URL: http://identity:5001
+      LOGGING_SERVICE_URL: http://logging:5002
+      NETWORK_HASH_SECRET: ${NETWORK_HASH_SECRET:-symbia-network-dev-secret}
+    ports:
+      - "5054:5054"
+    depends_on:
+      identity:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:5054/health/live"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Runtime Service - Graph Execution Engine
+  runtime:
+    build:
+      context: .
+      dockerfile: runtime/Dockerfile
+    environment:
+      NODE_ENV: production
+      PORT: 5006
+      DATABASE_URL: postgresql://symbia:symbia_dev@postgres:5432/symbia
+      IDENTITY_SERVICE_URL: http://identity:5001
+      CATALOG_SERVICE_URL: http://catalog:5003
+      LOGGING_SERVICE_URL: http://logging:5002
+    ports:
+      - "5006:5006"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      catalog:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:5006/health/live"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Assistants Service - AI Orchestration
+  assistants:
+    build:
+      context: .
+      dockerfile: assistants/Dockerfile
+    environment:
+      NODE_ENV: production
+      PORT: 5004
+      DATABASE_URL: postgresql://symbia:symbia_dev@postgres:5432/symbia
+      IDENTITY_SERVICE_URL: http://identity:5001
+      CATALOG_SERVICE_URL: http://catalog:5003
+      LOGGING_SERVICE_URL: http://logging:5002
+      INTEGRATIONS_SERVICE_URL: http://integrations:5007
+    ports:
+      - "5004:5004"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      catalog:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:5004/health/live"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Integrations Service - LLM Provider Gateway
+  integrations:
+    build:
+      context: .
+      dockerfile: integrations/Dockerfile
+    environment:
+      NODE_ENV: production
+      PORT: 5007
+      IDENTITY_SERVICE_URL: http://identity:5001
+      CATALOG_SERVICE_URL: http://catalog:5003
+      LOGGING_SERVICE_URL: http://logging:5002
+      # Add API keys for LLM providers
+      # OPENAI_API_KEY: ${OPENAI_API_KEY}
+      # ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY}
+    ports:
+      - "5007:5007"
+    depends_on:
+      identity:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:5007/health/live"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+volumes:
+  postgres_data:
+
+networks:
+  default:
+    name: symbia-network
