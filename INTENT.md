@@ -1,400 +1,462 @@
-# Symbia Platform — Architectural Intent
+# Symbia Stack — Architectural Intent
 
-> A technical manifesto for engineers, architects, and leadership.
+> Infrastructure for LLM-native applications where AI is a first-class citizen.
 
 ---
 
-## What Symbia Is
+## Vision
 
-Symbia is an **LLM-native orchestration platform** — a microservices backend designed from the ground up to manage AI assistants, conversational workflows, and multi-tenant SaaS operations. It serves as the infrastructure layer between LLM providers and end users, handling the complexity that emerges when AI becomes a first-class citizen in your product.
+Symbia Stack is the operational backbone for applications where AI agents work alongside humans. It provides the primitives needed when AI transitions from a feature to a fundamental building block: identity, orchestration, communication, observation, and coordination.
 
-This is not a chatbot framework. It's the operational backbone for products where AI agents need authentication, authorization, audit trails, workflow orchestration, and enterprise-grade reliability.
+Traditional backend architectures treat AI as an API call. Symbia treats AI as a principal—an entity with identity, capabilities, state, and the ability to act autonomously within defined boundaries.
 
 ---
 
 ## The Problem We're Solving
 
-Building AI-powered products exposes a gap in traditional backend architectures:
+Building production AI applications exposes gaps in conventional infrastructure:
 
-1. **Authentication isn't enough** — You need to know not just *who* is making a request, but *which AI agent* is acting on their behalf, with what permissions, in what context.
+### 1. Identity Crisis
+Who is the AI? Current systems have no concept of AI identity. When an agent makes a request, there's no standard way to authenticate it, authorize its actions, or audit what it did. You end up with API keys that grant blanket access and no audit trail.
 
-2. **Request/response doesn't fit** — LLM interactions are streams, not transactions. They can be paused, resumed, interrupted, or handed off mid-conversation.
+**Symbia's answer:** Agents are principals with the same identity infrastructure as users. They register, authenticate, receive tokens, and have entitlements. The Entity Directory provides a unified UUID that persists across service boundaries.
 
-3. **Observability is different** — You're not just logging errors. You're tracking token usage, latency distributions, conversation flows, and agent decision trees.
+### 2. Orchestration Complexity
+AI workflows aren't request-response. They're stateful, multi-step, and often involve multiple agents. Building this with traditional tools means custom state machines, database polling, and brittle webhook chains.
 
-4. **Multi-tenancy is mandatory** — Every SaaS AI product needs tenant isolation from day one. Retrofitting it is expensive and error-prone.
+**Symbia's answer:** The Assistants service provides graph-based execution with a rule engine. Define workflows as DAGs, trigger actions on events, and let the platform handle state, retries, and handoffs.
 
-5. **Workflows are graphs, not scripts** — AI operations involve branching logic, parallel execution, human-in-the-loop steps, and conditional routing that linear code can't express cleanly.
+### 3. Communication Mismatch
+Real-time AI interactions don't fit REST. Streaming responses, typing indicators, multi-agent conversations, and control events (pause, preempt, handoff) require bidirectional communication.
 
-Symbia addresses all of these as first-class concerns.
+**Symbia's answer:** Messaging provides WebSocket-first communication with REST fallback. Control events are first-class. Agents participate in conversations as peers, not external callers.
+
+### 4. Observability Gaps
+When an AI agent does something unexpected, you need to trace exactly what happened: which prompt, which response, which rule fired, which service was called. Traditional APM tools don't capture LLM-specific context.
+
+**Symbia's answer:** Logging captures not just logs but metrics, traces, and objects. AI-powered analysis can summarize patterns and investigate anomalies. Trace IDs and run IDs correlate events across the entire request lifecycle.
+
+### 5. Service Coordination
+Microservices communicating via HTTP create invisible dependencies. When service A calls service B, there's no record unless you explicitly log it. Policy enforcement is scattered across codebases.
+
+**Symbia's answer:** The Network service provides a software-defined network where communication requires explicit contracts. Events are routed through a policy engine. The topology is always visible.
 
 ---
 
-## Architecture at a Glance
-
-### Service Topology
+## Architecture Overview
 
 ```
-┌─────────────────────────────────────────────────────────────────┐
-│                         Server (5000)                           │
-│                    API Gateway / Static Serving                 │
-└─────────────────────────────────────────────────────────────────┘
-                                │
-        ┌───────────────────────┼───────────────────────┐
-        ▼                       ▼                       ▼
-┌───────────────┐     ┌─────────────────┐     ┌─────────────────┐
-│ Identity      │     │ Catalog         │     │ Logging         │
-│ (5001)        │     │ (5003)          │     │ (5002)          │
-│               │     │                 │     │                 │
-│ Auth/JWT      │     │ Resource        │     │ Telemetry       │
-│ Users/Orgs    │     │ Registry        │     │ Metrics/Traces  │
-│ RBAC          │     │ Versioning      │     │ AI Analysis     │
-└───────────────┘     └─────────────────┘     └─────────────────┘
-        │                       │                       │
-        └───────────────────────┼───────────────────────┘
-                                │
-        ┌───────────────────────┼───────────────────────┐
-        ▼                       ▼                       ▼
-┌───────────────┐     ┌─────────────────┐     ┌─────────────────┐
-│ Assistants    │     │ Messaging       │     │ Runtime         │
-│ (5004)        │     │ (5005)          │     │ (5006)          │
-│               │     │                 │     │                 │
-│ Rule Engine   │     │ Conversations   │     │ Graph Executor  │
-│ LLM Routing   │     │ WebSocket       │     │ Step Sequencing │
-│ Workflows     │     │ Stream Control  │     │ State Machine   │
-└───────────────┘     └─────────────────┘     └─────────────────┘
-        │                       │                       │
-        └───────────────────────┼───────────────────────┘
-                                │
-                    ┌─────────────────────┐
-                    │ Integrations (5007) │
-                    │                     │
-                    │ LLM Gateway         │
-                    │ Credential Routing  │
-                    │ Provider Adapters   │
-                    └─────────────────────┘
-                                │
-                                ▼
-                    ┌─────────────────────┐
-                    │ Network (5054)      │
-                    │                     │
-                    │ SDN / Service Mesh  │
-                    │ Policy Enforcement  │
-                    │ Event Routing       │
-                    └─────────────────────┘
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                              Symbia Stack                                    │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                              │
+│  Application Layer                                                           │
+│  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐        │
+│  │  Assistants │  │   Runtime   │  │ Integrations│  │   Network   │        │
+│  │    :5004    │  │    :5006    │  │    :5007    │  │    :5054    │        │
+│  │             │  │             │  │             │  │             │        │
+│  │ AI Workflow │  │  Dataflow   │  │ LLM Gateway │  │ Service Mesh│        │
+│  │   Engine    │  │  Executor   │  │  & Routing  │  │  & SDN      │        │
+│  └──────┬──────┘  └──────┬──────┘  └──────┬──────┘  └──────┬──────┘        │
+│         │                │                │                │               │
+│  Core Services                                                              │
+│  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐                         │
+│  │   Catalog   │  │  Messaging  │  │   Logging   │                         │
+│  │    :5003    │  │    :5005    │  │    :5002    │                         │
+│  │             │  │             │  │             │                         │
+│  │  Resource   │  │  Real-time  │  │ Observability│                        │
+│  │  Registry   │  │    Comms    │  │   Platform  │                         │
+│  └──────┬──────┘  └──────┬──────┘  └──────┬──────┘                         │
+│         │                │                │                                 │
+│  Foundation                                                                 │
+│  ┌─────────────────────────────────────────────────────────────────┐       │
+│  │                         Identity                                 │       │
+│  │                          :5001                                   │       │
+│  │                                                                  │       │
+│  │   Authentication • Authorization • Entity Directory • Vault      │       │
+│  └─────────────────────────────────────────────────────────────────┘       │
+│                                                                              │
+└─────────────────────────────────────────────────────────────────────────────┘
 ```
 
-### Shared Infrastructure
+---
+
+## Core Design Principles
+
+### 1. AI as a Principal
+
+Agents have identity, not just API keys:
+
+```
+┌──────────────────────────────────────────────────────────────────┐
+│                     Identity Service                              │
+├──────────────────────────────────────────────────────────────────┤
+│                                                                   │
+│   Users (humans)              Agents (AI)                        │
+│   ┌─────────────┐            ┌─────────────┐                     │
+│   │ user_abc123 │            │ agent_xyz789│                     │
+│   │             │            │             │                     │
+│   │ email/pass  │            │ credentials │                     │
+│   │ JWT token   │            │ JWT token   │                     │
+│   │ entitlements│            │ entitlements│                     │
+│   └─────────────┘            └─────────────┘                     │
+│          │                          │                             │
+│          └──────────┬───────────────┘                             │
+│                     ▼                                             │
+│            ┌─────────────────┐                                    │
+│            │ Entity Directory │                                   │
+│            │                  │                                   │
+│            │ Unified UUIDs    │                                   │
+│            │ Cross-service    │                                   │
+│            │ Persistent       │                                   │
+│            └─────────────────┘                                    │
+│                                                                   │
+└──────────────────────────────────────────────────────────────────┘
+```
+
+This means:
+- Agents authenticate and receive scoped tokens
+- Actions are auditable to specific agent identities
+- Entitlements control what agents can do
+- Entity UUIDs persist even when the agent process restarts
+
+### 2. Graph-Based Execution
+
+Complex AI workflows are expressed as graphs, not code:
+
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│                     Assistants Service                               │
+├─────────────────────────────────────────────────────────────────────┤
+│                                                                      │
+│   Prompt Graph (DAG)                   Rule Engine                  │
+│   ┌─────────────────────────┐         ┌─────────────────────────┐  │
+│   │                         │         │                         │  │
+│   │  [Classify] ─► [Route]  │         │  ON message.received    │  │
+│   │       │           │     │         │  IF intent = "billing"  │  │
+│   │       ▼           ▼     │         │  THEN route.to.billing  │  │
+│   │  [Respond]   [Handoff]  │         │                         │  │
+│   │                         │         └─────────────────────────┘  │
+│   └─────────────────────────┘                                       │
+│                                                                      │
+│   Actions: llm.invoke, message.send, service.call, webhook.call,    │
+│            handoff.create, context.update, parallel, loop,          │
+│            condition, code.tool.invoke, workspace.create            │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+Benefits:
+- Workflows are inspectable and modifiable without code changes
+- The rule engine handles event-driven logic declaratively
+- Complex branching, loops, and parallel execution are built-in
+- State is managed by the platform, not custom code
+
+### 3. Explicit Communication Contracts
+
+Services don't communicate implicitly. Every channel requires authorization:
+
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│                        Network Service                               │
+├─────────────────────────────────────────────────────────────────────┤
+│                                                                      │
+│   ┌─────────────┐                        ┌─────────────┐            │
+│   │  Service A  │                        │  Service B  │            │
+│   └──────┬──────┘                        └──────┬──────┘            │
+│          │                                      │                    │
+│          │         ┌───────────────┐           │                    │
+│          └────────►│   Contract    │◄──────────┘                    │
+│                    │               │                                 │
+│                    │ from: A       │                                 │
+│                    │ to: B         │                                 │
+│                    │ events: [x,y] │                                 │
+│                    │ boundaries: * │                                 │
+│                    └───────────────┘                                 │
+│                           │                                          │
+│                           ▼                                          │
+│                    ┌───────────────┐                                 │
+│                    │ Policy Engine │                                 │
+│                    │               │                                 │
+│                    │ allow/deny    │                                 │
+│                    │ route         │                                 │
+│                    │ transform     │                                 │
+│                    │ log           │                                 │
+│                    └───────────────┘                                 │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+This provides:
+- Visible communication topology
+- Centralized policy enforcement
+- Event tracing across the mesh
+- Hash-based integrity verification (HMAC-SHA256)
+
+### 4. Multi-Tenant by Default
+
+Every service is designed for isolation from the start:
+
+```
+Request Headers:
+  X-Org-Id: org_acme
+  X-Service-Id: assistant:support
+  X-Env: production
+  X-Data-Class: pii
+
+Database Queries:
+  SELECT * FROM messages
+  WHERE org_id = $org_id      ← Automatic scoping
+    AND ...
+```
+
+Not an afterthought—multi-tenancy is built into:
+- Database query patterns (Drizzle ORM filters)
+- Authorization checks (entitlements per org)
+- Logging and metrics (org-scoped streams)
+- Resource quotas and rate limiting
+
+### 5. Dual-Mode Database
+
+Development and production use the same code with different backends:
+
+```
+Production:                    Development:
+┌─────────────────┐           ┌─────────────────┐
+│   PostgreSQL    │           │     pg-mem      │
+│                 │           │   (in-memory)   │
+│   Persistent    │           │   Ephemeral     │
+│   Migrations    │           │   Instant reset │
+│   Connection    │           │   No setup      │
+│   pooling       │           │                 │
+└─────────────────┘           └─────────────────┘
+```
+
+Switch with a single environment variable. Same schemas, same queries, different runtime.
+
+### 6. Stream-Aware Communication
+
+Messages aren't just sent—they're streams that can be controlled:
+
+```typescript
+// Control events for AI conversations
+await client.sendControl(conversationId, { event: "pause" });   // Pause stream
+await client.sendControl(conversationId, { event: "resume" });  // Resume stream
+await client.sendControl(conversationId, { event: "preempt" }); // Interrupt
+await client.sendControl(conversationId, { event: "handoff" }); // Transfer
+await client.sendControl(conversationId, { event: "cancel" });  // Abort
+```
+
+LLM responses can take seconds. Users need control. Human-in-the-loop workflows need pause/resume.
+
+---
+
+## Service Responsibilities
+
+### Identity (Port 5001) — The Foundation
+
+Everything authenticates against Identity. It answers:
+- **Who is this?** (authentication via JWT, API keys, sessions)
+- **What can they do?** (authorization via entitlements)
+- **What are their credentials?** (AES-256-GCM encrypted vault)
+- **How do I refer to them across services?** (Entity Directory)
+
+Key capabilities:
+- Dual principal model (Users + Agents)
+- Organization → Project → Application → Service hierarchy
+- Entitlement-based permissions (`cap:messaging.send`, `role:org:admin`)
+- Token introspection (RFC 7662) for service-to-service auth
+- API key lifecycle with scopes and expiration
+
+### Logging (Port 5002) — The Observer
+
+Centralized observability platform:
+- **Logs**: Structured with levels, metadata, retention policies
+- **Metrics**: Time-series with aggregations (avg, sum, min, max, count)
+- **Traces**: Distributed spans across service boundaries
+- **Objects**: Metadata tracking for files and blobs
+- **AI Analysis**: LLM-powered summarization and investigation
+
+Key capabilities:
+- Multi-level scoping: Org → Service → Environment → Data Class
+- Real-time streaming via Server-Sent Events
+- Configurable retention per data type
+- Integration with assistants for automated investigation
+
+### Catalog (Port 5003) — The Registry
+
+Versioned storage for all platform resources:
+- **Components**: Reusable building blocks with typed ports
+- **Graphs**: Workflow definitions (both prompt and dataflow)
+- **Executors**: Custom execution logic
+- **Assistants**: AI agent configurations
+- **Contexts**: Shared state and configuration
+- **Integrations**: Third-party connection definitions
+
+Key capabilities:
+- Publish-to-freeze versioning (immutable once published)
+- Artifact storage up to 50MB with SHA256 checksums
+- Visibility levels: public, org, private
+- Cryptographic signatures for trust verification
+- Bootstrap resources for platform initialization
+
+### Assistants (Port 5004) — The Orchestrator
+
+Graph-based AI workflow execution:
+- **Prompt Graphs**: DAG-based multi-step AI reasoning
+- **Rule Engine**: Event-triggered, condition-based actions
+- **Turn-Taking**: Multi-agent coordination protocol
+- **Code Tools**: File, bash, search in sandboxed workspaces
+
+Key capabilities:
+- Actions: `llm.invoke`, `message.send`, `service.call`, `webhook.call`, `handoff.create`, `context.update`, `parallel`, `loop`, `condition`, `code.tool.invoke`
+- Conversation states: idle, ai_active, waiting_for_user, handoff_pending, agent_active, resolved, archived
+- Justification events for multi-agent turn-taking
+- Workspace isolation for code execution
+
+### Messaging (Port 5005) — The Bus
+
+Real-time communication for humans and AI:
+- **Conversations**: Private (1:1) and group types
+- **Messages**: Threading, soft-delete, priority levels
+- **Control Events**: Pause, resume, preempt, route, handoff, cancel
+- **Presence**: Typing indicators and activity tracking
+
+Key capabilities:
+- Dual protocol: REST API + WebSocket (Socket.IO)
+- Participant roles: owner, admin, member
+- Message priority: low, normal, high, critical
+- Integration with SDN for event routing
+- Webhook fallback for assistant notification
+
+### Runtime (Port 5006) — The Executor
+
+Dataflow execution for component graphs:
+- **Components**: Typed input/output ports with schema validation
+- **Execution**: Topological ordering via Kahn's algorithm
+- **Monitoring**: Real-time state via WebSocket
+- **Built-ins**: Passthrough, filter, map, merge, split, accumulator, delay
+
+Key capabilities:
+- Expression syntax for filter/map/split (JavaScript)
+- Backpressure management via queuing during pause
+- Execution states: pending, initializing, running, paused, completed, failed, cancelled
+- Metrics collection per execution
+- Code tool components for file/bash/search operations
+
+### Integrations (Port 5007) — The Gateway
+
+Unified access to LLM providers:
+- **Providers**: OpenAI, Anthropic, HuggingFace
+- **Operations**: Chat completions, embeddings, text generation
+- **Credentials**: Fetched from Identity, never stored locally
+- **Normalization**: Consistent response schema across providers
+
+Key capabilities:
+- Provider-specific adapters with common interface
+- Usage tracking: token counts, latency, success/failure
+- Model configuration from Catalog resources
+- Execution logging for audit and billing
+
+### Network (Port 5054) — The Mesh
+
+Software-defined networking for service coordination:
+- **Nodes**: service, assistant, sandbox, bridge, client types
+- **Contracts**: Explicit authorization for communication
+- **Policies**: allow, deny, route, transform, log actions
+- **Observability**: Topology, traces, flow visualization
+
+Key capabilities:
+- Hash-based event integrity (HMAC-SHA256)
+- Entity-to-node binding (persistent UUIDs to ephemeral nodes)
+- Heartbeat-based liveness detection
+- Boundary types: intra (same sandbox), inter (cross-sandbox), extra (external)
+- Real-time SDN observability endpoints
+
+---
+
+## Key Innovations
+
+### Entity Directory
+
+A unified identity system spanning all services:
+
+```
+Entity UUID: ent_abc123def456
+
+Bound to:
+  - User record in Identity
+  - Node ID in Network
+  - Participant ID in Messaging
+  - Actor ID in Assistants
+  - Credential owner in vault
+```
+
+The same UUID refers to the same entity everywhere. No more mapping tables between services.
+
+### Turn-Taking Protocol
+
+Multi-agent coordination without chaos:
+
+```
+Event: user.message.received
+
+Agent A: assistant.intent.claim    ← "I'll handle this"
+Agent B: assistant.intent.defer    ← "A is handling it"
+Agent A: assistant.action.respond  ← "Here's my response"
+```
+
+Agents declare intent before acting. Others observe and defer. No race conditions.
+
+### Entitlements Model
+
+Capabilities, not just roles:
+
+```
+Entitlements:
+  - cap:messaging.send           ← Can send messages
+  - cap:messaging.send:priority  ← Can send priority messages
+  - cap:catalog.publish          ← Can publish resources
+  - role:org:admin               ← Inherits admin capabilities
+```
+
+Fine-grained control over what principals can do, with inheritance for common patterns.
+
+### Contract-Based Communication
+
+No implicit service-to-service calls:
+
+```json
+{
+  "from": "assistants",
+  "to": "messaging",
+  "allowedEventTypes": ["message.send", "control.emit"],
+  "boundaries": ["intra", "inter"],
+  "expiresAt": "2026-12-31T23:59:59Z"
+}
+```
+
+Every communication path is explicit, auditable, and policy-controlled.
+
+---
+
+## Shared Infrastructure
 
 Eleven `@symbia/*` packages provide standardized building blocks:
 
 | Package | Purpose |
 |---------|---------|
+| `@symbia/http` | Express server with WebSocket, health checks, graceful shutdown |
 | `@symbia/db` | Database abstraction with dual-mode PostgreSQL/in-memory |
-| `@symbia/http` | Express server framework with health checks, graceful shutdown |
-| `@symbia/logging-client` | Telemetry SDK for logs, metrics, distributed traces |
-| `@symbia/messaging-client` | REST + WebSocket client for Messaging service |
-| `@symbia/catalog-client` | Client for resource registry operations |
-| `@symbia/relay` | Network layer client for SDN integration |
+| `@symbia/relay` | Network client for SDN integration |
+| `@symbia/logging-client` | Telemetry SDK for logs, metrics, traces |
+| `@symbia/messaging-client` | Messaging service client |
+| `@symbia/catalog-client` | Catalog service client |
+| `@symbia/seed` | Deterministic test data generation |
 | `@symbia/sys` | System utilities and service registry |
-| `@symbia/seed` | Deterministic test data seeding |
+| `@symbia/id` | Identity utilities |
 | `@symbia/md` | LLM-ready documentation generation |
 | `@symbia/cli` | Unified command-line interface |
-
----
-
-## Design Principles
-
-### 1. Multi-Tenant by Default
-
-Every request carries organizational context via `X-Org-Id` headers. Data isolation happens at the query layer through Drizzle ORM filters, not through separate databases or schemas.
-
-**Why this approach:**
-- Single cluster deployment reduces operational complexity
-- Shared infrastructure amortizes costs across tenants
-- Query-level isolation is auditable and testable
-- Migration to physical isolation remains possible if needed
-
-**Trade-off accepted:** Query-level isolation requires discipline. Every data access must include tenant filters. The `@symbia/db` package enforces this through schema conventions and query builders.
-
-### 2. Dual-Mode Database
-
-Production runs PostgreSQL. Development and testing use `pg-mem` — a pure JavaScript PostgreSQL implementation that runs in-memory.
-
-```typescript
-// Same code works in both environments
-const result = await db.query.users.findMany({
-  where: eq(users.orgId, orgId),
-});
-```
-
-**Why this approach:**
-- Zero Docker dependency for local development
-- Sub-second test suite startup
-- Identical query behavior (pg-mem implements PostgreSQL semantics)
-- Database state exports to JSON on shutdown for debugging
-
-**Trade-off accepted:** Some PostgreSQL features (certain extensions, specific performance characteristics) aren't available in pg-mem. We test against real PostgreSQL in CI.
-
-### 3. LLM-Native Documentation
-
-Every service exposes machine-readable documentation at `/docs/llms.txt`:
-
-```
-# Identity Service API
-> Authentication and authorization for Symbia platform.
-
-## Quick Reference
-- POST /api/auth/login - Authenticate user
-- POST /api/auth/register - Create account
-- GET /api/users/me - Get current user
-...
-```
-
-**Why this approach:**
-- AI agents can self-discover API capabilities
-- Reduces prompt engineering for integrations
-- Documentation stays synchronized with implementation
-- Enables automated API exploration and testing
-
-**Implementation:** The `@symbia/md` package generates docs from OpenAPI specs at build time. Routes serve static files with dynamic fallback.
-
-### 4. Stream-Aware Messaging
-
-Messages aren't just sent — they're streams that can be controlled:
-
-```typescript
-// Pause an AI response mid-stream
-await client.sendControl(conversationId, {
-  event: "pause",
-  target: agentId,
-});
-
-// Resume when ready
-await client.sendControl(conversationId, {
-  event: "resume",
-  target: agentId,
-});
-
-// Interrupt with higher priority
-await client.sendControl(conversationId, {
-  event: "preempt",
-  reason: "User asked new question",
-});
-```
-
-**Why this approach:**
-- LLM responses can take seconds — users need control
-- Human-in-the-loop workflows require pause/resume
-- Agent handoffs need clean interruption semantics
-- Priority handling prevents queue starvation
-
-**Trade-off accepted:** Stream control adds complexity to the messaging protocol. Clients must handle control events correctly.
-
-### 5. Graph-Based Workflow Execution
-
-Complex AI operations are defined as directed graphs, not imperative code:
-
-```typescript
-const workflow = {
-  nodes: [
-    { id: "classify", type: "llm", prompt: "..." },
-    { id: "route", type: "condition", rules: [...] },
-    { id: "respond", type: "llm", prompt: "..." },
-    { id: "escalate", type: "human", assignTo: "..." },
-  ],
-  edges: [
-    { from: "classify", to: "route" },
-    { from: "route", to: "respond", condition: "simple" },
-    { from: "route", to: "escalate", condition: "complex" },
-  ],
-};
-```
-
-**Why this approach:**
-- Visual representation of complex logic
-- Easy to modify without code changes
-- Supports parallel execution naturally
-- Enables workflow versioning and A/B testing
-- Human-in-the-loop is a node type, not an exception
-
-**Trade-off accepted:** Graph execution requires a runtime engine (the Runtime service). Simple linear operations have more overhead than direct code.
-
-### 6. Software-Defined Networking
-
-The Network service implements a custom SDN layer for service mesh operations:
-
-- **Event Routing:** Messages flow through policy-controlled paths
-- **Access Control:** Network-level enforcement of authorization decisions
-- **Topology Management:** Dynamic service discovery and connection management
-- **Connection Lifecycle:** Graceful handling of service restarts and failures
-
-**Why this approach:**
-- Centralized policy enforcement reduces per-service security code
-- Network-level observability captures all inter-service communication
-- Routing rules can change without service redeployment
-- Enables advanced patterns like canary deployments and traffic mirroring
-
-**Trade-off accepted:** Adds a network hop. Latency-critical paths may need direct service-to-service communication.
-
----
-
-## Service Deep Dive
-
-### Identity (Port 5001)
-
-**Mission:** Be the single source of truth for "who is making this request and what can they do?"
-
-**Key Capabilities:**
-- User registration, authentication, password management
-- Organization creation and membership
-- JWT token issuance with configurable claims
-- API key management for service accounts
-- Role-based access control (RBAC)
-- Entitlement system for fine-grained permissions
-
-**Design Decisions:**
-- Tokens are short-lived (15 min default) with refresh token rotation
-- Passwords use bcrypt with configurable cost factor
-- Sessions support both stateless JWT and stateful cookie modes
-- Super-admin role exists for platform-level operations
-
-### Catalog (Port 5003)
-
-**Mission:** Registry for all versionable resources — components, graphs, assistants, and their metadata.
-
-**Key Capabilities:**
-- Resource registration with semantic versioning
-- Access control policies per resource
-- Tagging and categorization
-- Publish/draft lifecycle
-- Bootstrap resources for system initialization
-
-**Design Decisions:**
-- Resources are immutable once published — new versions create new records
-- Access policies are JSON documents supporting complex rules
-- Bootstrap flag identifies system-critical resources
-- Soft delete preserves audit history
-
-### Assistants (Port 5004)
-
-**Mission:** Orchestrate AI agent behavior through rules, routing, and workflow management.
-
-**Key Capabilities:**
-- Rule engine for conditional logic
-- LLM provider abstraction
-- Prompt template management
-- Agent capability declarations
-- Workflow graph definitions
-
-**Design Decisions:**
-- Rules evaluate in priority order with short-circuit semantics
-- LLM calls go through a provider abstraction for multi-vendor support
-- Prompts support variable interpolation and conditional sections
-- Agents declare capabilities that inform routing decisions
-
-### Messaging (Port 5005)
-
-**Mission:** Handle all conversational state and real-time communication.
-
-**Key Capabilities:**
-- Conversation lifecycle (create, archive, delete)
-- Message persistence with threading
-- WebSocket connections via Socket.IO
-- Typing indicators and presence
-- Stream control events (pause, resume, preempt)
-- Message priority levels
-
-**Design Decisions:**
-- Conversations are the unit of context for AI interactions
-- Messages include sender type (user vs agent) for routing decisions
-- Control events are first-class message types
-- WebSocket rooms map to conversation IDs
-
-### Runtime (Port 5006)
-
-**Mission:** Execute workflow graphs with reliability and observability.
-
-**Key Capabilities:**
-- Graph traversal with parallel execution support
-- Step state management
-- Error handling and retry logic
-- Execution logging and tracing
-- Human-in-the-loop step handling
-
-**Design Decisions:**
-- Execution state persists to database for crash recovery
-- Each step emits events for real-time monitoring
-- Timeouts are configurable per step type
-- Failed steps can be retried or skipped manually
-
-### Logging (Port 5002)
-
-**Mission:** Centralized observability for the entire platform.
-
-**Key Capabilities:**
-- Log aggregation with structured metadata
-- Metrics collection (counters, gauges, histograms)
-- Distributed trace assembly
-- AI-powered log analysis
-- Alert rule evaluation
-
-**Design Decisions:**
-- Logs are append-only with time-based partitioning
-- Traces use W3C Trace Context format
-- Metrics support custom labels for multi-dimensional analysis
-- AI analysis runs asynchronously to avoid blocking
-
-### Network (Port 5054)
-
-**Mission:** Software-defined networking for service mesh operations.
-
-**Key Capabilities:**
-- Event routing between services
-- Policy-based access control
-- Service discovery and health tracking
-- Connection lifecycle management
-- Traffic shaping and routing rules
-
-**Design Decisions:**
-- Policies are evaluated at connection time and cached
-- Health checks use the same endpoints as Kubernetes probes
-- Routing rules support weighted distribution for canary deployments
-- All events are logged for network-level observability
-
-### Integrations (Port 5007)
-
-**Mission:** Unified gateway for third-party LLM providers with credential management.
-
-**Key Capabilities:**
-- Multi-provider support (OpenAI, Anthropic, HuggingFace)
-- Credential routing from Identity service
-- Response normalization across providers
-- Usage tracking with token counts
-- Operation types: chat completions, embeddings, text generation
-
-**Design Decisions:**
-- Credentials are fetched on-demand, never stored locally
-- All responses normalize to a common schema regardless of provider
-- Provider configurations load from Catalog resources
-- Usage metrics are logged for billing and monitoring
-
-### Server (Port 5000)
-
-**Mission:** API gateway, build management, and static file serving.
-
-**Key Capabilities:**
-- Request routing to backend services
-- Static file serving for web clients
-- Build process management
-- Development server with hot reload
-- Unified entry point for the platform
-
-**Design Decisions:**
-- Gateway routing uses path-based rules
-- Static files are served from a configurable directory
-- Development mode integrates Vite for hot module replacement
-- Health endpoint aggregates status from all services
 
 ---
 
@@ -410,45 +472,68 @@ Every service exposes three endpoints:
 | `/health/live` | Kubernetes liveness | Process is running |
 | `/health/ready` | Kubernetes readiness | Ready to accept traffic |
 
-Readiness checks verify database connectivity and critical dependencies. Liveness checks verify the process hasn't deadlocked.
-
 ### Graceful Shutdown
 
 On SIGTERM/SIGINT:
-
-1. Mark service as not ready (stops new traffic via K8s)
-2. Wait for pre-shutdown delay (default: 5s) — allows in-flight requests to complete
-3. Run custom shutdown hooks (cache flush, queue drain)
+1. Mark service as not ready (stops new traffic)
+2. Wait for pre-shutdown delay (5s default)
+3. Run shutdown hooks (cache flush, queue drain)
 4. Export in-memory database state (if applicable)
 5. Flush telemetry buffers
 6. Close database connections
 7. Close WebSocket connections
-8. Close HTTP server with grace period (default: 30s)
-9. Force-terminate remaining connections
+8. Close HTTP server with grace period (30s default)
 
 ### Distributed Tracing
 
 Every request receives a trace ID:
-
 1. Check for `x-trace-id` header from upstream
 2. Generate UUID if not present
 3. Attach to all downstream requests
 4. Include in all log entries
 5. Return in response header
 
-This enables request correlation across the entire service topology.
+---
 
-### Deterministic Seeding
+## What We Don't Do
 
-The `@symbia/seed` package provides:
+### No Built-in ML/Training
+Symbia orchestrates AI, it doesn't train models. Use external providers via Integrations.
 
-- Stable UUIDs that are identical across environments
-- Test users with known credentials (`password123`)
-- Sample organizations with different plan tiers
-- Catalog resources for testing workflows
-- Idempotent operations (safe to re-run)
+### No Guaranteed Exactly-Once Delivery
+Network provides best-effort delivery. Implement idempotency in consumers for exactly-once semantics.
 
-**Warning:** Seed data is for development only. Production environments must never use seed credentials.
+### No Global Transactions
+Each service owns its database. Cross-service consistency uses eventual consistency patterns.
+
+### No Complex Event Processing
+Network routes events, it doesn't aggregate or window them. Use dedicated CEP tools if needed.
+
+---
+
+## Deployment Patterns
+
+### Development
+```bash
+# All services on localhost, in-memory databases
+cd identity && SESSION_SECRET=dev npm run dev
+cd catalog && npm run dev
+# ...
+```
+
+### Docker Compose
+```bash
+docker-compose up -d    # Start all services with PostgreSQL
+docker-compose logs -f  # View logs
+docker-compose down     # Stop
+```
+
+### Production (Kubernetes)
+- Horizontal scaling with stateless services
+- PostgreSQL with replication
+- Redis adapter for Socket.IO clustering
+- Secrets management (Vault, AWS Secrets Manager)
+- Health check probes configured
 
 ---
 
@@ -456,159 +541,31 @@ The `@symbia/seed` package provides:
 
 | Layer | Technology | Rationale |
 |-------|------------|-----------|
-| Runtime | Node.js 20+ | Async I/O fits our workload; TypeScript for type safety |
-| Framework | Express 5 | Mature, well-understood, extensive middleware ecosystem |
-| Real-time | Socket.IO | WebSocket abstraction with fallbacks and room support |
-| Database | PostgreSQL | ACID compliance, JSON support, mature tooling |
-| ORM | Drizzle | Type-safe queries, good migration story, lightweight |
-| Testing | pg-mem | In-memory PostgreSQL for fast test execution |
-| Build | Vite | Fast HMR for client, esbuild for server |
-| CLI | Commander.js | Standard Node.js CLI framework |
+| Runtime | Node.js 20+ | Async I/O, TypeScript support |
+| Framework | Express 4/5 | Mature, well-understood |
+| Real-time | Socket.IO 4.x | WebSocket with fallbacks |
+| Database | PostgreSQL 15+ | ACID, JSON support |
+| ORM | Drizzle | Type-safe, lightweight |
+| Testing | pg-mem | In-memory PostgreSQL |
+| Validation | Zod | Schema validation with type inference |
+| Build | esbuild, tsx | Fast TypeScript compilation |
 
 ---
 
-## What Makes Symbia Different
+## Summary
 
-### 1. AI-First Architecture
+Symbia Stack provides infrastructure for LLM-native applications:
 
-Traditional backends treat AI as an integration. Symbia treats AI agents as first-class principals with:
+| Traditional | Symbia |
+|-------------|--------|
+| API keys for everything | Agents with identity and entitlements |
+| Custom state machines | Graph-based workflows |
+| HTTP-only communication | WebSocket-first with control events |
+| Scattered logging | Unified observability with AI analysis |
+| Implicit service calls | Explicit contracts with policy enforcement |
 
-- Their own authentication tokens
-- Declared capabilities
-- Audit trails
-- Rate limits
-- Access policies
-
-### 2. Stream Control Semantics
-
-Most messaging systems are fire-and-forget. Symbia provides:
-
-- Pause/resume for long-running responses
-- Preemption for priority handling
-- Handoff for agent-to-agent transfers
-- Cancel for cleanup
-
-### 3. Self-Documenting Services
-
-Every service generates LLM-consumable documentation automatically. AI agents can discover capabilities without human intervention.
-
-### 4. Development Velocity
-
-In-memory database mode eliminates infrastructure setup. New developers can run the entire platform with:
-
-```bash
-npm install
-npm run dev
-```
-
-No Docker. No database provisioning. No environment variables (sensible defaults exist).
+It's not a framework—it's infrastructure. Build your AI applications on primitives that understand what AI applications need.
 
 ---
 
-## Scale Considerations
-
-### Horizontal Scaling
-
-Services are stateless by design:
-
-- All state lives in PostgreSQL
-- No in-process caches that can't be rebuilt
-- WebSocket connections use Redis adapter for multi-node
-- Service mesh handles routing to healthy instances
-
-### Vertical Scaling
-
-Before adding nodes, consider:
-
-- Database connection pooling (PgBouncer)
-- Read replicas for query-heavy workloads
-- Caching layer for repeated lookups
-- Async processing for heavy operations
-
-### Current Limitations
-
-- Single PostgreSQL database (sharding not implemented)
-- No built-in rate limiting (implement at gateway)
-- WebSocket scaling requires Redis adapter configuration
-- Graph execution is single-threaded per workflow
-
----
-
-## Future Directions
-
-### Considered but Not Yet Implemented
-
-1. **Event Sourcing** — Full audit trail with replay capability
-2. **CQRS** — Separate read/write models for high-scale scenarios
-3. **Database Sharding** — Tenant-based data distribution
-4. **Edge Deployment** — Run services closer to users
-5. **Plugin Architecture** — Third-party service extensions
-
-### Intentionally Avoided
-
-1. **Microservice per Entity** — Too fine-grained; network overhead dominates
-2. **GraphQL** — REST is sufficient; GraphQL adds complexity without clear benefit
-3. **Kubernetes Operators** — Standard deployments are simpler to reason about
-4. **Custom Protocol Buffers** — JSON is debuggable; performance isn't the bottleneck
-
----
-
-## Getting Started
-
-### For Developers
-
-```bash
-# Clone and install
-git clone <repo>
-cd symbia
-npm install
-
-# Start all services (in-memory mode)
-npm run dev
-
-# Run tests
-npm test
-
-# Seed development data
-npm run seed
-```
-
-### For Operators
-
-```bash
-# Build for production
-npm run build
-
-# Configure environment
-export DATABASE_URL=postgres://...
-export JWT_SECRET=...
-
-# Start services
-npm start
-```
-
-### For Integrators
-
-1. Fetch `/docs/llms.txt` from any service
-2. Authenticate via Identity service
-3. Use returned JWT for subsequent requests
-4. Include `X-Org-Id` header for multi-tenant operations
-
----
-
-## Questions This Document Should Answer
-
-| Question | Section |
-|----------|---------|
-| What does Symbia do? | What Symbia Is |
-| Why was it built this way? | The Problem We're Solving |
-| How do the services fit together? | Architecture at a Glance |
-| What trade-offs were made? | Design Principles |
-| What does each service do? | Service Deep Dive |
-| How do I run it? | Getting Started |
-| How does it scale? | Scale Considerations |
-| What's next? | Future Directions |
-
----
-
-*This document reflects the architectural intent as of January 2026. Implementation details may evolve, but these principles should remain stable.*
+*This document reflects the Symbia Stack architectural intent as of January 2026.*
