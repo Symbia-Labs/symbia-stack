@@ -14,6 +14,7 @@ COPY symbia-logging-client/package*.json ./symbia-logging-client/
 COPY symbia-seed/package*.json ./symbia-seed/
 COPY symbia-id/package*.json ./symbia-id/
 COPY symbia-messaging-client/package*.json ./symbia-messaging-client/
+COPY symbia-md/package*.json ./symbia-md/
 
 # Copy service package files
 COPY assistants/package*.json ./assistants/
@@ -43,9 +44,12 @@ RUN npm ci --ignore-scripts
 WORKDIR /app/symbia-messaging-client
 RUN npm ci --ignore-scripts
 
+WORKDIR /app/symbia-md
+RUN npm ci --ignore-scripts
+
 # Install service dependencies
 WORKDIR /app/assistants
-RUN npm ci
+RUN npm install --ignore-scripts
 
 # Copy source files
 WORKDIR /app
@@ -57,6 +61,7 @@ COPY symbia-logging-client/ ./symbia-logging-client/
 COPY symbia-seed/ ./symbia-seed/
 COPY symbia-id/ ./symbia-id/
 COPY symbia-messaging-client/ ./symbia-messaging-client/
+COPY symbia-md/ ./symbia-md/
 COPY assistants/ ./assistants/
 
 # Build libraries
@@ -82,6 +87,9 @@ WORKDIR /app/symbia-id
 RUN npm run build || true
 
 WORKDIR /app/symbia-messaging-client
+RUN npm run build || true
+
+WORKDIR /app/symbia-md
 RUN npm run build || true
 
 # Build service
@@ -110,4 +118,4 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
 # Default port from @symbia/sys ServicePorts
 EXPOSE 5004
 
-CMD ["node", "dist/index.cjs"]
+CMD ["node", "dist/index.mjs"]

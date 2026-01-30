@@ -5,7 +5,7 @@
  * Each provider (Replit, GitHub, Google, etc.) implements this interface.
  */
 
-import type { OAuthProviderConfig, OAuthTokenResponse, OAuthUserInfo } from "../../../shared/schema.js";
+import type { OAuthProviderConfig, OAuthTokenResponse, OAuthUserInfo } from "@shared/schema.js";
 
 /**
  * Parameters for building the authorization URL

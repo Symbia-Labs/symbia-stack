@@ -12,6 +12,7 @@ COPY symbia-http/package*.json ./symbia-http/
 COPY symbia-relay/package*.json ./symbia-relay/
 COPY symbia-logging-client/package*.json ./symbia-logging-client/
 COPY symbia-seed/package*.json ./symbia-seed/
+COPY symbia-md/package*.json ./symbia-md/
 
 # Copy service package files
 COPY identity/package*.json ./identity/
@@ -35,9 +36,12 @@ RUN npm ci --ignore-scripts
 WORKDIR /app/symbia-seed
 RUN npm ci --ignore-scripts
 
+WORKDIR /app/symbia-md
+RUN npm ci --ignore-scripts
+
 # Install service dependencies
 WORKDIR /app/identity
-RUN npm ci
+RUN npm install --ignore-scripts
 
 # Copy source files
 WORKDIR /app
@@ -47,16 +51,12 @@ COPY symbia-http/ ./symbia-http/
 COPY symbia-relay/ ./symbia-relay/
 COPY symbia-logging-client/ ./symbia-logging-client/
 COPY symbia-seed/ ./symbia-seed/
+COPY symbia-md/ ./symbia-md/
 COPY identity/ ./identity/
 
-# Build libraries
+# Build libraries in dependency order
+# Level 0: No dependencies
 WORKDIR /app/symbia-sys
-RUN npm run build || true
-
-WORKDIR /app/symbia-db
-RUN npm run build || true
-
-WORKDIR /app/symbia-http
 RUN npm run build || true
 
 WORKDIR /app/symbia-relay
@@ -65,7 +65,17 @@ RUN npm run build || true
 WORKDIR /app/symbia-logging-client
 RUN npm run build || true
 
+# Level 1: Depends on Level 0
+WORKDIR /app/symbia-db
+RUN npm run build || true
+
+WORKDIR /app/symbia-http
+RUN npm run build || true
+
 WORKDIR /app/symbia-seed
+RUN npm run build || true
+
+WORKDIR /app/symbia-md
 RUN npm run build || true
 
 # Build service
@@ -89,9 +99,9 @@ ENV HOST=0.0.0.0
 
 # Health check using default port (override PORT at runtime if needed)
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
-  CMD wget --no-verbose --tries=1 --spider http://localhost:5001/health/live || exit 1
+  CMD wget --no-verbose --tries=1 --spider http://127.0.0.1:5001/health/live || exit 1
 
 # Default port from @symbia/sys ServicePorts
 EXPOSE 5001
 
-CMD ["node", "dist/index.cjs"]
+CMD ["node", "dist/index.mjs"]

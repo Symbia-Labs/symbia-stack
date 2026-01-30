@@ -8,7 +8,9 @@ WORKDIR /app
 # Copy workspace package files for local dependencies
 COPY symbia-sys/package*.json ./symbia-sys/
 COPY symbia-http/package*.json ./symbia-http/
+COPY symbia-relay/package*.json ./symbia-relay/
 COPY symbia-logging-client/package*.json ./symbia-logging-client/
+COPY symbia-md/package*.json ./symbia-md/
 
 # Copy service package files
 COPY network/package*.json ./network/
@@ -20,28 +22,42 @@ RUN npm ci --ignore-scripts
 WORKDIR /app/symbia-http
 RUN npm ci --ignore-scripts
 
+WORKDIR /app/symbia-relay
+RUN npm ci --ignore-scripts
+
 WORKDIR /app/symbia-logging-client
+RUN npm ci --ignore-scripts
+
+WORKDIR /app/symbia-md
 RUN npm ci --ignore-scripts
 
 # Install service dependencies
 WORKDIR /app/network
-RUN npm ci
+RUN npm install --ignore-scripts
 
 # Copy source files
 WORKDIR /app
 COPY symbia-sys/ ./symbia-sys/
 COPY symbia-http/ ./symbia-http/
+COPY symbia-relay/ ./symbia-relay/
 COPY symbia-logging-client/ ./symbia-logging-client/
+COPY symbia-md/ ./symbia-md/
 COPY network/ ./network/
 
-# Build libraries
+# Build libraries in dependency order
 WORKDIR /app/symbia-sys
+RUN npm run build || true
+
+WORKDIR /app/symbia-logging-client
+RUN npm run build || true
+
+WORKDIR /app/symbia-relay
 RUN npm run build || true
 
 WORKDIR /app/symbia-http
 RUN npm run build || true
 
-WORKDIR /app/symbia-logging-client
+WORKDIR /app/symbia-md
 RUN npm run build || true
 
 # Build service
@@ -70,4 +86,4 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
 # Default port from @symbia/sys ServicePorts
 EXPOSE 5054
 
-CMD ["node", "dist/index.cjs"]
+CMD ["node", "dist/index.mjs"]

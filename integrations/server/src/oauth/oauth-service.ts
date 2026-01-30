@@ -18,7 +18,7 @@ import type {
   OAuthState,
   InsertOAuthState,
   InsertOAuthConnection,
-} from "../../shared/schema.js";
+} from "@shared/schema.js";
 
 const IDENTITY_SERVICE_URL = resolveServiceUrl(ServiceId.IDENTITY);
 

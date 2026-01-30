@@ -11,7 +11,7 @@
  * based on their current OAuth implementation.
  */
 
-import type { OAuthProviderConfig, OAuthUserInfo } from "../../../shared/schema.js";
+import type { OAuthProviderConfig, OAuthUserInfo } from "@shared/schema.js";
 import { BaseOAuthProvider, OAuthError } from "./base.js";
 
 /**

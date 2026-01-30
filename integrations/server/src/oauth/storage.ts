@@ -17,7 +17,7 @@ import {
   type OAuthConnectionRecord,
   type InsertOAuthState,
   type InsertOAuthConnection,
-} from "../../shared/schema.js";
+} from "@shared/schema.js";
 
 // Encryption key for client secrets (use same key as Identity service)
 const ENCRYPTION_KEY = process.env.CREDENTIAL_ENCRYPTION_KEY ||
