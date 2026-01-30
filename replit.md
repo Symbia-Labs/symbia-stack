@@ -60,7 +60,17 @@ Uses Replit's PostgreSQL (Neon-backed) via `DATABASE_URL` environment variable.
 ## Deployment
 Configured for static deployment. Build outputs to `website/dist`.
 
+## Database Schema
+Tables created for all services:
+- **Identity**: users, organizations, memberships, sessions, plans, agents, entities, etc.
+- **Catalog**: resources, resource_versions, artifacts, signatures, certifications, entitlements
+- **Logging**: log_streams, log_entries, metrics, data_points, traces, spans, etc.
+- **Messaging**: conversations, messages, participants (pre-existing)
+
+Bootstrap data seeded: 38 resources (10 assistants, 5 contexts, 23 integrations)
+
 ## Recent Changes
+- 2026-01-30: Created all database tables and seeded catalog with bootstrap data
 - 2026-01-30: Configured all 9 services to run as Replit workflows
 - 2026-01-30: Remapped service ports to available Replit ports
 - 2026-01-30: Set up PostgreSQL database and environment variables

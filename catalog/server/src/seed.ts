@@ -16,10 +16,9 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
 /**
- * Find the most recent snapshot file in the data directory
+ * Find bootstrap files in the data directory
  */
-function findSnapshotFile(): string {
-  // From server/src/ go up to catalog/ then into data/
+function findBootstrapFiles(): string[] {
   const dataDir = join(__dirname, "..", "..", "data");
 
   if (!existsSync(dataDir)) {
@@ -27,15 +26,14 @@ function findSnapshotFile(): string {
   }
 
   const files = readdirSync(dataDir)
-    .filter(f => f.startsWith("catalog-snapshot-") && f.endsWith(".json"))
-    .sort()
-    .reverse();
+    .filter(f => f.endsWith("-bootstrap.json") || (f.startsWith("catalog-snapshot-") && f.endsWith(".json")))
+    .map(f => join(dataDir, f));
 
   if (files.length === 0) {
-    throw new Error(`No snapshot files found in ${dataDir}`);
+    throw new Error(`No bootstrap files found in ${dataDir}`);
   }
 
-  return join(dataDir, files[0]);
+  return files;
 }
 
 /**
@@ -83,14 +81,20 @@ function transformResource(resource: any): any {
 }
 
 async function runSeed() {
-  console.log("🌱 Starting Catalog service seeding from snapshot...\n");
+  console.log("🌱 Starting Catalog service seeding from bootstrap files...\n");
 
   try {
-    // Find and load snapshot
-    const snapshotPath = findSnapshotFile();
-    const snapshotData = loadSnapshot(snapshotPath);
+    // Find and load all bootstrap files
+    const bootstrapFiles = findBootstrapFiles();
+    console.log(`📂 Found ${bootstrapFiles.length} bootstrap files\n`);
+    
+    let snapshotData: any[] = [];
+    for (const file of bootstrapFiles) {
+      const data = loadSnapshot(file);
+      snapshotData = snapshotData.concat(data);
+    }
 
-    console.log(`📊 Snapshot contains ${snapshotData.length} resources\n`);
+    console.log(`📊 Bootstrap files contain ${snapshotData.length} resources\n`);
 
     // Count by type
     const typeCounts: Record<string, number> = {};
