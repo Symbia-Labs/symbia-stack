@@ -935,3 +935,231 @@ export const channelConnections = pgTable("channel_connections", {
 
 export type ChannelConnection = typeof channelConnections.$inferSelect;
 export type InsertChannelConnection = typeof channelConnections.$inferInsert;
+
+// =============================================================================
+// OAuth Provider Integration
+// =============================================================================
+
+/**
+ * OAuth provider configuration schema
+ * Defines how to connect to an external OAuth provider
+ */
+export const oauthProviderConfigSchema = z.object({
+  provider: z.string().min(1),
+  displayName: z.string().min(1),
+  description: z.string().optional(),
+  iconUrl: z.string().url().optional(),
+
+  // OAuth endpoints
+  authorizationUrl: z.string().url(),
+  tokenUrl: z.string().url(),
+  userinfoUrl: z.string().url().optional(),
+  revokeUrl: z.string().url().optional(),
+
+  // OAuth settings
+  defaultScopes: z.array(z.string()).default([]),
+  scopeDelimiter: z.string().default(" "),
+  responseType: z.enum(["code", "token"]).default("code"),
+  grantType: z.enum(["authorization_code", "client_credentials"]).default("authorization_code"),
+  pkceRequired: z.boolean().default(false),
+
+  // Token handling
+  supportsRefresh: z.boolean().default(true),
+  tokenExpiresIn: z.number().int().positive().optional(), // Default expiry if not in response
+});
+export type OAuthProviderConfig = z.infer<typeof oauthProviderConfigSchema>;
+
+/**
+ * OAuth token response from provider
+ */
+export const oauthTokenResponseSchema = z.object({
+  accessToken: z.string(),
+  refreshToken: z.string().optional(),
+  expiresIn: z.number().int().positive().optional(),
+  tokenType: z.string().default("Bearer"),
+  scope: z.string().optional(),
+});
+export type OAuthTokenResponse = z.infer<typeof oauthTokenResponseSchema>;
+
+/**
+ * OAuth user info from provider
+ */
+export const oauthUserInfoSchema = z.object({
+  id: z.string(),
+  email: z.string().email().optional(),
+  name: z.string().optional(),
+  username: z.string().optional(),
+  avatarUrl: z.string().url().optional(),
+});
+export type OAuthUserInfo = z.infer<typeof oauthUserInfoSchema>;
+
+/**
+ * OAuth authorize request
+ */
+export const oauthAuthorizeRequestSchema = z.object({
+  provider: z.string().min(1),
+  redirectUri: z.string().url().optional(), // Where to redirect after OAuth completes
+  scopes: z.array(z.string()).optional(), // Override default scopes
+  state: z.string().optional(), // Client-provided state for additional context
+});
+export type OAuthAuthorizeRequest = z.infer<typeof oauthAuthorizeRequestSchema>;
+
+/**
+ * OAuth authorize response
+ */
+export const oauthAuthorizeResponseSchema = z.object({
+  authorizationUrl: z.string().url(),
+  state: z.string(),
+  provider: z.string(),
+});
+export type OAuthAuthorizeResponse = z.infer<typeof oauthAuthorizeResponseSchema>;
+
+/**
+ * OAuth connection (user's connected OAuth account)
+ */
+export const oauthConnectionSchema = z.object({
+  id: z.string(),
+  provider: z.string(),
+  displayName: z.string(),
+  connectedAt: z.string().datetime(),
+  expiresAt: z.string().datetime().optional(),
+  scopes: z.array(z.string()),
+  status: z.enum(["active", "expired", "revoked"]),
+  oauthUserId: z.string().optional(),
+  oauthUserEmail: z.string().email().optional(),
+  oauthUserName: z.string().optional(),
+});
+export type OAuthConnection = z.infer<typeof oauthConnectionSchema>;
+
+// =============================================================================
+// OAuth Database Tables
+// =============================================================================
+
+/**
+ * OAuth provider configurations table
+ * Stores provider client credentials and settings
+ */
+export const oauthProviderConfigs = pgTable("oauth_provider_configs", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  provider: varchar("provider", { length: 100 }).notNull().unique(),
+
+  // OAuth endpoints
+  authorizationUrl: text("authorization_url").notNull(),
+  tokenUrl: text("token_url").notNull(),
+  userinfoUrl: text("userinfo_url"),
+  revokeUrl: text("revoke_url"),
+
+  // Client credentials (encrypted)
+  clientId: text("client_id").notNull(),
+  clientSecretEncrypted: text("client_secret_encrypted").notNull(),
+
+  // Display
+  displayName: varchar("display_name", { length: 255 }).notNull(),
+  description: text("description"),
+  iconUrl: text("icon_url"),
+
+  // Settings
+  defaultScopes: json("default_scopes").$type<string[]>().default([]),
+  scopeDelimiter: varchar("scope_delimiter", { length: 10 }).default(" "),
+  responseType: varchar("response_type", { length: 50 }).default("code"),
+  grantType: varchar("grant_type", { length: 50 }).default("authorization_code"),
+  pkceRequired: boolean("pkce_required").default(false),
+  supportsRefresh: boolean("supports_refresh").default(true),
+
+  // Status
+  isEnabled: boolean("is_enabled").default(true).notNull(),
+
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => ({
+  providerIdx: index("idx_oauth_provider_configs_provider").on(table.provider),
+  enabledIdx: index("idx_oauth_provider_configs_enabled").on(table.isEnabled),
+}));
+
+export type OAuthProviderConfigRecord = typeof oauthProviderConfigs.$inferSelect;
+export type InsertOAuthProviderConfig = typeof oauthProviderConfigs.$inferInsert;
+
+/**
+ * OAuth states table
+ * Temporary storage for CSRF state tokens during OAuth flow
+ */
+export const oauthStates = pgTable("oauth_states", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  state: varchar("state", { length: 255 }).notNull().unique(),
+
+  // Who initiated the flow
+  userId: varchar("user_id").notNull(),
+  orgId: varchar("org_id"),
+
+  // OAuth flow details
+  provider: varchar("provider", { length: 100 }).notNull(),
+  redirectUri: text("redirect_uri").notNull(),
+  scopes: json("scopes").$type<string[]>().default([]),
+
+  // PKCE support
+  pkceVerifier: text("pkce_verifier"),
+  pkceChallenge: text("pkce_challenge"),
+
+  // Client state (passed through from authorize request)
+  clientState: text("client_state"),
+
+  // Expiration (short-lived - 10 minutes)
+  expiresAt: timestamp("expires_at").notNull(),
+
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => ({
+  stateIdx: index("idx_oauth_states_state").on(table.state),
+  expiresIdx: index("idx_oauth_states_expires").on(table.expiresAt),
+  userIdx: index("idx_oauth_states_user").on(table.userId),
+}));
+
+export type OAuthState = typeof oauthStates.$inferSelect;
+export type InsertOAuthState = typeof oauthStates.$inferInsert;
+
+/**
+ * OAuth connections table
+ * Tracks user's connected OAuth accounts
+ */
+export const oauthConnections = pgTable("oauth_connections", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+
+  // Who owns this connection
+  userId: varchar("user_id").notNull(),
+  orgId: varchar("org_id"),
+
+  // Provider info
+  provider: varchar("provider", { length: 100 }).notNull(),
+
+  // OAuth user info from provider
+  oauthUserId: varchar("oauth_user_id", { length: 255 }),
+  oauthUserEmail: text("oauth_user_email"),
+  oauthUserName: text("oauth_user_name"),
+  oauthAvatarUrl: text("oauth_avatar_url"),
+
+  // Token info (reference to Identity credential)
+  credentialId: varchar("credential_id"), // Reference to userCredentials in Identity
+
+  // Scopes granted
+  scopes: json("scopes").$type<string[]>().default([]),
+
+  // Status
+  status: varchar("status", { length: 50 }).default("active").notNull(), // active, expired, revoked
+  expiresAt: timestamp("expires_at"),
+
+  // Timestamps
+  connectedAt: timestamp("connected_at").defaultNow().notNull(),
+  lastUsedAt: timestamp("last_used_at"),
+  revokedAt: timestamp("revoked_at"),
+
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => ({
+  userIdx: index("idx_oauth_connections_user").on(table.userId),
+  orgIdx: index("idx_oauth_connections_org").on(table.orgId),
+  providerIdx: index("idx_oauth_connections_provider").on(table.provider),
+  userProviderIdx: index("idx_oauth_connections_user_provider").on(table.userId, table.provider),
+  statusIdx: index("idx_oauth_connections_status").on(table.status),
+}));
+
+export type OAuthConnectionRecord = typeof oauthConnections.$inferSelect;
+export type InsertOAuthConnection = typeof oauthConnections.$inferInsert;

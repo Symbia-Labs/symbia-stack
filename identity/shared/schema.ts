@@ -597,24 +597,33 @@ export type EntityStatus = z.infer<typeof entityStatusEnum>;
 export type EntityWithAliases = Entity & { aliases: EntityAlias[] };
 export type EntityWithInstances = Entity & { instances: EntityInstance[] };
 
-// User credentials table (third-party API keys for integrations)
+// User credentials table (third-party API keys and OAuth tokens for integrations)
 export const userCredentials = pgTable("user_credentials", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   userId: varchar("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
   orgId: varchar("org_id").references(() => organizations.id, { onDelete: "cascade" }),
-  provider: text("provider").notNull(), // e.g., "openai", "huggingface", "anthropic"
+  provider: text("provider").notNull(), // e.g., "openai", "huggingface", "anthropic", "replit"
   name: text("name").notNull(), // User-friendly name like "My OpenAI Key"
-  credentialEncrypted: text("credential_encrypted").notNull(), // Encrypted API key
+  credentialEncrypted: text("credential_encrypted").notNull(), // Encrypted API key or access token
   credentialPrefix: text("credential_prefix"), // First 8 chars for identification (e.g., "sk-proj-...")
   isOrgWide: boolean("is_org_wide").notNull().default(false), // Shared across org members
   metadata: json("metadata").$type<Record<string, unknown>>().default({}),
   lastUsedAt: timestamp("last_used_at"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
+
+  // OAuth-specific fields
+  credentialType: text("credential_type").default("api_key"), // 'api_key' | 'oauth_token'
+  refreshTokenEncrypted: text("refresh_token_encrypted"), // Encrypted OAuth refresh token
+  expiresAt: timestamp("expires_at"), // Token expiration time
+  oauthUserId: varchar("oauth_user_id", { length: 255 }), // External user ID from OAuth provider
+  oauthUserEmail: text("oauth_user_email"), // External email from OAuth provider
+  oauthUserName: text("oauth_user_name"), // External name from OAuth provider
 }, (table) => ({
   userIdx: index("idx_user_credentials_user_id").on(table.userId),
   orgIdx: index("idx_user_credentials_org_id").on(table.orgId),
   providerIdx: index("idx_user_credentials_provider").on(table.provider),
   userProviderIdx: index("idx_user_credentials_user_provider").on(table.userId, table.provider),
+  credentialTypeIdx: index("idx_user_credentials_type").on(table.credentialType),
 }));
 
 export const userCredentialsRelations = relations(userCredentials, ({ one }) => ({

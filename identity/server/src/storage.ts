@@ -172,6 +172,17 @@ export interface IStorage {
   getCredentialForUserOrOrg(userId: string, orgId: string | null, provider: string): Promise<UserCredential | undefined>;
   getUserCredentialsByOrg(orgId: string): Promise<UserCredential[]>;
   createUserCredential(credential: InsertUserCredential): Promise<UserCredential>;
+  updateUserCredential(id: string, updates: Partial<{
+    credentialEncrypted: string;
+    credentialPrefix: string | null;
+    credentialType: string;
+    refreshTokenEncrypted: string | null;
+    expiresAt: Date | null;
+    oauthUserId: string | null;
+    oauthUserEmail: string | null;
+    oauthUserName: string | null;
+    metadata: Record<string, unknown>;
+  }>): Promise<UserCredential | undefined>;
   updateUserCredentialLastUsed(id: string): Promise<void>;
   deleteUserCredential(id: string): Promise<void>;
 
@@ -777,6 +788,24 @@ export class DatabaseStorage implements IStorage {
   async createUserCredential(credential: InsertUserCredential): Promise<UserCredential> {
     const [created] = await db.insert(userCredentials).values(credential).returning();
     return created;
+  }
+
+  async updateUserCredential(id: string, updates: Partial<{
+    credentialEncrypted: string;
+    credentialPrefix: string | null;
+    credentialType: string;
+    refreshTokenEncrypted: string | null;
+    expiresAt: Date | null;
+    oauthUserId: string | null;
+    oauthUserEmail: string | null;
+    oauthUserName: string | null;
+    metadata: Record<string, unknown>;
+  }>): Promise<UserCredential | undefined> {
+    const [updated] = await db.update(userCredentials)
+      .set(updates)
+      .where(eq(userCredentials.id, id))
+      .returning();
+    return updated || undefined;
   }
 
   async updateUserCredentialLastUsed(id: string): Promise<void> {

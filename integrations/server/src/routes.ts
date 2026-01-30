@@ -52,6 +52,13 @@ import {
   type ExecutionContext,
 } from "./executors/index.js";
 import { mcpServer, createMCPHttpHandler } from "./mcp-server.js";
+import { OAuthService } from "./oauth/oauth-service.js";
+import { initializeOAuthProviders, getOAuthProvider, getRegisteredOAuthProviders, OAuthError } from "./oauth/providers/index.js";
+import { createOAuthStorage } from "./oauth/storage.js";
+import {
+  oauthAuthorizeRequestSchema,
+  type OAuthAuthorizeRequest,
+} from "@shared/schema.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -1066,6 +1073,174 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
         success: false,
         error: result.error,
       });
+    }
+  });
+
+  // ==========================================================================
+  // OAuth Integration Endpoints
+  // ==========================================================================
+
+  // Initialize OAuth providers and service
+  initializeOAuthProviders();
+  const oauthStorage = createOAuthStorage(db);
+  const oauthService = new OAuthService(oauthStorage);
+
+  /**
+   * GET /api/oauth/providers
+   * List available OAuth providers
+   */
+  app.get("/api/oauth/providers", authMiddleware, async (req: Request, res: Response) => {
+    const user = (req as any).user;
+
+    try {
+      const providers = await oauthService.getAvailableProviders(user.id);
+      res.json({ providers });
+    } catch (error) {
+      console.error("[oauth] Error listing providers:", error);
+      res.status(500).json({ error: "Failed to list OAuth providers" });
+    }
+  });
+
+  /**
+   * POST /api/oauth/authorize
+   * Initiate OAuth flow - returns authorization URL
+   */
+  app.post("/api/oauth/authorize", authMiddleware, async (req: Request, res: Response) => {
+    const user = (req as any).user;
+
+    try {
+      const parseResult = oauthAuthorizeRequestSchema.safeParse(req.body);
+      if (!parseResult.success) {
+        res.status(400).json({
+          error: "Invalid request",
+          details: parseResult.error.errors,
+        });
+        return;
+      }
+
+      const request: OAuthAuthorizeRequest = parseResult.data;
+      const result = await oauthService.authorize(request, user.id, user.orgId);
+
+      res.json(result);
+    } catch (error) {
+      if (error instanceof OAuthError) {
+        res.status(400).json({
+          error: error.message,
+          code: error.code,
+          details: error.details,
+        });
+        return;
+      }
+      console.error("[oauth] Authorization error:", error);
+      res.status(500).json({ error: "Failed to initiate OAuth flow" });
+    }
+  });
+
+  /**
+   * GET /api/oauth/callback
+   * Handle OAuth callback from provider
+   * This endpoint is called by the OAuth provider after user authorizes
+   */
+  app.get("/api/oauth/callback", async (req: Request, res: Response) => {
+    const { code, state, error, error_description } = req.query;
+
+    // Handle OAuth error from provider
+    if (error) {
+      const redirectUrl = process.env.OAUTH_ERROR_REDIRECT_URL ||
+        process.env.WEBSITE_URL ||
+        "http://localhost:3000";
+      const errorParams = new URLSearchParams({
+        error: String(error),
+        error_description: String(error_description || ""),
+      });
+      res.redirect(`${redirectUrl}/oauth/error?${errorParams}`);
+      return;
+    }
+
+    if (!code || !state) {
+      res.status(400).json({
+        error: "Missing code or state parameter",
+      });
+      return;
+    }
+
+    try {
+      const result = await oauthService.handleCallback(
+        String(code),
+        String(state)
+      );
+
+      // Redirect to the original redirect URI with success
+      const successParams = new URLSearchParams({
+        success: "true",
+        provider: result.connection.provider,
+        connection_id: result.connection.id,
+      });
+
+      if (result.clientState) {
+        successParams.set("state", result.clientState);
+      }
+
+      res.redirect(`${result.redirectUri}?${successParams}`);
+    } catch (error) {
+      console.error("[oauth] Callback error:", error);
+
+      const redirectUrl = process.env.OAUTH_ERROR_REDIRECT_URL ||
+        process.env.WEBSITE_URL ||
+        "http://localhost:3000";
+
+      const errorMessage = error instanceof OAuthError
+        ? error.message
+        : "OAuth callback failed";
+
+      const errorParams = new URLSearchParams({
+        error: "callback_failed",
+        error_description: errorMessage,
+      });
+
+      res.redirect(`${redirectUrl}/oauth/error?${errorParams}`);
+    }
+  });
+
+  /**
+   * GET /api/oauth/connections
+   * List user's OAuth connections
+   */
+  app.get("/api/oauth/connections", authMiddleware, async (req: Request, res: Response) => {
+    const user = (req as any).user;
+
+    try {
+      const connections = await oauthService.getConnections(user.id, user.orgId);
+      res.json({ connections });
+    } catch (error) {
+      console.error("[oauth] Error listing connections:", error);
+      res.status(500).json({ error: "Failed to list OAuth connections" });
+    }
+  });
+
+  /**
+   * DELETE /api/oauth/connections/:id
+   * Revoke an OAuth connection
+   */
+  app.delete("/api/oauth/connections/:id", authMiddleware, async (req: Request, res: Response) => {
+    const user = (req as any).user;
+    const { id } = req.params;
+
+    try {
+      await oauthService.revokeConnection(id, user.id);
+      res.json({ success: true, message: "Connection revoked" });
+    } catch (error) {
+      if (error instanceof OAuthError) {
+        const statusCode = error.code === "connection_not_found" ? 404 :
+                          error.code === "not_authorized" ? 403 : 400;
+        res.status(statusCode).json({
+          error: error.message,
+          code: error.code,
+        });
+        return;
+      }
+      console.error("[oauth] Error revoking connection:", error);
+      res.status(500).json({ error: "Failed to revoke connection" });
     }
   });
 

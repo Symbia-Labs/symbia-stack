@@ -3134,6 +3134,197 @@ For service-to-service authentication, use POST /api/auth/introspect with { "tok
     }
   });
 
+  // Internal endpoint for Integrations service to store OAuth tokens
+  // This is called by the Integrations service after successful OAuth flow
+  app.post("/api/internal/credentials/oauth", async (req, res) => {
+    try {
+      // Verify service-to-service auth
+      const serviceId = req.headers['x-service-id'] as string;
+      if (!serviceId || !['integrations', 'assistants', 'runtime'].includes(serviceId)) {
+        return res.status(403).json({ message: "Service access denied" });
+      }
+
+      const {
+        userId,
+        orgId,
+        provider,
+        accessToken,
+        refreshToken,
+        expiresAt,
+        oauthUserId,
+        oauthUserEmail,
+        oauthUserName,
+      } = req.body;
+
+      if (!userId || !provider || !accessToken) {
+        return res.status(400).json({ message: "Missing required fields: userId, provider, accessToken" });
+      }
+
+      // Encrypt the access token
+      const encryptionKey = process.env.CREDENTIAL_ENCRYPTION_KEY || process.env.JWT_SECRET || "dev-secret-key-32chars-minimum!!";
+      const iv = crypto.randomBytes(16);
+      const cipher = crypto.createCipheriv('aes-256-gcm', Buffer.from(encryptionKey.padEnd(32).slice(0, 32)), iv);
+      let encrypted = cipher.update(accessToken, 'utf8', 'hex');
+      encrypted += cipher.final('hex');
+      const authTag = cipher.getAuthTag().toString('hex');
+      const encryptedAccessToken = `${iv.toString('hex')}:${authTag}:${encrypted}`;
+
+      // Encrypt the refresh token if provided
+      let encryptedRefreshToken: string | null = null;
+      if (refreshToken) {
+        const refreshIv = crypto.randomBytes(16);
+        const refreshCipher = crypto.createCipheriv('aes-256-gcm', Buffer.from(encryptionKey.padEnd(32).slice(0, 32)), refreshIv);
+        let refreshEncrypted = refreshCipher.update(refreshToken, 'utf8', 'hex');
+        refreshEncrypted += refreshCipher.final('hex');
+        const refreshAuthTag = refreshCipher.getAuthTag().toString('hex');
+        encryptedRefreshToken = `${refreshIv.toString('hex')}:${refreshAuthTag}:${refreshEncrypted}`;
+      }
+
+      // Get prefix for display
+      const prefix = accessToken.slice(0, Math.min(8, accessToken.length));
+
+      // Check if credential already exists for this user/provider
+      const existingCredential = await storage.getCredentialForUserOrOrg(userId, orgId || null, provider);
+
+      let credential;
+      if (existingCredential) {
+        // Update existing credential
+        credential = await storage.updateUserCredential(existingCredential.id, {
+          credentialEncrypted: encryptedAccessToken,
+          credentialPrefix: prefix,
+          credentialType: "oauth_token",
+          refreshTokenEncrypted: encryptedRefreshToken,
+          expiresAt: expiresAt ? new Date(expiresAt) : null,
+          oauthUserId: oauthUserId || null,
+          oauthUserEmail: oauthUserEmail || null,
+          oauthUserName: oauthUserName || null,
+        });
+        credential = { ...existingCredential, ...credential };
+      } else {
+        // Create new credential
+        credential = await storage.createUserCredential({
+          userId,
+          orgId: orgId || null,
+          provider,
+          name: `${provider} OAuth`,
+          credentialEncrypted: encryptedAccessToken,
+          credentialPrefix: prefix,
+          isOrgWide: false,
+          metadata: {},
+          credentialType: "oauth_token",
+          refreshTokenEncrypted: encryptedRefreshToken,
+          expiresAt: expiresAt ? new Date(expiresAt) : null,
+          oauthUserId: oauthUserId || null,
+          oauthUserEmail: oauthUserEmail || null,
+          oauthUserName: oauthUserName || null,
+        });
+      }
+
+      await storage.createAuditLog({
+        userId,
+        orgId: orgId || null,
+        action: existingCredential ? "oauth.token_refreshed" : "oauth.token_stored",
+        resource: "user_credential",
+        resourceId: credential.id,
+        metadataJson: { provider, oauthUserId, oauthUserEmail },
+      });
+
+      res.json({
+        credentialId: credential.id,
+        provider: credential.provider,
+        expiresAt: expiresAt || null,
+      });
+    } catch (error) {
+      console.error("Store OAuth token error:", error);
+      res.status(500).json({ message: "Failed to store OAuth token" });
+    }
+  });
+
+  // Internal endpoint to get credential by ID (for service-to-service)
+  app.get("/api/internal/credentials/by-id/:credentialId", async (req, res) => {
+    try {
+      // Verify service-to-service auth
+      const serviceId = req.headers['x-service-id'] as string;
+      if (!serviceId || !['integrations', 'assistants', 'runtime'].includes(serviceId)) {
+        return res.status(403).json({ message: "Service access denied" });
+      }
+
+      const credential = await storage.getUserCredential(req.params.credentialId);
+      if (!credential) {
+        return res.status(404).json({ message: "Credential not found" });
+      }
+
+      // Decrypt the credential
+      const encryptionKey = process.env.CREDENTIAL_ENCRYPTION_KEY || process.env.JWT_SECRET || "dev-secret-key-32chars-minimum!!";
+      const parts = credential.credentialEncrypted.split(':');
+      if (parts.length !== 3) {
+        return res.status(500).json({ message: "Invalid credential format" });
+      }
+
+      const [ivHex, authTagHex, encryptedHex] = parts;
+      const iv = Buffer.from(ivHex, 'hex');
+      const authTag = Buffer.from(authTagHex, 'hex');
+      const encrypted = Buffer.from(encryptedHex, 'hex');
+
+      const decipher = crypto.createDecipheriv('aes-256-gcm', Buffer.from(encryptionKey.padEnd(32).slice(0, 32)), iv);
+      decipher.setAuthTag(authTag);
+      let decrypted = decipher.update(encrypted);
+      decrypted = Buffer.concat([decrypted, decipher.final()]);
+      const apiKey = decrypted.toString('utf8');
+
+      res.json({
+        apiKey,
+        metadata: credential.metadata,
+        credentialId: credential.id,
+        isProxy: false,
+        ownerId: credential.userId,
+        isOrgWide: credential.isOrgWide,
+      });
+    } catch (error) {
+      console.error("Get credential by ID error:", error);
+      res.status(500).json({ message: "Failed to retrieve credential" });
+    }
+  });
+
+  // Internal endpoint to delete credential (for service-to-service)
+  app.delete("/api/internal/credentials/:credentialId", async (req, res) => {
+    try {
+      // Verify service-to-service auth
+      const serviceId = req.headers['x-service-id'] as string;
+      const requestUserId = req.headers['x-user-id'] as string;
+
+      if (!serviceId || !['integrations', 'assistants', 'runtime'].includes(serviceId)) {
+        return res.status(403).json({ message: "Service access denied" });
+      }
+
+      const credential = await storage.getUserCredential(req.params.credentialId);
+      if (!credential) {
+        return res.status(404).json({ message: "Credential not found" });
+      }
+
+      // Verify user owns this credential
+      if (requestUserId && credential.userId !== requestUserId) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+
+      await storage.deleteUserCredential(credential.id);
+
+      await storage.createAuditLog({
+        userId: requestUserId || credential.userId,
+        orgId: credential.orgId,
+        action: "credential.deleted",
+        resource: "user_credential",
+        resourceId: credential.id,
+        metadataJson: { provider: credential.provider, name: credential.name },
+      });
+
+      res.json({ success: true, message: "Credential deleted" });
+    } catch (error) {
+      console.error("Delete credential error:", error);
+      res.status(500).json({ message: "Failed to delete credential" });
+    }
+  });
+
   // ==================== ENTITY DIRECTORY ROUTES ====================
   // Entity Directory provides UUID-based addressing for all principals
   // This enables @mention resolution, multi-instance support, and federation
