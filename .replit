@@ -101,13 +101,13 @@ outputType = "console"
 name = "Messaging Service"
 author = "agent"
 
+[workflows.workflow.metadata]
+outputType = "console"
+
 [[workflows.workflow.tasks]]
 task = "shell.exec"
 args = "cd messaging && PORT=3001 npm run dev"
 waitForPort = 3001
-
-[workflows.workflow.metadata]
-outputType = "console"
 
 [[workflows.workflow]]
 name = "Runtime Service"
@@ -172,6 +172,10 @@ externalPort = 3003
 [[ports]]
 localPort = 5000
 externalPort = 80
+
+[[ports]]
+localPort = 5005
+externalPort = 3001
 
 [[ports]]
 localPort = 8000
