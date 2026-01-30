@@ -70,6 +70,7 @@ Tables created for all services:
 Bootstrap data seeded: 38 resources (10 assistants, 5 contexts, 23 integrations)
 
 ## Recent Changes
+- 2026-01-30: Made catalog stats/resources endpoints support anonymous access for public bootstrap data
 - 2026-01-30: Created all database tables and seeded catalog with bootstrap data
 - 2026-01-30: Configured all 9 services to run as Replit workflows
 - 2026-01-30: Remapped service ports to available Replit ports

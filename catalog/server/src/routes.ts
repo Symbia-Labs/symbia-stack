@@ -328,19 +328,47 @@ export async function registerRoutes(
     }
   });
 
-  // Stats endpoint (protected)
-  app.get("/api/stats", authMiddleware, searchRateLimiter, async (req, res) => {
+  // Stats endpoint (public for bootstrap resources, full stats for authenticated users)
+  app.get("/api/stats", optionalAuthMiddleware, searchRateLimiter, async (req, res) => {
     try {
-      const stats = await storage.getStats();
-      res.json(stats);
+      if (req.user) {
+        // Authenticated: return full stats
+        const stats = await storage.getStats();
+        res.json(stats);
+      } else {
+        // Anonymous: return stats for public/bootstrap resources only
+        const bootstrapResources = await storage.getBootstrapResources();
+        const publicResources = filterPublicResources(bootstrapResources);
+        
+        // Count by type
+        let totalAssistants = 0, totalIntegrations = 0, totalContexts = 0, totalGraphs = 0;
+        let publishedCount = 0;
+        for (const r of publicResources) {
+          if (r.type === 'assistant') totalAssistants++;
+          else if (r.type === 'integration') totalIntegrations++;
+          else if (r.type === 'context') totalContexts++;
+          else if (r.type === 'graph') totalGraphs++;
+          if (r.status === 'published') publishedCount++;
+        }
+        
+        res.json({
+          totalResources: publicResources.length,
+          publishedVersions: publishedCount,
+          bootstrapEntries: publicResources.length,
+          totalAssistants,
+          totalContexts,
+          totalIntegrations,
+          totalGraphs,
+        });
+      }
     } catch (error) {
       console.error("Error fetching stats:", error);
       res.status(500).json({ error: "Failed to fetch stats" });
     }
   });
 
-  // Resources CRUD (protected with entitlement checks)
-  app.get("/api/resources", authMiddleware, searchRateLimiter, async (req, res) => {
+  // Resources CRUD (public read for bootstrap resources, full access for authenticated users)
+  app.get("/api/resources", optionalAuthMiddleware, searchRateLimiter, async (req, res) => {
     try {
       console.log("[Resources] GET /api/resources query:", req.query);
       const allResources = await storage.getResources();
@@ -369,7 +397,7 @@ export async function registerRoutes(
     }
   });
 
-  app.get("/api/resources/:id", authMiddleware, searchRateLimiter, async (req, res) => {
+  app.get("/api/resources/:id", optionalAuthMiddleware, searchRateLimiter, async (req, res) => {
     try {
       const resource = await storage.getResource(req.params.id);
       if (!resource) {
