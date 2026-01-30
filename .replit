@@ -17,6 +17,38 @@ author = "agent"
 task = "workflow.run"
 args = "Website"
 
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "Identity Service"
+
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "Logging Service"
+
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "Catalog Service"
+
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "Assistants Service"
+
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "Messaging Service"
+
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "Runtime Service"
+
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "Integrations Service"
+
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "Network Service"
+
 [[workflows.workflow]]
 name = "Website"
 author = "agent"
@@ -29,11 +61,152 @@ waitForPort = 5000
 [workflows.workflow.metadata]
 outputType = "webview"
 
+[[workflows.workflow]]
+name = "Identity Service"
+author = "agent"
+
+[workflows.workflow.metadata]
+outputType = "console"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "cd identity && PORT=8000 npm run dev"
+waitForPort = 8000
+
+[[workflows.workflow]]
+name = "Logging Service"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "cd logging && PORT=8008 npm run dev"
+waitForPort = 8008
+
+[workflows.workflow.metadata]
+outputType = "console"
+
+[[workflows.workflow]]
+name = "Catalog Service"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "cd catalog && PORT=8080 npm run dev"
+waitForPort = 8080
+
+[workflows.workflow.metadata]
+outputType = "console"
+
+[[workflows.workflow]]
+name = "Assistants Service"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "cd assistants && PORT=3000 npm run dev"
+waitForPort = 3000
+
+[workflows.workflow.metadata]
+outputType = "console"
+
+[[workflows.workflow]]
+name = "Messaging Service"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "cd messaging && PORT=3001 npm run dev"
+waitForPort = 3001
+
+[workflows.workflow.metadata]
+outputType = "console"
+
+[[workflows.workflow]]
+name = "Runtime Service"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "cd runtime && PORT=3002 npm run dev"
+waitForPort = 3002
+
+[workflows.workflow.metadata]
+outputType = "console"
+
+[[workflows.workflow]]
+name = "Integrations Service"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "cd integrations && PORT=3003 npm run dev"
+waitForPort = 3003
+
+[workflows.workflow.metadata]
+outputType = "console"
+
+[[workflows.workflow]]
+name = "Network Service"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "cd network && PORT=9000 npm run dev"
+waitForPort = 9000
+
+[workflows.workflow.metadata]
+outputType = "console"
+
+[[ports]]
+localPort = 3000
+externalPort = 3000
+
+[[ports]]
+localPort = 3001
+externalPort = 3001
+
+[[ports]]
+localPort = 3002
+externalPort = 3002
+
+[[ports]]
+localPort = 3003
+externalPort = 3003
+
 [[ports]]
 localPort = 5000
 externalPort = 80
+
+[[ports]]
+localPort = 8000
+externalPort = 8000
+
+[[ports]]
+localPort = 8008
+externalPort = 8008
+
+[[ports]]
+localPort = 8080
+externalPort = 8080
+
+[[ports]]
+localPort = 9000
+externalPort = 9000
 
 [deployment]
 deploymentTarget = "static"
 build = ["npm", "run", "--prefix", "website", "build"]
 publicDir = "website/dist"
+
+[userenv]
+
+[userenv.shared]
+NETWORK_HASH_SECRET = "symbia-network-dev-secret"
+IDENTITY_SERVICE_URL = "http://localhost:8000"
+LOGGING_SERVICE_URL = "http://localhost:8008"
+CATALOG_SERVICE_URL = "http://localhost:8080"
+ASSISTANTS_SERVICE_URL = "http://localhost:3000"
+MESSAGING_SERVICE_URL = "http://localhost:3001"
+RUNTIME_SERVICE_URL = "http://localhost:3002"
+INTEGRATIONS_SERVICE_URL = "http://localhost:3003"
+NETWORK_SERVICE_URL = "http://localhost:9000"

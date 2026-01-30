@@ -2,16 +2,16 @@ import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import path from 'path';
 
-// Service ports
+// Service ports (remapped for Replit available ports)
 const services = {
-  identity: 5001,
-  logging: 5002,
-  catalog: 5003,
-  assistants: 5004,
-  messaging: 5005,
-  runtime: 5006,
-  integrations: 5007,
-  network: 5054,
+  identity: 8000,
+  logging: 8008,
+  catalog: 8080,
+  assistants: 3000,
+  messaging: 3001,
+  runtime: 3002,
+  integrations: 3003,
+  network: 9000,
 };
 
 const proxy: Record<string, object> = {};
