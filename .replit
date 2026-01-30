@@ -31,10 +31,6 @@ args = "Catalog Service"
 
 [[workflows.workflow.tasks]]
 task = "workflow.run"
-args = "Assistants Service"
-
-[[workflows.workflow.tasks]]
-task = "workflow.run"
 args = "Messaging Service"
 
 [[workflows.workflow.tasks]]
@@ -48,6 +44,10 @@ args = "Integrations Service"
 [[workflows.workflow.tasks]]
 task = "workflow.run"
 args = "Network Service"
+
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "Assistants Service"
 
 [[workflows.workflow]]
 name = "Website"
@@ -93,18 +93,6 @@ author = "agent"
 task = "shell.exec"
 args = "cd catalog && PORT=8080 npm run dev"
 waitForPort = 8080
-
-[workflows.workflow.metadata]
-outputType = "console"
-
-[[workflows.workflow]]
-name = "Assistants Service"
-author = "agent"
-
-[[workflows.workflow.tasks]]
-task = "shell.exec"
-args = "cd assistants && PORT=3000 npm run dev"
-waitForPort = 3000
 
 [workflows.workflow.metadata]
 outputType = "console"
@@ -157,13 +145,21 @@ waitForPort = 9000
 [workflows.workflow.metadata]
 outputType = "console"
 
+[[workflows.workflow]]
+name = "Assistants Service"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "cd assistants && PORT=3000 npm run dev"
+waitForPort = 3000
+
+[workflows.workflow.metadata]
+outputType = "console"
+
 [[ports]]
 localPort = 3000
 externalPort = 3000
-
-[[ports]]
-localPort = 3001
-externalPort = 3001
 
 [[ports]]
 localPort = 3002
