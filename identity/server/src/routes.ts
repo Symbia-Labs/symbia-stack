@@ -6,6 +6,7 @@ import { sendPasswordResetEmail } from "./email";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import { z } from "zod";
+import { setupAuth, registerAuthRoutes } from "./replit_integrations/auth";
 import {
   registerSchema, loginSchema, forgotPasswordSchema,
   createOrgSchema, inviteMemberSchema,
@@ -234,6 +235,10 @@ export async function registerRoutes(
 ): Promise<Server> {
   const cookieParser = await import("cookie-parser");
   app.use(cookieParser.default());
+
+  // Setup Replit Auth (OIDC-based) - must be before other routes
+  await setupAuth(app);
+  registerAuthRoutes(app);
 
   // Register documentation routes (serves static files from build)
   registerDocRoutes(app);
