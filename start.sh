@@ -86,10 +86,16 @@ build_base_image() {
 
 # Build all service images
 build_service_images() {
-  log_info "Building service images..."
-  # Build sequentially to avoid I/O issues on some Docker setups
-  docker-compose build
-  log_success "Service images built successfully"
+  local service="$1"
+  if [ -n "$service" ]; then
+    log_info "Building $service image..."
+    docker-compose build "$service"
+    log_success "$service image built successfully"
+  else
+    log_info "Building all service images..."
+    docker-compose build
+    log_success "All service images built successfully"
+  fi
 }
 
 # Wait for postgres to be ready
@@ -267,6 +273,7 @@ main() {
   local force_rebuild=false
   local skip_admin=false
   local force_new=false
+  local target_service=""
 
   # Parse arguments
   while [[ $# -gt 0 ]]; do
@@ -274,6 +281,10 @@ main() {
       --rebuild|-r)
         force_rebuild=true
         shift
+        ;;
+      --service|-s)
+        target_service="$2"
+        shift 2
         ;;
       --new|-n)
         force_new=true
@@ -289,10 +300,16 @@ main() {
         echo "Usage: ./start.sh [options]"
         echo ""
         echo "Options:"
-        echo "  -n, --new        Start fresh with empty database (removes existing data)"
-        echo "  -r, --rebuild    Force rebuild of all images"
-        echo "  --skip-admin     Skip super admin creation prompt"
-        echo "  -h, --help       Show this help message"
+        echo "  -n, --new              Start fresh with empty database (removes existing data)"
+        echo "  -r, --rebuild          Force rebuild of all images (or specific service with -s)"
+        echo "  -s, --service <name>   Target specific service for rebuild (use with -r)"
+        echo "  --skip-admin           Skip super admin creation prompt"
+        echo "  -h, --help             Show this help message"
+        echo ""
+        echo "Examples:"
+        echo "  ./start.sh                        # Normal start"
+        echo "  ./start.sh -r                     # Rebuild all and start"
+        echo "  ./start.sh -r -s integrations     # Rebuild integrations only and start"
         echo ""
         echo "On first run, you will be prompted to create a super admin account"
         echo "with name, email, password, and organization name."
@@ -327,7 +344,15 @@ main() {
     reset_database
   fi
 
-  if is_first_run || [ "$force_rebuild" = true ] || [ "$force_new" = true ]; then
+  # Handle single-service rebuild (quick path)
+  if [ "$force_rebuild" = true ] && [ -n "$target_service" ]; then
+    log_info "Rebuilding $target_service service..."
+    echo ""
+    build_service_images "$target_service"
+    start_services
+    log_success "Service rebuild complete!"
+
+  elif is_first_run || [ "$force_rebuild" = true ] || [ "$force_new" = true ]; then
     if [ "$force_new" = true ]; then
       log_info "Fresh start requested - performing full initialization..."
     else
