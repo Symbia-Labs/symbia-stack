@@ -1,26 +1,29 @@
-# Symbia Identity Service
-# Optimized build using shared base image
+# Symbia Service Dockerfile Template
+# Replace {SERVICE_NAME} and {PORT} when copying
 #
+# This template extends from symbia-base for faster builds
 # Build base first: docker build -t symbia-base -f docker/Dockerfile.base .
-# Or use ./start.sh which handles this automatically
 
-# Build stage - extends from pre-built libraries
-FROM symbia-base:latest AS builder
+# ============================================================
+# Option 1: Use pre-built base image (FAST - recommended)
+# ============================================================
+ARG BASE_IMAGE=symbia-base:latest
+FROM ${BASE_IMAGE} AS builder
 
 WORKDIR /app
 
 # Copy service package files
-COPY identity/package*.json ./identity/
+COPY {SERVICE_NAME}/package*.json ./{SERVICE_NAME}/
 
-# Install service dependencies only
-WORKDIR /app/identity
+# Install service dependencies
+WORKDIR /app/{SERVICE_NAME}
 RUN npm install --ignore-scripts
 
 # Copy service source
 WORKDIR /app
-COPY identity/ ./identity/
+COPY {SERVICE_NAME}/ ./{SERVICE_NAME}/
 
-# Link to pre-built libraries from base image
+# Copy pre-built libraries from base
 COPY --from=symbia-base /symbia-libs/symbia-sys ./symbia-sys
 COPY --from=symbia-base /symbia-libs/symbia-db ./symbia-db
 COPY --from=symbia-base /symbia-libs/symbia-http ./symbia-http
@@ -30,7 +33,7 @@ COPY --from=symbia-base /symbia-libs/symbia-seed ./symbia-seed
 COPY --from=symbia-base /symbia-libs/symbia-md ./symbia-md
 
 # Build service
-WORKDIR /app/identity
+WORKDIR /app/{SERVICE_NAME}
 RUN npm run build
 
 # Production stage
@@ -39,17 +42,17 @@ FROM node:20-alpine AS production
 WORKDIR /app
 
 # Copy built artifacts
-COPY --from=builder /app/identity/dist ./dist
-COPY --from=builder /app/identity/package*.json ./
-COPY --from=builder /app/identity/node_modules ./node_modules
+COPY --from=builder /app/{SERVICE_NAME}/dist ./dist
+COPY --from=builder /app/{SERVICE_NAME}/package*.json ./
+COPY --from=builder /app/{SERVICE_NAME}/node_modules ./node_modules
 
 # Production environment
 ENV NODE_ENV=production
 ENV HOST=0.0.0.0
 
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
-  CMD wget --no-verbose --tries=1 --spider http://127.0.0.1:5001/health/live || exit 1
+  CMD wget --no-verbose --tries=1 --spider http://127.0.0.1:{PORT}/health/live || exit 1
 
-EXPOSE 5001
+EXPOSE {PORT}
 
 CMD ["node", "dist/index.mjs"]

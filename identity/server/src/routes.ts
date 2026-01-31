@@ -672,28 +672,56 @@ For service-to-service authentication, use POST /api/auth/introspect with { "tok
   // USER AUTH ROUTES
   // ============================================================================
 
-  // User registration
-  app.post("/api/auth/user/register", async (req, res) => {
+  async function handleUserRegister(req: any, res: any) {
     try {
       const data = registerSchema.parse(req.body);
-      
+
       const existingUser = await storage.getUserByEmail(data.email);
       if (existingUser) {
         return res.status(400).json({ message: "Email already in use" });
       }
+
+      // Check if this is the first user in the system - make them super admin
+      const allUsers = await storage.getAllUsers();
+      const isFirstUser = allUsers.length === 0;
 
       const passwordHash = await bcrypt.hash(data.password, SALT_ROUNDS);
       const user = await storage.createUser({
         email: data.email,
         passwordHash,
         name: data.name,
+        isSuperAdmin: isFirstUser,
       });
+
+      // If orgName provided, create organization and add user as admin
+      let org = null;
+      if (data.orgName) {
+        const slug = data.orgName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+        org = await storage.createOrganization({
+          name: data.orgName,
+          slug: slug || 'default',
+        });
+        await storage.createMembership({
+          userId: user.id,
+          orgId: org.id,
+          role: 'admin',
+        });
+        await storage.createAuditLog({
+          userId: user.id,
+          orgId: org.id,
+          action: "org.created",
+          resource: "organization",
+          resourceId: org.id,
+          metadataJson: { name: org.name, slug: org.slug },
+        });
+      }
 
       await storage.createAuditLog({
         userId: user.id,
-        action: "user.registered",
+        orgId: org?.id,
+        action: isFirstUser ? "superadmin.created" : "user.registered",
         resource: "user",
-        metadataJson: { email: user.email },
+        metadataJson: { email: user.email, orgName: data.orgName, isSuperAdmin: isFirstUser },
       });
 
       const token = signToken(user);
@@ -708,9 +736,10 @@ For service-to-service authentication, use POST /api/auth/introspect with { "tok
       });
 
       // Return token in body for cross-origin apps that can't use cookies
-      res.json({ 
-        user: { id: user.id, email: user.email, name: user.name },
-        token 
+      res.json({
+        user: { id: user.id, email: user.email, name: user.name, isSuperAdmin: isFirstUser },
+        organization: org ? { id: org.id, name: org.name, slug: org.slug } : null,
+        token
       });
     } catch (error) {
       if (error instanceof z.ZodError) {
@@ -719,10 +748,14 @@ For service-to-service authentication, use POST /api/auth/introspect with { "tok
       console.error("Registration error:", error);
       res.status(500).json({ message: "Registration failed" });
     }
-  });
+  }
 
-  // User login
-  app.post("/api/auth/user/login", async (req, res) => {
+  // User registration (explicit)
+  app.post("/api/auth/user/register", handleUserRegister);
+  // Unified registration (matches OpenAPI /auth/register under base /api)
+  app.post("/api/auth/register", handleUserRegister);
+
+  async function handleUserLogin(req: any, res: any) {
     try {
       const data = loginSchema.parse(req.body);
       
@@ -781,7 +814,12 @@ For service-to-service authentication, use POST /api/auth/introspect with { "tok
       console.error("Login error:", error);
       res.status(500).json({ message: "Login failed" });
     }
-  });
+  }
+
+  // User login (explicit)
+  app.post("/api/auth/user/login", handleUserLogin);
+  // Unified login (matches OpenAPI /auth/login under base /api)
+  app.post("/api/auth/login", handleUserLogin);
 
   // Logout (works for both users and agents)
   app.post("/api/auth/logout", (req, res) => {

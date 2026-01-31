@@ -1,0 +1,59 @@
+# Symbia Base Image
+# Shared library builds - all services extend from this
+# This dramatically reduces build time by building libraries once
+
+FROM node:20-alpine AS symbia-base
+
+WORKDIR /symbia-libs
+
+# Copy all library package files
+COPY symbia-sys/package*.json ./symbia-sys/
+COPY symbia-db/package*.json ./symbia-db/
+COPY symbia-http/package*.json ./symbia-http/
+COPY symbia-relay/package*.json ./symbia-relay/
+COPY symbia-logging-client/package*.json ./symbia-logging-client/
+COPY symbia-seed/package*.json ./symbia-seed/
+COPY symbia-md/package*.json ./symbia-md/
+COPY symbia-id/package*.json ./symbia-id/
+COPY symbia-messaging-client/package*.json ./symbia-messaging-client/
+
+# Install all library dependencies in parallel
+RUN cd symbia-sys && npm ci --ignore-scripts & \
+    cd symbia-db && npm ci --ignore-scripts & \
+    cd symbia-http && npm ci --ignore-scripts & \
+    cd symbia-relay && npm ci --ignore-scripts & \
+    cd symbia-logging-client && npm ci --ignore-scripts & \
+    cd symbia-seed && npm ci --ignore-scripts & \
+    cd symbia-md && npm ci --ignore-scripts & \
+    cd symbia-id && npm ci --ignore-scripts & \
+    cd symbia-messaging-client && npm ci --ignore-scripts & \
+    wait
+
+# Copy library source files
+COPY symbia-sys/ ./symbia-sys/
+COPY symbia-db/ ./symbia-db/
+COPY symbia-http/ ./symbia-http/
+COPY symbia-relay/ ./symbia-relay/
+COPY symbia-logging-client/ ./symbia-logging-client/
+COPY symbia-seed/ ./symbia-seed/
+COPY symbia-md/ ./symbia-md/
+COPY symbia-id/ ./symbia-id/
+COPY symbia-messaging-client/ ./symbia-messaging-client/
+
+# Build libraries in dependency order
+# Level 0: No internal dependencies
+RUN cd symbia-sys && npm run build || true
+RUN cd symbia-relay && npm run build || true
+RUN cd symbia-logging-client && npm run build || true
+
+# Level 1: Depends on Level 0
+RUN cd symbia-db && npm run build || true
+RUN cd symbia-http && npm run build || true
+RUN cd symbia-seed && npm run build || true
+RUN cd symbia-md && npm run build || true
+RUN cd symbia-id && npm run build || true
+RUN cd symbia-messaging-client && npm run build || true
+
+# Labels for identification
+LABEL org.symbia.image="base"
+LABEL org.symbia.version="1.0"

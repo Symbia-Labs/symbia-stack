@@ -1,0 +1,1828 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Symbia Service Admin</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      /* Symbia Design System Tokens */
+      --surface-base: #0d1117;
+      --surface-raised: #161b22;
+      --surface-overlay: #1c2129;
+      --surface-sunken: #080b0f;
+      --surface-highlight: #1f2a38;
+
+      --border-default: #30363d;
+      --border-muted: #21262d;
+      --border-emphasis: #3fb8af;
+
+      --text-primary: #e6edf3;
+      --text-secondary: #8b949e;
+      --text-muted: #6e7681;
+      --text-link: #3fb8af;
+
+      --primary-500: #3fb8af;
+      --primary-600: #0d9488;
+      --primary-700: #0a7c72;
+
+      --success: #3fb950;
+      --success-muted: #1a4d3a;
+      --warning: #d29922;
+      --warning-muted: #4a3d1a;
+      --error: #f85149;
+      --error-muted: #5c1a1a;
+      --info: #58a6ff;
+
+      /* Legacy aliases for compatibility */
+      --bg-primary: var(--surface-base);
+      --bg-secondary: var(--surface-raised);
+      --bg-tertiary: var(--surface-overlay);
+      --accent: var(--primary-500);
+      --accent-hover: var(--primary-600);
+      --border: var(--border-default);
+
+      /* Typography */
+      --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      --font-mono: 'JetBrains Mono', 'Fira Code', 'SF Mono', Consolas, monospace;
+
+      /* Shadows */
+      --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
+      --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.4);
+      --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.5);
+      --shadow-glow: 0 0 20px rgba(63, 184, 175, 0.15);
+
+      /* Transitions */
+      --transition-fast: 150ms ease;
+      --transition-base: 200ms ease;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: var(--font-sans);
+      background: var(--surface-base);
+      color: var(--text-primary);
+      min-height: 100vh;
+    }
+
+    /* Header */
+    .header {
+      background: var(--bg-secondary);
+      border-bottom: 1px solid var(--border);
+      padding: 1rem 2rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .header h1 {
+      font-size: 1.5rem;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+    }
+
+    .header-logo {
+      width: 32px;
+      height: 32px;
+      border-radius: 6px;
+    }
+
+    .user-info {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      color: var(--text-secondary);
+    }
+
+    .user-info .avatar {
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      background: var(--accent);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 600;
+    }
+
+    /* Main Layout */
+    .main-container {
+      display: flex;
+      height: calc(100vh - 65px);
+    }
+
+    /* Sidebar Tabs */
+    .sidebar {
+      width: 220px;
+      background: var(--bg-secondary);
+      border-right: 1px solid var(--border);
+      padding: 1rem 0;
+      overflow-y: auto;
+    }
+
+    .sidebar-section {
+      padding: 0.5rem 1rem;
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      color: var(--text-secondary);
+      letter-spacing: 0.05em;
+    }
+
+    .service-tab {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      padding: 0.75rem 1rem;
+      cursor: pointer;
+      transition: all 0.15s;
+      border-left: 3px solid transparent;
+    }
+
+    .service-tab:hover {
+      background: var(--bg-tertiary);
+    }
+
+    .service-tab.active {
+      background: var(--surface-overlay);
+      border-left-color: var(--primary-500);
+      box-shadow: inset 3px 0 8px rgba(63, 184, 175, 0.1);
+    }
+
+    .service-tab .status {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--success);
+    }
+
+    .service-tab .status.unhealthy {
+      background: var(--error);
+    }
+
+    .service-tab .name {
+      flex: 1;
+      font-size: 0.9rem;
+    }
+
+    .service-tab .port {
+      font-size: 0.75rem;
+      color: var(--text-secondary);
+      font-family: var(--font-mono);
+    }
+
+    /* Content Area */
+    .content {
+      flex: 1;
+      overflow-y: auto;
+      padding: 2rem;
+    }
+
+    .service-panel {
+      display: none;
+    }
+
+    .service-panel.active {
+      display: block;
+    }
+
+    .panel-header {
+      margin-bottom: 2rem;
+    }
+
+    .panel-header h2 {
+      font-size: 1.75rem;
+      margin-bottom: 0.5rem;
+    }
+
+    .panel-header .meta {
+      color: var(--text-secondary);
+      font-size: 0.9rem;
+    }
+
+    /* Cards */
+    .card {
+      background: var(--surface-raised);
+      border: 1px solid var(--border-default);
+      border-radius: 12px;
+      padding: 1.5rem;
+      margin-bottom: 1.5rem;
+      transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+    }
+
+    .card:hover {
+      border-color: var(--border-emphasis);
+      box-shadow: var(--shadow-glow);
+    }
+
+    .card h3 {
+      font-size: 1rem;
+      margin-bottom: 1rem;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    /* Endpoints List */
+    .endpoints-list {
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+    }
+
+    .endpoint-item {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      padding: 0.75rem 1rem;
+      background: var(--bg-tertiary);
+      border-radius: 6px;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+
+    .endpoint-item:hover {
+      background: var(--bg-primary);
+    }
+
+    .endpoint-item .method {
+      font-size: 0.7rem;
+      font-weight: 700;
+      padding: 0.25rem 0.5rem;
+      border-radius: 4px;
+      min-width: 60px;
+      text-align: center;
+    }
+
+    .method.get { background: rgba(63, 185, 80, 0.15); color: var(--success); }
+    .method.post { background: rgba(63, 184, 175, 0.15); color: var(--primary-500); }
+    .method.put { background: rgba(210, 153, 34, 0.15); color: var(--warning); }
+    .method.delete { background: rgba(248, 81, 73, 0.15); color: var(--error); }
+    .method.patch { background: rgba(168, 85, 247, 0.15); color: #a855f7; }
+
+    .endpoint-item .path {
+      font-family: var(--font-mono);
+      font-size: 0.9rem;
+      flex: 1;
+    }
+
+    .endpoint-item .summary {
+      color: var(--text-secondary);
+      font-size: 0.85rem;
+      max-width: 300px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    /* API Tester */
+    .api-tester {
+      display: none;
+      margin-top: 1rem;
+      padding: 1.5rem;
+      background: var(--bg-primary);
+      border-radius: 6px;
+      border: 1px solid var(--border);
+    }
+
+    .api-tester.active {
+      display: block;
+    }
+
+    .tester-header {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      margin-bottom: 1rem;
+    }
+
+    .tester-header .method {
+      font-size: 0.8rem;
+      font-weight: 700;
+      padding: 0.3rem 0.6rem;
+      border-radius: 4px;
+    }
+
+    .tester-header .path {
+      font-family: var(--font-mono);
+      font-size: 1rem;
+    }
+
+    .form-group {
+      margin-bottom: 1rem;
+    }
+
+    .form-group label {
+      display: block;
+      font-size: 0.85rem;
+      color: var(--text-secondary);
+      margin-bottom: 0.5rem;
+    }
+
+    input, textarea, select {
+      width: 100%;
+      padding: 0.75rem;
+      background: var(--bg-secondary);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      color: var(--text-primary);
+      font-family: inherit;
+      font-size: 0.9rem;
+    }
+
+    input:focus, textarea:focus, select:focus {
+      outline: none;
+      border-color: var(--accent);
+    }
+
+    textarea {
+      min-height: 120px;
+      font-family: var(--font-mono);
+      resize: vertical;
+    }
+
+    button {
+      padding: 0.75rem 1.5rem;
+      background: var(--accent);
+      color: white;
+      border: none;
+      border-radius: 6px;
+      font-size: 0.9rem;
+      font-weight: 500;
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+
+    button:hover {
+      background: var(--accent-hover);
+    }
+
+    button:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    button.secondary {
+      background: var(--bg-tertiary);
+    }
+
+    button.secondary:hover {
+      background: var(--border);
+    }
+
+    /* Response Panel */
+    .response-panel {
+      margin-top: 1rem;
+      padding: 1rem;
+      background: var(--bg-secondary);
+      border-radius: 6px;
+      display: none;
+    }
+
+    .response-panel.active {
+      display: block;
+    }
+
+    .response-status {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      margin-bottom: 0.75rem;
+      font-size: 0.85rem;
+    }
+
+    .response-status .code {
+      font-weight: 700;
+      padding: 0.2rem 0.5rem;
+      border-radius: 4px;
+    }
+
+    .response-status .code.success { background: var(--success-muted); color: var(--success); }
+    .response-status .code.error { background: var(--error-muted); color: var(--error); }
+
+    .response-body {
+      background: var(--surface-base);
+      padding: 1rem;
+      border-radius: 6px;
+      font-family: var(--font-mono);
+      font-size: 0.85rem;
+      white-space: pre-wrap;
+      max-height: 400px;
+      overflow: auto;
+    }
+
+    /* First Run Modal */
+    .modal-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.8);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 1000;
+    }
+
+    .modal-overlay.hidden {
+      display: none;
+    }
+
+    .modal {
+      background: var(--surface-raised);
+      border: 1px solid var(--border-default);
+      border-radius: 16px;
+      padding: 2rem;
+      max-width: 480px;
+      width: 90%;
+      box-shadow: var(--shadow-lg), var(--shadow-glow);
+    }
+
+    .modal h2 {
+      font-size: 1.5rem;
+      margin-bottom: 0.5rem;
+    }
+
+    .modal p {
+      color: var(--text-secondary);
+      margin-bottom: 1.5rem;
+    }
+
+    .modal .form-group {
+      margin-bottom: 1rem;
+    }
+
+    .modal .actions {
+      display: flex;
+      gap: 1rem;
+      margin-top: 1.5rem;
+    }
+
+    /* Loading */
+    .loading {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 2rem;
+      color: var(--text-secondary);
+    }
+
+    .spinner {
+      width: 24px;
+      height: 24px;
+      border: 3px solid var(--border);
+      border-top-color: var(--accent);
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+      margin-right: 0.75rem;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    /* Docs Panel */
+    .docs-panel {
+      margin-top: 1rem;
+      padding: 1rem;
+      background: var(--bg-tertiary);
+      border-radius: 6px;
+      font-size: 0.9rem;
+    }
+
+    .docs-panel h4 {
+      margin-bottom: 0.5rem;
+    }
+
+    .docs-panel .param {
+      display: flex;
+      gap: 0.5rem;
+      padding: 0.5rem 0;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .docs-panel .param:last-child {
+      border-bottom: none;
+    }
+
+    .docs-panel .param-name {
+      font-family: var(--font-mono);
+      color: var(--primary-500);
+    }
+
+    .docs-panel .param-type {
+      color: var(--text-secondary);
+      font-size: 0.8rem;
+    }
+
+    .docs-panel .param-required {
+      color: var(--error);
+      font-size: 0.75rem;
+    }
+
+    /* Empty State */
+    .empty-state {
+      text-align: center;
+      padding: 3rem;
+      color: var(--text-secondary);
+    }
+
+    .empty-state .icon {
+      font-size: 3rem;
+      margin-bottom: 1rem;
+    }
+
+    .org-select {
+      margin-left: 0.75rem;
+      padding: 0.4rem 0.6rem;
+      border-radius: 8px;
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      background: rgba(255, 255, 255, 0.06);
+      color: var(--text-primary);
+      font-size: 0.85rem;
+      max-width: 260px;
+    }
+
+    .org-select.hidden {
+      display: none;
+    }
+
+    /* Enhanced API Documentation */
+    .endpoint-docs {
+      margin-bottom: 1.5rem;
+    }
+
+    .endpoint-docs .endpoint-summary {
+      font-size: 0.95rem;
+      color: var(--text-secondary);
+      line-height: 1.6;
+      margin-bottom: 1rem;
+      padding-bottom: 1rem;
+      border-bottom: 1px solid var(--border-muted);
+    }
+
+    .schema-section {
+      margin-bottom: 1.25rem;
+    }
+
+    .schema-section-title {
+      font-size: 0.75rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--primary-500);
+      margin-bottom: 0.75rem;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .schema-fields {
+      background: var(--surface-sunken);
+      border: 1px solid var(--border-muted);
+      border-radius: 8px;
+      overflow: hidden;
+    }
+
+    .schema-field {
+      display: grid;
+      grid-template-columns: 140px 80px 1fr;
+      gap: 1rem;
+      padding: 0.75rem 1rem;
+      border-bottom: 1px solid var(--border-muted);
+      font-size: 0.85rem;
+      align-items: start;
+    }
+
+    .schema-field:last-child {
+      border-bottom: none;
+    }
+
+    .schema-field:hover {
+      background: var(--surface-base);
+    }
+
+    .schema-field-name {
+      font-family: var(--font-mono);
+      font-weight: 500;
+      color: var(--text-primary);
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .schema-field-name .required-badge {
+      font-size: 0.65rem;
+      padding: 0.1rem 0.35rem;
+      background: var(--error-muted);
+      color: var(--error);
+      border-radius: 3px;
+      font-weight: 600;
+      font-family: var(--font-sans);
+    }
+
+    .schema-field-type {
+      font-family: var(--font-mono);
+      font-size: 0.8rem;
+      color: var(--info);
+      background: rgba(88, 166, 255, 0.1);
+      padding: 0.2rem 0.5rem;
+      border-radius: 4px;
+      text-align: center;
+    }
+
+    .schema-field-desc {
+      color: var(--text-secondary);
+      line-height: 1.5;
+    }
+
+    .schema-field-example {
+      font-family: var(--font-mono);
+      font-size: 0.8rem;
+      color: var(--text-muted);
+      margin-top: 0.25rem;
+    }
+
+    .request-body-section {
+      margin-top: 1.25rem;
+    }
+
+    .request-body-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 0.75rem;
+    }
+
+    .request-body-header label {
+      font-size: 0.75rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--primary-500);
+    }
+
+    .request-body-actions {
+      display: flex;
+      gap: 0.5rem;
+    }
+
+    .request-body-actions button {
+      padding: 0.35rem 0.75rem;
+      font-size: 0.75rem;
+      background: var(--surface-overlay);
+      border: 1px solid var(--border-default);
+    }
+
+    .request-body-actions button:hover {
+      background: var(--surface-highlight);
+      border-color: var(--primary-500);
+    }
+
+    textarea.body-editor {
+      min-height: 180px;
+      font-family: var(--font-mono);
+      font-size: 0.85rem;
+      line-height: 1.5;
+      background: var(--surface-sunken);
+      border: 1px solid var(--border-muted);
+      padding: 1rem;
+    }
+
+    textarea.body-editor:focus {
+      border-color: var(--primary-500);
+      box-shadow: 0 0 0 3px rgba(63, 184, 175, 0.15);
+    }
+
+    .tester-actions {
+      margin-top: 1.25rem;
+      display: flex;
+      gap: 0.75rem;
+      padding-top: 1.25rem;
+      border-top: 1px solid var(--border-muted);
+    }
+
+    .tester-actions button {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .response-panel {
+      margin-top: 1.25rem;
+      padding: 1.25rem;
+      background: var(--surface-sunken);
+      border: 1px solid var(--border-muted);
+      border-radius: 8px;
+      display: none;
+    }
+
+    .response-panel.active {
+      display: block;
+    }
+
+    .response-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 1rem;
+      padding-bottom: 0.75rem;
+      border-bottom: 1px solid var(--border-muted);
+    }
+
+    .response-meta {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      font-size: 0.85rem;
+    }
+
+    .response-meta .label {
+      color: var(--text-muted);
+    }
+
+    .response-time {
+      font-family: var(--font-mono);
+      color: var(--text-secondary);
+    }
+
+    /* Parameter inputs with better styling */
+    .param-input-group {
+      display: grid;
+      grid-template-columns: 120px 1fr;
+      gap: 1rem;
+      align-items: center;
+      padding: 0.75rem 0;
+      border-bottom: 1px solid var(--border-muted);
+    }
+
+    .param-input-group:last-child {
+      border-bottom: none;
+    }
+
+    .param-label {
+      display: flex;
+      flex-direction: column;
+      gap: 0.25rem;
+    }
+
+    .param-label .name {
+      font-family: var(--font-mono);
+      font-weight: 500;
+      color: var(--text-primary);
+      font-size: 0.9rem;
+    }
+
+    .param-label .type {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+    }
+
+    .param-input {
+      display: flex;
+      flex-direction: column;
+      gap: 0.25rem;
+    }
+
+    .param-input input {
+      background: var(--surface-sunken);
+      border: 1px solid var(--border-muted);
+    }
+
+    .param-input input:focus {
+      border-color: var(--primary-500);
+      box-shadow: 0 0 0 3px rgba(63, 184, 175, 0.15);
+    }
+
+    .param-input .hint {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+    }
+  </style>
+</head>
+<body>
+  <!-- First Run Modal -->
+  <div id="firstRunModal" class="modal-overlay hidden">
+    <div class="modal">
+      <h2 id="authTitle">👋 Welcome</h2>
+      <p id="authSubtitle">Create your identity to get started with the service dashboard.</p>
+      <form id="registerForm">
+        <div class="form-group" id="regNameGroup">
+          <label for="regName">Name</label>
+          <input type="text" id="regName" placeholder="Enter your name" required>
+        </div>
+        <div class="form-group">
+          <label for="regEmail">Email</label>
+          <input type="email" id="regEmail" placeholder="you@example.com" required>
+        </div>
+        <div class="form-group">
+          <label for="regPassword">Password</label>
+          <input type="password" id="regPassword" placeholder="Create password" required>
+        </div>
+        <div class="form-group" id="orgNameGroup">
+          <label for="orgName">Organization</label>
+          <input type="text" id="orgName" placeholder="Acme Inc" required>
+        </div>
+        <div class="form-group" id="orgSlugGroup">
+          <label for="orgSlug">Organization Slug</label>
+          <input type="text" id="orgSlug" placeholder="acme" required>
+        </div>
+        <div id="regError" style="color: var(--error); font-size: 0.85rem; margin-bottom: 1rem; display: none;"></div>
+        <div class="actions">
+          <button type="submit" id="regSubmit">Create Identity</button>
+          <button type="button" class="secondary" id="loginToggleBtn" onclick="handleAuthSecondary()">Login</button>
+          <button type="button" class="secondary" onclick="skipRegistration()">Skip for Now</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Header -->
+  <header class="header">
+    <h1>
+      <img src="../symbia-icon.png" alt="Symbia" class="header-logo">
+      Service Admin
+    </h1>
+    <div class="user-info" id="userInfo">
+      <span id="userName">Not signed in</span>
+      <select id="orgSelect" class="org-select hidden" title="Organization context"></select>
+    </div>
+  </header>
+
+  <!-- Main Container -->
+  <div class="main-container">
+    <!-- Sidebar -->
+    <nav class="sidebar">
+      <div class="sidebar-section">Services</div>
+      <div id="serviceTabs"></div>
+    </nav>
+
+    <!-- Content -->
+    <main class="content" id="contentArea">
+      <div class="loading" id="initialLoading">
+        <div class="spinner"></div>
+        Discovering services...
+      </div>
+    </main>
+  </div>
+
+  <script>
+    // Service configuration
+    const SERVICES = [
+      { id: 'identity', name: 'Identity', port: 5001 },
+      { id: 'logging', name: 'Logging', port: 5002 },
+      { id: 'catalog', name: 'Catalog', port: 5003 },
+      { id: 'assistants', name: 'Assistants', port: 5004 },
+      { id: 'messaging', name: 'Messaging', port: 5005 },
+      { id: 'runtime', name: 'Runtime', port: 5006 },
+      { id: 'integrations', name: 'Integrations', port: 5007 },
+      { id: 'network', name: 'Network', port: 5054 },
+      { id: 'postgresql', name: 'PostgreSQL', port: 5432 }
+    ];
+
+    // State
+    let serviceSpecs = {};
+    let currentService = null;
+    let currentUser = null;
+    let currentOrgId = null;
+    let authMode = 'register'; // register | login | org
+
+    // Initialize
+    document.addEventListener('DOMContentLoaded', init);
+
+    async function init() {
+      checkFirstRun();
+      renderServiceTabs();
+      await discoverServices();
+
+      // Select first service by default
+      if (SERVICES.length > 0) {
+        selectService(SERVICES[0].id);
+      }
+    }
+
+    function checkFirstRun() {
+      const user = localStorage.getItem('dashboard_user');
+      if (user) {
+        currentUser = JSON.parse(user);
+        currentOrgId = localStorage.getItem('dashboard_org_id');
+        updateUserDisplay();
+      } else {
+        showRegister();
+      }
+    }
+
+    function updateUserDisplay() {
+      if (currentUser) {
+        document.getElementById('userName').textContent = currentUser.name;
+        const userInfo = document.getElementById('userInfo');
+        if (!userInfo.querySelector('.avatar')) {
+          const avatar = document.createElement('div');
+          avatar.className = 'avatar';
+          avatar.textContent = currentUser.name[0].toUpperCase();
+          userInfo.insertBefore(avatar, userInfo.firstChild);
+        }
+
+        // Load org context for scoped services (required)
+        loadOrganizations().catch(() => {});
+      }
+    }
+
+    function slugify(str) {
+      return (str || '')
+        .toLowerCase()
+        .trim()
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/^-+|-+$/g, '')
+        .slice(0, 40) || 'org';
+    }
+
+    function showAuthModal() {
+      document.getElementById('firstRunModal').classList.remove('hidden');
+      document.getElementById('regError').style.display = 'none';
+    }
+
+    function hideAuthModal() {
+      document.getElementById('firstRunModal').classList.add('hidden');
+    }
+
+    function setAuthCopy(title, subtitle) {
+      document.getElementById('authTitle').textContent = title;
+      document.getElementById('authSubtitle').textContent = subtitle;
+    }
+
+    function toggleGroup(id, visible) {
+      const el = document.getElementById(id);
+      if (!el) return;
+      el.style.display = visible ? '' : 'none';
+      const input = el.querySelector('input');
+      if (input) input.required = visible;
+    }
+
+    function showRegister() {
+      authMode = 'register';
+      setAuthCopy('👋 Welcome', 'Create your identity and organization to get started with the service dashboard.');
+      document.getElementById('regSubmit').textContent = 'Create Identity';
+      document.getElementById('loginToggleBtn').textContent = 'Login';
+      toggleGroup('regNameGroup', true);
+      toggleGroup('orgNameGroup', true);
+      toggleGroup('orgSlugGroup', true);
+      showAuthModal();
+    }
+
+    function showLogin() {
+      authMode = 'login';
+      setAuthCopy('🔐 Login', 'Sign in to continue.');
+      document.getElementById('regSubmit').textContent = 'Login';
+      document.getElementById('loginToggleBtn').textContent = 'Create Account';
+      toggleGroup('regNameGroup', false);
+      toggleGroup('orgNameGroup', false);
+      toggleGroup('orgSlugGroup', false);
+      showAuthModal();
+    }
+
+    function showOrgSetup() {
+      authMode = 'org';
+      setAuthCopy('🏢 Organization Required', 'Create an organization to continue.');
+      document.getElementById('regSubmit').textContent = 'Create Organization';
+      document.getElementById('loginToggleBtn').textContent = 'Logout';
+      toggleGroup('regNameGroup', false);
+      toggleGroup('orgNameGroup', true);
+      toggleGroup('orgSlugGroup', true);
+      showAuthModal();
+    }
+
+    function handleAuthSecondary() {
+      if (authMode === 'login') {
+        showRegister();
+        return;
+      }
+      if (authMode === 'org') {
+        logout();
+        return;
+      }
+      showLogin();
+    }
+
+    function logout() {
+      currentUser = null;
+      currentOrgId = null;
+      localStorage.removeItem('dashboard_user');
+      localStorage.removeItem('dashboard_org_id');
+      const orgSelect = document.getElementById('orgSelect');
+      orgSelect.classList.add('hidden');
+      orgSelect.innerHTML = '';
+      document.getElementById('userName').textContent = 'Not signed in';
+      showRegister();
+    }
+
+    async function loadOrganizations() {
+      if (!currentUser?.token) return;
+
+      const orgSelect = document.getElementById('orgSelect');
+      orgSelect.classList.remove('hidden');
+
+      const res = await fetch('/proxy/5001/api/orgs', {
+        headers: {
+          ...(currentUser?.token ? { 'Authorization': `Bearer ${currentUser.token}` } : {}),
+        },
+      });
+
+      if (!res.ok) return;
+      const data = await res.json().catch(() => null);
+      let orgs = data?.organizations || [];
+
+      if (orgs.length === 0) {
+        // Require explicit org creation on first use
+        showOrgSetup();
+        return;
+      }
+
+      if (orgs.length === 0) {
+        orgSelect.innerHTML = `<option value="">No organizations</option>`;
+        currentOrgId = null;
+        localStorage.removeItem('dashboard_org_id');
+        return;
+      }
+
+      orgSelect.innerHTML = orgs.map(o => `<option value="${o.id}">${o.name}</option>`).join('');
+
+      const preferred = currentOrgId && orgs.find(o => o.id === currentOrgId) ? currentOrgId : orgs[0].id;
+      orgSelect.value = preferred;
+      currentOrgId = preferred;
+      localStorage.setItem('dashboard_org_id', currentOrgId);
+    }
+
+    document.getElementById('orgSelect').addEventListener('change', (e) => {
+      const next = e.target.value || null;
+      currentOrgId = next;
+      if (currentOrgId) localStorage.setItem('dashboard_org_id', currentOrgId);
+      else localStorage.removeItem('dashboard_org_id');
+    });
+
+    // Convenience: auto-suggest org slug from org name (unless user already typed one)
+    document.getElementById('orgName').addEventListener('input', () => {
+      const orgName = document.getElementById('orgName').value;
+      const orgSlugEl = document.getElementById('orgSlug');
+      if (!orgSlugEl.value) {
+        orgSlugEl.value = slugify(orgName);
+      }
+    });
+
+    // Registration - discovers endpoint from Identity service OpenAPI spec
+    let identitySpec = null;
+    let registerEndpoint = null;
+    let identityApiBase = '/api';
+
+    async function discoverIdentityEndpoints() {
+      try {
+        const res = await fetch('/proxy/5001/docs/openapi.json');
+        if (res.ok) {
+          identitySpec = await res.json();
+          identityApiBase = (identitySpec?.servers?.[0]?.url || '/api').replace(/\/$/, '') || '/api';
+          // Find registration endpoint (look for register, signup, create user patterns)
+          for (const [path, methods] of Object.entries(identitySpec.paths || {})) {
+            for (const [method, details] of Object.entries(methods)) {
+              const lowerPath = path.toLowerCase();
+              const lowerSummary = (details.summary || '').toLowerCase();
+              const lowerOpId = (details.operationId || '').toLowerCase();
+              if (method === 'post' &&
+                  (lowerPath.includes('/user/register') || lowerPath.includes('signup') ||
+                   lowerSummary.includes('register') || lowerSummary.includes('create user') ||
+                   lowerOpId.includes('register') || lowerOpId.includes('signup'))) {
+                registerEndpoint = { path, method, ...details };
+                console.log('Discovered register endpoint:', path);
+                break;
+              }
+            }
+            if (registerEndpoint) break;
+          }
+        }
+      } catch (err) {
+        console.log('Could not discover Identity endpoints:', err);
+      }
+    }
+
+    // Discover on load
+    discoverIdentityEndpoints();
+
+    document.getElementById('registerForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const name = document.getElementById('regName').value;
+      const email = document.getElementById('regEmail').value;
+      const password = document.getElementById('regPassword').value;
+      const orgName = document.getElementById('orgName').value;
+      const orgSlugRaw = document.getElementById('orgSlug').value;
+      const orgSlug = slugify(orgSlugRaw || orgName);
+      const errorEl = document.getElementById('regError');
+      const submitBtn = document.getElementById('regSubmit');
+      const toggleBtn = document.getElementById('loginToggleBtn');
+
+      submitBtn.disabled = true;
+      toggleBtn.disabled = true;
+      submitBtn.textContent = 'Creating...';
+      errorEl.style.display = 'none';
+
+      try {
+        if (authMode === 'login') {
+          const loginRes = await fetch('/proxy/5001/api/auth/login', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email, password })
+          });
+
+          if (!loginRes.ok) {
+            const err = await loginRes.json().catch(() => ({ message: 'Login failed' }));
+            throw new Error(err.message || 'Login failed');
+          }
+
+          const data = await loginRes.json();
+          currentUser = { name: data.user?.name || email, email: data.user?.email || email, token: data.token };
+          localStorage.setItem('dashboard_user', JSON.stringify(currentUser));
+          updateUserDisplay();
+          hideAuthModal();
+          return;
+        }
+
+        if (authMode === 'org') {
+          if (!currentUser?.token) throw new Error('Login required');
+          const createOrgRes = await fetch('/proxy/5001/api/orgs', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${currentUser.token}`,
+            },
+            body: JSON.stringify({ name: orgName, slug: orgSlug }),
+          });
+
+          if (!createOrgRes.ok) {
+            const err = await createOrgRes.json().catch(() => ({ message: 'Organization creation failed' }));
+            throw new Error(err.message || 'Organization creation failed');
+          }
+
+          const org = await createOrgRes.json();
+          currentOrgId = org.id;
+          localStorage.setItem('dashboard_org_id', currentOrgId);
+          await loadOrganizations();
+          hideAuthModal();
+          return;
+        }
+
+        // Register flow: create user, then create org (required)
+        const endpointPath = registerEndpoint
+          ? `${identityApiBase}${registerEndpoint.path}`
+          : `${identityApiBase}/auth/register`;
+        const endpoint = `/proxy/5001${endpointPath}`;
+
+        const response = await fetch(endpoint, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name, email, password })
+        });
+
+        if (!response.ok) {
+          const err = await response.json().catch(() => ({ message: 'Registration failed' }));
+          throw new Error(err.message || 'Registration failed');
+        }
+
+        const data = await response.json();
+        currentUser = { name, email, token: data.token };
+        localStorage.setItem('dashboard_user', JSON.stringify(currentUser));
+
+        const createOrgRes = await fetch('/proxy/5001/api/orgs', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${currentUser.token}`,
+          },
+          body: JSON.stringify({ name: orgName, slug: orgSlug }),
+        });
+
+        if (!createOrgRes.ok) {
+          const err = await createOrgRes.json().catch(() => ({ message: 'Organization creation failed' }));
+          throw new Error(err.message || 'Organization creation failed');
+        }
+
+        const org = await createOrgRes.json();
+        currentOrgId = org.id;
+        localStorage.setItem('dashboard_org_id', currentOrgId);
+        updateUserDisplay();
+        hideAuthModal();
+      } catch (err) {
+        const msg = err.message || 'Request failed';
+        errorEl.textContent = msg;
+        errorEl.style.display = 'block';
+
+        // If user registration succeeded but org creation failed, switch to org-only mode
+        // so the user can retry without re-registering.
+        if (authMode === 'register' && currentUser?.token && !currentOrgId) {
+          showOrgSetup();
+          errorEl.textContent = msg;
+          errorEl.style.display = 'block';
+        }
+      }
+
+      submitBtn.disabled = false;
+      toggleBtn.disabled = false;
+      if (authMode === 'login') submitBtn.textContent = 'Login';
+      else if (authMode === 'org') submitBtn.textContent = 'Create Organization';
+      else submitBtn.textContent = 'Create Identity';
+    });
+
+    function skipRegistration() {
+      document.getElementById('firstRunModal').classList.add('hidden');
+    }
+
+    // Service Tabs
+    function renderServiceTabs() {
+      const container = document.getElementById('serviceTabs');
+      container.innerHTML = SERVICES.map(svc => `
+        <div class="service-tab" data-service="${svc.id}" onclick="selectService('${svc.id}')">
+          <div class="status" id="status-${svc.id}"></div>
+          <span class="name">${svc.name}</span>
+          <span class="port">:${svc.port}</span>
+        </div>
+      `).join('');
+    }
+
+    async function selectService(serviceId) {
+      currentService = serviceId;
+
+      // Update tab states
+      document.querySelectorAll('.service-tab').forEach(tab => {
+        tab.classList.toggle('active', tab.dataset.service === serviceId);
+      });
+
+      // Render service panel
+      renderServicePanel(serviceId);
+    }
+
+    // Service Discovery
+    async function discoverServices() {
+      document.getElementById('initialLoading').style.display = 'flex';
+
+      const discoveries = SERVICES.map(async (svc) => {
+        try {
+          // OpenAPI endpoint
+          const endpoints = [
+            `/docs/openapi.json`
+          ];
+
+          for (const endpoint of endpoints) {
+            try {
+              const res = await fetch(`/proxy/${svc.port}${endpoint}`, {
+                signal: AbortSignal.timeout(3000)
+              });
+              if (res.ok) {
+                const spec = await res.json();
+                serviceSpecs[svc.id] = spec;
+                document.getElementById(`status-${svc.id}`).classList.remove('unhealthy');
+                return;
+              }
+            } catch {}
+          }
+
+          // Try health check
+          try {
+            const healthRes = await fetch(`/proxy/${svc.port}/health`, {
+              signal: AbortSignal.timeout(2000)
+            });
+            if (healthRes.ok) {
+              document.getElementById(`status-${svc.id}`).classList.remove('unhealthy');
+              serviceSpecs[svc.id] = { info: { title: svc.name }, paths: {} };
+              return;
+            }
+          } catch {}
+
+          document.getElementById(`status-${svc.id}`).classList.add('unhealthy');
+        } catch (err) {
+          document.getElementById(`status-${svc.id}`).classList.add('unhealthy');
+        }
+      });
+
+      await Promise.all(discoveries);
+      document.getElementById('initialLoading').style.display = 'none';
+    }
+
+    // ========================================
+    // OpenAPI Schema Helpers
+    // ========================================
+
+    // Resolve a $ref in the OpenAPI spec
+    function resolveRef(spec, ref) {
+      if (!ref || !ref.startsWith('#/')) return null;
+      const parts = ref.slice(2).split('/');
+      let obj = spec;
+      for (const part of parts) {
+        obj = obj?.[part];
+        if (!obj) return null;
+      }
+      return obj;
+    }
+
+    // Get the schema for a request body
+    function getRequestBodySchema(spec, endpoint) {
+      const requestBody = endpoint.requestBody;
+      if (!requestBody) return null;
+
+      // Handle $ref at requestBody level
+      let body = requestBody;
+      if (body.$ref) {
+        body = resolveRef(spec, body.$ref);
+      }
+
+      const content = body?.content;
+      if (!content) return null;
+
+      // Prefer application/json
+      const jsonContent = content['application/json'] || content['*/*'] || Object.values(content)[0];
+      if (!jsonContent?.schema) return null;
+
+      let schema = jsonContent.schema;
+      if (schema.$ref) {
+        schema = resolveRef(spec, schema.$ref);
+      }
+
+      return schema;
+    }
+
+    // Generate example value for a schema type
+    function generateExampleValue(schema, spec, depth = 0) {
+      if (!schema || depth > 5) return null;
+
+      // Handle $ref
+      if (schema.$ref) {
+        schema = resolveRef(spec, schema.$ref);
+        if (!schema) return null;
+      }
+
+      // Use example if provided
+      if (schema.example !== undefined) return schema.example;
+      if (schema.default !== undefined) return schema.default;
+
+      // Handle enum
+      if (schema.enum && schema.enum.length > 0) {
+        return schema.enum[0];
+      }
+
+      const type = schema.type;
+
+      if (type === 'object' || schema.properties) {
+        const obj = {};
+        const props = schema.properties || {};
+        const required = schema.required || [];
+
+        for (const [key, propSchema] of Object.entries(props)) {
+          // Include required fields and a few optional ones
+          if (required.includes(key) || Object.keys(obj).length < 5) {
+            obj[key] = generateExampleValue(propSchema, spec, depth + 1);
+          }
+        }
+        return obj;
+      }
+
+      if (type === 'array') {
+        const itemSchema = schema.items;
+        if (itemSchema) {
+          const item = generateExampleValue(itemSchema, spec, depth + 1);
+          return item !== null ? [item] : [];
+        }
+        return [];
+      }
+
+      if (type === 'string') {
+        if (schema.format === 'email') return 'user@example.com';
+        if (schema.format === 'uri' || schema.format === 'url') return 'https://example.com';
+        if (schema.format === 'uuid') return '550e8400-e29b-41d4-a716-446655440000';
+        if (schema.format === 'date') return '2024-01-15';
+        if (schema.format === 'date-time') return '2024-01-15T09:30:00Z';
+        if (schema.format === 'password') return 'your-password';
+        if (schema.minLength) return 'x'.repeat(schema.minLength);
+        return 'string';
+      }
+
+      if (type === 'integer' || type === 'number') {
+        if (schema.minimum !== undefined) return schema.minimum;
+        if (schema.maximum !== undefined) return Math.min(schema.maximum, 100);
+        return type === 'integer' ? 0 : 0.0;
+      }
+
+      if (type === 'boolean') return true;
+
+      return null;
+    }
+
+    // Generate a JSON template string from a schema
+    function generateJsonTemplate(spec, endpoint) {
+      const schema = getRequestBodySchema(spec, endpoint);
+      if (!schema) return '{\n  \n}';
+
+      const example = generateExampleValue(schema, spec);
+      if (example === null) return '{\n  \n}';
+
+      try {
+        return JSON.stringify(example, null, 2);
+      } catch {
+        return '{\n  \n}';
+      }
+    }
+
+    // Extract field documentation from a schema
+    function getSchemaFields(spec, endpoint) {
+      const schema = getRequestBodySchema(spec, endpoint);
+      if (!schema) return [];
+
+      let resolved = schema;
+      if (schema.$ref) {
+        resolved = resolveRef(spec, schema.$ref);
+      }
+
+      const properties = resolved?.properties || {};
+      const required = resolved?.required || [];
+
+      return Object.entries(properties).map(([name, propSchema]) => {
+        let prop = propSchema;
+        if (prop.$ref) {
+          prop = resolveRef(spec, prop.$ref) || prop;
+        }
+
+        let type = prop.type || 'any';
+        if (prop.enum) type = 'enum';
+        if (prop.format) type = `${type} (${prop.format})`;
+        if (type === 'array' && prop.items) {
+          const itemType = prop.items.type || (prop.items.$ref ? 'object' : 'any');
+          type = `${itemType}[]`;
+        }
+
+        return {
+          name,
+          type,
+          required: required.includes(name),
+          description: prop.description || '',
+          example: prop.example,
+          enum: prop.enum,
+          format: prop.format
+        };
+      });
+    }
+
+    // Get parameter documentation with better formatting
+    function getParamDocs(param) {
+      let type = param.schema?.type || 'string';
+      if (param.schema?.format) type = `${type} (${param.schema.format})`;
+      if (param.schema?.enum) type = 'enum';
+
+      return {
+        name: param.name,
+        type,
+        required: param.required || false,
+        description: param.description || '',
+        example: param.example || param.schema?.example,
+        enum: param.schema?.enum
+      };
+    }
+
+    // ========================================
+    // Render Service Panel
+    // ========================================
+
+    function renderServicePanel(serviceId) {
+      const service = SERVICES.find(s => s.id === serviceId);
+      const spec = serviceSpecs[serviceId];
+      const content = document.getElementById('contentArea');
+
+      if (!spec) {
+        content.innerHTML = `
+          <div class="panel-header">
+            <h2>${service.name}</h2>
+            <div class="meta">Port ${service.port}</div>
+          </div>
+          <div class="empty-state">
+            <div class="icon">🔌</div>
+            <p>Could not discover API specification for this service.</p>
+            <p style="margin-top: 0.5rem; font-size: 0.85rem;">
+              Make sure the service exposes /docs/openapi.json
+            </p>
+          </div>
+        `;
+        return;
+      }
+
+      const endpoints = [];
+      if (spec.paths) {
+        for (const [path, methods] of Object.entries(spec.paths)) {
+          for (const [method, details] of Object.entries(methods)) {
+            if (['get', 'post', 'put', 'delete', 'patch'].includes(method)) {
+              endpoints.push({ path, method, ...details });
+            }
+          }
+        }
+      }
+
+      content.innerHTML = `
+        <div class="panel-header">
+          <h2>${spec.info?.title || service.name}</h2>
+          <div class="meta">
+            ${spec.info?.version ? `v${spec.info.version} · ` : ''}
+            Port ${service.port} · ${endpoints.length} endpoints
+          </div>
+        </div>
+
+        <div class="card">
+          <h3>📡 API Endpoints</h3>
+          ${endpoints.length > 0 ? `
+            <div class="endpoints-list">
+              ${endpoints.map((ep, idx) => `
+                <div class="endpoint-item" onclick="toggleEndpoint('${serviceId}', ${idx})">
+                  <span class="method ${ep.method}">${ep.method.toUpperCase()}</span>
+                  <span class="path">${ep.path}</span>
+                  <span class="summary">${ep.summary || ''}</span>
+                </div>
+                <div class="api-tester" id="tester-${serviceId}-${idx}">
+                  ${renderApiTester(service, ep, idx)}
+                </div>
+              `).join('')}
+            </div>
+          ` : '<div class="empty-state"><p>No endpoints discovered</p></div>'}
+        </div>
+
+        ${spec.info?.description ? `
+          <div class="card">
+            <h3>📖 Documentation</h3>
+            <p style="color: var(--text-secondary); line-height: 1.6;">${spec.info.description}</p>
+          </div>
+        ` : ''}
+      `;
+
+      // Store endpoints for later reference
+      window.currentEndpoints = endpoints;
+    }
+
+    function renderApiTester(service, endpoint, idx) {
+      const spec = serviceSpecs[service.id];
+      const hasBody = ['post', 'put', 'patch'].includes(endpoint.method);
+      const params = endpoint.parameters || [];
+      const pathParams = params.filter(p => p.in === 'path').map(p => getParamDocs(p));
+      const queryParams = params.filter(p => p.in === 'query').map(p => getParamDocs(p));
+
+      // Get schema-based documentation
+      const bodyFields = hasBody ? getSchemaFields(spec, endpoint) : [];
+      const bodyTemplate = hasBody ? generateJsonTemplate(spec, endpoint) : '';
+
+      // Escape the template for use in HTML attribute
+      const escapedTemplate = bodyTemplate.replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+
+      return `
+        <div class="endpoint-docs">
+          <div class="tester-header">
+            <span class="method ${endpoint.method}">${endpoint.method.toUpperCase()}</span>
+            <span class="path">${endpoint.path}</span>
+          </div>
+
+          ${endpoint.summary || endpoint.description ? `
+            <p class="endpoint-summary">${endpoint.description || endpoint.summary}</p>
+          ` : ''}
+
+          ${pathParams.length > 0 ? `
+            <div class="schema-section">
+              <div class="schema-section-title">
+                <span>Path Parameters</span>
+              </div>
+              <div class="schema-fields">
+                ${pathParams.map(p => `
+                  <div class="param-input-group">
+                    <div class="param-label">
+                      <span class="name">${p.name}${p.required ? ' *' : ''}</span>
+                      <span class="type">${p.type}</span>
+                    </div>
+                    <div class="param-input">
+                      <input type="text" id="param-${idx}-${p.name}"
+                             placeholder="${p.example || p.description || `Enter ${p.name}`}">
+                      ${p.description ? `<span class="hint">${p.description}</span>` : ''}
+                      ${p.enum ? `<span class="hint">Options: ${p.enum.join(', ')}</span>` : ''}
+                    </div>
+                  </div>
+                `).join('')}
+              </div>
+            </div>
+          ` : ''}
+
+          ${queryParams.length > 0 ? `
+            <div class="schema-section">
+              <div class="schema-section-title">
+                <span>Query Parameters</span>
+              </div>
+              <div class="schema-fields">
+                ${queryParams.map(p => `
+                  <div class="param-input-group">
+                    <div class="param-label">
+                      <span class="name">${p.name}${p.required ? ' *' : ''}</span>
+                      <span class="type">${p.type}</span>
+                    </div>
+                    <div class="param-input">
+                      <input type="text" id="query-${idx}-${p.name}"
+                             placeholder="${p.example || p.description || `Enter ${p.name}`}">
+                      ${p.description ? `<span class="hint">${p.description}</span>` : ''}
+                      ${p.enum ? `<span class="hint">Options: ${p.enum.join(', ')}</span>` : ''}
+                    </div>
+                  </div>
+                `).join('')}
+              </div>
+            </div>
+          ` : ''}
+
+          ${hasBody ? `
+            ${bodyFields.length > 0 ? `
+              <div class="schema-section">
+                <div class="schema-section-title">
+                  <span>Request Body Schema</span>
+                </div>
+                <div class="schema-fields">
+                  ${bodyFields.map(f => `
+                    <div class="schema-field">
+                      <div class="schema-field-name">
+                        ${f.name}
+                        ${f.required ? '<span class="required-badge">required</span>' : ''}
+                      </div>
+                      <div class="schema-field-type">${f.type}</div>
+                      <div class="schema-field-desc">
+                        ${f.description || '<span style="color: var(--text-muted);">No description</span>'}
+                        ${f.enum ? `<div class="schema-field-example">Allowed: ${f.enum.join(' | ')}</div>` : ''}
+                        ${f.example !== undefined ? `<div class="schema-field-example">Example: ${JSON.stringify(f.example)}</div>` : ''}
+                      </div>
+                    </div>
+                  `).join('')}
+                </div>
+              </div>
+            ` : ''}
+
+            <div class="request-body-section">
+              <div class="request-body-header">
+                <label>Request Body (JSON)</label>
+                <div class="request-body-actions">
+                  <button type="button" onclick="resetBodyTemplate('${service.id}', ${idx})">Reset Template</button>
+                  <button type="button" onclick="formatJsonBody(${idx})">Format JSON</button>
+                </div>
+              </div>
+              <textarea id="body-${idx}" class="body-editor" data-template="${escapedTemplate}">${bodyTemplate}</textarea>
+            </div>
+          ` : ''}
+        </div>
+
+        <div class="tester-actions">
+          <button onclick="executeRequest('${service.id}', ${idx})">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z"/>
+            </svg>
+            Send Request
+          </button>
+          <button class="secondary" onclick="toggleEndpoint('${service.id}', ${idx})">Close</button>
+        </div>
+
+        <div class="response-panel" id="response-${idx}">
+          <div class="response-header">
+            <div class="response-meta">
+              <span class="label">Status:</span>
+              <span class="code" id="response-code-${idx}"></span>
+              <span class="response-time" id="response-time-${idx}"></span>
+            </div>
+          </div>
+          <pre class="response-body" id="response-body-${idx}"></pre>
+        </div>
+      `;
+    }
+
+    // Helper to reset body textarea to template
+    function resetBodyTemplate(serviceId, idx) {
+      const textarea = document.getElementById(`body-${idx}`);
+      if (textarea) {
+        textarea.value = textarea.dataset.template || '{\n  \n}';
+      }
+    }
+
+    // Helper to format JSON in body textarea
+    function formatJsonBody(idx) {
+      const textarea = document.getElementById(`body-${idx}`);
+      if (textarea) {
+        try {
+          const parsed = JSON.parse(textarea.value);
+          textarea.value = JSON.stringify(parsed, null, 2);
+        } catch (e) {
+          // If invalid JSON, don't change it
+          console.warn('Invalid JSON, cannot format');
+        }
+      }
+    }
+
+    function toggleEndpoint(serviceId, idx) {
+      const tester = document.getElementById(`tester-${serviceId}-${idx}`);
+      tester.classList.toggle('active');
+    }
+
+    async function executeRequest(serviceId, idx) {
+      const service = SERVICES.find(s => s.id === serviceId);
+      const endpoint = window.currentEndpoints[idx];
+      const params = endpoint.parameters || [];
+
+      const joinPaths = (a, b) => {
+        const left = (a || '').replace(/\/+$/, '');
+        const right = (b || '').replace(/^\/+/, '');
+        if (!left) return `/${right}`;
+        if (!right) return left || '/';
+        return `${left}/${right}`;
+      };
+
+      // Build URL with path params
+      let apiBase = serviceSpecs?.[serviceId]?.servers?.[0]?.url || '';
+      apiBase = (apiBase || '').replace(/\/$/, '');
+      if (apiBase && apiBase.startsWith('http')) {
+        try {
+          apiBase = new URL(apiBase).pathname.replace(/\/$/, '');
+        } catch {}
+      }
+      if (apiBase && !apiBase.startsWith('/')) apiBase = `/${apiBase}`;
+
+      const apiPath = joinPaths(apiBase || '', endpoint.path || '');
+      let url = `/proxy/${service.port}${apiPath}`;
+
+      params.filter(p => p.in === 'path').forEach(p => {
+        const val = document.getElementById(`param-${idx}-${p.name}`)?.value;
+        if (val) url = url.replace(`{${p.name}}`, encodeURIComponent(val));
+      });
+
+      // Add query params
+      const queryParams = params.filter(p => p.in === 'query');
+      if (queryParams.length > 0) {
+        const qp = new URLSearchParams();
+        queryParams.forEach(p => {
+          const val = document.getElementById(`query-${idx}-${p.name}`)?.value;
+          if (val) qp.append(p.name, val);
+        });
+        if (qp.toString()) url += `?${qp.toString()}`;
+      }
+
+      // Prepare request
+      const options = {
+        method: endpoint.method.toUpperCase(),
+        headers: { 'Content-Type': 'application/json' }
+      };
+
+      // Add auth token if available
+      if (currentUser?.token) {
+        options.headers['Authorization'] = `Bearer ${currentUser.token}`;
+      }
+
+      // Add org scoping if available (many services are multi-tenant)
+      if (currentOrgId) {
+        options.headers['X-Org-Id'] = currentOrgId;
+      }
+
+      // Add body
+      if (['post', 'put', 'patch'].includes(endpoint.method)) {
+        const bodyEl = document.getElementById(`body-${idx}`);
+        if (bodyEl?.value) {
+          try {
+            options.body = bodyEl.value;
+          } catch {}
+        }
+      }
+
+      // Execute
+      const responsePanel = document.getElementById(`response-${idx}`);
+      const codeEl = document.getElementById(`response-code-${idx}`);
+      const timeEl = document.getElementById(`response-time-${idx}`);
+      const bodyEl = document.getElementById(`response-body-${idx}`);
+
+      responsePanel.classList.add('active');
+      codeEl.textContent = '...';
+      bodyEl.textContent = 'Loading...';
+
+      const start = performance.now();
+      try {
+        const res = await fetch(url, options);
+        const elapsed = Math.round(performance.now() - start);
+        const data = await res.text();
+
+        codeEl.textContent = res.status;
+        codeEl.className = `code ${res.ok ? 'success' : 'error'}`;
+        timeEl.textContent = `${elapsed}ms`;
+
+        try {
+          bodyEl.textContent = JSON.stringify(JSON.parse(data), null, 2);
+        } catch {
+          bodyEl.textContent = data;
+        }
+      } catch (err) {
+        const elapsed = Math.round(performance.now() - start);
+        codeEl.textContent = 'ERR';
+        codeEl.className = 'code error';
+        timeEl.textContent = `${elapsed}ms`;
+        bodyEl.textContent = err.message;
+      }
+    }
+  </script>
+</body>
+</html>

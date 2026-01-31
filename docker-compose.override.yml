@@ -1,0 +1,80 @@
+# Symbia Stack - Development Overrides
+# This file is automatically loaded by docker-compose
+# Removes db-bootstrap dependency for fast restarts (tables already exist)
+
+services:
+  # Make db-bootstrap a no-op for subsequent runs
+  db-bootstrap:
+    command: ["echo", "Skipping bootstrap - tables already exist"]
+
+  # Identity - remove db-bootstrap dependency
+  identity:
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      LOG_LEVEL: debug
+
+  # Logging - remove db-bootstrap dependency
+  logging:
+    depends_on:
+      identity:
+        condition: service_healthy
+    environment:
+      LOG_LEVEL: debug
+
+  # Catalog - remove db-bootstrap dependency
+  catalog:
+    depends_on:
+      identity:
+        condition: service_healthy
+    environment:
+      LOG_LEVEL: debug
+
+  # Messaging - remove db-bootstrap dependency
+  messaging:
+    depends_on:
+      identity:
+        condition: service_healthy
+    environment:
+      LOG_LEVEL: debug
+
+  # Network
+  network:
+    depends_on:
+      identity:
+        condition: service_healthy
+    environment:
+      LOG_LEVEL: debug
+
+  # Runtime - remove db-bootstrap dependency
+  runtime:
+    depends_on:
+      catalog:
+        condition: service_healthy
+    environment:
+      LOG_LEVEL: debug
+
+  # Assistants - remove db-bootstrap dependency
+  assistants:
+    depends_on:
+      catalog:
+        condition: service_healthy
+    environment:
+      LOG_LEVEL: debug
+
+  # Integrations
+  integrations:
+    depends_on:
+      identity:
+        condition: service_healthy
+    environment:
+      LOG_LEVEL: debug
+
+  # Service Admin
+  service-admin:
+    depends_on:
+      identity:
+        condition: service_healthy
+    environment:
+      NODE_ENV: development

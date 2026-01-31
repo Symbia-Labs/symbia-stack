@@ -49,6 +49,36 @@ The following are out of scope:
 
 When deploying Symbia Stack:
 
+### Initial Setup - No Default Credentials
+
+**Symbia Stack does not ship with any default usernames, passwords, or API keys.**
+
+On first run, the `./start.sh` script requires interactive console input for:
+- Admin name (display name)
+- Admin email (validated format)
+- Admin password (minimum 8 characters, with confirmation)
+- Organization name
+
+The first user registered is automatically granted **super admin** privileges (`isSuperAdmin: true`), providing:
+- Visibility into all organizations in the system
+- Access to admin endpoints for user and organization management
+- Full audit log access across all tenants
+
+This ensures:
+- No publicly known default credentials exist
+- Credentials cannot be accidentally committed to source control
+- Each deployment has unique, operator-defined authentication
+- Password strength is enforced at setup time
+- Platform operator has full administrative access from first login
+
+```bash
+# First run - prompts for all credentials
+./start.sh
+
+# Subsequent runs - skips setup (users exist)
+./start.sh
+```
+
 ### Environment Variables
 
 - Never commit `.env` files
@@ -72,8 +102,11 @@ When deploying Symbia Stack:
 
 ### Authentication
 
+- **No default credentials**: Super admin must be created interactively on first run
 - Use strong session secrets (32+ characters)
-- Implement proper password policies
+- Minimum password length enforced (8 characters)
+- Password confirmation required to prevent typos
+- Email format validation on admin account
 - Enable MFA where possible
 - Regular token rotation
 

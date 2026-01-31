@@ -4,7 +4,7 @@ import { initServiceRelay, shutdownRelay } from "@symbia/relay";
 import { ServiceId } from "@symbia/sys";
 import { registerRoutes } from "./routes";
 import { seedIdentityData, DEFAULT_USER_IDS, DEFAULT_ORG_IDS } from "@symbia/seed";
-import { db, database, exportToFile, isMemory } from "./db";
+import { db, database, exportToFile, isMemory, ensureIdentitySchema } from "./db";
 import * as schema from "../../shared/schema.js";
 import { join } from "path";
 import * as crypto from "crypto";
@@ -175,23 +175,32 @@ const server = createSymbiaServer({
   },
 });
 
-server.start()
-  .then(async () => {
-    // Connect to network service after server starts
-    await initServiceRelay({
-      serviceId: ServiceId.IDENTITY,
-      serviceName: 'Identity Service',
-      capabilities: [
-        'identity.auth.login',
-        'identity.auth.logout',
-        'identity.auth.introspect',
-        'identity.user.create',
-        'identity.user.read',
-        'identity.org.manage',
-        'identity.apikey.manage',
-      ],
-    });
+async function start(): Promise<void> {
+  // Ensure PostgreSQL schema exists for out-of-box local Docker runs.
+  await ensureIdentitySchema();
+
+  await server.start();
+
+  // Connect to network service after server starts
+  await initServiceRelay({
+    serviceId: ServiceId.IDENTITY,
+    serviceName: 'Identity Service',
+    capabilities: [
+      'identity.auth.login',
+      'identity.auth.logout',
+      'identity.auth.introspect',
+      'identity.user.create',
+      'identity.user.read',
+      'identity.org.manage',
+      'identity.apikey.manage',
+    ],
   });
+}
+
+start().catch((error) => {
+  console.error("[identity] Failed to start:", error);
+  process.exit(1);
+});
 
 // Graceful shutdown handler for relay and database export
 async function gracefulShutdown(signal: string) {

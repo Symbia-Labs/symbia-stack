@@ -18,6 +18,7 @@
           "Authentication"
         ],
         "summary": "Register a new user",
+        "description": "Register a new user account. Optionally create an organization and add the user as admin. **The first user registered in the system is automatically granted super admin privileges** (`isSuperAdmin: true`) with access to all organizations. On first run via ./start.sh, this endpoint is called with all fields to set up the super admin.",
         "requestBody": {
           "required": true,
           "content": {
@@ -32,14 +33,21 @@
                 "properties": {
                   "email": {
                     "type": "string",
-                    "format": "email"
+                    "format": "email",
+                    "description": "User email address"
                   },
                   "password": {
                     "type": "string",
-                    "minLength": 8
+                    "minLength": 8,
+                    "description": "Password (minimum 8 characters)"
                   },
                   "name": {
-                    "type": "string"
+                    "type": "string",
+                    "description": "Display name"
+                  },
+                  "orgName": {
+                    "type": "string",
+                    "description": "Optional organization name. If provided, creates an organization and adds the user as admin."
                   }
                 }
               }
@@ -48,7 +56,35 @@
         },
         "responses": {
           "200": {
-            "description": "User registered successfully"
+            "description": "User registered successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "user": {
+                      "type": "object",
+                      "properties": {
+                        "id": { "type": "string" },
+                        "email": { "type": "string" },
+                        "name": { "type": "string" },
+                        "isSuperAdmin": { "type": "boolean", "description": "True if this is the first user registered (automatic super admin)" }
+                      }
+                    },
+                    "organization": {
+                      "type": "object",
+                      "nullable": true,
+                      "properties": {
+                        "id": { "type": "string" },
+                        "name": { "type": "string" },
+                        "slug": { "type": "string" }
+                      }
+                    },
+                    "token": { "type": "string" }
+                  }
+                }
+              }
+            }
           },
           "400": {
             "description": "Invalid input or email already exists"

@@ -78,9 +78,57 @@ An LLM-native orchestration platform for building, deploying, and operating auto
 
 - Node.js 20+
 - PostgreSQL 15+ (or use in-memory mode for development)
-- Docker (optional)
+- Docker and Docker Compose
 
-### Using Docker Compose
+### Using the Startup Script (Recommended)
+
+The `start.sh` script handles first-run initialization and subsequent restarts automatically.
+
+```bash
+# First run - will prompt for super admin credentials
+./start.sh
+
+# Subsequent runs - fast restart (no prompts)
+./start.sh
+
+# Force rebuild all images
+./start.sh --rebuild
+
+# Skip admin creation prompt
+./start.sh --skip-admin
+```
+
+#### First Run Setup
+
+On first run, you will be prompted to create the super admin account:
+
+```
+╔════════════════════════════════════════════════════════════╗
+║              SUPER ADMIN SETUP REQUIRED                     ║
+╚════════════════════════════════════════════════════════════╝
+
+  Enter admin name (display name): _
+  Enter admin email: _
+  Enter admin password: _
+  Confirm password: _
+  Enter organization name: _
+```
+
+**Security Note**: There are no default usernames or passwords. All credentials must be entered manually during first-run setup. The first user is automatically granted **super admin** privileges with visibility into all organizations.
+
+#### What the Script Does
+
+| Phase | First Run | Subsequent Runs |
+|-------|-----------|-----------------|
+| Build base image | Yes (if missing) | Skip |
+| Build service images | Yes (if missing) | Skip |
+| Database bootstrap | Yes | Skip |
+| Super admin setup | **Interactive prompt** | Skip (users exist) |
+| Start services | Yes | Yes |
+
+### Using Docker Compose Directly
+
+For manual control:
 
 ```bash
 # Start all services
@@ -91,6 +139,9 @@ docker-compose logs -f
 
 # Stop all services
 docker-compose down
+
+# Full reset (removes data)
+docker-compose down -v
 ```
 
 ### Manual Development Setup

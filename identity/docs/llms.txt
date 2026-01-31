@@ -12,7 +12,6 @@ Authentication and authorization service with multi-tenant support.
 - Polymorphic scoped entitlements with quotas
 - API key management for service-to-service auth
 - Token introspection for service-to-service validation
-- Entity Directory for UUID-based identity across services
 - Audit logging
 
 ## API Base URL
@@ -68,17 +67,6 @@ Use /api as the base path for all endpoints.
 - GET /api/admin/users/{userId}/roles - Get user's global roles
 - POST /api/admin/users/{userId}/roles - Grant a global role to a user
 - DELETE /api/admin/users/{userId}/roles/{roleKey} - Revoke a global role from a user
-- GET /api/entities - List entities
-- GET /api/entities/{id} - Get entity by ID
-- POST /api/entities - Create entity
-- PATCH /api/entities/{id} - Update entity
-- POST /api/entities/resolve - Resolve address to entity UUID
-- POST /api/entities/{id}/bind - Bind entity to network node
-- POST /api/entities/{id}/unbind - Unbind entity from network node
-- GET /api/entities/by-node/{nodeId} - Get entity by bound node ID
-- GET /api/credentials - List user's credentials
-- POST /api/credentials - Store a credential
-- DELETE /api/credentials/{id} - Delete a credential
 
 ## Authentication
 

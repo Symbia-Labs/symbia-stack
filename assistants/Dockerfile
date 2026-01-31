@@ -1,96 +1,31 @@
 # Symbia Assistants Service
-# Multi-stage build for production deployment
+# Optimized build using shared base image
 
-FROM node:20-alpine AS builder
+FROM symbia-base:latest AS builder
 
 WORKDIR /app
-
-# Copy workspace package files for local dependencies
-COPY symbia-sys/package*.json ./symbia-sys/
-COPY symbia-db/package*.json ./symbia-db/
-COPY symbia-http/package*.json ./symbia-http/
-COPY symbia-relay/package*.json ./symbia-relay/
-COPY symbia-logging-client/package*.json ./symbia-logging-client/
-COPY symbia-seed/package*.json ./symbia-seed/
-COPY symbia-id/package*.json ./symbia-id/
-COPY symbia-messaging-client/package*.json ./symbia-messaging-client/
-COPY symbia-md/package*.json ./symbia-md/
 
 # Copy service package files
 COPY assistants/package*.json ./assistants/
 
-# Install dependencies for libraries
-WORKDIR /app/symbia-sys
-RUN npm ci --ignore-scripts
-
-WORKDIR /app/symbia-db
-RUN npm ci --ignore-scripts
-
-WORKDIR /app/symbia-http
-RUN npm ci --ignore-scripts
-
-WORKDIR /app/symbia-relay
-RUN npm ci --ignore-scripts
-
-WORKDIR /app/symbia-logging-client
-RUN npm ci --ignore-scripts
-
-WORKDIR /app/symbia-seed
-RUN npm ci --ignore-scripts
-
-WORKDIR /app/symbia-id
-RUN npm ci --ignore-scripts
-
-WORKDIR /app/symbia-messaging-client
-RUN npm ci --ignore-scripts
-
-WORKDIR /app/symbia-md
-RUN npm ci --ignore-scripts
-
-# Install service dependencies
+# Install service dependencies only
 WORKDIR /app/assistants
 RUN npm install --ignore-scripts
 
-# Copy source files
+# Copy service source
 WORKDIR /app
-COPY symbia-sys/ ./symbia-sys/
-COPY symbia-db/ ./symbia-db/
-COPY symbia-http/ ./symbia-http/
-COPY symbia-relay/ ./symbia-relay/
-COPY symbia-logging-client/ ./symbia-logging-client/
-COPY symbia-seed/ ./symbia-seed/
-COPY symbia-id/ ./symbia-id/
-COPY symbia-messaging-client/ ./symbia-messaging-client/
-COPY symbia-md/ ./symbia-md/
 COPY assistants/ ./assistants/
 
-# Build libraries
-WORKDIR /app/symbia-sys
-RUN npm run build || true
-
-WORKDIR /app/symbia-db
-RUN npm run build || true
-
-WORKDIR /app/symbia-http
-RUN npm run build || true
-
-WORKDIR /app/symbia-relay
-RUN npm run build || true
-
-WORKDIR /app/symbia-logging-client
-RUN npm run build || true
-
-WORKDIR /app/symbia-seed
-RUN npm run build || true
-
-WORKDIR /app/symbia-id
-RUN npm run build || true
-
-WORKDIR /app/symbia-messaging-client
-RUN npm run build || true
-
-WORKDIR /app/symbia-md
-RUN npm run build || true
+# Link to pre-built libraries from base image
+COPY --from=symbia-base /symbia-libs/symbia-sys ./symbia-sys
+COPY --from=symbia-base /symbia-libs/symbia-db ./symbia-db
+COPY --from=symbia-base /symbia-libs/symbia-http ./symbia-http
+COPY --from=symbia-base /symbia-libs/symbia-relay ./symbia-relay
+COPY --from=symbia-base /symbia-libs/symbia-logging-client ./symbia-logging-client
+COPY --from=symbia-base /symbia-libs/symbia-seed ./symbia-seed
+COPY --from=symbia-base /symbia-libs/symbia-md ./symbia-md
+COPY --from=symbia-base /symbia-libs/symbia-id ./symbia-id
+COPY --from=symbia-base /symbia-libs/symbia-messaging-client ./symbia-messaging-client
 
 # Build service
 WORKDIR /app/assistants
@@ -107,15 +42,12 @@ COPY --from=builder /app/assistants/package*.json ./
 COPY --from=builder /app/assistants/node_modules ./node_modules
 
 # Production environment
-# PORT is resolved by @symbia/sys (default: 5004, override with PORT env var)
 ENV NODE_ENV=production
 ENV HOST=0.0.0.0
 
-# Health check using default port (override PORT at runtime if needed)
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
-  CMD wget --no-verbose --tries=1 --spider http://localhost:5004/health/live || exit 1
+  CMD wget --no-verbose --tries=1 --spider http://127.0.0.1:5004/health/live || exit 1
 
-# Default port from @symbia/sys ServicePorts
 EXPOSE 5004
 
 CMD ["node", "dist/index.mjs"]

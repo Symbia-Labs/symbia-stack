@@ -1,72 +1,28 @@
 # Symbia Logging Service
-# Multi-stage build for production deployment
+# Optimized build using shared base image
 
-FROM node:20-alpine AS builder
+FROM symbia-base:latest AS builder
 
 WORKDIR /app
-
-# Copy workspace package files for local dependencies
-COPY symbia-sys/package*.json ./symbia-sys/
-COPY symbia-db/package*.json ./symbia-db/
-COPY symbia-http/package*.json ./symbia-http/
-COPY symbia-relay/package*.json ./symbia-relay/
-COPY symbia-logging-client/package*.json ./symbia-logging-client/
-COPY symbia-md/package*.json ./symbia-md/
 
 # Copy service package files
 COPY logging/package*.json ./logging/
 
-# Install dependencies for libraries
-WORKDIR /app/symbia-sys
-RUN npm ci --ignore-scripts
-
-WORKDIR /app/symbia-db
-RUN npm ci --ignore-scripts
-
-WORKDIR /app/symbia-http
-RUN npm ci --ignore-scripts
-
-WORKDIR /app/symbia-relay
-RUN npm ci --ignore-scripts
-
-WORKDIR /app/symbia-logging-client
-RUN npm ci --ignore-scripts
-
-WORKDIR /app/symbia-md
-RUN npm ci --ignore-scripts
-
-# Install service dependencies
+# Install service dependencies only
 WORKDIR /app/logging
 RUN npm install --ignore-scripts
 
-# Copy source files
+# Copy service source
 WORKDIR /app
-COPY symbia-sys/ ./symbia-sys/
-COPY symbia-db/ ./symbia-db/
-COPY symbia-http/ ./symbia-http/
-COPY symbia-relay/ ./symbia-relay/
-COPY symbia-logging-client/ ./symbia-logging-client/
-COPY symbia-md/ ./symbia-md/
 COPY logging/ ./logging/
 
-# Build libraries
-WORKDIR /app/symbia-sys
-RUN npm run build || true
-
-WORKDIR /app/symbia-db
-RUN npm run build || true
-
-WORKDIR /app/symbia-http
-RUN npm run build || true
-
-WORKDIR /app/symbia-relay
-RUN npm run build || true
-
-WORKDIR /app/symbia-logging-client
-RUN npm run build || true
-
-WORKDIR /app/symbia-md
-RUN npm run build || true
+# Link to pre-built libraries from base image
+COPY --from=symbia-base /symbia-libs/symbia-sys ./symbia-sys
+COPY --from=symbia-base /symbia-libs/symbia-db ./symbia-db
+COPY --from=symbia-base /symbia-libs/symbia-http ./symbia-http
+COPY --from=symbia-base /symbia-libs/symbia-relay ./symbia-relay
+COPY --from=symbia-base /symbia-libs/symbia-logging-client ./symbia-logging-client
+COPY --from=symbia-base /symbia-libs/symbia-md ./symbia-md
 
 # Build service
 WORKDIR /app/logging
@@ -83,15 +39,12 @@ COPY --from=builder /app/logging/package*.json ./
 COPY --from=builder /app/logging/node_modules ./node_modules
 
 # Production environment
-# PORT is resolved by @symbia/sys (default: 5002, override with PORT env var)
 ENV NODE_ENV=production
 ENV HOST=0.0.0.0
 
-# Health check using default port (override PORT at runtime if needed)
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
-  CMD wget --no-verbose --tries=1 --spider http://localhost:5002/health/live || exit 1
+  CMD wget --no-verbose --tries=1 --spider http://127.0.0.1:5002/health/live || exit 1
 
-# Default port from @symbia/sys ServicePorts
 EXPOSE 5002
 
 CMD ["node", "dist/index.mjs"]

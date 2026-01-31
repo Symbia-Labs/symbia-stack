@@ -68,22 +68,44 @@ EMAIL_ENABLED=true                    # Enable password reset emails
 ### Running the Service
 
 ```bash
-# Development
+# Development (standalone)
 npm run dev
 
 # Production
 npm run build && npm run start
 
-# Seed test data
+# Seed test data (development only)
 npm run seed
 ```
 
-### Default Test Credentials (Memory DB)
+### Initial Setup (Docker)
 
+When running via Docker with `./start.sh`, the first user is created interactively:
+
+```bash
+./start.sh
+# Prompts for: name, email, password, organization name
+```
+
+The first user registered in the system is automatically granted **super admin** privileges (`isSuperAdmin: true`), providing access to all organizations and admin endpoints.
+
+**Security Note**: There are no default credentials in production deployments. All admin credentials must be entered manually during first-run setup.
+
+### Development Test Credentials (Memory DB Only)
+
+When using in-memory database mode for local development (`IDENTITY_USE_MEMORY_DB=true`), you can seed test data:
+
+```bash
+npm run seed
+```
+
+This creates a test user for development purposes only:
 ```
 Email: admin@example.com
 Password: password123
 ```
+
+**Warning**: Never use seeded credentials in production. Production deployments require interactive credential setup.
 
 ---
 

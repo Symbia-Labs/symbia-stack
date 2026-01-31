@@ -4,7 +4,7 @@ import { initServiceRelay, shutdownRelay } from "@symbia/relay";
 import { ServiceId } from "@symbia/sys";
 import { registerRoutes } from "./routes";
 import { authMiddleware } from "./auth";
-import { database, exportToFile, isMemory } from "./db";
+import { database, exportToFile, isMemory, ensureLoggingSchema } from "./db";
 import { join } from "path";
 
 const telemetry = createTelemetryClient({
@@ -38,23 +38,32 @@ const server = createSymbiaServer({
   },
 });
 
-server.start()
-  .then(async () => {
-    // Connect to network service after server starts
-    await initServiceRelay({
-      serviceId: ServiceId.LOGGING,
-      serviceName: 'Logging Service',
-      capabilities: [
-        'logging.log.ingest',
-        'logging.log.query',
-        'logging.metric.ingest',
-        'logging.metric.query',
-        'logging.trace.ingest',
-        'logging.trace.query',
-        'logging.stream.manage',
-      ],
-    });
+async function start(): Promise<void> {
+  // Ensure PostgreSQL schema exists for out-of-box local Docker runs.
+  await ensureLoggingSchema();
+
+  await server.start();
+
+  // Connect to network service after server starts
+  await initServiceRelay({
+    serviceId: ServiceId.LOGGING,
+    serviceName: 'Logging Service',
+    capabilities: [
+      'logging.log.ingest',
+      'logging.log.query',
+      'logging.metric.ingest',
+      'logging.metric.query',
+      'logging.trace.ingest',
+      'logging.trace.query',
+      'logging.stream.manage',
+    ],
   });
+}
+
+start().catch((error) => {
+  console.error("[logging] Failed to start:", error);
+  process.exit(1);
+});
 
 // Graceful shutdown handler for relay and database export
 async function gracefulShutdown(signal: string) {

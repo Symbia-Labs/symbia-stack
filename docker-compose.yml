@@ -22,6 +22,23 @@ services:
       timeout: 5s
       retries: 5
 
+  # Database bootstrap - creates per-service databases and tables
+  db-bootstrap:
+    image: postgres:15-alpine
+    environment:
+      PGHOST: postgres
+      PGPORT: 5432
+      PGUSER: symbia
+      PGPASSWORD: symbia_dev
+    volumes:
+      - ./:/workspace:ro
+      - ./db-bootstrap/bootstrap.sh:/bootstrap.sh:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
+    command: ["sh", "/bootstrap.sh"]
+    restart: "no"
+
   # Identity Service - Authentication & Authorization
   identity:
     build:
@@ -30,13 +47,13 @@ services:
     environment:
       NODE_ENV: production
       PORT: 5001
-      DATABASE_URL: postgresql://symbia:symbia_dev@postgres:5432/symbia
+      DATABASE_URL: postgresql://symbia:symbia_dev@postgres:5432/identity
       SESSION_SECRET: ${SESSION_SECRET:-symbia-dev-secret-change-in-production}
     ports:
       - "5001:5001"
     depends_on:
-      postgres:
-        condition: service_healthy
+      db-bootstrap:
+        condition: service_completed_successfully
     healthcheck:
       test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://127.0.0.1:5001/health/live"]
       interval: 30s
@@ -51,15 +68,15 @@ services:
     environment:
       NODE_ENV: production
       PORT: 5002
-      DATABASE_URL: postgresql://symbia:symbia_dev@postgres:5432/symbia
+      DATABASE_URL: postgresql://symbia:symbia_dev@postgres:5432/logging
       IDENTITY_SERVICE_URL: http://identity:5001
     ports:
       - "5002:5002"
     depends_on:
-      postgres:
-        condition: service_healthy
       identity:
         condition: service_healthy
+      db-bootstrap:
+        condition: service_completed_successfully
     healthcheck:
       test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://127.0.0.1:5002/health/live"]
       interval: 30s
@@ -74,16 +91,16 @@ services:
     environment:
       NODE_ENV: production
       PORT: 5003
-      DATABASE_URL: postgresql://symbia:symbia_dev@postgres:5432/symbia
+      DATABASE_URL: postgresql://symbia:symbia_dev@postgres:5432/catalog
       IDENTITY_SERVICE_URL: http://identity:5001
       LOGGING_SERVICE_URL: http://logging:5002
     ports:
       - "5003:5003"
     depends_on:
-      postgres:
-        condition: service_healthy
       identity:
         condition: service_healthy
+      db-bootstrap:
+        condition: service_completed_successfully
     healthcheck:
       test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://127.0.0.1:5003/health/live"]
       interval: 30s
@@ -98,16 +115,16 @@ services:
     environment:
       NODE_ENV: production
       PORT: 5005
-      DATABASE_URL: postgresql://symbia:symbia_dev@postgres:5432/symbia
+      DATABASE_URL: postgresql://symbia:symbia_dev@postgres:5432/messaging
       IDENTITY_SERVICE_URL: http://identity:5001
       LOGGING_SERVICE_URL: http://logging:5002
     ports:
       - "5005:5005"
     depends_on:
-      postgres:
-        condition: service_healthy
       identity:
         condition: service_healthy
+      db-bootstrap:
+        condition: service_completed_successfully
     healthcheck:
       test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://127.0.0.1:5005/health/live"]
       interval: 30s
@@ -144,17 +161,17 @@ services:
     environment:
       NODE_ENV: production
       PORT: 5006
-      DATABASE_URL: postgresql://symbia:symbia_dev@postgres:5432/symbia
+      DATABASE_URL: postgresql://symbia:symbia_dev@postgres:5432/runtime
       IDENTITY_SERVICE_URL: http://identity:5001
       CATALOG_SERVICE_URL: http://catalog:5003
       LOGGING_SERVICE_URL: http://logging:5002
     ports:
       - "5006:5006"
     depends_on:
-      postgres:
-        condition: service_healthy
       catalog:
         condition: service_healthy
+      db-bootstrap:
+        condition: service_completed_successfully
     healthcheck:
       test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://127.0.0.1:5006/health/live"]
       interval: 30s
@@ -169,7 +186,7 @@ services:
     environment:
       NODE_ENV: production
       PORT: 5004
-      DATABASE_URL: postgresql://symbia:symbia_dev@postgres:5432/symbia
+      DATABASE_URL: postgresql://symbia:symbia_dev@postgres:5432/assistants
       IDENTITY_SERVICE_URL: http://identity:5001
       CATALOG_SERVICE_URL: http://catalog:5003
       LOGGING_SERVICE_URL: http://logging:5002
@@ -177,10 +194,10 @@ services:
     ports:
       - "5004:5004"
     depends_on:
-      postgres:
-        condition: service_healthy
       catalog:
         condition: service_healthy
+      db-bootstrap:
+        condition: service_completed_successfully
     healthcheck:
       test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://127.0.0.1:5004/health/live"]
       interval: 30s
@@ -208,6 +225,25 @@ services:
         condition: service_healthy
     healthcheck:
       test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://127.0.0.1:5007/health/live"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Service Admin - Dashboard & API Explorer
+  service-admin:
+    build:
+      context: .
+      dockerfile: service-admin/Dockerfile
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+    ports:
+      - "3000:3000"
+    depends_on:
+      identity:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://127.0.0.1:3000/health"]
       interval: 30s
       timeout: 10s
       retries: 3
