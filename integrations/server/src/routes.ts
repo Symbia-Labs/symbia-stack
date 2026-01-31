@@ -62,7 +62,10 @@ import {
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
-const docsDir = join(__dirname, "../..", "docs");
+// Use cwd for production (Docker), fallback to relative for dev
+const docsDir = process.env.NODE_ENV === "production"
+  ? join(process.cwd(), "docs")
+  : join(__dirname, "../..", "docs");
 
 /**
  * Extract auth token from request
