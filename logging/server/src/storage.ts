@@ -30,11 +30,30 @@ import {
 } from "@shared/schema";
 import { randomUUID, createHash } from "crypto";
 import type { AuthContext } from "./auth";
+import { canBypassOrgFilterForService } from "@symbia/sys";
 
 type AccessContext = Pick<
   AuthContext,
-  "orgId" | "serviceId" | "env" | "dataClass" | "policyRef" | "actorId" | "isSuperAdmin"
+  "orgId" | "serviceId" | "env" | "dataClass" | "policyRef" | "actorId" | "isSuperAdmin" | "entitlements" | "roles"
 >;
+
+/**
+ * Check if the access context can bypass org-level filtering for telemetry data.
+ * Uses capability-based authorization instead of just checking isSuperAdmin.
+ */
+function canReadAllOrgs(context: AccessContext): boolean {
+  const authContext = {
+    authType: 'jwt' as const,
+    actorId: context.actorId,
+    orgId: context.orgId,
+    serviceId: context.serviceId,
+    env: context.env,
+    entitlements: context.entitlements || [],
+    roles: context.roles || [],
+    isSuperAdmin: context.isSuperAdmin,
+  };
+  return canBypassOrgFilterForService(authContext, 'telemetry');
+}
 
 type ObjectEntryInput = Omit<
   InsertObjectEntry,
@@ -169,8 +188,8 @@ export class MemStorage implements IStorage {
     context: AccessContext,
     orgOnly: boolean = false,
   ): boolean {
-    // Super admins can see all data across all orgs
-    if (context.isSuperAdmin) {
+    // Users with telemetry global-read capability can see all data across all orgs
+    if (canReadAllOrgs(context)) {
       return true;
     }
     // For admin console queries, match org only to see all data in the org

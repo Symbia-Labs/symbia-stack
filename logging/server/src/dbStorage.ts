@@ -45,11 +45,31 @@ import { eq, and, gte, lte, desc, inArray, like, sql, count } from "drizzle-orm"
 import { createHash } from "crypto";
 import type { AuthContext } from "./auth";
 import type { IStorage } from "./storage";
+import { Capabilities, canBypassOrgFilterForService } from "@symbia/sys";
 
 type AccessContext = Pick<
   AuthContext,
-  "orgId" | "serviceId" | "env" | "dataClass" | "policyRef" | "actorId" | "isSuperAdmin"
+  "orgId" | "serviceId" | "env" | "dataClass" | "policyRef" | "actorId" | "isSuperAdmin" | "entitlements" | "roles"
 >;
+
+/**
+ * Check if the access context can bypass org-level filtering for telemetry data.
+ * Uses capability-based authorization instead of just checking isSuperAdmin.
+ */
+function canReadAllOrgs(context: AccessContext): boolean {
+  // Build a minimal auth context for the capability check
+  const authContext = {
+    authType: 'jwt' as const,
+    actorId: context.actorId,
+    orgId: context.orgId,
+    serviceId: context.serviceId,
+    env: context.env,
+    entitlements: context.entitlements || [],
+    roles: context.roles || [],
+    isSuperAdmin: context.isSuperAdmin,
+  };
+  return canBypassOrgFilterForService(authContext, 'telemetry');
+}
 
 type ObjectEntryInput = Omit<
   InsertObjectEntry,
@@ -135,6 +155,10 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getLogStreams(context: AccessContext): Promise<LogStream[]> {
+    // Super admins can see all log streams across all orgs
+    if (canReadAllOrgs(context)) {
+      return db.select().from(logStreams).orderBy(desc(logStreams.createdAt));
+    }
     return db
       .select()
       .from(logStreams)
@@ -143,6 +167,11 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getLogStream(context: AccessContext, id: string): Promise<LogStream | undefined> {
+    // Super admins can access any log stream
+    if (canReadAllOrgs(context)) {
+      const [stream] = await db.select().from(logStreams).where(eq(logStreams.id, id));
+      return stream || undefined;
+    }
     const [stream] = await db
       .select()
       .from(logStreams)
@@ -187,7 +216,11 @@ export class DatabaseStorage implements IStorage {
   }
 
   async queryLogEntries(context: AccessContext, query: LogsQuery): Promise<LogEntry[]> {
-    const conditions = [eq(logEntries.orgId, context.orgId)];
+    // Super admins can see all log entries; regular users are scoped to their org
+    const conditions: ReturnType<typeof eq>[] = [];
+    if (!canReadAllOrgs(context)) {
+      conditions.push(eq(logEntries.orgId, context.orgId));
+    }
 
     if (query.streamIds?.length) {
       conditions.push(inArray(logEntries.streamId, query.streamIds));
@@ -204,10 +237,12 @@ export class DatabaseStorage implements IStorage {
     if (startTime) conditions.push(gte(logEntries.timestamp, startTime));
     if (endTime) conditions.push(lte(logEntries.timestamp, endTime));
 
+    const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
+
     return db
       .select()
       .from(logEntries)
-      .where(and(...conditions))
+      .where(whereClause)
       .orderBy(desc(logEntries.timestamp))
       .limit(query.limit || 1000)
       .offset(query.offset || 0);
@@ -257,6 +292,10 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getTotalLogEntries(context: AccessContext): Promise<number> {
+    if (canReadAllOrgs(context)) {
+      const [result] = await db.select({ count: count() }).from(logEntries);
+      return result?.count ?? 0;
+    }
     const [result] = await db
       .select({ count: count() })
       .from(logEntries)
@@ -265,6 +304,9 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getMetrics(context: AccessContext): Promise<Metric[]> {
+    if (canReadAllOrgs(context)) {
+      return db.select().from(metrics).orderBy(desc(metrics.createdAt));
+    }
     return db
       .select()
       .from(metrics)
@@ -395,7 +437,11 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getTraces(context: AccessContext, query?: TracesQuery): Promise<Trace[]> {
-    const conditions = [eq(traces.orgId, context.orgId)];
+    // Super admins can see all traces; regular users are scoped to their org
+    const conditions: ReturnType<typeof eq>[] = [];
+    if (!canReadAllOrgs(context)) {
+      conditions.push(eq(traces.orgId, context.orgId));
+    }
 
     if (query?.traceIds?.length) {
       conditions.push(inArray(traces.traceId, query.traceIds));
@@ -419,10 +465,12 @@ export class DatabaseStorage implements IStorage {
       conditions.push(lte(traces.durationMs, query.maxDurationMs));
     }
 
+    const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
+
     return db
       .select()
       .from(traces)
-      .where(and(...conditions))
+      .where(whereClause)
       .orderBy(desc(traces.startTime))
       .limit(query?.limit || 100)
       .offset(query?.offset || 0);
@@ -757,55 +805,48 @@ export class DatabaseStorage implements IStorage {
       this.lastIngestReset = Date.now();
     }
 
-    const [logStreamCount] = await db
-      .select({ count: count() })
-      .from(logStreams)
-      .where(eq(logStreams.orgId, context.orgId));
+    // Super admins see counts across all orgs
+    const isSuperAdmin = canReadAllOrgs(context);
 
-    const [logEntryCount] = await db
-      .select({ count: count() })
-      .from(logEntries)
-      .where(eq(logEntries.orgId, context.orgId));
+    const [logStreamCount] = isSuperAdmin
+      ? await db.select({ count: count() }).from(logStreams)
+      : await db.select({ count: count() }).from(logStreams).where(eq(logStreams.orgId, context.orgId));
 
-    const [metricCount] = await db
-      .select({ count: count() })
-      .from(metrics)
-      .where(eq(metrics.orgId, context.orgId));
+    const [logEntryCount] = isSuperAdmin
+      ? await db.select({ count: count() }).from(logEntries)
+      : await db.select({ count: count() }).from(logEntries).where(eq(logEntries.orgId, context.orgId));
 
-    const [dataPointCount] = await db
-      .select({ count: count() })
-      .from(dataPoints)
-      .where(eq(dataPoints.orgId, context.orgId));
+    const [metricCount] = isSuperAdmin
+      ? await db.select({ count: count() }).from(metrics)
+      : await db.select({ count: count() }).from(metrics).where(eq(metrics.orgId, context.orgId));
 
-    const [traceCount] = await db
-      .select({ count: count() })
-      .from(traces)
-      .where(eq(traces.orgId, context.orgId));
+    const [dataPointCount] = isSuperAdmin
+      ? await db.select({ count: count() }).from(dataPoints)
+      : await db.select({ count: count() }).from(dataPoints).where(eq(dataPoints.orgId, context.orgId));
 
-    const [spanCount] = await db
-      .select({ count: count() })
-      .from(spans)
-      .where(eq(spans.orgId, context.orgId));
+    const [traceCount] = isSuperAdmin
+      ? await db.select({ count: count() }).from(traces)
+      : await db.select({ count: count() }).from(traces).where(eq(traces.orgId, context.orgId));
 
-    const [objectStreamCount] = await db
-      .select({ count: count() })
-      .from(objectStreams)
-      .where(eq(objectStreams.orgId, context.orgId));
+    const [spanCount] = isSuperAdmin
+      ? await db.select({ count: count() }).from(spans)
+      : await db.select({ count: count() }).from(spans).where(eq(spans.orgId, context.orgId));
 
-    const [objectEntryCount] = await db
-      .select({ count: count() })
-      .from(objectEntries)
-      .where(eq(objectEntries.orgId, context.orgId));
+    const [objectStreamCount] = isSuperAdmin
+      ? await db.select({ count: count() }).from(objectStreams)
+      : await db.select({ count: count() }).from(objectStreams).where(eq(objectStreams.orgId, context.orgId));
 
-    const [activeDataSourceCount] = await db
-      .select({ count: count() })
-      .from(dataSources)
-      .where(and(eq(dataSources.orgId, context.orgId), eq(dataSources.status, "active")));
+    const [objectEntryCount] = isSuperAdmin
+      ? await db.select({ count: count() }).from(objectEntries)
+      : await db.select({ count: count() }).from(objectEntries).where(eq(objectEntries.orgId, context.orgId));
 
-    const [connectedIntegrationCount] = await db
-      .select({ count: count() })
-      .from(integrations)
-      .where(and(eq(integrations.orgId, context.orgId), eq(integrations.status, "connected")));
+    const [activeDataSourceCount] = isSuperAdmin
+      ? await db.select({ count: count() }).from(dataSources).where(eq(dataSources.status, "active"))
+      : await db.select({ count: count() }).from(dataSources).where(and(eq(dataSources.orgId, context.orgId), eq(dataSources.status, "active")));
+
+    const [connectedIntegrationCount] = isSuperAdmin
+      ? await db.select({ count: count() }).from(integrations).where(eq(integrations.status, "connected"))
+      : await db.select({ count: count() }).from(integrations).where(and(eq(integrations.orgId, context.orgId), eq(integrations.status, "connected")));
 
     return {
       totalLogStreams: logStreamCount?.count ?? 0,

@@ -3,6 +3,7 @@ import type { Session, SessionData } from "express-session";
 import { storage } from "./storage";
 import { createHash, randomBytes, timingSafeEqual } from "crypto";
 import { resolveServiceUrl, ServiceId } from "@symbia/sys";
+import { setRLSContext } from "./db";
 
 declare module "express" {
   interface Request {
@@ -453,4 +454,28 @@ export function requireAuthContext(req: Request): AuthContext {
     throw error;
   }
   return req.authContext;
+}
+
+/**
+ * RLS middleware - sets PostgreSQL session context for row-level security.
+ * Must run after authMiddleware.
+ */
+export async function rlsMiddleware(req: Request, res: Response, next: NextFunction) {
+  if (!req.authContext) {
+    // No auth context, skip RLS
+    return next();
+  }
+
+  try {
+    await setRLSContext({
+      orgId: req.authContext.orgId,
+      userId: req.authContext.actorId,
+      isSuperAdmin: req.authContext.isSuperAdmin,
+      capabilities: req.authContext.entitlements,
+    });
+    next();
+  } catch (error) {
+    console.error("[logging-service] Failed to set RLS context:", error);
+    next(); // Continue without RLS on error
+  }
 }

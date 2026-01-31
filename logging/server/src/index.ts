@@ -3,7 +3,7 @@ import { createTelemetryClient } from "@symbia/logging-client";
 import { initServiceRelay, shutdownRelay } from "@symbia/relay";
 import { ServiceId } from "@symbia/sys";
 import { registerRoutes } from "./routes";
-import { authMiddleware, initSystemBootstrap } from "./auth";
+import { authMiddleware, rlsMiddleware, initSystemBootstrap } from "./auth";
 import { database, exportToFile, isMemory, ensureLoggingSchema } from "./db";
 import { join } from "path";
 
@@ -32,6 +32,7 @@ const server = createSymbiaServer({
   database,
   middleware: [
     authMiddleware as any,
+    rlsMiddleware as any,  // Sets PostgreSQL RLS context after auth
   ],
   registerRoutes: async (httpServer, app) => {
     await registerRoutes(httpServer, app as any);

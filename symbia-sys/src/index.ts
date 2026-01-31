@@ -16,6 +16,9 @@ export * from './namespace-client.js';
 // System bootstrap - service-to-service authentication
 export * from './bootstrap.js';
 
+// Shared authorization utilities and capabilities
+export * from './auth.js';
+
 /**
  * Service identifiers used across the platform
  */

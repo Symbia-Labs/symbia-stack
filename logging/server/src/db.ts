@@ -1,6 +1,7 @@
-import { initializeDatabase } from "@symbia/db";
+import { initializeDatabase, setSessionContext, clearSessionContext, withRLSContext, type RLSContext } from "@symbia/db";
 import * as schema from "@shared/schema";
 import { MEMORY_SCHEMA_SQL } from "./memory-schema";
+import type { Pool } from "pg";
 
 const database = initializeDatabase({
   serviceId: "logging-service",
@@ -46,4 +47,40 @@ export async function ensureLoggingSchema(): Promise<void> {
   }
 }
 
+/**
+ * Set RLS context for the current request.
+ * Call this before any database queries to enable row-level security filtering.
+ */
+export async function setRLSContext(context: {
+  orgId: string;
+  userId: string;
+  isSuperAdmin?: boolean;
+  capabilities?: string[];
+}): Promise<void> {
+  await setSessionContext(pool as unknown as Pool, {
+    orgId: context.orgId,
+    userId: context.userId,
+    isSuperAdmin: context.isSuperAdmin,
+    capabilities: context.capabilities,
+    serviceId: "logging",
+  });
+}
+
+/**
+ * Execute a function with RLS context, automatically clearing after.
+ */
+export async function withRLS<T>(
+  context: RLSContext,
+  fn: () => Promise<T>
+): Promise<T> {
+  await setSessionContext(pool as unknown as Pool, context);
+  try {
+    return await fn();
+  } finally {
+    await clearSessionContext(pool as unknown as Pool);
+  }
+}
+
 export { db, pool, isMemory, exportToFile, close, database };
+export { setSessionContext, clearSessionContext, withRLSContext };
+export type { RLSContext };

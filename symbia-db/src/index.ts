@@ -30,3 +30,4 @@ export * from "./types.js";
 export * from "./database.js";
 export * from "./memory.js";
 export * from "./indexes.js";
+export * from "./rls.js";

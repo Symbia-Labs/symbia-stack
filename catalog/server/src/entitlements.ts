@@ -2,47 +2,35 @@ import type { Request, Response, NextFunction } from 'express';
 import type { Resource, AccessPolicy, AccessPolicyAction } from '@shared/schema';
 import { defaultAccessPolicy, publicAccessPolicy } from '@shared/schema';
 import type { IdentityUser } from './identity';
+import { Capabilities, Roles, buildEntitlements } from '@symbia/sys';
 
 export function getPrincipalEntitlements(user: IdentityUser | undefined): string[] {
   if (!user) {
     return ['public'];
   }
 
-  const entitlements: string[] = ['public', 'authenticated'];
+  // Use shared buildEntitlements from @symbia/sys for consistency
+  const baseEntitlements = buildEntitlements({
+    isSuperAdmin: user.isSuperAdmin,
+    entitlements: user.entitlements,
+    roles: user.roles,
+    organizations: user.organizations,
+  });
 
+  // Add catalog-specific capabilities for super admins
   if (user.isSuperAdmin) {
-    entitlements.push(
-      'role:admin',
-      'role:publisher',
+    baseEntitlements.push(
+      Roles.PUBLISHER,
       'role:reviewer',
-      'cap:registry.write',
-      'cap:registry.publish',
-      'cap:registry.sign',
-      'cap:registry.certify'
+      Capabilities.REGISTRY_WRITE,
+      Capabilities.REGISTRY_PUBLISH,
+      Capabilities.REGISTRY_SIGN,
+      Capabilities.REGISTRY_CERTIFY,
+      Capabilities.CATALOG_ADMIN
     );
   }
 
-  if (user.entitlements) {
-    entitlements.push(...user.entitlements);
-  }
-
-  if (user.roles) {
-    user.roles.forEach(role => entitlements.push(`role:${role}`));
-  }
-
-  if (user.organizations) {
-    user.organizations.forEach(org => {
-      entitlements.push(`org:${org.id}`);
-      if (org.role === 'admin') {
-        entitlements.push(`role:admin:${org.id}`);
-      }
-      if (org.role === 'member' || org.role === 'admin') {
-        entitlements.push(`role:member:${org.id}`);
-      }
-    });
-  }
-
-  return Array.from(new Set(entitlements));
+  return Array.from(new Set(baseEntitlements));
 }
 
 export function checkEntitlement(
