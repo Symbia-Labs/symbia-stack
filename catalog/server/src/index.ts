@@ -4,7 +4,9 @@ import { initServiceRelay, shutdownRelay } from "@symbia/relay";
 import { ServiceId } from "@symbia/sys";
 import { registerRoutes } from "./routes.js";
 import { db, database, exportToFile, isMemory } from "./db.js";
-import { resources } from "../../shared/schema.js";
+import { authMiddleware } from "./auth.js";
+import { resources, systemSettings } from "../../shared/schema.js";
+import { eq } from "drizzle-orm";
 import { join, dirname } from "path";
 import { fileURLToPath } from "url";
 import { readFileSync, existsSync, readdirSync } from "fs";
@@ -150,6 +152,74 @@ async function seedFromDataFiles(): Promise<number> {
   return inserted;
 }
 
+const BOOTSTRAP_COMPLETED_KEY = "bootstrap_completed";
+
+/**
+ * Check if bootstrap has already been completed.
+ * This is a one-time flag - once set, bootstrap will never run again.
+ */
+async function isBootstrapCompleted(): Promise<boolean> {
+  try {
+    const result = await db
+      .select()
+      .from(systemSettings)
+      .where(eq(systemSettings.key, BOOTSTRAP_COMPLETED_KEY));
+    return result.length > 0 && result[0].value === "true";
+  } catch (error) {
+    // Table might not exist yet (first run before schema migration)
+    console.log("[catalog] Could not check bootstrap flag (table may not exist yet)");
+    return false;
+  }
+}
+
+/**
+ * Mark bootstrap as completed. This flag persists forever.
+ */
+async function markBootstrapCompleted(): Promise<void> {
+  try {
+    await db
+      .insert(systemSettings)
+      .values({
+        key: BOOTSTRAP_COMPLETED_KEY,
+        value: "true",
+      })
+      .onConflictDoUpdate({
+        target: systemSettings.key,
+        set: { value: "true", updatedAt: new Date() },
+      });
+  } catch (error) {
+    console.error("[catalog] Failed to mark bootstrap as completed:", error);
+  }
+}
+
+/**
+ * Run first-time bootstrap if not already completed.
+ * This only runs once ever - deleting resources will NOT trigger a re-bootstrap.
+ */
+async function runFirstTimeBootstrap(): Promise<void> {
+  // Check if bootstrap has already been completed
+  const completed = await isBootstrapCompleted();
+  if (completed) {
+    console.log("[catalog] Bootstrap already completed, skipping.");
+    return;
+  }
+
+  console.log("[catalog] First run detected, loading bootstrap data...");
+
+  try {
+    const count = await seedFromDataFiles();
+    if (count > 0) {
+      console.log(`[catalog] ✓ Loaded ${count} bootstrap resources`);
+      await markBootstrapCompleted();
+      console.log("[catalog] ✓ Bootstrap marked as completed (will not run again)");
+    } else {
+      console.log("[catalog] No bootstrap data found to load");
+    }
+  } catch (error) {
+    console.error("[catalog] Failed to run bootstrap:", error);
+  }
+}
+
 const telemetry = createTelemetryClient({
   serviceId: process.env.TELEMETRY_SERVICE_ID || ServiceId.CATALOG,
 });
@@ -160,19 +230,14 @@ const server = createSymbiaServer({
     client: telemetry,
   },
   database,
+  middleware: [
+    authMiddleware as any,  // Handles auth + sets RLS context
+  ],
   registerRoutes: async (httpServer, app) => {
     await registerRoutes(httpServer, app as any);
 
-    // Auto-seed in-memory database from data files
-    if (process.env.CATALOG_USE_MEMORY_DB === "true") {
-      console.log("[catalog] Auto-seeding in-memory database...");
-      try {
-        const count = await seedFromDataFiles();
-        console.log(`[catalog] ✓ Database seeded with ${count} total resources`);
-      } catch (error) {
-        console.error("[catalog] Failed to seed database:", error);
-      }
-    }
+    // Run first-time bootstrap (only runs once, ever)
+    await runFirstTimeBootstrap();
   },
 });
 

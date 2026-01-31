@@ -6,7 +6,7 @@ import { storage } from "./storage";
 import { insertResourceSchema, resourceTypes, resourceStatuses, visibilityLevels, defaultAccessPolicy, type AccessPolicy, type Resource } from "@shared/schema";
 import { z } from "zod";
 import { openApiSpec } from "./openapi";
-import { authMiddleware, optionalAuthMiddleware, requireSuperAdmin, generateApiKey } from "./auth";
+import { authMiddleware, requireAuth, requireSuperAdmin, generateApiKey } from "./auth";
 import { getIdentityServiceUrl, getUserOrganizations } from "./identity";
 import { canPerformAction, filterResourcesByReadAccess, getPublicReadPolicy } from "./entitlements";
 import { writeRateLimiter, searchRateLimiter, uploadRateLimiter, RATE_LIMITS } from "./rate-limit";

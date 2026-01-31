@@ -6,6 +6,7 @@
 
 import type { Request, Response, NextFunction } from 'express';
 import { resolveServiceUrl } from '@symbia/sys';
+import { setRLSContext } from '../lib/db.js';
 
 const IDENTITY_SERVICE_URL = process.env.IDENTITY_ENDPOINT || resolveServiceUrl('identity');
 
@@ -17,6 +18,8 @@ interface TokenIntrospection {
   sub?: string;
   type?: 'user' | 'agent';
   orgId?: string;
+  isSuperAdmin?: boolean;
+  entitlements?: string[];
   organizations?: Array<{ id: string; name?: string }>;
 }
 
@@ -134,6 +137,19 @@ export async function requireAuth(
   req.userType = introspection.type;
   req.token = token;
 
+  // Set RLS context for database queries
+  try {
+    await setRLSContext({
+      orgId,
+      userId: introspection.sub,
+      isSuperAdmin: introspection.isSuperAdmin,
+      capabilities: introspection.entitlements || [],
+    });
+  } catch (error) {
+    console.error("[assistants-service] Failed to set RLS context:", error);
+    // Continue without RLS on error
+  }
+
   next();
 }
 
@@ -168,8 +184,49 @@ export async function optionalAuth(
       req.orgId = orgId || 'dev-default-org';
       req.userType = introspection.type;
       req.token = token;
+
+      // Set RLS context for database queries
+      try {
+        await setRLSContext({
+          orgId: req.orgId,
+          userId: introspection.sub,
+          isSuperAdmin: introspection.isSuperAdmin,
+          capabilities: introspection.entitlements || [],
+        });
+      } catch (error) {
+        console.error("[assistants-service] Failed to set RLS context:", error);
+        // Continue without RLS on error
+      }
     }
   }
 
   next();
+}
+
+/**
+ * RLS middleware - sets PostgreSQL session context for row-level security.
+ * Can be used standalone after other authentication middleware.
+ */
+export async function rlsMiddleware(
+  req: AuthenticatedRequest,
+  res: Response,
+  next: NextFunction
+): Promise<void> {
+  if (!req.userId) {
+    // No auth context, skip RLS
+    return next();
+  }
+
+  try {
+    await setRLSContext({
+      orgId: req.orgId,
+      userId: req.userId,
+      isSuperAdmin: false, // Need to check introspection for this
+      capabilities: [],
+    });
+    next();
+  } catch (error) {
+    console.error("[assistants-service] Failed to set RLS context:", error);
+    next(); // Continue without RLS on error
+  }
 }

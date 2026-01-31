@@ -45,6 +45,7 @@ const updatePlanAdminSchema = z.object({
 import { apiDocumentation } from "./openapi";
 import { registerDocRoutes } from "./doc-routes";
 import { getBootstrapConfig, validateSystemSecret, addUserToSystemOrg, SYSTEM_ORG_ID } from "./system-bootstrap";
+import { setRLSContext } from "./db";
 
 // SESSION_SECRET is required - no fallback to prevent insecure defaults
 if (!process.env.SESSION_SECRET) {
@@ -153,6 +154,18 @@ async function authMiddleware(req: Request, res: Response, next: NextFunction) {
     req.principal = { id: agent.id, type: 'agent', name: agent.name };
     // Update last seen
     storage.updateAgentLastSeen(agent.id).catch(() => {});
+
+    // Set RLS context for agent
+    try {
+      await setRLSContext({
+        orgId: agent.orgId || "",
+        userId: agent.id,
+        isSuperAdmin: false,
+        capabilities: (agent.capabilities as string[]) || [],
+      });
+    } catch (error) {
+      console.error("[identity-service] Failed to set RLS context for agent:", error);
+    }
   } else {
     // Default: user type
     const user = await storage.getUser(payload.sub);
@@ -161,6 +174,18 @@ async function authMiddleware(req: Request, res: Response, next: NextFunction) {
     }
     req.user = { id: user.id, email: user.email, name: user.name, isSuperAdmin: user.isSuperAdmin };
     req.principal = { id: user.id, type: 'user', name: user.name };
+
+    // Set RLS context for user
+    try {
+      await setRLSContext({
+        orgId: "", // Identity service operates cross-org; specific org context set per-query
+        userId: user.id,
+        isSuperAdmin: user.isSuperAdmin,
+        capabilities: [],
+      });
+    } catch (error) {
+      console.error("[identity-service] Failed to set RLS context for user:", error);
+    }
   }
 
   next();
@@ -168,7 +193,7 @@ async function authMiddleware(req: Request, res: Response, next: NextFunction) {
 
 async function superAdminMiddleware(req: Request, res: Response, next: NextFunction) {
   if (!req.user?.isSuperAdmin) {
-    return res.status(403).json({ 
+    return res.status(403).json({
       message: "Super admin access required",
       code: "SUPERADMIN_REQUIRED",
       hint: "This action requires super admin privileges. Contact your system administrator."

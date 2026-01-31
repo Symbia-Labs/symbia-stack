@@ -22,7 +22,7 @@ import {
 } from "./spec-parser/index.js";
 import { createEvalRoutes, initializeModelEvalSystem } from "./model-eval/index.js";
 import type { Integration, IntegrationInvokeRequest } from "@shared/schema.js";
-import { db } from "./db.js";
+import { db, setRLSContext } from "./db.js";
 import { sql, and } from "drizzle-orm";
 import { executionLogs, proxyUsage } from "@shared/schema.js";
 import type { CredentialLookup } from "./credential-client.js";
@@ -152,8 +152,22 @@ async function authMiddleware(
     id: introspection.sub,
     type: introspection.type,
     orgId,
+    isSuperAdmin: introspection.isSuperAdmin,
   };
   (req as any).token = token;
+
+  // Set RLS context for database queries
+  try {
+    await setRLSContext({
+      orgId,
+      userId: introspection.sub,
+      isSuperAdmin: introspection.isSuperAdmin,
+      capabilities: introspection.entitlements || [],
+    });
+  } catch (error) {
+    console.error("[integrations-service] Failed to set RLS context:", error);
+    // Continue without RLS on error
+  }
 
   next();
 }
