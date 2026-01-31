@@ -2,8 +2,6 @@
 # Start all services: docker-compose up -d
 # View logs: docker-compose logs -f
 
-version: '3.8'
-
 services:
   # PostgreSQL database
   postgres:

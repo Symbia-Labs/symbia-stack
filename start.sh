@@ -19,6 +19,23 @@ log_success() { echo -e "${GREEN}[symbia]${NC} $*"; }
 log_warn() { echo -e "${YELLOW}[symbia]${NC} $*"; }
 log_error() { echo -e "${RED}[symbia]${NC} $*"; }
 
+# Reset database to fresh state
+reset_database() {
+  log_warn "Resetting database to fresh state..."
+
+  # Stop all services
+  log_info "Stopping all services..."
+  docker-compose down --remove-orphans 2>/dev/null || true
+
+  # Remove postgres data volume
+  if docker volume inspect symbia-stack_postgres_data &> /dev/null; then
+    log_info "Removing postgres data volume..."
+    docker volume rm symbia-stack_postgres_data
+  fi
+
+  log_success "Database reset complete"
+}
+
 # Check for required tools
 check_requirements() {
   for cmd in docker docker-compose; do
@@ -249,12 +266,17 @@ main() {
 
   local force_rebuild=false
   local skip_admin=false
+  local force_new=false
 
   # Parse arguments
   while [[ $# -gt 0 ]]; do
     case $1 in
       --rebuild|-r)
         force_rebuild=true
+        shift
+        ;;
+      --new|-n)
+        force_new=true
         shift
         ;;
       --skip-admin)
@@ -267,6 +289,7 @@ main() {
         echo "Usage: ./start.sh [options]"
         echo ""
         echo "Options:"
+        echo "  -n, --new        Start fresh with empty database (removes existing data)"
         echo "  -r, --rebuild    Force rebuild of all images"
         echo "  --skip-admin     Skip super admin creation prompt"
         echo "  -h, --help       Show this help message"
@@ -288,8 +311,28 @@ main() {
   log_info "╚════════════════════════════════════════════════════════════╝"
   echo ""
 
-  if is_first_run || [ "$force_rebuild" = true ]; then
-    log_info "First run detected - performing full initialization..."
+  # Handle --new flag: reset database and start fresh
+  if [ "$force_new" = true ]; then
+    echo ""
+    log_warn "╔════════════════════════════════════════════════════════════╗"
+    log_warn "║  WARNING: This will delete all existing data!              ║"
+    log_warn "╚════════════════════════════════════════════════════════════╝"
+    echo ""
+    read -p "  Are you sure you want to start fresh? (yes/no): " confirm
+    if [ "$confirm" != "yes" ]; then
+      log_info "Aborted."
+      exit 0
+    fi
+    echo ""
+    reset_database
+  fi
+
+  if is_first_run || [ "$force_rebuild" = true ] || [ "$force_new" = true ]; then
+    if [ "$force_new" = true ]; then
+      log_info "Fresh start requested - performing full initialization..."
+    else
+      log_info "First run detected - performing full initialization..."
+    fi
     echo ""
 
     # Build base image if needed

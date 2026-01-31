@@ -91,8 +91,14 @@ The `start.sh` script handles first-run initialization and subsequent restarts a
 # Subsequent runs - fast restart (no prompts)
 ./start.sh
 
+# Start fresh with empty database (removes all existing data)
+./start.sh --new
+
 # Force rebuild all images
 ./start.sh --rebuild
+
+# Combined: fresh start with rebuilt images
+./start.sh --new --rebuild
 
 # Skip admin creation prompt
 ./start.sh --skip-admin
@@ -118,13 +124,15 @@ On first run, you will be prompted to create the super admin account:
 
 #### What the Script Does
 
-| Phase | First Run | Subsequent Runs |
-|-------|-----------|-----------------|
-| Build base image | Yes (if missing) | Skip |
-| Build service images | Yes (if missing) | Skip |
-| Database bootstrap | Yes | Skip |
-| Super admin setup | **Interactive prompt** | Skip (users exist) |
-| Start services | Yes | Yes |
+| Phase | First Run | Subsequent Runs | `--new` Flag |
+|-------|-----------|-----------------|--------------|
+| Stop services | No | No | Yes |
+| Remove database volume | No | No | Yes (with confirmation) |
+| Build base image | Yes (if missing) | Skip | Skip (unless `--rebuild`) |
+| Build service images | Yes (if missing) | Skip | Skip (unless `--rebuild`) |
+| Database bootstrap | Yes | Skip | Yes |
+| Super admin setup | **Interactive prompt** | Skip (users exist) | **Interactive prompt** |
+| Start services | Yes | Yes | Yes |
 
 ### Using Docker Compose Directly
 

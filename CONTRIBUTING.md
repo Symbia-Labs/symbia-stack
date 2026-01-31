@@ -43,6 +43,27 @@ By participating in this project, you agree to maintain a respectful and inclusi
    cd catalog && npm run dev
    ```
 
+### Using Docker (Recommended)
+
+The `start.sh` script handles all Docker setup automatically:
+
+```bash
+# First run - builds images, initializes DB, prompts for admin
+./start.sh
+
+# Subsequent runs - fast restart
+./start.sh
+
+# Start fresh with empty database
+./start.sh --new
+
+# Force rebuild all images
+./start.sh --rebuild
+
+# Combined: fresh database + rebuilt images
+./start.sh --new --rebuild
+```
+
 ## Project Structure
 
 ```
@@ -171,7 +192,7 @@ cd catalog && CATALOG_USE_MEMORY_DB=true npm run dev
 Releases are managed by maintainers. To request a release:
 
 1. Ensure TypeScript compiles in all affected services
-2. Test with Docker Compose: `docker-compose up`
+2. Test with Docker: `./start.sh --new --rebuild`
 3. Open a release PR
 4. Maintainers will review and tag
 

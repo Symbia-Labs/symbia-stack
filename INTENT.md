@@ -523,7 +523,11 @@ cd catalog && npm run dev
 
 ### Docker Compose
 ```bash
-docker-compose up -d    # Start all services with PostgreSQL
+./start.sh              # First run: init DB, create admin, start services
+./start.sh              # Subsequent runs: fast restart
+./start.sh --new        # Start fresh with empty database
+./start.sh --rebuild    # Force rebuild all images
+./start.sh --new --rebuild  # Fresh start with rebuilt images
 docker-compose logs -f  # View logs
 docker-compose down     # Stop
 ```

@@ -40,6 +40,7 @@ WORKDIR /app
 
 # Copy built artifacts
 COPY --from=builder /app/identity/dist ./dist
+COPY --from=builder /app/identity/docs ./docs
 COPY --from=builder /app/identity/package*.json ./
 COPY --from=builder /app/identity/node_modules ./node_modules
 

@@ -1635,16 +1635,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
   // ==========================================================================
 
   app.get("/", (_req: Request, res: Response) => {
-    res.json({
-      service: "Symbia Integrations Service",
-      version: "1.0.0",
-      description: "Centralized gateway for third-party API traffic",
-      docs: {
-        openapi: "/openapi.json",
-        llm: "/llms.txt",
-        llmFull: "/llms-full.txt",
-      },
-    });
+    res.redirect(302, "/docs/llms.txt");
   });
 
   app.get("/api/docs", (_req: Request, res: Response) => {

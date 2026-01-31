@@ -34,6 +34,7 @@ WORKDIR /app
 
 # Copy built artifacts
 COPY --from=builder /app/runtime/dist ./dist
+COPY --from=builder /app/runtime/docs ./docs
 COPY --from=builder /app/runtime/package*.json ./
 COPY --from=builder /app/runtime/node_modules ./node_modules
 
