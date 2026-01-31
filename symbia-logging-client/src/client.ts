@@ -13,6 +13,8 @@ import {
   nowIso,
   buildBaseMetadata,
   clampQueue,
+  initSystemAuth,
+  clearSystemAuth,
 } from "./config.js";
 import { getMetricDefinition } from "./metrics.js";
 
@@ -68,21 +70,44 @@ export function createTelemetryClient(
   // Flush control
   let timer: NodeJS.Timeout | null = null;
   let flushing = false;
+  let systemAuthInitialized = false;
+
+  /**
+   * Ensure system auth is initialized for "system" auth mode
+   */
+  async function ensureSystemAuth(): Promise<void> {
+    if (config.authMode !== "system" || systemAuthInitialized) return;
+    await initSystemAuth();
+    systemAuthInitialized = true;
+  }
 
   /**
    * Make HTTP request to telemetry endpoint with retry logic
+   * Handles 401 by clearing system auth cache and retrying
    */
   async function request(
     path: string,
     body: Record<string, unknown>,
-    attempt = 0
+    attempt = 0,
+    retriedAuth = false
   ): Promise<any> {
     try {
+      // Ensure system auth is initialized on first request
+      await ensureSystemAuth();
+
       const res = await fetch(`${config.endpoint}${path}`, {
         method: "POST",
         headers: getHeaders(config),
         body: JSON.stringify(body),
       });
+
+      // On 401 with system auth, clear cache and retry once
+      if (res.status === 401 && config.authMode === "system" && !retriedAuth) {
+        clearSystemAuth();
+        systemAuthInitialized = false;
+        await ensureSystemAuth();
+        return request(path, body, attempt, true);
+      }
 
       if (!res.ok) {
         const text = await res.text();
@@ -99,7 +124,7 @@ export function createTelemetryClient(
       // Exponential backoff (max 5s)
       const backoff = Math.min(1000 * (attempt + 1), 5000);
       await new Promise((resolve) => setTimeout(resolve, backoff));
-      return request(path, body, attempt + 1);
+      return request(path, body, attempt + 1, retriedAuth);
     }
   }
 

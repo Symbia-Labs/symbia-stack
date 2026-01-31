@@ -5,6 +5,7 @@ import { ServiceId } from "@symbia/sys";
 import { registerRoutes } from "./routes";
 import { seedIdentityData, DEFAULT_USER_IDS, DEFAULT_ORG_IDS } from "@symbia/seed";
 import { db, database, exportToFile, isMemory, ensureIdentitySchema } from "./db";
+import { initSystemBootstrap } from "./system-bootstrap";
 import * as schema from "../../shared/schema.js";
 import { join } from "path";
 import * as crypto from "crypto";
@@ -178,6 +179,9 @@ const server = createSymbiaServer({
 async function start(): Promise<void> {
   // Ensure PostgreSQL schema exists for out-of-box local Docker runs.
   await ensureIdentitySchema();
+
+  // Initialize system bootstrap (creates symbia-system org, generates ephemeral secret)
+  await initSystemBootstrap();
 
   await server.start();
 

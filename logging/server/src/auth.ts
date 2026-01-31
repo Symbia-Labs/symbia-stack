@@ -1,7 +1,7 @@
 import type { Request, Response, NextFunction } from "express";
 import type { Session, SessionData } from "express-session";
 import { storage } from "./storage";
-import { createHash, randomBytes } from "crypto";
+import { createHash, randomBytes, timingSafeEqual } from "crypto";
 import { resolveServiceUrl, ServiceId } from "@symbia/sys";
 
 declare module "express" {
@@ -67,6 +67,92 @@ const DEFAULT_POLICY_REF = process.env.LOGGING_DEFAULT_POLICY_REF || "policy/def
 const AUTH_SHARED_SECRET = process.env.AUTH_SHARED_SECRET || "";
 
 const DATA_CLASS_VALUES = new Set(["none", "pii", "phi", "secret"]);
+
+// System bootstrap config - fetched from Identity for service-to-service auth
+interface SystemBootstrapConfig {
+  secret: string;
+  orgId: string;
+  orgName: string;
+  serviceId: string;
+}
+
+let systemBootstrapConfig: SystemBootstrapConfig | null = null;
+let bootstrapFetchPromise: Promise<SystemBootstrapConfig | null> | null = null;
+
+/**
+ * Fetch system bootstrap config from Identity service
+ */
+async function fetchSystemBootstrap(): Promise<SystemBootstrapConfig | null> {
+  if (bootstrapFetchPromise) {
+    return bootstrapFetchPromise;
+  }
+
+  bootstrapFetchPromise = (async () => {
+    try {
+      const response = await fetch(`${IDENTITY_SERVICE_URL}/bootstrap/internal`, {
+        method: "GET",
+        headers: { "Accept": "application/json" },
+      });
+
+      if (response.ok) {
+        const config = (await response.json()) as SystemBootstrapConfig;
+        systemBootstrapConfig = config;
+        console.log("[logging] Fetched system bootstrap config from Identity");
+        return config;
+      }
+    } catch (error) {
+      console.warn("[logging] Failed to fetch system bootstrap config:", error);
+    }
+    return null;
+  })();
+
+  const result = await bootstrapFetchPromise;
+  bootstrapFetchPromise = null;
+  return result;
+}
+
+/**
+ * Initialize system bootstrap - call on startup
+ */
+export async function initSystemBootstrap(): Promise<void> {
+  await fetchSystemBootstrap();
+}
+
+/**
+ * Validate a system secret, re-fetching if needed
+ */
+async function validateSystemSecret(secret: string): Promise<SystemBootstrapConfig | null> {
+  // Try with cached config first
+  if (systemBootstrapConfig) {
+    try {
+      const secretBuffer = Buffer.from(secret);
+      const cachedBuffer = Buffer.from(systemBootstrapConfig.secret);
+      if (secretBuffer.length === cachedBuffer.length &&
+          timingSafeEqual(secretBuffer, cachedBuffer)) {
+        return systemBootstrapConfig;
+      }
+    } catch {
+      // Length mismatch or other error - try re-fetching
+    }
+  }
+
+  // Re-fetch and try again (in case Identity restarted)
+  const freshConfig = await fetchSystemBootstrap();
+  if (freshConfig) {
+    try {
+      const secretBuffer = Buffer.from(secret);
+      const freshBuffer = Buffer.from(freshConfig.secret);
+      if (secretBuffer.length === freshBuffer.length &&
+          timingSafeEqual(secretBuffer, freshBuffer)) {
+        return freshConfig;
+      }
+    } catch {
+      // Validation failed
+    }
+  }
+
+  return null;
+}
 
 const PUBLIC_API_PATHS = new Set([
   "/api/openapi.json",
@@ -239,6 +325,8 @@ export async function authMiddleware(req: Request, res: Response, next: NextFunc
 
   if (bearer && bearer.toLowerCase().startsWith("bearer ")) {
     const token = bearer.slice("bearer ".length).trim();
+
+    // Check static shared secret (legacy env var approach)
     if (AUTH_SHARED_SECRET && token === AUTH_SHARED_SECRET) {
       if (req.method !== "POST" || !SHARED_SECRET_PATHS.has(req.path)) {
         return res.status(403).json({ error: "Shared secret restricted to telemetry ingest" });
@@ -252,6 +340,28 @@ export async function authMiddleware(req: Request, res: Response, next: NextFunc
         dataClass: normalizeDataClass(requestedDataClass),
         policyRef: requestedPolicyRef || DEFAULT_POLICY_REF,
         actorId: "telemetry-shared-secret",
+        entitlements: ["telemetry:ingest"],
+        roles: [],
+        isSuperAdmin: false,
+      };
+      return next();
+    }
+
+    // Check dynamic system secret (fetched from Identity)
+    const systemConfig = await validateSystemSecret(token);
+    if (systemConfig) {
+      if (req.method !== "POST" || !SHARED_SECRET_PATHS.has(req.path)) {
+        return res.status(403).json({ error: "System secret restricted to telemetry ingest" });
+      }
+
+      req.authContext = {
+        authType: "apiKey",
+        orgId: requestedOrgId || systemConfig.orgId,
+        serviceId: requestedServiceId || systemConfig.serviceId,
+        env: requestedEnv || DEFAULT_ENV,
+        dataClass: normalizeDataClass(requestedDataClass),
+        policyRef: requestedPolicyRef || DEFAULT_POLICY_REF,
+        actorId: `system:${requestedServiceId || "unknown"}`,
         entitlements: ["telemetry:ingest"],
         roles: [],
         isSuperAdmin: false,

@@ -3,7 +3,7 @@ import { createTelemetryClient } from "@symbia/logging-client";
 import { initServiceRelay, shutdownRelay } from "@symbia/relay";
 import { ServiceId } from "@symbia/sys";
 import { registerRoutes } from "./routes";
-import { authMiddleware } from "./auth";
+import { authMiddleware, initSystemBootstrap } from "./auth";
 import { database, exportToFile, isMemory, ensureLoggingSchema } from "./db";
 import { join } from "path";
 
@@ -41,6 +41,9 @@ const server = createSymbiaServer({
 async function start(): Promise<void> {
   // Ensure PostgreSQL schema exists for out-of-box local Docker runs.
   await ensureLoggingSchema();
+
+  // Fetch system bootstrap config from Identity for service-to-service auth
+  await initSystemBootstrap();
 
   await server.start();
 

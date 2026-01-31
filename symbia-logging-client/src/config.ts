@@ -1,4 +1,4 @@
-import { resolveServiceUrl, ServiceId } from "@symbia/sys";
+import { resolveServiceUrl, ServiceId, fetchBootstrapConfig, clearBootstrapCache, type BootstrapConfig } from "@symbia/sys";
 import type { TelemetryAuthMode, TelemetryConfig } from "./types.js";
 
 /**
@@ -27,10 +27,46 @@ const EXPLICIT_AUTH_MODE = process.env
 const FALLBACK_AUTH_MODE = process.env
   .LOGGING_AUTH_MODE as TelemetryAuthMode | undefined;
 
+// Default to "system" auth mode for automatic service-to-service auth
 const RESOLVED_AUTH_MODE: TelemetryAuthMode =
   EXPLICIT_AUTH_MODE ||
   FALLBACK_AUTH_MODE ||
-  (RESOLVED_API_KEY ? "apiKey" : RESOLVED_BEARER ? "bearer" : "none");
+  (RESOLVED_API_KEY ? "apiKey" : RESOLVED_BEARER ? "bearer" : "system");
+
+// Cached system bootstrap config
+let systemBootstrap: BootstrapConfig | null = null;
+let bootstrapInitialized = false;
+
+/**
+ * Initialize system bootstrap for telemetry
+ * Called automatically on first request when auth mode is "system"
+ */
+export async function initSystemAuth(): Promise<BootstrapConfig | null> {
+  if (bootstrapInitialized && systemBootstrap) {
+    return systemBootstrap;
+  }
+
+  systemBootstrap = await fetchBootstrapConfig();
+  bootstrapInitialized = true;
+  return systemBootstrap;
+}
+
+/**
+ * Clear system bootstrap cache
+ * Call this on 401 to force re-fetch
+ */
+export function clearSystemAuth(): void {
+  systemBootstrap = null;
+  bootstrapInitialized = false;
+  clearBootstrapCache();
+}
+
+/**
+ * Get current system bootstrap config (if available)
+ */
+export function getSystemAuth(): BootstrapConfig | null {
+  return systemBootstrap;
+}
 
 /**
  * Default telemetry configuration from environment variables
@@ -77,9 +113,12 @@ export function normalizeEndpoint(endpoint: string): string {
  * Build HTTP headers for telemetry requests
  */
 export function getHeaders(config: TelemetryConfig): Record<string, string> {
+  // For system auth, use bootstrap config for org/service IDs
+  const bootstrap = config.authMode === "system" ? getSystemAuth() : null;
+
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
-    "X-Org-Id": config.orgId,
+    "X-Org-Id": bootstrap?.orgId || config.orgId,
     "X-Service-Id": config.serviceId,
     "X-Env": config.env,
     "X-Data-Class": config.dataClass,
@@ -92,6 +131,10 @@ export function getHeaders(config: TelemetryConfig): Record<string, string> {
 
   if (config.authMode === "bearer" && config.bearer) {
     headers["Authorization"] = `Bearer ${config.bearer}`;
+  }
+
+  if (config.authMode === "system" && bootstrap?.secret) {
+    headers["Authorization"] = `Bearer ${bootstrap.secret}`;
   }
 
   return headers;

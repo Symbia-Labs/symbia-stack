@@ -169,6 +169,10 @@ export class MemStorage implements IStorage {
     context: AccessContext,
     orgOnly: boolean = false,
   ): boolean {
+    // Super admins can see all data across all orgs
+    if (context.isSuperAdmin) {
+      return true;
+    }
     // For admin console queries, match org only to see all data in the org
     if (orgOnly) {
       return item.orgId === context.orgId;
@@ -190,7 +194,10 @@ export class MemStorage implements IStorage {
     this.dataSources = new Map();
     this.integrations = new Map();
 
-    this.seedDemoData();
+    // Only seed demo data in development mode
+    if (process.env.NODE_ENV !== "production") {
+      this.seedDemoData();
+    }
   }
 
   private seedDemoData() {

@@ -44,6 +44,7 @@ const updatePlanAdminSchema = z.object({
 });
 import { apiDocumentation } from "./openapi";
 import { registerDocRoutes } from "./doc-routes";
+import { getBootstrapConfig, validateSystemSecret, addUserToSystemOrg, SYSTEM_ORG_ID } from "./system-bootstrap";
 
 // SESSION_SECRET is required - no fallback to prevent insecure defaults
 if (!process.env.SESSION_SECRET) {
@@ -308,6 +309,43 @@ export async function registerRoutes(
       ],
       jwks: "/.well-known/jwks.json",
     });
+  });
+
+  /**
+   * Internal bootstrap endpoint for service-to-service auth
+   * Returns ephemeral system secret and org ID for telemetry
+   *
+   * Security: This endpoint should only be accessible from internal Docker network.
+   * The secret is regenerated on every Identity restart.
+   */
+  app.get("/api/bootstrap/internal", (req, res) => {
+    // Basic protection: only allow from internal network
+    // In production, this should be further restricted via network policies
+    const forwarded = req.headers["x-forwarded-for"];
+    const remoteIp = typeof forwarded === "string"
+      ? forwarded.split(",")[0].trim()
+      : req.socket.remoteAddress;
+
+    // Allow localhost, Docker networks (172.x.x.x), and private networks
+    const isInternal = remoteIp && (
+      remoteIp === "127.0.0.1" ||
+      remoteIp === "::1" ||
+      remoteIp.startsWith("172.") ||
+      remoteIp.startsWith("10.") ||
+      remoteIp.startsWith("192.168.") ||
+      remoteIp === "::ffff:127.0.0.1"
+    );
+
+    if (!isInternal && process.env.NODE_ENV === "production") {
+      return res.status(403).json({ error: "Internal endpoint only" });
+    }
+
+    const config = getBootstrapConfig();
+    if (!config) {
+      return res.status(503).json({ error: "Bootstrap not initialized" });
+    }
+
+    res.json(config);
   });
 
   // Stats endpoint for platform health monitoring
@@ -693,6 +731,11 @@ For service-to-service authentication, use POST /api/auth/introspect with { "tok
         isSuperAdmin: isFirstUser,
       });
 
+      // Super admins are automatically added to symbia-system org
+      if (isFirstUser) {
+        await addUserToSystemOrg(user.id);
+      }
+
       // If orgName provided, create organization and add user as admin
       let org = null;
       if (data.orgName) {
@@ -718,7 +761,7 @@ For service-to-service authentication, use POST /api/auth/introspect with { "tok
 
       await storage.createAuditLog({
         userId: user.id,
-        orgId: org?.id,
+        orgId: isFirstUser ? SYSTEM_ORG_ID : org?.id,
         action: isFirstUser ? "superadmin.created" : "user.registered",
         resource: "user",
         metadataJson: { email: user.email, orgName: data.orgName, isSuperAdmin: isFirstUser },

@@ -1,7 +1,11 @@
 /**
  * Authentication mode for telemetry endpoint
+ * - "apiKey": Use X-API-Key header
+ * - "bearer": Use Authorization: Bearer header with provided token
+ * - "system": Auto-fetch system secret from Identity service (service-to-service auth)
+ * - "none": No authentication (dev mode only)
  */
-export type TelemetryAuthMode = "apiKey" | "bearer" | "none";
+export type TelemetryAuthMode = "apiKey" | "bearer" | "system" | "none";
 
 /**
  * Telemetry client configuration

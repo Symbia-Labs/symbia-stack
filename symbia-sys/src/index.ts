@@ -13,6 +13,9 @@ export * from './script.js';
 // Namespace client - fetches and caches namespace data from services
 export * from './namespace-client.js';
 
+// System bootstrap - service-to-service authentication
+export * from './bootstrap.js';
+
 /**
  * Service identifiers used across the platform
  */

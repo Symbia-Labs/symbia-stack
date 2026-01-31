@@ -19,6 +19,7 @@ function generateSeedUUID(namespace: string, id: string): string {
  * Default organization IDs for seed data
  */
 export const DEFAULT_ORG_IDS = {
+  SYMBIA_SYSTEM: "00000000-0000-0000-0000-000000000001", // System org (auto-created, all services)
   SYMBIA_LABS: "550e8400-e29b-41d4-a716-446655440000", // Symbia Labs (default org)
   ACME_CORP: "550e8400-e29b-41d4-a716-446655440001",   // Acme Corp (test org)
   TEST_ORG: "550e8400-e29b-41d4-a716-446655440002",     // Generic test org
@@ -151,6 +152,7 @@ export const ROLE_KEYS = {
  * Default slugs for organizations
  */
 export const DEFAULT_ORG_SLUGS = {
+  SYMBIA_SYSTEM: "symbia-system",
   SYMBIA_LABS: "symbia-labs",
   ACME_CORP: "acme-corp",
   TEST_ORG: "test-org",
