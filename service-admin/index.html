@@ -1664,7 +1664,23 @@
 
       const discoveries = SERVICES.map(async (svc) => {
         try {
-          // OpenAPI endpoint
+          // Special handling for PostgreSQL - check via service-admin's /db/health
+          if (svc.id === 'postgresql') {
+            try {
+              const healthRes = await fetch('/db/health', {
+                signal: AbortSignal.timeout(3000)
+              });
+              if (healthRes.ok) {
+                document.getElementById(`status-${svc.id}`).classList.remove('unhealthy');
+                serviceSpecs[svc.id] = { info: { title: 'PostgreSQL Database' }, paths: {} };
+                return;
+              }
+            } catch {}
+            document.getElementById(`status-${svc.id}`).classList.add('unhealthy');
+            return;
+          }
+
+          // OpenAPI endpoint for other services
           const endpoints = [
             `/docs/openapi.json`
           ];
