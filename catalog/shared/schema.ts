@@ -178,6 +178,14 @@ export const entitlements = pgTable("entitlements", {
   principalIdx: index("idx_entitlements_principal").on(table.principalId),
 }));
 
+// System settings table - for tracking bootstrap state and other flags
+export const systemSettings = pgTable("system_settings", {
+  key: varchar("key", { length: 255 }).primaryKey(),
+  value: text("value"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
 // API Keys table - for programmatic access
 export const apiKeys = pgTable("api_keys", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -314,3 +322,5 @@ export type InsertEntitlement = z.infer<typeof insertEntitlementSchema>;
 
 export type ApiKey = typeof apiKeys.$inferSelect;
 export type InsertApiKey = z.infer<typeof insertApiKeySchema>;
+
+export type SystemSetting = typeof systemSettings.$inferSelect;

@@ -85,6 +85,13 @@ CREATE TABLE "api_keys" (
   "created_at" timestamp DEFAULT now() NOT NULL
 );
 
+CREATE TABLE "system_settings" (
+  "key" varchar(255) PRIMARY KEY,
+  "value" text,
+  "created_at" timestamp DEFAULT now() NOT NULL,
+  "updated_at" timestamp DEFAULT now() NOT NULL
+);
+
 -- Indexes for resources table
 CREATE INDEX idx_resources_type ON "resources"("type");
 CREATE INDEX idx_resources_org_id ON "resources"("org_id");
