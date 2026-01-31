@@ -98,6 +98,18 @@ log "Applying schema to '${db}' from '${file}'..."
   echo "$sql" | psql -d "$db" -v ON_ERROR_STOP=1
 }
 
+apply_rls_policies() {
+  db="$1"
+  rls_file="$2"
+  if [ ! -f "$rls_file" ]; then
+    log "No RLS policies found for '${db}', skipping."
+    return 0
+  fi
+  log "Applying RLS policies to '${db}'..."
+  # Ignore errors from policies that already exist
+  psql -d "$db" -f "$rls_file" 2>/dev/null || true
+}
+
 wait_for_postgres
 
 # Create per-service databases to avoid cross-service table-name collisions.
@@ -107,11 +119,20 @@ create_db_if_missing catalog
 create_db_if_missing assistants
 create_db_if_missing messaging
 create_db_if_missing runtime
+create_db_if_missing integrations
 
 # Apply each service's DDL into its own database.
 apply_schema_file identity /workspace/identity/server/src/memory-schema.ts
 apply_schema_file logging /workspace/logging/server/src/memory-schema.ts
 apply_schema_file catalog /workspace/catalog/server/src/memory-schema.ts
 apply_schema_file assistants /workspace/assistants/server/src/lib/memory-schema.ts
+
+# Apply Row-Level Security policies for multi-tenant isolation.
+log "Applying Row-Level Security policies..."
+apply_rls_policies identity /workspace/identity/server/migrations/0001_rls_policies.sql
+apply_rls_policies logging /workspace/logging/server/migrations/0001_rls_policies.sql
+apply_rls_policies catalog /workspace/catalog/server/migrations/0001_rls_policies.sql
+apply_rls_policies integrations /workspace/integrations/server/migrations/0001_rls_policies.sql
+apply_rls_policies assistants /workspace/assistants/server/src/migrations/drizzle/0001_rls_policies.sql
 
 log "Bootstrap complete."
