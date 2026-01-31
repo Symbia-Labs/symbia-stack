@@ -2,6 +2,10 @@ FROM node:20-alpine
 
 WORKDIR /app
 
+# Copy package files and install dependencies
+COPY service-admin/package.json .
+RUN npm install --production
+
 # Copy application files
 COPY service-admin/server.js .
 COPY service-admin/index.html .

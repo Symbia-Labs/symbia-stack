@@ -801,6 +801,404 @@
       font-size: 0.75rem;
       color: var(--text-muted);
     }
+
+    /* PostgreSQL Database Browser Styles */
+    .db-browser {
+      display: flex;
+      gap: 1.5rem;
+      height: calc(100vh - 200px);
+      min-height: 500px;
+    }
+
+    .db-sidebar {
+      width: 280px;
+      background: var(--surface-raised);
+      border: 1px solid var(--border-default);
+      border-radius: 12px;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .db-sidebar-header {
+      padding: 1rem;
+      border-bottom: 1px solid var(--border-default);
+      background: var(--surface-overlay);
+    }
+
+    .db-sidebar-header h4 {
+      font-size: 0.9rem;
+      margin-bottom: 0.5rem;
+    }
+
+    .db-search {
+      width: 100%;
+      padding: 0.5rem 0.75rem;
+      background: var(--surface-base);
+      border: 1px solid var(--border-muted);
+      border-radius: 6px;
+      color: var(--text-primary);
+      font-size: 0.85rem;
+    }
+
+    .db-search:focus {
+      outline: none;
+      border-color: var(--primary-500);
+    }
+
+    .db-table-list {
+      flex: 1;
+      overflow-y: auto;
+      padding: 0.5rem;
+    }
+
+    .db-schema-group {
+      margin-bottom: 0.5rem;
+    }
+
+    .db-schema-name {
+      font-size: 0.7rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--text-muted);
+      padding: 0.5rem 0.5rem 0.25rem;
+    }
+
+    .db-table-item {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.5rem 0.75rem;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 0.85rem;
+      transition: all 0.15s;
+    }
+
+    .db-table-item:hover {
+      background: var(--surface-highlight);
+    }
+
+    .db-table-item.active {
+      background: var(--surface-overlay);
+      border-left: 2px solid var(--primary-500);
+    }
+
+    .db-table-icon {
+      color: var(--primary-500);
+      font-size: 0.9rem;
+    }
+
+    .db-table-name {
+      flex: 1;
+      font-family: var(--font-mono);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .db-table-count {
+      font-size: 0.7rem;
+      color: var(--text-muted);
+      background: var(--surface-sunken);
+      padding: 0.15rem 0.4rem;
+      border-radius: 4px;
+    }
+
+    .db-main {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+      overflow: hidden;
+    }
+
+    .db-tabs {
+      display: flex;
+      gap: 0.5rem;
+      border-bottom: 1px solid var(--border-default);
+      padding-bottom: 0.5rem;
+    }
+
+    .db-tab {
+      padding: 0.5rem 1rem;
+      background: transparent;
+      border: none;
+      color: var(--text-secondary);
+      font-size: 0.85rem;
+      cursor: pointer;
+      border-radius: 6px 6px 0 0;
+      transition: all 0.15s;
+    }
+
+    .db-tab:hover {
+      color: var(--text-primary);
+      background: var(--surface-highlight);
+    }
+
+    .db-tab.active {
+      color: var(--primary-500);
+      background: var(--surface-overlay);
+      border-bottom: 2px solid var(--primary-500);
+    }
+
+    .db-content {
+      flex: 1;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .db-panel {
+      display: none;
+      flex: 1;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    .db-panel.active {
+      display: flex;
+    }
+
+    /* Schema tab styles */
+    .db-schema-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.85rem;
+    }
+
+    .db-schema-table th {
+      text-align: left;
+      padding: 0.75rem 1rem;
+      background: var(--surface-overlay);
+      color: var(--text-secondary);
+      font-weight: 600;
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      border-bottom: 1px solid var(--border-default);
+    }
+
+    .db-schema-table td {
+      padding: 0.75rem 1rem;
+      border-bottom: 1px solid var(--border-muted);
+    }
+
+    .db-schema-table tr:hover td {
+      background: var(--surface-highlight);
+    }
+
+    .db-col-name {
+      font-family: var(--font-mono);
+      font-weight: 500;
+      color: var(--text-primary);
+    }
+
+    .db-col-type {
+      font-family: var(--font-mono);
+      color: var(--info);
+    }
+
+    .db-col-nullable {
+      font-size: 0.75rem;
+    }
+
+    .db-col-nullable.yes {
+      color: var(--text-muted);
+    }
+
+    .db-col-nullable.no {
+      color: var(--warning);
+    }
+
+    .db-col-default {
+      font-family: var(--font-mono);
+      font-size: 0.8rem;
+      color: var(--text-muted);
+    }
+
+    .db-badge {
+      display: inline-block;
+      font-size: 0.65rem;
+      font-weight: 600;
+      padding: 0.15rem 0.4rem;
+      border-radius: 3px;
+      margin-left: 0.5rem;
+    }
+
+    .db-badge.pk {
+      background: var(--warning-muted);
+      color: var(--warning);
+    }
+
+    .db-badge.fk {
+      background: rgba(88, 166, 255, 0.15);
+      color: var(--info);
+    }
+
+    .db-badge.unique {
+      background: rgba(168, 85, 247, 0.15);
+      color: #a855f7;
+    }
+
+    /* Data tab styles */
+    .db-data-container {
+      flex: 1;
+      overflow: auto;
+      background: var(--surface-raised);
+      border: 1px solid var(--border-default);
+      border-radius: 8px;
+    }
+
+    .db-data-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.8rem;
+    }
+
+    .db-data-table th {
+      position: sticky;
+      top: 0;
+      text-align: left;
+      padding: 0.6rem 0.75rem;
+      background: var(--surface-overlay);
+      color: var(--text-secondary);
+      font-weight: 600;
+      font-size: 0.7rem;
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+      border-bottom: 1px solid var(--border-default);
+      white-space: nowrap;
+    }
+
+    .db-data-table td {
+      padding: 0.5rem 0.75rem;
+      border-bottom: 1px solid var(--border-muted);
+      max-width: 300px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      font-family: var(--font-mono);
+      font-size: 0.8rem;
+    }
+
+    .db-data-table tr:hover td {
+      background: var(--surface-highlight);
+    }
+
+    .db-null {
+      color: var(--text-muted);
+      font-style: italic;
+    }
+
+    .db-pagination {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0.75rem 1rem;
+      background: var(--surface-raised);
+      border: 1px solid var(--border-default);
+      border-top: none;
+      border-radius: 0 0 8px 8px;
+      font-size: 0.85rem;
+    }
+
+    .db-pagination-info {
+      color: var(--text-secondary);
+    }
+
+    .db-pagination-buttons {
+      display: flex;
+      gap: 0.5rem;
+    }
+
+    .db-pagination button {
+      padding: 0.4rem 0.75rem;
+      font-size: 0.8rem;
+      background: var(--surface-overlay);
+      border: 1px solid var(--border-default);
+    }
+
+    .db-pagination button:disabled {
+      opacity: 0.4;
+    }
+
+    /* Query tab styles */
+    .db-query-editor {
+      display: flex;
+      flex-direction: column;
+      gap: 0.75rem;
+      margin-bottom: 1rem;
+    }
+
+    .db-query-input {
+      width: 100%;
+      min-height: 120px;
+      padding: 1rem;
+      background: var(--surface-sunken);
+      border: 1px solid var(--border-muted);
+      border-radius: 8px;
+      color: var(--text-primary);
+      font-family: var(--font-mono);
+      font-size: 0.9rem;
+      line-height: 1.5;
+      resize: vertical;
+    }
+
+    .db-query-input:focus {
+      outline: none;
+      border-color: var(--primary-500);
+      box-shadow: 0 0 0 3px rgba(63, 184, 175, 0.15);
+    }
+
+    .db-query-actions {
+      display: flex;
+      gap: 0.75rem;
+      align-items: center;
+    }
+
+    .db-query-hint {
+      font-size: 0.8rem;
+      color: var(--text-muted);
+    }
+
+    .db-query-result {
+      flex: 1;
+      overflow: auto;
+    }
+
+    .db-connection-status {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.75rem 1rem;
+      background: var(--surface-raised);
+      border: 1px solid var(--border-default);
+      border-radius: 8px;
+      margin-bottom: 1rem;
+      font-size: 0.85rem;
+    }
+
+    .db-connection-status .status-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+    }
+
+    .db-connection-status .status-dot.healthy {
+      background: var(--success);
+    }
+
+    .db-connection-status .status-dot.unhealthy {
+      background: var(--error);
+    }
+
+    .db-connection-info {
+      color: var(--text-secondary);
+      font-family: var(--font-mono);
+      font-size: 0.8rem;
+    }
   </style>
 </head>
 <body>
@@ -843,7 +1241,7 @@
   <!-- Header -->
   <header class="header">
     <h1>
-      <img src="../symbia-icon.png" alt="Symbia" class="header-logo">
+      <span class="header-logo">⚡</span>
       Service Admin
     </h1>
     <div class="user-info" id="userInfo">
@@ -1494,6 +1892,12 @@
       const spec = serviceSpecs[serviceId];
       const content = document.getElementById('contentArea');
 
+      // Special handling for PostgreSQL
+      if (serviceId === 'postgresql') {
+        renderPostgresPanel();
+        return;
+      }
+
       if (!spec) {
         content.innerHTML = `
           <div class="panel-header">
@@ -1720,6 +2124,446 @@
     function toggleEndpoint(serviceId, idx) {
       const tester = document.getElementById(`tester-${serviceId}-${idx}`);
       tester.classList.toggle('active');
+    }
+
+    // ========================================
+    // PostgreSQL Database Browser
+    // ========================================
+
+    let dbTables = [];
+    let currentDbTable = null;
+    let currentDbTab = 'schema';
+    let currentTableSchema = null;
+    let currentTableData = null;
+    let dbConnectionInfo = null;
+    let tableSearchFilter = '';
+
+    async function checkDbConnection() {
+      try {
+        const res = await fetch('/db/health');
+        if (res.ok) {
+          dbConnectionInfo = await res.json();
+          return true;
+        }
+      } catch (e) {}
+      dbConnectionInfo = null;
+      return false;
+    }
+
+    async function loadDbTables() {
+      try {
+        const res = await fetch('/db/tables');
+        if (res.ok) {
+          const data = await res.json();
+          dbTables = data.tables || [];
+          renderDbTableList();
+        }
+      } catch (e) {
+        console.error('Failed to load tables:', e);
+      }
+    }
+
+    function renderDbTableList() {
+      const container = document.getElementById('dbTableList');
+      if (!container) return;
+
+      // Group tables by schema
+      const schemas = {};
+      const filter = tableSearchFilter.toLowerCase();
+
+      dbTables.forEach(t => {
+        if (filter && !t.table_name.toLowerCase().includes(filter)) return;
+        if (!schemas[t.table_schema]) schemas[t.table_schema] = [];
+        schemas[t.table_schema].push(t);
+      });
+
+      container.innerHTML = Object.entries(schemas).map(([schema, tables]) => `
+        <div class="db-schema-group">
+          <div class="db-schema-name">${schema}</div>
+          ${tables.map(t => `
+            <div class="db-table-item ${currentDbTable?.table_name === t.table_name && currentDbTable?.table_schema === t.table_schema ? 'active' : ''}"
+                 onclick="selectDbTable('${t.table_schema}', '${t.table_name}')">
+              <span class="db-table-icon">${t.table_type === 'VIEW' ? '👁' : '📋'}</span>
+              <span class="db-table-name">${t.table_name}</span>
+              <span class="db-table-count">${t.column_count} cols</span>
+            </div>
+          `).join('')}
+        </div>
+      `).join('') || '<div class="empty-state" style="padding: 2rem;"><p>No tables found</p></div>';
+    }
+
+    async function selectDbTable(schema, tableName) {
+      currentDbTable = { table_schema: schema, table_name: tableName };
+      currentTableData = null; // Reset data when switching tables
+      renderDbTableList();
+
+      // Load based on current tab
+      if (currentDbTab === 'schema') {
+        await loadTableSchema(schema, tableName);
+      } else if (currentDbTab === 'data') {
+        await loadTableData(schema, tableName);
+      }
+
+      // Also preload schema if on data tab (for reference)
+      if (currentDbTab === 'data') {
+        loadTableSchema(schema, tableName);
+      }
+    }
+
+    async function loadTableSchema(schema, tableName) {
+      const container = document.getElementById('dbSchemaContent');
+      if (!container) return;
+
+      container.innerHTML = '<div class="loading"><div class="spinner"></div>Loading schema...</div>';
+
+      try {
+        const res = await fetch(`/db/tables/${encodeURIComponent(schema)}/${encodeURIComponent(tableName)}/schema`);
+        if (res.ok) {
+          currentTableSchema = await res.json();
+          renderTableSchema();
+        } else {
+          container.innerHTML = '<div class="empty-state"><p>Failed to load schema</p></div>';
+        }
+      } catch (e) {
+        container.innerHTML = `<div class="empty-state"><p>Error: ${e.message}</p></div>`;
+      }
+    }
+
+    function renderTableSchema() {
+      const container = document.getElementById('dbSchemaContent');
+      if (!container || !currentTableSchema) return;
+
+      const { columns, constraints, indexes } = currentTableSchema;
+
+      // Build constraint lookup
+      const pkCols = new Set();
+      const fkCols = new Set();
+      const uniqueCols = new Set();
+
+      constraints.forEach(c => {
+        if (c.constraint_type === 'PRIMARY KEY') pkCols.add(c.column_name);
+        if (c.constraint_type === 'FOREIGN KEY') fkCols.add(c.column_name);
+        if (c.constraint_type === 'UNIQUE') uniqueCols.add(c.column_name);
+      });
+
+      container.innerHTML = `
+        <div style="overflow: auto; flex: 1;">
+          <table class="db-schema-table">
+            <thead>
+              <tr>
+                <th>Column</th>
+                <th>Type</th>
+                <th>Nullable</th>
+                <th>Default</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${columns.map(col => `
+                <tr>
+                  <td>
+                    <span class="db-col-name">${col.column_name}</span>
+                    ${pkCols.has(col.column_name) ? '<span class="db-badge pk">PK</span>' : ''}
+                    ${fkCols.has(col.column_name) ? '<span class="db-badge fk">FK</span>' : ''}
+                    ${uniqueCols.has(col.column_name) ? '<span class="db-badge unique">UQ</span>' : ''}
+                  </td>
+                  <td>
+                    <span class="db-col-type">${formatColumnType(col)}</span>
+                  </td>
+                  <td>
+                    <span class="db-col-nullable ${col.is_nullable === 'YES' ? 'yes' : 'no'}">
+                      ${col.is_nullable === 'YES' ? 'nullable' : 'required'}
+                    </span>
+                  </td>
+                  <td>
+                    <span class="db-col-default">${col.column_default || '-'}</span>
+                  </td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+        </div>
+
+        ${indexes.length > 0 ? `
+          <div style="margin-top: 1.5rem;">
+            <h4 style="font-size: 0.85rem; margin-bottom: 0.75rem; color: var(--text-secondary);">Indexes</h4>
+            <div class="schema-fields">
+              ${groupBy(indexes, 'index_name').map(([name, cols]) => `
+                <div class="schema-field" style="grid-template-columns: 200px 1fr;">
+                  <div class="schema-field-name">
+                    ${name}
+                    ${cols[0].is_primary ? '<span class="db-badge pk">Primary</span>' : ''}
+                    ${cols[0].is_unique && !cols[0].is_primary ? '<span class="db-badge unique">Unique</span>' : ''}
+                  </div>
+                  <div class="db-col-type">${cols.map(c => c.column_name).join(', ')}</div>
+                </div>
+              `).join('')}
+            </div>
+          </div>
+        ` : ''}
+      `;
+    }
+
+    function formatColumnType(col) {
+      let type = col.data_type;
+      if (col.character_maximum_length) {
+        type += `(${col.character_maximum_length})`;
+      } else if (col.numeric_precision) {
+        type += `(${col.numeric_precision}${col.numeric_scale ? `,${col.numeric_scale}` : ''})`;
+      }
+      return type;
+    }
+
+    function groupBy(arr, key) {
+      const groups = {};
+      arr.forEach(item => {
+        const k = item[key];
+        if (!groups[k]) groups[k] = [];
+        groups[k].push(item);
+      });
+      return Object.entries(groups);
+    }
+
+    async function loadTableData(schema, tableName, offset = 0, limit = 100) {
+      const container = document.getElementById('dbDataContent');
+      if (!container) return;
+
+      container.innerHTML = '<div class="loading"><div class="spinner"></div>Loading data...</div>';
+
+      try {
+        const res = await fetch(`/db/tables/${encodeURIComponent(schema)}/${encodeURIComponent(tableName)}/data?limit=${limit}&offset=${offset}`);
+        if (res.ok) {
+          currentTableData = await res.json();
+          currentTableData.schema = schema;
+          currentTableData.tableName = tableName;
+          renderTableData();
+        } else {
+          container.innerHTML = '<div class="empty-state"><p>Failed to load data</p></div>';
+        }
+      } catch (e) {
+        container.innerHTML = `<div class="empty-state"><p>Error: ${e.message}</p></div>`;
+      }
+    }
+
+    function renderTableData() {
+      const container = document.getElementById('dbDataContent');
+      if (!container || !currentTableData) return;
+
+      const { data, columns, total, limit, offset, schema, tableName } = currentTableData;
+      const hasNext = offset + limit < total;
+      const hasPrev = offset > 0;
+
+      if (data.length === 0) {
+        container.innerHTML = '<div class="empty-state" style="padding: 3rem;"><p>No data in this table</p></div>';
+        return;
+      }
+
+      container.innerHTML = `
+        <div class="db-data-container">
+          <table class="db-data-table">
+            <thead>
+              <tr>
+                ${columns.map(c => `<th>${c.name}</th>`).join('')}
+              </tr>
+            </thead>
+            <tbody>
+              ${data.map(row => `
+                <tr>
+                  ${columns.map(c => `<td>${formatCellValue(row[c.name])}</td>`).join('')}
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+        </div>
+        <div class="db-pagination">
+          <div class="db-pagination-info">
+            Showing ${offset + 1}-${Math.min(offset + limit, total)} of ${total.toLocaleString()} rows
+          </div>
+          <div class="db-pagination-buttons">
+            <button onclick="loadTableData('${schema}', '${tableName}', ${Math.max(0, offset - limit)}, ${limit})" ${!hasPrev ? 'disabled' : ''}>Previous</button>
+            <button onclick="loadTableData('${schema}', '${tableName}', ${offset + limit}, ${limit})" ${!hasNext ? 'disabled' : ''}>Next</button>
+          </div>
+        </div>
+      `;
+    }
+
+    function formatCellValue(val) {
+      if (val === null || val === undefined) return '<span class="db-null">NULL</span>';
+      if (typeof val === 'object') return escapeHtml(JSON.stringify(val));
+      return escapeHtml(String(val));
+    }
+
+    function escapeHtml(str) {
+      return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    }
+
+    function switchDbTab(tab) {
+      currentDbTab = tab;
+
+      // Update tab buttons
+      document.querySelectorAll('.db-tab').forEach(t => {
+        t.classList.toggle('active', t.dataset.tab === tab);
+      });
+
+      // Update panels
+      document.querySelectorAll('.db-panel').forEach(p => {
+        p.classList.toggle('active', p.dataset.panel === tab);
+      });
+
+      // Load data if switching to data tab and we have a table selected
+      if (tab === 'data' && currentDbTable && !currentTableData) {
+        loadTableData(currentDbTable.table_schema, currentDbTable.table_name);
+      }
+    }
+
+    async function executeDbQuery() {
+      const input = document.getElementById('dbQueryInput');
+      const container = document.getElementById('dbQueryResult');
+      if (!input || !container) return;
+
+      const sql = input.value.trim();
+      if (!sql) return;
+
+      container.innerHTML = '<div class="loading"><div class="spinner"></div>Executing query...</div>';
+
+      try {
+        const res = await fetch('/db/query', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ sql }),
+        });
+
+        const data = await res.json();
+
+        if (!res.ok) {
+          container.innerHTML = `<div class="response-panel active"><div class="response-status"><span class="code error">ERROR</span></div><pre class="response-body">${escapeHtml(data.error || 'Query failed')}</pre></div>`;
+          return;
+        }
+
+        if (data.rows.length === 0) {
+          container.innerHTML = '<div class="empty-state" style="padding: 2rem;"><p>Query returned no results</p></div>';
+          return;
+        }
+
+        container.innerHTML = `
+          <div class="db-data-container" style="max-height: 400px;">
+            <table class="db-data-table">
+              <thead>
+                <tr>
+                  ${data.fields.map(f => `<th>${f.name}</th>`).join('')}
+                </tr>
+              </thead>
+              <tbody>
+                ${data.rows.map(row => `
+                  <tr>
+                    ${data.fields.map(f => `<td>${formatCellValue(row[f.name])}</td>`).join('')}
+                  </tr>
+                `).join('')}
+              </tbody>
+            </table>
+          </div>
+          <div class="db-pagination-info" style="padding: 0.75rem;">
+            ${data.rowCount} row${data.rowCount !== 1 ? 's' : ''} returned
+          </div>
+        `;
+      } catch (e) {
+        container.innerHTML = `<div class="response-panel active"><div class="response-status"><span class="code error">ERROR</span></div><pre class="response-body">${escapeHtml(e.message)}</pre></div>`;
+      }
+    }
+
+    function filterDbTables(filter) {
+      tableSearchFilter = filter;
+      renderDbTableList();
+    }
+
+    async function renderPostgresPanel() {
+      const content = document.getElementById('contentArea');
+
+      // Check connection first
+      const isConnected = await checkDbConnection();
+
+      content.innerHTML = `
+        <div class="panel-header">
+          <h2>PostgreSQL Database</h2>
+          <div class="meta">Port 5432</div>
+        </div>
+
+        <div class="db-connection-status">
+          <span class="status-dot ${isConnected ? 'healthy' : 'unhealthy'}"></span>
+          <span>${isConnected ? 'Connected' : 'Not connected'}</span>
+          ${isConnected && dbConnectionInfo ? `
+            <span class="db-connection-info">${dbConnectionInfo.database} @ ${dbConnectionInfo.user}</span>
+          ` : ''}
+        </div>
+
+        ${isConnected ? `
+          <div class="db-browser">
+            <div class="db-sidebar">
+              <div class="db-sidebar-header">
+                <h4>Tables</h4>
+                <input type="text" class="db-search" placeholder="Search tables..." oninput="filterDbTables(this.value)">
+              </div>
+              <div class="db-table-list" id="dbTableList">
+                <div class="loading"><div class="spinner"></div>Loading...</div>
+              </div>
+            </div>
+
+            <div class="db-main">
+              <div class="db-tabs">
+                <button class="db-tab active" data-tab="schema" onclick="switchDbTab('schema')">Schema</button>
+                <button class="db-tab" data-tab="data" onclick="switchDbTab('data')">Data</button>
+                <button class="db-tab" data-tab="query" onclick="switchDbTab('query')">Query</button>
+              </div>
+
+              <div class="db-content">
+                <div class="db-panel active" data-panel="schema" id="dbSchemaPanel">
+                  <div id="dbSchemaContent">
+                    <div class="empty-state" style="padding: 3rem;">
+                      <div class="icon">📋</div>
+                      <p>Select a table to view its schema</p>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="db-panel" data-panel="data" id="dbDataPanel">
+                  <div id="dbDataContent">
+                    <div class="empty-state" style="padding: 3rem;">
+                      <div class="icon">📊</div>
+                      <p>Select a table to browse its data</p>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="db-panel" data-panel="query" id="dbQueryPanel">
+                  <div class="db-query-editor">
+                    <textarea id="dbQueryInput" class="db-query-input" placeholder="SELECT * FROM public.users LIMIT 10;"></textarea>
+                    <div class="db-query-actions">
+                      <button onclick="executeDbQuery()">Execute Query</button>
+                      <span class="db-query-hint">Only SELECT queries are allowed</span>
+                    </div>
+                  </div>
+                  <div class="db-query-result" id="dbQueryResult">
+                    <div class="empty-state" style="padding: 2rem;">
+                      <p>Enter a SELECT query and click Execute</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        ` : `
+          <div class="empty-state">
+            <div class="icon">🔌</div>
+            <p>Could not connect to PostgreSQL database.</p>
+            <p style="margin-top: 0.5rem; font-size: 0.85rem;">
+              Make sure the database is running and accessible.
+            </p>
+          </div>
+        `}
+      `;
+
+      if (isConnected) {
+        await loadDbTables();
+      }
     }
 
     async function executeRequest(serviceId, idx) {
