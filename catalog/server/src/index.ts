@@ -70,8 +70,9 @@ async function insertResources(data: any[]): Promise<number> {
  * Bootstrap files take precedence over snapshot for duplicate IDs.
  */
 async function seedFromDataFiles(): Promise<number> {
-  // From server/src/ go up to catalog/ then into data/
-  const dataDir = join(__dirname, "..", "..", "data");
+  // In production: __dirname is /app/dist, data is at /app/data (one level up)
+  // In development: __dirname is catalog/server/src, data is at catalog/data (two levels up)
+  const dataDir = join(__dirname, "..", "data");
 
   if (!existsSync(dataDir)) {
     console.log(`[catalog] Data directory not found: ${dataDir}`);
