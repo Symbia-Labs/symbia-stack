@@ -223,6 +223,170 @@
       font-family: var(--font-mono);
     }
 
+    /* Quick Actions Sidebar Section */
+    .sidebar-divider {
+      height: 1px;
+      background: var(--border-muted);
+      margin: 1rem 0;
+    }
+
+    .quick-actions {
+      padding: 0 0.75rem;
+    }
+
+    .quick-action-btn {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      width: 100%;
+      padding: 0.6rem 0.75rem;
+      margin-bottom: 0.35rem;
+      background: var(--surface-overlay);
+      border: 1px solid var(--border-muted);
+      border-radius: 6px;
+      color: var(--text-secondary);
+      font-size: 0.8rem;
+      font-family: var(--font-sans);
+      cursor: pointer;
+      transition: all var(--transition-fast);
+      text-align: left;
+    }
+
+    .quick-action-btn:hover {
+      background: var(--surface-highlight);
+      border-color: var(--primary-500);
+      color: var(--text-primary);
+    }
+
+    .quick-action-btn:active {
+      background: var(--surface-sunken);
+    }
+
+    .quick-action-btn.loading {
+      opacity: 0.6;
+      pointer-events: none;
+    }
+
+    .quick-action-btn .icon {
+      font-size: 0.9rem;
+      width: 1.2rem;
+      text-align: center;
+    }
+
+    .quick-action-btn .label {
+      flex: 1;
+    }
+
+    .quick-action-btn .method-badge {
+      font-size: 0.65rem;
+      font-weight: 600;
+      padding: 0.15rem 0.35rem;
+      border-radius: 3px;
+      font-family: var(--font-mono);
+    }
+
+    .quick-action-btn .method-badge.get {
+      background: rgba(63, 185, 80, 0.15);
+      color: var(--success);
+    }
+
+    .quick-action-btn .method-badge.post {
+      background: rgba(63, 184, 175, 0.15);
+      color: var(--primary-500);
+    }
+
+    /* Quick Action Results Panel */
+    .quick-results-panel {
+      position: fixed;
+      bottom: 1rem;
+      right: 1rem;
+      width: 500px;
+      max-height: 400px;
+      background: var(--surface-raised);
+      border: 1px solid var(--border-default);
+      border-radius: 12px;
+      box-shadow: var(--shadow-lg);
+      z-index: 100;
+      display: none;
+      overflow: hidden;
+    }
+
+    .quick-results-panel.active {
+      display: flex;
+      flex-direction: column;
+      animation: slideUp 0.2s ease-out;
+    }
+
+    @keyframes slideUp {
+      from {
+        opacity: 0;
+        transform: translateY(20px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    .quick-results-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0.75rem 1rem;
+      background: var(--surface-overlay);
+      border-bottom: 1px solid var(--border-muted);
+    }
+
+    .quick-results-header .title {
+      font-size: 0.85rem;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .quick-results-header .status-badge {
+      font-size: 0.75rem;
+      font-weight: 600;
+      padding: 0.2rem 0.5rem;
+      border-radius: 4px;
+    }
+
+    .quick-results-header .status-badge.success {
+      background: var(--success-muted);
+      color: var(--success);
+    }
+
+    .quick-results-header .status-badge.error {
+      background: var(--error-muted);
+      color: var(--error);
+    }
+
+    .quick-results-header .close-btn {
+      background: none;
+      border: none;
+      color: var(--text-secondary);
+      cursor: pointer;
+      padding: 0.25rem;
+      font-size: 1.1rem;
+      line-height: 1;
+    }
+
+    .quick-results-header .close-btn:hover {
+      color: var(--text-primary);
+    }
+
+    .quick-results-body {
+      flex: 1;
+      overflow: auto;
+      padding: 1rem;
+      background: var(--surface-sunken);
+      font-family: var(--font-mono);
+      font-size: 0.8rem;
+      white-space: pre-wrap;
+      max-height: 320px;
+    }
+
     /* Content Area */
     .content {
       flex: 1;
@@ -1355,7 +1519,60 @@
     <nav class="sidebar">
       <div class="sidebar-section">Services</div>
       <div id="serviceTabs"></div>
+
+      <div class="sidebar-divider"></div>
+
+      <div class="sidebar-section">Quick Actions</div>
+      <div class="quick-actions">
+        <button class="quick-action-btn" onclick="quickAction('catalog', 'GET', '/api/resources', 'List Resources')">
+          <span class="icon">📦</span>
+          <span class="label">List Resources</span>
+          <span class="method-badge get">GET</span>
+        </button>
+        <button class="quick-action-btn" onclick="quickAction('catalog', 'GET', '/api/bootstrap/summary', 'Catalog Summary')">
+          <span class="icon">📊</span>
+          <span class="label">Catalog Summary</span>
+          <span class="method-badge get">GET</span>
+        </button>
+        <button class="quick-action-btn" onclick="quickAction('identity', 'GET', '/api/orgs', 'List Organizations')">
+          <span class="icon">🏢</span>
+          <span class="label">List Organizations</span>
+          <span class="method-badge get">GET</span>
+        </button>
+        <button class="quick-action-btn" onclick="quickAction('identity', 'GET', '/api/dashboard', 'Dashboard')">
+          <span class="icon">📋</span>
+          <span class="label">Dashboard</span>
+          <span class="method-badge get">GET</span>
+        </button>
+        <button class="quick-action-btn" onclick="quickAction('logging', 'GET', '/api/logs/streams', 'Log Streams')">
+          <span class="icon">📜</span>
+          <span class="label">Log Streams</span>
+          <span class="method-badge get">GET</span>
+        </button>
+        <button class="quick-action-btn" onclick="quickAction('integrations', 'GET', '/api/integrations/status', 'Integration Status')">
+          <span class="icon">🔌</span>
+          <span class="label">Integration Status</span>
+          <span class="method-badge get">GET</span>
+        </button>
+        <button class="quick-action-btn" onclick="quickAction('assistants', 'GET', '/api/assistants', 'List Assistants')">
+          <span class="icon">🤖</span>
+          <span class="label">List Assistants</span>
+          <span class="method-badge get">GET</span>
+        </button>
+      </div>
     </nav>
+
+    <!-- Quick Action Results Panel -->
+    <div class="quick-results-panel" id="quickResultsPanel">
+      <div class="quick-results-header">
+        <div class="title">
+          <span id="quickResultsTitle">Result</span>
+          <span class="status-badge" id="quickResultsStatus"></span>
+        </div>
+        <button class="close-btn" onclick="closeQuickResults()">&times;</button>
+      </div>
+      <pre class="quick-results-body" id="quickResultsBody"></pre>
+    </div>
 
     <!-- Content -->
     <main class="content" id="contentArea">
@@ -2898,6 +3115,94 @@
         bodyEl.textContent = err.message;
       }
     }
+
+    // ========================================
+    // Quick Actions
+    // ========================================
+
+    async function quickAction(serviceId, method, path, title) {
+      const service = SERVICES.find(s => s.id === serviceId);
+      if (!service) {
+        showQuickResults(title, 404, `Service "${serviceId}" not found`);
+        return;
+      }
+
+      // Find the button and show loading state
+      const buttons = document.querySelectorAll('.quick-action-btn');
+      let clickedBtn = null;
+      buttons.forEach(btn => {
+        if (btn.textContent.includes(title.split(' ').slice(1).join(' '))) {
+          clickedBtn = btn;
+          btn.classList.add('loading');
+        }
+      });
+
+      const url = `/proxy/${service.port}${path}`;
+
+      const options = {
+        method: method,
+        headers: { 'Content-Type': 'application/json' }
+      };
+
+      // Add auth token if available
+      if (currentUser?.token) {
+        options.headers['Authorization'] = `Bearer ${currentUser.token}`;
+      }
+
+      // Add org scoping if available
+      if (currentOrgId) {
+        options.headers['X-Org-Id'] = currentOrgId;
+      }
+
+      try {
+        const res = await fetch(url, options);
+        const data = await res.text();
+
+        let formatted;
+        try {
+          formatted = JSON.stringify(JSON.parse(data), null, 2);
+        } catch {
+          formatted = data;
+        }
+
+        showQuickResults(title, res.status, formatted, res.ok);
+      } catch (err) {
+        showQuickResults(title, 'ERR', err.message, false);
+      } finally {
+        if (clickedBtn) {
+          clickedBtn.classList.remove('loading');
+        }
+      }
+    }
+
+    function showQuickResults(title, status, body, isSuccess = false) {
+      const panel = document.getElementById('quickResultsPanel');
+      const titleEl = document.getElementById('quickResultsTitle');
+      const statusEl = document.getElementById('quickResultsStatus');
+      const bodyEl = document.getElementById('quickResultsBody');
+
+      titleEl.textContent = title;
+      statusEl.textContent = status;
+      statusEl.className = `status-badge ${isSuccess ? 'success' : 'error'}`;
+      bodyEl.textContent = body;
+
+      panel.classList.add('active');
+    }
+
+    function closeQuickResults() {
+      document.getElementById('quickResultsPanel').classList.remove('active');
+    }
+
+    // Close quick results when clicking outside
+    document.addEventListener('click', (e) => {
+      const panel = document.getElementById('quickResultsPanel');
+      const isQuickActionBtn = e.target.closest('.quick-action-btn');
+      const isPanel = e.target.closest('.quick-results-panel');
+
+      if (panel.classList.contains('active') && !isQuickActionBtn && !isPanel) {
+        closeQuickResults();
+      }
+    });
   </script>
 </body>
 </html>

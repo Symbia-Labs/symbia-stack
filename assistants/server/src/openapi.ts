@@ -66,7 +66,7 @@ export const openApiSpec: any = {
         },
       },
     },
-    "/v1/status": {
+    "/status": {
       get: {
         tags: ["health"],
         summary: "Database connectivity status",
@@ -76,7 +76,7 @@ export const openApiSpec: any = {
         },
       },
     },
-    "/v1/graphs": {
+    "/graphs": {
       get: {
         tags: ["graphs"],
         summary: "List graphs",
@@ -114,7 +114,7 @@ export const openApiSpec: any = {
         },
       },
     },
-    "/v1/graphs/{id}": {
+    "/graphs/{id}": {
       get: {
         tags: ["graphs"],
         summary: "Get graph",
@@ -169,7 +169,7 @@ export const openApiSpec: any = {
         },
       },
     },
-    "/v1/graphs/{id}/publish": {
+    "/graphs/{id}/publish": {
       post: {
         tags: ["graphs"],
         summary: "Publish graph",
@@ -183,7 +183,7 @@ export const openApiSpec: any = {
         },
       },
     },
-    "/v1/graphs/{id}/runs": {
+    "/graphs/{id}/runs": {
       get: {
         tags: ["runs"],
         summary: "List runs for graph",
@@ -197,7 +197,7 @@ export const openApiSpec: any = {
         },
       },
     },
-    "/v1/runs": {
+    "/runs": {
       get: {
         tags: ["runs"],
         summary: "List runs",
@@ -221,7 +221,7 @@ export const openApiSpec: any = {
         },
       },
     },
-    "/v1/runs/{id}": {
+    "/runs/{id}": {
       get: {
         tags: ["runs"],
         summary: "Get run",
@@ -235,7 +235,7 @@ export const openApiSpec: any = {
         },
       },
     },
-    "/v1/runs/{id}/logs": {
+    "/runs/{id}/logs": {
       get: {
         tags: ["runs"],
         summary: "Get run logs",
@@ -250,7 +250,7 @@ export const openApiSpec: any = {
         },
       },
     },
-    "/v1/actors": {
+    "/actors": {
       get: {
         tags: ["actors"],
         summary: "List actor principals",
@@ -288,7 +288,7 @@ export const openApiSpec: any = {
         },
       },
     },
-    "/v1/actors/{id}": {
+    "/actors/{id}": {
       get: {
         tags: ["actors"],
         summary: "Get actor principal",

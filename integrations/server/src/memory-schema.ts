@@ -174,4 +174,32 @@ export const MEMORY_SCHEMA_SQL = `
   CREATE INDEX IF NOT EXISTS idx_channel_connections_org_id ON channel_connections(org_id);
   CREATE INDEX IF NOT EXISTS idx_channel_connections_channel_type ON channel_connections(channel_type);
   CREATE INDEX IF NOT EXISTS idx_channel_connections_status ON channel_connections(status);
+
+  -- Proxy Usage table (tracks usage when org-wide credentials are used)
+  CREATE TABLE IF NOT EXISTS proxy_usage (
+    id VARCHAR(255) PRIMARY KEY DEFAULT gen_random_uuid()::text,
+    user_id VARCHAR(255) NOT NULL,
+    org_id VARCHAR(255) NOT NULL,
+    integration_key VARCHAR(255) NOT NULL,
+    operation VARCHAR(500) NOT NULL,
+    credential_id VARCHAR(255) NOT NULL,
+    request_id VARCHAR(100),
+    success BOOLEAN NOT NULL DEFAULT true,
+    status_code INTEGER,
+    error_message TEXT,
+    duration_ms INTEGER,
+    input_tokens INTEGER,
+    output_tokens INTEGER,
+    total_tokens INTEGER,
+    estimated_cost_micros INTEGER,
+    metadata JSON DEFAULT '{}',
+    timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL
+  );
+
+  CREATE INDEX IF NOT EXISTS idx_proxy_usage_user_id ON proxy_usage(user_id);
+  CREATE INDEX IF NOT EXISTS idx_proxy_usage_org_id ON proxy_usage(org_id);
+  CREATE INDEX IF NOT EXISTS idx_proxy_usage_integration ON proxy_usage(integration_key);
+  CREATE INDEX IF NOT EXISTS idx_proxy_usage_timestamp ON proxy_usage(timestamp);
+  CREATE INDEX IF NOT EXISTS idx_proxy_usage_org_timestamp ON proxy_usage(org_id, timestamp);
+  CREATE INDEX IF NOT EXISTS idx_proxy_usage_credential ON proxy_usage(credential_id);
 `;
