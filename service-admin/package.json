@@ -1,0 +1,13 @@
+{
+  "name": "service-admin",
+  "version": "1.0.0",
+  "type": "commonjs",
+  "description": "Symbia Service Admin Dashboard",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "pg": "^8.11.3"
+  }
+}
