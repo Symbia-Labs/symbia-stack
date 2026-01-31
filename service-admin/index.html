@@ -2137,10 +2137,49 @@
     let currentTableData = null;
     let dbConnectionInfo = null;
     let tableSearchFilter = '';
+    let availableDatabases = [];
+    let currentDatabase = 'identity';
+
+    // Helper to get auth headers for DB requests
+    function getDbAuthHeaders() {
+      const headers = { 'Content-Type': 'application/json' };
+      if (currentUser?.token) {
+        headers['Authorization'] = `Bearer ${currentUser.token}`;
+      }
+      return headers;
+    }
+
+    async function loadDatabases() {
+      if (!currentUser?.token) {
+        availableDatabases = [];
+        return false;
+      }
+
+      try {
+        const res = await fetch('/db/databases', { headers: getDbAuthHeaders() });
+        if (res.ok) {
+          const data = await res.json();
+          availableDatabases = data.databases || [];
+          if (availableDatabases.length > 0 && !availableDatabases.includes(currentDatabase)) {
+            currentDatabase = availableDatabases[0];
+          }
+          return true;
+        }
+      } catch (e) {
+        console.error('Failed to load databases:', e);
+      }
+      availableDatabases = [];
+      return false;
+    }
 
     async function checkDbConnection() {
+      if (!currentUser?.token) {
+        dbConnectionInfo = null;
+        return false;
+      }
+
       try {
-        const res = await fetch('/db/health');
+        const res = await fetch(`/db/${currentDatabase}/health`, { headers: getDbAuthHeaders() });
         if (res.ok) {
           dbConnectionInfo = await res.json();
           return true;
@@ -2151,8 +2190,10 @@
     }
 
     async function loadDbTables() {
+      if (!currentUser?.token) return;
+
       try {
-        const res = await fetch('/db/tables');
+        const res = await fetch(`/db/${currentDatabase}/tables`, { headers: getDbAuthHeaders() });
         if (res.ok) {
           const data = await res.json();
           dbTables = data.tables || [];
@@ -2161,6 +2202,20 @@
       } catch (e) {
         console.error('Failed to load tables:', e);
       }
+    }
+
+    function switchDatabase(db) {
+      currentDatabase = db;
+      currentDbTable = null;
+      currentTableSchema = null;
+      currentTableData = null;
+      dbTables = [];
+      checkDbConnection().then(() => loadDbTables());
+      // Clear content areas
+      const schemaContent = document.getElementById('dbSchemaContent');
+      const dataContent = document.getElementById('dbDataContent');
+      if (schemaContent) schemaContent.innerHTML = '<div class="empty-state" style="padding: 3rem;"><div class="icon">📋</div><p>Select a table to view its schema</p></div>';
+      if (dataContent) dataContent.innerHTML = '<div class="empty-state" style="padding: 3rem;"><div class="icon">📊</div><p>Select a table to browse its data</p></div>';
     }
 
     function renderDbTableList() {
@@ -2217,12 +2272,15 @@
       container.innerHTML = '<div class="loading"><div class="spinner"></div>Loading schema...</div>';
 
       try {
-        const res = await fetch(`/db/tables/${encodeURIComponent(schema)}/${encodeURIComponent(tableName)}/schema`);
+        const res = await fetch(`/db/${currentDatabase}/tables/${encodeURIComponent(schema)}/${encodeURIComponent(tableName)}/schema`, {
+          headers: getDbAuthHeaders()
+        });
         if (res.ok) {
           currentTableSchema = await res.json();
           renderTableSchema();
         } else {
-          container.innerHTML = '<div class="empty-state"><p>Failed to load schema</p></div>';
+          const err = await res.json().catch(() => ({}));
+          container.innerHTML = `<div class="empty-state"><p>${err.error || 'Failed to load schema'}</p></div>`;
         }
       } catch (e) {
         container.innerHTML = `<div class="empty-state"><p>Error: ${e.message}</p></div>`;
@@ -2330,14 +2388,17 @@
       container.innerHTML = '<div class="loading"><div class="spinner"></div>Loading data...</div>';
 
       try {
-        const res = await fetch(`/db/tables/${encodeURIComponent(schema)}/${encodeURIComponent(tableName)}/data?limit=${limit}&offset=${offset}`);
+        const res = await fetch(`/db/${currentDatabase}/tables/${encodeURIComponent(schema)}/${encodeURIComponent(tableName)}/data?limit=${limit}&offset=${offset}`, {
+          headers: getDbAuthHeaders()
+        });
         if (res.ok) {
           currentTableData = await res.json();
           currentTableData.schema = schema;
           currentTableData.tableName = tableName;
           renderTableData();
         } else {
-          container.innerHTML = '<div class="empty-state"><p>Failed to load data</p></div>';
+          const err = await res.json().catch(() => ({}));
+          container.innerHTML = `<div class="empty-state"><p>${err.error || 'Failed to load data'}</p></div>`;
         }
       } catch (e) {
         container.innerHTML = `<div class="empty-state"><p>Error: ${e.message}</p></div>`;
@@ -2426,9 +2487,9 @@
       container.innerHTML = '<div class="loading"><div class="spinner"></div>Executing query...</div>';
 
       try {
-        const res = await fetch('/db/query', {
+        const res = await fetch(`/db/${currentDatabase}/query`, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: getDbAuthHeaders(),
           body: JSON.stringify({ sql }),
         });
 
@@ -2478,21 +2539,58 @@
     async function renderPostgresPanel() {
       const content = document.getElementById('contentArea');
 
+      // Check if user is logged in and is super admin
+      if (!currentUser?.token) {
+        content.innerHTML = `
+          <div class="panel-header">
+            <h2>PostgreSQL Database</h2>
+            <div class="meta">Port 5432</div>
+          </div>
+          <div class="empty-state">
+            <div class="icon">🔐</div>
+            <p>Super admin login required</p>
+            <p style="margin-top: 0.5rem; font-size: 0.85rem;">
+              Please log in as a super admin to access the database browser.
+            </p>
+          </div>
+        `;
+        return;
+      }
+
+      // Load available databases
+      const hasAccess = await loadDatabases();
+      if (!hasAccess || availableDatabases.length === 0) {
+        content.innerHTML = `
+          <div class="panel-header">
+            <h2>PostgreSQL Database</h2>
+            <div class="meta">Port 5432</div>
+          </div>
+          <div class="empty-state">
+            <div class="icon">⛔</div>
+            <p>Access denied</p>
+            <p style="margin-top: 0.5rem; font-size: 0.85rem;">
+              Only super admins can access the database browser.
+            </p>
+          </div>
+        `;
+        return;
+      }
+
       // Check connection first
       const isConnected = await checkDbConnection();
 
       content.innerHTML = `
         <div class="panel-header">
           <h2>PostgreSQL Database</h2>
-          <div class="meta">Port 5432</div>
+          <div class="meta">Port 5432 · Super Admin Access</div>
         </div>
 
         <div class="db-connection-status">
           <span class="status-dot ${isConnected ? 'healthy' : 'unhealthy'}"></span>
           <span>${isConnected ? 'Connected' : 'Not connected'}</span>
-          ${isConnected && dbConnectionInfo ? `
-            <span class="db-connection-info">${dbConnectionInfo.database} @ ${dbConnectionInfo.user}</span>
-          ` : ''}
+          <select id="dbDatabaseSelect" class="org-select" style="margin-left: auto;" onchange="switchDatabase(this.value)">
+            ${availableDatabases.map(db => `<option value="${db}" ${db === currentDatabase ? 'selected' : ''}>${db}</option>`).join('')}
+          </select>
         </div>
 
         ${isConnected ? `

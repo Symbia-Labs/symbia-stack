@@ -4,22 +4,72 @@ const path = require('path');
 const { Pool } = require('pg');
 
 const PORT = process.env.PORT || 3000;
+const IDENTITY_HOST = process.env.IDENTITY_HOST || 'identity';
+const IDENTITY_PORT = process.env.IDENTITY_PORT || 5001;
 
-// PostgreSQL connection pool
-const pgPool = new Pool({
-  host: process.env.POSTGRES_HOST || 'postgres',
-  port: parseInt(process.env.POSTGRES_PORT || '5432'),
-  database: process.env.POSTGRES_DB || 'symbia',
-  user: process.env.POSTGRES_USER || 'symbia',
-  password: process.env.POSTGRES_PASSWORD || 'symbia',
-  max: 5,
-  idleTimeoutMillis: 30000,
-  connectionTimeoutMillis: 5000,
-});
+// Service databases - each service has its own database
+const SERVICE_DATABASES = [
+  'identity',
+  'logging',
+  'catalog',
+  'messaging',
+  'runtime',
+  'assistants'
+];
+
+// PostgreSQL connection pools - one per database
+const pgPools = {};
+
+function getPool(database) {
+  if (!pgPools[database]) {
+    pgPools[database] = new Pool({
+      host: process.env.POSTGRES_HOST || 'postgres',
+      port: parseInt(process.env.POSTGRES_PORT || '5432'),
+      database: database,
+      user: process.env.POSTGRES_USER || 'symbia',
+      password: process.env.POSTGRES_PASSWORD || 'symbia_dev',
+      max: 3,
+      idleTimeoutMillis: 30000,
+      connectionTimeoutMillis: 5000,
+    });
+  }
+  return pgPools[database];
+}
+
+// Verify user is super admin via Identity service
+async function verifySuperAdmin(token) {
+  if (!token) return null;
+
+  try {
+    const response = await fetch(`http://${IDENTITY_HOST}:${IDENTITY_PORT}/api/auth/me`, {
+      headers: { 'Authorization': `Bearer ${token}` }
+    });
+
+    if (!response.ok) return null;
+
+    const data = await response.json();
+    if (data.user?.isSuperAdmin) {
+      return data.user;
+    }
+    return null;
+  } catch (err) {
+    console.error('Auth verification failed:', err.message);
+    return null;
+  }
+}
+
+// Extract bearer token from request
+function extractToken(req) {
+  const auth = req.headers.authorization;
+  if (auth?.startsWith('Bearer ')) {
+    return auth.slice(7);
+  }
+  return null;
+}
 
 // Database introspection helper functions
-async function getTables() {
-  const result = await pgPool.query(`
+async function getTables(pool) {
+  const result = await pool.query(`
     SELECT
       t.table_schema,
       t.table_name,
@@ -35,8 +85,8 @@ async function getTables() {
   return result.rows;
 }
 
-async function getTableSchema(schema, table) {
-  const columnsResult = await pgPool.query(`
+async function getTableSchema(pool, schema, table) {
+  const columnsResult = await pool.query(`
     SELECT
       c.column_name,
       c.data_type,
@@ -55,7 +105,7 @@ async function getTableSchema(schema, table) {
     ORDER BY c.ordinal_position
   `, [schema, table]);
 
-  const constraintsResult = await pgPool.query(`
+  const constraintsResult = await pool.query(`
     SELECT
       tc.constraint_name,
       tc.constraint_type,
@@ -67,7 +117,7 @@ async function getTableSchema(schema, table) {
     WHERE tc.table_schema = $1 AND tc.table_name = $2
   `, [schema, table]);
 
-  const indexesResult = await pgPool.query(`
+  const indexesResult = await pool.query(`
     SELECT
       i.relname as index_name,
       a.attname as column_name,
@@ -89,9 +139,9 @@ async function getTableSchema(schema, table) {
   };
 }
 
-async function getTableData(schema, table, limit = 100, offset = 0) {
+async function getTableData(pool, schema, table, limit = 100, offset = 0) {
   // Validate table name to prevent SQL injection
-  const tableCheck = await pgPool.query(`
+  const tableCheck = await pool.query(`
     SELECT 1 FROM information_schema.tables
     WHERE table_schema = $1 AND table_name = $2
   `, [schema, table]);
@@ -101,13 +151,13 @@ async function getTableData(schema, table, limit = 100, offset = 0) {
   }
 
   // Get total count
-  const countResult = await pgPool.query(
+  const countResult = await pool.query(
     `SELECT count(*) as total FROM "${schema}"."${table}"`
   );
   const total = parseInt(countResult.rows[0].total);
 
   // Get data
-  const dataResult = await pgPool.query(
+  const dataResult = await pool.query(
     `SELECT * FROM "${schema}"."${table}" LIMIT $1 OFFSET $2`,
     [limit, offset]
   );
@@ -124,7 +174,7 @@ async function getTableData(schema, table, limit = 100, offset = 0) {
   };
 }
 
-async function executeQuery(sql) {
+async function executeQuery(pool, sql) {
   // Only allow SELECT statements for safety
   const trimmedSql = sql.trim().toLowerCase();
   if (!trimmedSql.startsWith('select')) {
@@ -139,7 +189,7 @@ async function executeQuery(sql) {
     }
   }
 
-  const result = await pgPool.query(sql);
+  const result = await pool.query(sql);
   return {
     rows: result.rows,
     rowCount: result.rowCount,
@@ -262,12 +312,55 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
-  // Database introspection endpoints
-  // GET /db/tables - List all tables
-  if (req.url === '/db/tables' && req.method === 'GET') {
+  // ==========================================
+  // Database endpoints - require super admin
+  // ==========================================
+
+  // GET /db/databases - List available databases
+  if (req.url === '/db/databases' && req.method === 'GET') {
+    const token = extractToken(req);
+    const user = await verifySuperAdmin(token);
+    if (!user) {
+      sendJson(res, 401, { error: 'Super admin access required' });
+      return;
+    }
+
+    // Check which databases are accessible
+    const available = [];
+    for (const db of SERVICE_DATABASES) {
+      try {
+        const pool = getPool(db);
+        await pool.query('SELECT 1');
+        available.push(db);
+      } catch (err) {
+        // Database not available, skip it
+      }
+    }
+
+    sendJson(res, 200, { databases: available });
+    return;
+  }
+
+  // GET /db/:database/tables - List all tables in a database
+  const tablesMatch = req.url.match(/^\/db\/([^\/]+)\/tables$/);
+  if (tablesMatch && req.method === 'GET') {
+    const token = extractToken(req);
+    const user = await verifySuperAdmin(token);
+    if (!user) {
+      sendJson(res, 401, { error: 'Super admin access required' });
+      return;
+    }
+
+    const database = decodeURIComponent(tablesMatch[1]);
+    if (!SERVICE_DATABASES.includes(database)) {
+      sendJson(res, 400, { error: 'Invalid database' });
+      return;
+    }
+
     try {
-      const tables = await getTables();
-      sendJson(res, 200, { tables });
+      const pool = getPool(database);
+      const tables = await getTables(pool);
+      sendJson(res, 200, { database, tables });
     } catch (err) {
       console.error('Error fetching tables:', err.message);
       sendJson(res, 500, { error: err.message });
@@ -275,13 +368,28 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
-  // GET /db/tables/:schema/:table/schema - Get table schema
-  const schemaMatch = req.url.match(/^\/db\/tables\/([^\/]+)\/([^\/]+)\/schema$/);
+  // GET /db/:database/tables/:schema/:table/schema - Get table schema
+  const schemaMatch = req.url.match(/^\/db\/([^\/]+)\/tables\/([^\/]+)\/([^\/]+)\/schema$/);
   if (schemaMatch && req.method === 'GET') {
+    const token = extractToken(req);
+    const user = await verifySuperAdmin(token);
+    if (!user) {
+      sendJson(res, 401, { error: 'Super admin access required' });
+      return;
+    }
+
+    const database = decodeURIComponent(schemaMatch[1]);
+    if (!SERVICE_DATABASES.includes(database)) {
+      sendJson(res, 400, { error: 'Invalid database' });
+      return;
+    }
+
     try {
+      const pool = getPool(database);
       const schema = await getTableSchema(
-        decodeURIComponent(schemaMatch[1]),
-        decodeURIComponent(schemaMatch[2])
+        pool,
+        decodeURIComponent(schemaMatch[2]),
+        decodeURIComponent(schemaMatch[3])
       );
       sendJson(res, 200, schema);
     } catch (err) {
@@ -291,16 +399,31 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
-  // GET /db/tables/:schema/:table/data - Get table data
-  const dataMatch = req.url.match(/^\/db\/tables\/([^\/]+)\/([^\/]+)\/data(\?.*)?$/);
+  // GET /db/:database/tables/:schema/:table/data - Get table data
+  const dataMatch = req.url.match(/^\/db\/([^\/]+)\/tables\/([^\/]+)\/([^\/]+)\/data(\?.*)?$/);
   if (dataMatch && req.method === 'GET') {
+    const token = extractToken(req);
+    const user = await verifySuperAdmin(token);
+    if (!user) {
+      sendJson(res, 401, { error: 'Super admin access required' });
+      return;
+    }
+
+    const database = decodeURIComponent(dataMatch[1]);
+    if (!SERVICE_DATABASES.includes(database)) {
+      sendJson(res, 400, { error: 'Invalid database' });
+      return;
+    }
+
     try {
+      const pool = getPool(database);
       const urlObj = new URL(req.url, `http://${req.headers.host}`);
       const limit = Math.min(parseInt(urlObj.searchParams.get('limit') || '100'), 1000);
       const offset = parseInt(urlObj.searchParams.get('offset') || '0');
       const data = await getTableData(
-        decodeURIComponent(dataMatch[1]),
+        pool,
         decodeURIComponent(dataMatch[2]),
+        decodeURIComponent(dataMatch[3]),
         limit,
         offset
       );
@@ -312,15 +435,30 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
-  // POST /db/query - Execute read-only query
-  if (req.url === '/db/query' && req.method === 'POST') {
+  // POST /db/:database/query - Execute read-only query
+  const queryMatch = req.url.match(/^\/db\/([^\/]+)\/query$/);
+  if (queryMatch && req.method === 'POST') {
+    const token = extractToken(req);
+    const user = await verifySuperAdmin(token);
+    if (!user) {
+      sendJson(res, 401, { error: 'Super admin access required' });
+      return;
+    }
+
+    const database = decodeURIComponent(queryMatch[1]);
+    if (!SERVICE_DATABASES.includes(database)) {
+      sendJson(res, 400, { error: 'Invalid database' });
+      return;
+    }
+
     try {
+      const pool = getPool(database);
       const body = await parseBody(req);
       if (!body.sql) {
         sendJson(res, 400, { error: 'Missing sql field' });
         return;
       }
-      const result = await executeQuery(body.sql);
+      const result = await executeQuery(pool, body.sql);
       sendJson(res, 200, result);
     } catch (err) {
       console.error('Error executing query:', err.message);
@@ -329,10 +467,43 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
-  // GET /db/health - Database health check
+  // GET /db/:database/health - Database health check (still requires auth)
+  const healthMatch = req.url.match(/^\/db\/([^\/]+)\/health$/);
+  if (healthMatch && req.method === 'GET') {
+    const token = extractToken(req);
+    const user = await verifySuperAdmin(token);
+    if (!user) {
+      sendJson(res, 401, { error: 'Super admin access required' });
+      return;
+    }
+
+    const database = decodeURIComponent(healthMatch[1]);
+    if (!SERVICE_DATABASES.includes(database)) {
+      sendJson(res, 400, { error: 'Invalid database' });
+      return;
+    }
+
+    try {
+      const pool = getPool(database);
+      const result = await pool.query('SELECT version(), current_database(), current_user');
+      sendJson(res, 200, {
+        status: 'healthy',
+        version: result.rows[0].version,
+        database: result.rows[0].current_database,
+        user: result.rows[0].current_user,
+      });
+    } catch (err) {
+      console.error('Database health check failed:', err.message);
+      sendJson(res, 503, { status: 'unhealthy', error: err.message });
+    }
+    return;
+  }
+
+  // Legacy endpoints for backwards compatibility (unauthenticated health only)
   if (req.url === '/db/health' && req.method === 'GET') {
     try {
-      const result = await pgPool.query('SELECT version(), current_database(), current_user');
+      const pool = getPool('identity');
+      const result = await pool.query('SELECT version(), current_database(), current_user');
       sendJson(res, 200, {
         status: 'healthy',
         version: result.rows[0].version,
