@@ -4,6 +4,7 @@ import { ServiceId } from "@symbia/sys";
 import { registerRoutes } from "./routes.js";
 import { database, exportToFile, isMemory } from "./db.js";
 import { loadProviderConfigs } from "./catalog-client.js";
+import { loadInternalServices } from "./internal-services.js";
 import { join } from "path";
 import {
   getTelemetry,
@@ -27,6 +28,14 @@ const server = createSymbiaServer({
     log("info", "Loading provider configurations...");
     await loadProviderConfigs();
     log("info", "Provider configurations loaded");
+
+    // Load internal Symbia services as MCP-accessible integrations
+    log("info", "Loading internal Symbia services...");
+    const internalResult = await loadInternalServices();
+    log("info", `Internal services loaded: ${internalResult.loaded.length} services`);
+    if (internalResult.failed.length > 0) {
+      log("warn", `Failed to load ${internalResult.failed.length} internal services: ${internalResult.failed.map(f => f.service).join(", ")}`);
+    }
 
     await registerRoutes(httpServer, app as any);
   },

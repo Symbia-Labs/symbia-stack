@@ -175,7 +175,26 @@ export function parseOpenAPISpec(
   const namespace: Record<string, unknown> = {};
 
   // Determine base URL
-  const serverUrl = serverUrlOverride || spec.servers?.[0]?.url;
+  // If serverUrlOverride is provided and the spec has a relative base path (e.g., "/api"),
+  // combine them to get the full URL
+  let serverUrl: string | undefined;
+  const specServerUrl = spec.servers?.[0]?.url;
+
+  if (serverUrlOverride && specServerUrl) {
+    // Check if spec's server URL is a relative path
+    if (specServerUrl.startsWith("/")) {
+      // Combine: override base + spec's relative path
+      serverUrl = serverUrlOverride.replace(/\/$/, "") + specServerUrl;
+    } else if (specServerUrl.startsWith("http")) {
+      // Spec has absolute URL, use override (caller knows best)
+      serverUrl = serverUrlOverride;
+    } else {
+      // Other relative path, combine
+      serverUrl = serverUrlOverride.replace(/\/$/, "") + "/" + specServerUrl;
+    }
+  } else {
+    serverUrl = serverUrlOverride || specServerUrl;
+  }
 
   // Detect auth type
   let authType: ParseResult["authType"] = "none";

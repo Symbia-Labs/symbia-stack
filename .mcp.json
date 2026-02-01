@@ -1,0 +1,12 @@
+{
+  "mcpServers": {
+    "symbia-integrations": {
+      "type": "http",
+      "url": "http://localhost:5007/api/integrations/mcp",
+      "headers": {
+        "Authorization": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI3OGEwODcxZi01OTlkLTQ4MTktOGE5MS1mMmFmNTJlYjk3NzEiLCJ0eXBlIjoidXNlciIsImVtYWlsIjoiY2xhdWRlLWNvZGVAYW50aHJvcGljLmNvbSIsIm5hbWUiOiJDbGF1ZGUgQ29kZSIsImlhdCI6MTc2OTk2MDIzMywiZXhwIjoxNzcwNTY1MDMzfQ.am8dVA0y1zk3mRLwWKEZm-zYIm94xYvmHyRIeRmchaE",
+        "X-Org-Id": "10476e76-173c-4567-9e7c-68ad90e036bf"
+      }
+    }
+  }
+}
