@@ -48,7 +48,7 @@ Required secrets:
 
 ## Architecture
 
-The platform consists of 8 microservices (all bound to 0.0.0.0):
+The platform consists of 9 microservices (all bound to 0.0.0.0):
 
 | Service | Port | Description |
 |---------|------|-------------|
@@ -59,6 +59,7 @@ The platform consists of 8 microservices (all bound to 0.0.0.0):
 | Messaging | 5005 | Message handling and routing |
 | Runtime | 5006 | Execution runtime for workflows |
 | Integrations | 5007 | Third-party OAuth and API integrations |
+| Models | 5008 | Local LLM model serving (GGUF) |
 | Network | 5054 | Event routing and SoftSDN observability (WebSocket) |
 
 The website frontend proxies API calls to these services via Vite:
