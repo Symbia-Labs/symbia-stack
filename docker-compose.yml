@@ -1,21 +1,27 @@
 # Symbia Stack - Local Development
 # Start all services: docker-compose up -d
 # View logs: docker-compose logs -f
+#
+# Port Configuration:
+# All ports can be customized via environment variables or .env file.
+# Default ports: postgres=5432, identity=5001, logging=5002, catalog=5003,
+# assistants=5004, messaging=5005, runtime=5006, integrations=5007,
+# network=5054, service-admin=3000
 
 services:
   # PostgreSQL database
   postgres:
     image: postgres:15-alpine
     environment:
-      POSTGRES_USER: symbia
-      POSTGRES_PASSWORD: symbia_dev
-      POSTGRES_DB: symbia
+      POSTGRES_USER: ${POSTGRES_USER:-symbia}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-symbia_dev}
+      POSTGRES_DB: ${POSTGRES_DB:-symbia}
     ports:
-      - "5432:5432"
+      - "${POSTGRES_PORT:-5432}:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U symbia"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-symbia}"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -26,8 +32,8 @@ services:
     environment:
       PGHOST: postgres
       PGPORT: 5432
-      PGUSER: symbia
-      PGPASSWORD: symbia_dev
+      PGUSER: ${POSTGRES_USER:-symbia}
+      PGPASSWORD: ${POSTGRES_PASSWORD:-symbia_dev}
     volumes:
       - ./:/workspace:ro
       - ./db-bootstrap/bootstrap.sh:/bootstrap.sh:ro
@@ -45,10 +51,10 @@ services:
     environment:
       NODE_ENV: production
       PORT: 5001
-      DATABASE_URL: postgresql://symbia:symbia_dev@postgres:5432/identity
+      DATABASE_URL: postgresql://${POSTGRES_USER:-symbia}:${POSTGRES_PASSWORD:-symbia_dev}@postgres:5432/identity
       SESSION_SECRET: ${SESSION_SECRET:-symbia-dev-secret-change-in-production}
     ports:
-      - "5001:5001"
+      - "${IDENTITY_PORT:-5001}:5001"
     depends_on:
       db-bootstrap:
         condition: service_completed_successfully
@@ -66,10 +72,10 @@ services:
     environment:
       NODE_ENV: production
       PORT: 5002
-      DATABASE_URL: postgresql://symbia:symbia_dev@postgres:5432/logging
+      DATABASE_URL: postgresql://${POSTGRES_USER:-symbia}:${POSTGRES_PASSWORD:-symbia_dev}@postgres:5432/logging
       IDENTITY_SERVICE_URL: http://identity:5001
     ports:
-      - "5002:5002"
+      - "${LOGGING_PORT:-5002}:5002"
     depends_on:
       identity:
         condition: service_healthy
@@ -91,11 +97,11 @@ services:
     environment:
       NODE_ENV: production
       PORT: 5003
-      DATABASE_URL: postgresql://symbia:symbia_dev@postgres:5432/catalog
+      DATABASE_URL: postgresql://${POSTGRES_USER:-symbia}:${POSTGRES_PASSWORD:-symbia_dev}@postgres:5432/catalog
       IDENTITY_SERVICE_URL: http://identity:5001
       LOGGING_SERVICE_URL: http://logging:5002
     ports:
-      - "5003:5003"
+      - "${CATALOG_PORT:-5003}:5003"
     depends_on:
       identity:
         condition: service_healthy
@@ -117,12 +123,12 @@ services:
     environment:
       NODE_ENV: production
       PORT: 5005
-      DATABASE_URL: postgresql://symbia:symbia_dev@postgres:5432/messaging
+      DATABASE_URL: postgresql://${POSTGRES_USER:-symbia}:${POSTGRES_PASSWORD:-symbia_dev}@postgres:5432/messaging
       IDENTITY_SERVICE_URL: http://identity:5001
       LOGGING_SERVICE_URL: http://logging:5002
       ASSISTANTS_SERVICE_URL: http://assistants:5004
     ports:
-      - "5005:5005"
+      - "${MESSAGING_PORT:-5005}:5005"
     depends_on:
       identity:
         condition: service_healthy
@@ -148,7 +154,7 @@ services:
       LOGGING_SERVICE_URL: http://logging:5002
       NETWORK_HASH_SECRET: ${NETWORK_HASH_SECRET:-symbia-network-dev-secret}
     ports:
-      - "5054:5054"
+      - "${NETWORK_PORT:-5054}:5054"
     depends_on:
       identity:
         condition: service_healthy
@@ -166,12 +172,12 @@ services:
     environment:
       NODE_ENV: production
       PORT: 5006
-      DATABASE_URL: postgresql://symbia:symbia_dev@postgres:5432/runtime
+      DATABASE_URL: postgresql://${POSTGRES_USER:-symbia}:${POSTGRES_PASSWORD:-symbia_dev}@postgres:5432/runtime
       IDENTITY_SERVICE_URL: http://identity:5001
       CATALOG_SERVICE_URL: http://catalog:5003
       LOGGING_SERVICE_URL: http://logging:5002
     ports:
-      - "5006:5006"
+      - "${RUNTIME_PORT:-5006}:5006"
     depends_on:
       catalog:
         condition: service_healthy
@@ -193,7 +199,7 @@ services:
     environment:
       NODE_ENV: production
       PORT: 5004
-      DATABASE_URL: postgresql://symbia:symbia_dev@postgres:5432/assistants
+      DATABASE_URL: postgresql://${POSTGRES_USER:-symbia}:${POSTGRES_PASSWORD:-symbia_dev}@postgres:5432/assistants
       IDENTITY_SERVICE_URL: http://identity:5001
       CATALOG_SERVICE_URL: http://catalog:5003
       LOGGING_SERVICE_URL: http://logging:5002
@@ -202,7 +208,7 @@ services:
       MESSAGING_ENDPOINT: http://messaging:5005
       CATALOG_BASE_URL: http://catalog:5003
     ports:
-      - "5004:5004"
+      - "${ASSISTANTS_PORT:-5004}:5004"
     depends_on:
       catalog:
         condition: service_healthy
@@ -235,7 +241,7 @@ services:
       # OPENAI_API_KEY: ${OPENAI_API_KEY}
       # ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY}
     ports:
-      - "5007:5007"
+      - "${INTEGRATIONS_PORT:-5007}:5007"
     depends_on:
       identity:
         condition: service_healthy
@@ -258,11 +264,11 @@ services:
       # PostgreSQL connection for database browser
       POSTGRES_HOST: postgres
       POSTGRES_PORT: 5432
-      POSTGRES_DB: symbia
-      POSTGRES_USER: symbia
-      POSTGRES_PASSWORD: symbia_dev
+      POSTGRES_DB: ${POSTGRES_DB:-symbia}
+      POSTGRES_USER: ${POSTGRES_USER:-symbia}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-symbia_dev}
     ports:
-      - "3000:3000"
+      - "${SERVICE_ADMIN_PORT:-3000}:3000"
     depends_on:
       identity:
         condition: service_healthy
