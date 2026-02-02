@@ -218,14 +218,45 @@ export class MCPServer {
     const properties: Record<string, MCPPropertySchema> = {};
     const required: string[] = [];
 
-    // Convert operation parameters to JSON Schema
+    // Convert operation parameters to JSON Schema (path, query, header params)
     for (const param of op.parameters || []) {
+      // Skip parameters without a valid name
+      if (!param.name) continue;
+
       properties[param.name] = {
         type: (param.schema as any)?.type || "string",
         description: param.description,
       };
       if (param.required) {
         required.push(param.name);
+      }
+    }
+
+    // Convert requestBody schema properties (for POST/PUT/PATCH operations)
+    if (op.requestBody?.schema) {
+      const bodySchema = op.requestBody.schema as Record<string, unknown>;
+      const bodyProps = bodySchema.properties as Record<string, Record<string, unknown>> | undefined;
+
+      if (bodyProps) {
+        for (const [key, value] of Object.entries(bodyProps)) {
+          // Skip if already defined by a parameter
+          if (!properties[key]) {
+            properties[key] = {
+              type: (value.type as string) || "string",
+              description: value.description as string | undefined,
+            };
+          }
+        }
+      }
+
+      // Add required fields from requestBody
+      const bodyRequired = bodySchema.required as string[] | undefined;
+      if (bodyRequired) {
+        for (const field of bodyRequired) {
+          if (!required.includes(field)) {
+            required.push(field);
+          }
+        }
       }
     }
 

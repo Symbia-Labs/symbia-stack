@@ -245,14 +245,20 @@ export function parseOpenAPISpec(
       // Parse parameters
       const parameters: OperationParameter[] = [];
 
-      // Path-level parameters
+      // Path-level parameters (skip $ref params that aren't resolved)
       for (const param of pathItem.parameters || []) {
-        parameters.push(convertParameter(param));
+        const converted = convertParameter(param);
+        if (converted) {
+          parameters.push(converted);
+        }
       }
 
       // Operation-level parameters
       for (const param of operation.parameters || []) {
-        parameters.push(convertParameter(param));
+        const converted = convertParameter(param);
+        if (converted) {
+          parameters.push(converted);
+        }
       }
 
       // Parse request body
@@ -311,8 +317,14 @@ export function parseOpenAPISpec(
 
 /**
  * Convert OpenAPI parameter to our format
+ * Returns null for $ref parameters that aren't resolved
  */
-function convertParameter(param: ParameterObject): OperationParameter {
+function convertParameter(param: ParameterObject): OperationParameter | null {
+  // Skip unresolved $ref parameters (they don't have a name)
+  if (!param.name || "$ref" in param) {
+    return null;
+  }
+
   return {
     name: param.name,
     location: param.in,

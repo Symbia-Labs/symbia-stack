@@ -14,6 +14,14 @@ import * as policy from '../services/policy.js';
 import { requirePermission } from '../middleware/auth.js';
 import { NetworkPermissions } from '../types.js';
 
+/**
+ * Helper to safely extract route params (Express 5.x returns string | string[])
+ */
+function getParam(params: Record<string, string | string[] | undefined>, key: string): string {
+  const value = params[key];
+  return Array.isArray(value) ? value[0] : (value ?? '');
+}
+
 const policiesRouter = Router();
 
 /**
@@ -60,7 +68,7 @@ policiesRouter.get('/', requirePermission(NetworkPermissions.POLICIES_READ), (_r
  * Requires: cap:network.policies.read
  */
 policiesRouter.get('/:id', requirePermission(NetworkPermissions.POLICIES_READ), (req: Request, res: Response) => {
-  const p = policy.getPolicy(req.params.id);
+  const p = policy.getPolicy(getParam(req.params, 'id'));
   if (!p) {
     res.status(404).json({ error: 'Policy not found' });
     return;
@@ -78,7 +86,7 @@ policiesRouter.patch('/:id', requirePermission(NetworkPermissions.POLICIES_WRITE
   delete updates.id;
   delete updates.createdAt;
 
-  const updated = policy.updatePolicy(req.params.id, updates);
+  const updated = policy.updatePolicy(getParam(req.params, 'id'), updates);
   if (!updated) {
     res.status(404).json({ error: 'Policy not found' });
     return;
@@ -92,7 +100,7 @@ policiesRouter.patch('/:id', requirePermission(NetworkPermissions.POLICIES_WRITE
  * Requires: cap:network.policies.write
  */
 policiesRouter.delete('/:id', requirePermission(NetworkPermissions.POLICIES_WRITE), (req: Request, res: Response) => {
-  const success = policy.deletePolicy(req.params.id);
+  const success = policy.deletePolicy(getParam(req.params, 'id'));
   if (!success) {
     res.status(404).json({ error: 'Policy not found' });
     return;

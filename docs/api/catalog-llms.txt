@@ -1,0 +1,71 @@
+# Symbia Object Service API
+
+> Registry service for managing resources, versions, and artifacts with CRUD operations, versioning, search capabilities, and a public bootstrap endpoint for system initialization. Uses allowlist-based access control with entitlements.
+
+## Overview
+
+Component registry and resource management with versioning support.
+
+- Full CRUD operations on resources
+- Version control with publish workflow
+- Bootstrap resources for system initialization
+- Keyword and natural language search
+- Resource metadata and organization scoping
+- Allowlist-based access control with entitlements
+
+## API Base URL
+
+Use /api as the base path for all endpoints.
+
+## Quick Reference
+
+- GET /api/resources - List all resources
+- POST /api/resources - Create a new resource
+- GET /api/resources/{id} - Get a resource by ID
+- PATCH /api/resources/{id} - Update a resource
+- DELETE /api/resources/{id} - Delete a resource
+- POST /api/resources/{id}/publish - Publish a resource
+- POST /api/resources/bulk - Perform bulk operations on resources
+- GET /api/resources/{id}/versions - Get resource versions
+- POST /api/search - Search resources
+- GET /api/bootstrap - Get bootstrap resources
+- GET /api/bootstrap/summary - Get bootstrap summary
+- GET /api/stats - Get dashboard statistics
+- GET /api/graphs - List graph resources
+- POST /api/graphs - Create a graph resource
+- GET /api/graphs/{id} - Get graph by ID
+- PATCH /api/graphs/{id} - Update a graph
+- DELETE /api/graphs/{id} - Delete a graph
+- GET /api/contexts - List context resources
+- POST /api/contexts - Create a context
+- GET /api/contexts/{id} - Get context by ID
+- PATCH /api/contexts/{id} - Update a context
+- DELETE /api/contexts/{id} - Delete a context
+- POST /api/resources/{id}/artifacts - Upload artifact
+- GET /api/artifacts/{id}/download - Download artifact
+- DELETE /api/artifacts/{id} - Delete artifact
+- GET /api/rate-limits - Get current rate limits
+
+## Authentication
+
+Methods supported:
+- Bearer token (Authorization: Bearer <token>)
+- API key (X-API-Key header)
+- Session cookie
+
+- Bearer token authentication (Authorization: Bearer <token>)
+- API key authentication (X-API-Key header)
+- Session cookie authentication (symbia_session)
+
+## Custom Headers
+
+- X-Org-Id: Organization ID for multi-tenant scoping
+- X-Service-Id: Service identifier for request routing
+- X-Env: Environment (dev|stage|prod)
+- X-Data-Class: Data classification (none|pii|phi|secret)
+- X-Policy-Ref: Policy reference for compliance
+
+## Documentation
+
+- OpenAPI: /docs/openapi.json
+- Full docs: /docs/llms-full.txt

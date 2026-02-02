@@ -9,7 +9,8 @@
 
 export interface GraphNode {
   id: string;
-  type: string;
+  type?: string;
+  component?: string;
   version?: string;
   config?: Record<string, unknown>;
   position?: { x: number; y: number };

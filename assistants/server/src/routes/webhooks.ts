@@ -1,6 +1,6 @@
 import { Router, Request, Response } from 'express';
 import { db } from '../lib/db.js';
-import { graphRuns, runLogs, actorPrincipals, promptGraphs, compiledGraphs } from '../models/schema.js';
+import { graphRuns, runLogs, actorPrincipals, promptGraphs, compiledGraphs } from '@shared/schema.js';
 import { eq, and, desc } from 'drizzle-orm';
 import { v4 as uuidv4 } from 'uuid';
 import { createMessagingClient } from '@symbia/messaging-client';

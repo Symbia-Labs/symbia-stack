@@ -292,7 +292,7 @@ export class DatabaseStorage implements IStorage {
     .leftJoin(users, eq(memberships.userId, users.id))
     .where(eq(memberships.orgId, orgId));
     
-    return result.filter((r): r is MembershipWithUser => r.user !== null);
+    return result.filter((r: { id: string; userId: string; orgId: string; role: string; createdAt: Date; user: User | null }): r is MembershipWithUser => r.user !== null);
   }
 
   async createMembership(insertMembership: InsertMembership): Promise<Membership> {
@@ -499,7 +499,7 @@ export class DatabaseStorage implements IStorage {
     
     if (links.length === 0) return [];
     
-    const serviceIds = links.map(l => l.serviceId);
+    const serviceIds = links.map((l: { serviceId: string }) => l.serviceId);
     const result: Service[] = [];
     for (const serviceId of serviceIds) {
       const [service] = await db.select().from(services).where(eq(services.id, serviceId));
@@ -577,7 +577,7 @@ export class DatabaseStorage implements IStorage {
     const result = await db.select({ key: userEntitlements.entitlementKey })
       .from(userEntitlements)
       .where(eq(userEntitlements.userId, userId));
-    return result.map(r => r.key);
+    return result.map((r: { key: string }) => r.key);
   }
 
   async createUserEntitlement(entitlement: InsertUserEntitlement): Promise<UserEntitlement> {
@@ -604,7 +604,7 @@ export class DatabaseStorage implements IStorage {
     const result = await db.select({ key: userRoles.roleKey })
       .from(userRoles)
       .where(eq(userRoles.userId, userId));
-    return result.map(r => r.key);
+    return result.map((r: { key: string }) => r.key);
   }
 
   async createUserRole(role: InsertUserRole): Promise<UserRole> {
@@ -657,7 +657,7 @@ export class DatabaseStorage implements IStorage {
       email: user.email,
       name: user.name,
       isSuperAdmin: user.isSuperAdmin,
-      organizations: userMemberships.map(m => ({
+      organizations: userMemberships.map((m: { orgId: string; role: string; orgName: string; orgSlug: string }) => ({
         id: m.orgId,
         name: m.orgName,
         slug: m.orgSlug,
@@ -894,7 +894,7 @@ export class DatabaseStorage implements IStorage {
 
     // Filter by allowed org IDs if specified
     if (filters.allowedOrgIds) {
-      return results.filter(e =>
+      return results.filter((e: Entity) =>
         !e.orgId || filters.allowedOrgIds!.includes(e.orgId)
       );
     }
@@ -986,7 +986,7 @@ export class DatabaseStorage implements IStorage {
       .orderBy(entityAliases.priority);
 
     if (aliasResults.length > 0) {
-      const entityIds = [...new Set(aliasResults.map(a => a.entityId))];
+      const entityIds = [...new Set(aliasResults.map((a: EntityAlias) => a.entityId))] as string[];
       return db.select().from(entities).where(inArray(entities.id, entityIds));
     }
 
@@ -1013,7 +1013,7 @@ export class DatabaseStorage implements IStorage {
       .where(and(...conditions))
       .limit(5);
 
-    return results.map(r => r.slug);
+    return results.map((r: { slug: string }) => r.slug);
   }
 
   // Entity Aliases

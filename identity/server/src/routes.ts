@@ -6,6 +6,12 @@ import { sendPasswordResetEmail } from "./email";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import { z } from "zod";
+
+// Helper to safely extract string param from Express params (Express 5 returns string | string[])
+function getParam(params: Record<string, string | string[] | undefined>, key: string): string {
+  const value = params[key];
+  return Array.isArray(value) ? value[0] : (value ?? '');
+}
 import {
   registerSchema, loginSchema, forgotPasswordSchema,
   createOrgSchema, inviteMemberSchema,
@@ -1431,7 +1437,7 @@ For service-to-service authentication, use POST /api/auth/introspect with { "tok
 
   app.get("/api/orgs/:id", authMiddleware, async (req, res) => {
     try {
-      const org = await storage.getOrganization(req.params.id);
+      const org = await storage.getOrganization(getParam(req.params, 'id'));
       if (!org) {
         return res.status(404).json({ message: "Organization not found" });
       }
@@ -1460,7 +1466,7 @@ For service-to-service authentication, use POST /api/auth/introspect with { "tok
   app.post("/api/orgs/:id/members/invite", authMiddleware, async (req, res) => {
     try {
       const data = inviteMemberSchema.parse(req.body);
-      const orgId = req.params.id;
+      const orgId = getParam(req.params, 'id');
 
       const membership = await storage.getMembershipByUserAndOrg(req.user!.id, orgId);
       if (!membership || membership.role !== "admin") {
@@ -1503,7 +1509,7 @@ For service-to-service authentication, use POST /api/auth/introspect with { "tok
 
   app.patch("/api/orgs/:orgId/members/:memberId", authMiddleware, async (req, res) => {
     try {
-      const { orgId, memberId } = req.params;
+      const orgId = getParam(req.params, 'orgId'); const memberId = getParam(req.params, 'memberId');
       const { role } = req.body;
 
       const membership = await storage.getMembershipByUserAndOrg(req.user!.id, orgId);
@@ -1535,7 +1541,7 @@ For service-to-service authentication, use POST /api/auth/introspect with { "tok
 
   app.delete("/api/orgs/:orgId/members/:memberId", authMiddleware, async (req, res) => {
     try {
-      const { orgId, memberId } = req.params;
+      const orgId = getParam(req.params, 'orgId'); const memberId = getParam(req.params, 'memberId');
 
       const membership = await storage.getMembershipByUserAndOrg(req.user!.id, orgId);
       if (!membership || membership.role !== "admin") {
@@ -1567,7 +1573,7 @@ For service-to-service authentication, use POST /api/auth/introspect with { "tok
   // Entitlements
   app.get("/api/entitlements/:orgId", authMiddleware, async (req, res) => {
     try {
-      const { orgId } = req.params;
+      const orgId = getParam(req.params, 'orgId');
 
       const membership = await storage.getMembershipByUserAndOrg(req.user!.id, orgId);
       if (!membership) {
@@ -1585,7 +1591,7 @@ For service-to-service authentication, use POST /api/auth/introspect with { "tok
   // License
   app.get("/api/license/:orgId", authMiddleware, async (req, res) => {
     try {
-      const { orgId } = req.params;
+      const orgId = getParam(req.params, 'orgId');
 
       const membership = await storage.getMembershipByUserAndOrg(req.user!.id, orgId);
       if (!membership) {
@@ -1626,7 +1632,7 @@ For service-to-service authentication, use POST /api/auth/introspect with { "tok
   // Projects
   app.get("/api/orgs/:orgId/projects", authMiddleware, async (req, res) => {
     try {
-      const { orgId } = req.params;
+      const orgId = getParam(req.params, 'orgId');
       const membership = await storage.getMembershipByUserAndOrg(req.user!.id, orgId);
       if (!membership) {
         return res.status(403).json({ message: "Access denied" });
@@ -1641,7 +1647,7 @@ For service-to-service authentication, use POST /api/auth/introspect with { "tok
 
   app.post("/api/orgs/:orgId/projects", authMiddleware, async (req, res) => {
     try {
-      const { orgId } = req.params;
+      const orgId = getParam(req.params, 'orgId');
       const data = createProjectSchema.parse(req.body);
 
       const membership = await storage.getMembershipByUserAndOrg(req.user!.id, orgId);
@@ -1678,7 +1684,7 @@ For service-to-service authentication, use POST /api/auth/introspect with { "tok
 
   app.get("/api/projects/:projectId", authMiddleware, async (req, res) => {
     try {
-      const project = await storage.getProject(req.params.projectId);
+      const project = await storage.getProject(getParam(req.params, 'projectId'));
       if (!project) {
         return res.status(404).json({ message: "Project not found" });
       }
@@ -1701,7 +1707,7 @@ For service-to-service authentication, use POST /api/auth/introspect with { "tok
 
   app.patch("/api/projects/:projectId", authMiddleware, async (req, res) => {
     try {
-      const project = await storage.getProject(req.params.projectId);
+      const project = await storage.getProject(getParam(req.params, 'projectId'));
       if (!project) {
         return res.status(404).json({ message: "Project not found" });
       }
@@ -1731,7 +1737,7 @@ For service-to-service authentication, use POST /api/auth/introspect with { "tok
 
   app.delete("/api/projects/:projectId", authMiddleware, async (req, res) => {
     try {
-      const project = await storage.getProject(req.params.projectId);
+      const project = await storage.getProject(getParam(req.params, 'projectId'));
       if (!project) {
         return res.status(404).json({ message: "Project not found" });
       }
@@ -1761,7 +1767,7 @@ For service-to-service authentication, use POST /api/auth/introspect with { "tok
   // Applications
   app.get("/api/projects/:projectId/applications", authMiddleware, async (req, res) => {
     try {
-      const project = await storage.getProject(req.params.projectId);
+      const project = await storage.getProject(getParam(req.params, 'projectId'));
       if (!project) {
         return res.status(404).json({ message: "Project not found" });
       }
@@ -1781,7 +1787,7 @@ For service-to-service authentication, use POST /api/auth/introspect with { "tok
 
   app.post("/api/projects/:projectId/applications", authMiddleware, async (req, res) => {
     try {
-      const project = await storage.getProject(req.params.projectId);
+      const project = await storage.getProject(getParam(req.params, 'projectId'));
       if (!project) {
         return res.status(404).json({ message: "Project not found" });
       }
@@ -1823,7 +1829,7 @@ For service-to-service authentication, use POST /api/auth/introspect with { "tok
 
   app.get("/api/applications/:appId", authMiddleware, async (req, res) => {
     try {
-      const app = await storage.getApplication(req.params.appId);
+      const app = await storage.getApplication(getParam(req.params, 'appId'));
       if (!app) {
         return res.status(404).json({ message: "Application not found" });
       }
@@ -1845,7 +1851,7 @@ For service-to-service authentication, use POST /api/auth/introspect with { "tok
 
   app.patch("/api/applications/:appId", authMiddleware, async (req, res) => {
     try {
-      const app = await storage.getApplication(req.params.appId);
+      const app = await storage.getApplication(getParam(req.params, 'appId'));
       if (!app) {
         return res.status(404).json({ message: "Application not found" });
       }
@@ -1867,7 +1873,7 @@ For service-to-service authentication, use POST /api/auth/introspect with { "tok
 
   app.delete("/api/applications/:appId", authMiddleware, async (req, res) => {
     try {
-      const app = await storage.getApplication(req.params.appId);
+      const app = await storage.getApplication(getParam(req.params, 'appId'));
       if (!app) {
         return res.status(404).json({ message: "Application not found" });
       }
@@ -1888,7 +1894,7 @@ For service-to-service authentication, use POST /api/auth/introspect with { "tok
   // Services
   app.get("/api/projects/:projectId/services", authMiddleware, async (req, res) => {
     try {
-      const project = await storage.getProject(req.params.projectId);
+      const project = await storage.getProject(getParam(req.params, 'projectId'));
       if (!project) {
         return res.status(404).json({ message: "Project not found" });
       }
@@ -1908,7 +1914,7 @@ For service-to-service authentication, use POST /api/auth/introspect with { "tok
 
   app.post("/api/projects/:projectId/services", authMiddleware, async (req, res) => {
     try {
-      const project = await storage.getProject(req.params.projectId);
+      const project = await storage.getProject(getParam(req.params, 'projectId'));
       if (!project) {
         return res.status(404).json({ message: "Project not found" });
       }
@@ -1951,7 +1957,7 @@ For service-to-service authentication, use POST /api/auth/introspect with { "tok
 
   app.get("/api/services/:serviceId", authMiddleware, async (req, res) => {
     try {
-      const service = await storage.getService(req.params.serviceId);
+      const service = await storage.getService(getParam(req.params, 'serviceId'));
       if (!service) {
         return res.status(404).json({ message: "Service not found" });
       }
@@ -1972,7 +1978,7 @@ For service-to-service authentication, use POST /api/auth/introspect with { "tok
 
   app.patch("/api/services/:serviceId", authMiddleware, async (req, res) => {
     try {
-      const service = await storage.getService(req.params.serviceId);
+      const service = await storage.getService(getParam(req.params, 'serviceId'));
       if (!service) {
         return res.status(404).json({ message: "Service not found" });
       }
@@ -1994,7 +2000,7 @@ For service-to-service authentication, use POST /api/auth/introspect with { "tok
 
   app.delete("/api/services/:serviceId", authMiddleware, async (req, res) => {
     try {
-      const service = await storage.getService(req.params.serviceId);
+      const service = await storage.getService(getParam(req.params, 'serviceId'));
       if (!service) {
         return res.status(404).json({ message: "Service not found" });
       }
@@ -2015,8 +2021,8 @@ For service-to-service authentication, use POST /api/auth/introspect with { "tok
   // Application-Service linking
   app.post("/api/applications/:appId/services/:serviceId", authMiddleware, async (req, res) => {
     try {
-      const app = await storage.getApplication(req.params.appId);
-      const service = await storage.getService(req.params.serviceId);
+      const app = await storage.getApplication(getParam(req.params, 'appId'));
+      const service = await storage.getService(getParam(req.params, 'serviceId'));
 
       if (!app || !service) {
         return res.status(404).json({ message: "Application or service not found" });
@@ -2050,7 +2056,7 @@ For service-to-service authentication, use POST /api/auth/introspect with { "tok
 
   app.delete("/api/applications/:appId/services/:serviceId", authMiddleware, async (req, res) => {
     try {
-      const app = await storage.getApplication(req.params.appId);
+      const app = await storage.getApplication(getParam(req.params, 'appId'));
       if (!app) {
         return res.status(404).json({ message: "Application not found" });
       }
@@ -2060,7 +2066,7 @@ For service-to-service authentication, use POST /api/auth/introspect with { "tok
         return res.status(403).json({ message: "Insufficient permissions" });
       }
 
-      await storage.unlinkApplicationService(req.params.appId, req.params.serviceId);
+      await storage.unlinkApplicationService(getParam(req.params, 'appId'), getParam(req.params, 'serviceId'));
       res.json({ message: "Service unlinked" });
     } catch (error) {
       console.error("Unlink service error:", error);
@@ -2071,7 +2077,7 @@ For service-to-service authentication, use POST /api/auth/introspect with { "tok
   // Scoped Entitlements
   app.get("/api/scoped-entitlements/:scopeType/:scopeId", authMiddleware, async (req, res) => {
     try {
-      const { scopeType, scopeId } = req.params;
+      const scopeType = getParam(req.params, 'scopeType'); const scopeId = getParam(req.params, 'scopeId');
       const validScopeType = scopeTypeEnum.parse(scopeType) as ScopeType;
 
       // Verify access based on scope type
@@ -2190,7 +2196,7 @@ For service-to-service authentication, use POST /api/auth/introspect with { "tok
 
   app.patch("/api/scoped-entitlements/:id", authMiddleware, async (req, res) => {
     try {
-      const entitlement = await storage.getScopedEntitlement(req.params.id);
+      const entitlement = await storage.getScopedEntitlement(getParam(req.params, 'id'));
       if (!entitlement) {
         return res.status(404).json({ message: "Entitlement not found" });
       }
@@ -2217,7 +2223,7 @@ For service-to-service authentication, use POST /api/auth/introspect with { "tok
 
   app.delete("/api/scoped-entitlements/:id", authMiddleware, async (req, res) => {
     try {
-      const entitlement = await storage.getScopedEntitlement(req.params.id);
+      const entitlement = await storage.getScopedEntitlement(getParam(req.params, 'id'));
       if (!entitlement) {
         return res.status(404).json({ message: "Entitlement not found" });
       }
@@ -2338,7 +2344,7 @@ For service-to-service authentication, use POST /api/auth/introspect with { "tok
   // Get single API key details
   app.get("/api/api-keys/:id", authMiddleware, async (req, res) => {
     try {
-      const apiKey = await storage.getApiKey(req.params.id);
+      const apiKey = await storage.getApiKey(getParam(req.params, 'id'));
       if (!apiKey) {
         return res.status(404).json({ message: "API key not found" });
       }
@@ -2368,7 +2374,7 @@ For service-to-service authentication, use POST /api/auth/introspect with { "tok
   // Revoke an API key
   app.post("/api/api-keys/:id/revoke", authMiddleware, async (req, res) => {
     try {
-      const apiKey = await storage.getApiKey(req.params.id);
+      const apiKey = await storage.getApiKey(getParam(req.params, 'id'));
       if (!apiKey) {
         return res.status(404).json({ message: "API key not found" });
       }
@@ -2403,7 +2409,7 @@ For service-to-service authentication, use POST /api/auth/introspect with { "tok
   // Rotate an API key (revoke old, create new with same settings)
   app.post("/api/api-keys/:id/rotate", authMiddleware, async (req, res) => {
     try {
-      const oldApiKey = await storage.getApiKey(req.params.id);
+      const oldApiKey = await storage.getApiKey(getParam(req.params, 'id'));
       if (!oldApiKey) {
         return res.status(404).json({ message: "API key not found" });
       }
@@ -2468,7 +2474,7 @@ For service-to-service authentication, use POST /api/auth/introspect with { "tok
   // Delete an API key permanently
   app.delete("/api/api-keys/:id", authMiddleware, async (req, res) => {
     try {
-      const apiKey = await storage.getApiKey(req.params.id);
+      const apiKey = await storage.getApiKey(getParam(req.params, 'id'));
       if (!apiKey) {
         return res.status(404).json({ message: "API key not found" });
       }
@@ -2508,22 +2514,22 @@ For service-to-service authentication, use POST /api/auth/introspect with { "tok
   });
 
   app.get("/api/auth/keys/:id", (req, res, next) => {
-    req.url = `/api/api-keys/${req.params.id}`;
+    req.url = `/api/api-keys/${getParam(req.params, 'id')}`;
     app._router.handle(req, res, next);
   });
 
   app.delete("/api/auth/keys/:id", (req, res, next) => {
-    req.url = `/api/api-keys/${req.params.id}`;
+    req.url = `/api/api-keys/${getParam(req.params, 'id')}`;
     app._router.handle(req, res, next);
   });
 
   app.post("/api/auth/keys/:id/revoke", (req, res, next) => {
-    req.url = `/api/api-keys/${req.params.id}/revoke`;
+    req.url = `/api/api-keys/${getParam(req.params, 'id')}/revoke`;
     app._router.handle(req, res, next);
   });
 
   app.post("/api/auth/keys/:id/rotate", (req, res, next) => {
-    req.url = `/api/api-keys/${req.params.id}/rotate`;
+    req.url = `/api/api-keys/${getParam(req.params, 'id')}/rotate`;
     app._router.handle(req, res, next);
   });
 
@@ -2609,14 +2615,14 @@ For service-to-service authentication, use POST /api/auth/introspect with { "tok
   app.patch("/api/admin/users/:id", authMiddleware, superAdminMiddleware, superAdminRateLimit, async (req, res) => {
     try {
       const data = updateUserAdminSchema.parse(req.body);
-      const targetUser = await storage.getUser(req.params.id);
+      const targetUser = await storage.getUser(getParam(req.params, 'id'));
       
       if (!targetUser) {
         return res.status(404).json({ message: "User not found" });
       }
 
       // Prevent removing super admin from self
-      if (req.params.id === req.user!.id && data.isSuperAdmin === false) {
+      if (getParam(req.params, 'id') === req.user!.id && data.isSuperAdmin === false) {
         return res.status(400).json({ message: "Cannot remove super admin status from yourself" });
       }
 
@@ -2624,20 +2630,20 @@ For service-to-service authentication, use POST /api/auth/introspect with { "tok
       if (data.name !== undefined) updates.name = data.name;
       if (data.email !== undefined) {
         const existing = await storage.getUserByEmail(data.email);
-        if (existing && existing.id !== req.params.id) {
+        if (existing && existing.id !== getParam(req.params, 'id')) {
           return res.status(400).json({ message: "Email already in use" });
         }
         updates.email = data.email;
       }
       if (data.isSuperAdmin !== undefined) updates.isSuperAdmin = data.isSuperAdmin;
 
-      const user = await storage.updateUser(req.params.id, updates);
+      const user = await storage.updateUser(getParam(req.params, 'id'), updates);
       
       await storage.createAuditLog({
         userId: req.user!.id,
         action: "admin.user.updated",
         resource: "user",
-        resourceId: req.params.id,
+        resourceId: getParam(req.params, 'id'),
         metadataJson: updates,
       });
 
@@ -2661,27 +2667,27 @@ For service-to-service authentication, use POST /api/auth/introspect with { "tok
   // Delete user (super admin only)
   app.delete("/api/admin/users/:id", authMiddleware, superAdminMiddleware, superAdminRateLimit, async (req, res) => {
     try {
-      const targetUser = await storage.getUser(req.params.id);
+      const targetUser = await storage.getUser(getParam(req.params, 'id'));
       if (!targetUser) {
         return res.status(404).json({ message: "User not found" });
       }
 
       // Prevent deleting self
-      if (req.params.id === req.user!.id) {
+      if (getParam(req.params, 'id') === req.user!.id) {
         return res.status(400).json({ message: "Cannot delete yourself" });
       }
 
       // Delete user sessions first
-      await storage.deleteSessionsByUser(req.params.id);
+      await storage.deleteSessionsByUser(getParam(req.params, 'id'));
       
       // User deletion will cascade to memberships due to schema constraints
-      await storage.deleteUser(req.params.id);
+      await storage.deleteUser(getParam(req.params, 'id'));
       
       await storage.createAuditLog({
         userId: req.user!.id,
         action: "admin.user.deleted",
         resource: "user",
-        resourceId: req.params.id,
+        resourceId: getParam(req.params, 'id'),
         metadataJson: { email: targetUser.email },
       });
 
@@ -2718,7 +2724,7 @@ For service-to-service authentication, use POST /api/auth/introspect with { "tok
   app.patch("/api/admin/orgs/:id", authMiddleware, superAdminMiddleware, superAdminRateLimit, async (req, res) => {
     try {
       const data = updateOrgAdminSchema.parse(req.body);
-      const org = await storage.getOrganization(req.params.id);
+      const org = await storage.getOrganization(getParam(req.params, 'id'));
       if (!org) {
         return res.status(404).json({ message: "Organization not found" });
       }
@@ -2728,20 +2734,20 @@ For service-to-service authentication, use POST /api/auth/introspect with { "tok
       if (data.name !== undefined) updates.name = data.name;
       if (data.slug !== undefined) {
         const existing = await storage.getOrganizationBySlug(data.slug);
-        if (existing && existing.id !== req.params.id) {
+        if (existing && existing.id !== getParam(req.params, 'id')) {
           return res.status(400).json({ message: "Slug already in use" });
         }
         updates.slug = data.slug;
       }
       if (data.planId !== undefined) updates.planId = data.planId;
 
-      const updated = await storage.updateOrganization(req.params.id, updates);
+      const updated = await storage.updateOrganization(getParam(req.params, 'id'), updates);
       
       await storage.createAuditLog({
         userId: req.user!.id,
         action: "admin.org.updated",
         resource: "organization",
-        resourceId: req.params.id,
+        resourceId: getParam(req.params, 'id'),
         metadataJson: updates,
       });
 
@@ -2758,18 +2764,18 @@ For service-to-service authentication, use POST /api/auth/introspect with { "tok
   // Delete organization (super admin only)
   app.delete("/api/admin/orgs/:id", authMiddleware, superAdminMiddleware, superAdminRateLimit, async (req, res) => {
     try {
-      const org = await storage.getOrganization(req.params.id);
+      const org = await storage.getOrganization(getParam(req.params, 'id'));
       if (!org) {
         return res.status(404).json({ message: "Organization not found" });
       }
 
-      await storage.deleteOrganization(req.params.id);
+      await storage.deleteOrganization(getParam(req.params, 'id'));
       
       await storage.createAuditLog({
         userId: req.user!.id,
         action: "admin.org.deleted",
         resource: "organization",
-        resourceId: req.params.id,
+        resourceId: getParam(req.params, 'id'),
         metadataJson: { name: org.name, slug: org.slug },
       });
 
@@ -2830,7 +2836,7 @@ For service-to-service authentication, use POST /api/auth/introspect with { "tok
   app.patch("/api/admin/plans/:id", authMiddleware, superAdminMiddleware, superAdminRateLimit, async (req, res) => {
     try {
       const data = updatePlanAdminSchema.parse(req.body);
-      const plan = await storage.getPlan(req.params.id);
+      const plan = await storage.getPlan(getParam(req.params, 'id'));
       if (!plan) {
         return res.status(404).json({ message: "Plan not found" });
       }
@@ -2842,7 +2848,7 @@ For service-to-service authentication, use POST /api/auth/introspect with { "tok
         }
       }
 
-      const updated = await storage.updatePlan(req.params.id, {
+      const updated = await storage.updatePlan(getParam(req.params, 'id'), {
         name: data.name,
         featuresJson: data.featuresJson,
         limitsJson: data.limitsJson,
@@ -2853,7 +2859,7 @@ For service-to-service authentication, use POST /api/auth/introspect with { "tok
         userId: req.user!.id,
         action: "admin.plan.updated",
         resource: "plan",
-        resourceId: req.params.id,
+        resourceId: getParam(req.params, 'id'),
         metadataJson: { name: data.name },
       });
 
@@ -2870,7 +2876,7 @@ For service-to-service authentication, use POST /api/auth/introspect with { "tok
   // User Entitlements Management (super admin only)
   app.get("/api/admin/users/:userId/entitlements", authMiddleware, superAdminMiddleware, superAdminRateLimit, async (req, res) => {
     try {
-      const { userId } = req.params;
+      const userId = getParam(req.params, 'userId');
       const user = await storage.getUser(userId);
       if (!user) {
         return res.status(404).json({ message: "User not found" });
@@ -2885,7 +2891,7 @@ For service-to-service authentication, use POST /api/auth/introspect with { "tok
 
   app.post("/api/admin/users/:userId/entitlements", authMiddleware, superAdminMiddleware, superAdminRateLimit, async (req, res) => {
     try {
-      const { userId } = req.params;
+      const userId = getParam(req.params, 'userId');
       const { entitlementKey } = req.body;
 
       if (!entitlementKey || typeof entitlementKey !== "string") {
@@ -2925,7 +2931,7 @@ For service-to-service authentication, use POST /api/auth/introspect with { "tok
 
   app.delete("/api/admin/users/:userId/entitlements/:entitlementKey", authMiddleware, superAdminMiddleware, superAdminRateLimit, async (req, res) => {
     try {
-      const { userId, entitlementKey } = req.params;
+      const userId = getParam(req.params, 'userId'); const entitlementKey = getParam(req.params, 'entitlementKey');
 
       const user = await storage.getUser(userId);
       if (!user) {
@@ -2951,7 +2957,7 @@ For service-to-service authentication, use POST /api/auth/introspect with { "tok
   // User Roles Management (super admin only)
   app.get("/api/admin/users/:userId/roles", authMiddleware, superAdminMiddleware, superAdminRateLimit, async (req, res) => {
     try {
-      const { userId } = req.params;
+      const userId = getParam(req.params, 'userId');
       const user = await storage.getUser(userId);
       if (!user) {
         return res.status(404).json({ message: "User not found" });
@@ -2966,7 +2972,7 @@ For service-to-service authentication, use POST /api/auth/introspect with { "tok
 
   app.post("/api/admin/users/:userId/roles", authMiddleware, superAdminMiddleware, superAdminRateLimit, async (req, res) => {
     try {
-      const { userId } = req.params;
+      const userId = getParam(req.params, 'userId');
       const { roleKey } = req.body;
 
       if (!roleKey || typeof roleKey !== "string") {
@@ -3006,7 +3012,7 @@ For service-to-service authentication, use POST /api/auth/introspect with { "tok
 
   app.delete("/api/admin/users/:userId/roles/:roleKey", authMiddleware, superAdminMiddleware, superAdminRateLimit, async (req, res) => {
     try {
-      const { userId, roleKey } = req.params;
+      const userId = getParam(req.params, 'userId'); const roleKey = getParam(req.params, 'roleKey');
 
       const user = await storage.getUser(userId);
       if (!user) {
@@ -3113,7 +3119,7 @@ For service-to-service authentication, use POST /api/auth/introspect with { "tok
   // Delete a credential
   app.delete("/api/credentials/:id", authMiddleware, async (req, res) => {
     try {
-      const credential = await storage.getUserCredential(req.params.id);
+      const credential = await storage.getUserCredential(getParam(req.params, 'id'));
       if (!credential) {
         return res.status(404).json({ message: "Credential not found" });
       }
@@ -3184,11 +3190,11 @@ For service-to-service authentication, use POST /api/auth/introspect with { "tok
       const serviceId = req.headers['x-service-id'] as string;
       const isService = serviceId && ['integrations', 'assistants', 'runtime'].includes(serviceId);
 
-      if (!isService && payload.sub !== req.params.userId) {
+      if (!isService && payload.sub !== getParam(req.params, 'userId')) {
         return res.status(403).json({ message: "Access denied" });
       }
 
-      const { userId, provider } = req.params;
+      const userId = getParam(req.params, 'userId'); const provider = getParam(req.params, 'provider');
       const orgId = req.headers['x-org-id'] as string | undefined;
 
       console.log(`[identity] Internal credential lookup - userId: ${userId}, orgId: ${orgId}, provider: ${provider}`);
@@ -3355,7 +3361,7 @@ For service-to-service authentication, use POST /api/auth/introspect with { "tok
         return res.status(403).json({ message: "Service access denied" });
       }
 
-      const credential = await storage.getUserCredential(req.params.credentialId);
+      const credential = await storage.getUserCredential(getParam(req.params, 'credentialId'));
       if (!credential) {
         return res.status(404).json({ message: "Credential not found" });
       }
@@ -3403,7 +3409,7 @@ For service-to-service authentication, use POST /api/auth/introspect with { "tok
         return res.status(403).json({ message: "Service access denied" });
       }
 
-      const credential = await storage.getUserCredential(req.params.credentialId);
+      const credential = await storage.getUserCredential(getParam(req.params, 'credentialId'));
       if (!credential) {
         return res.status(404).json({ message: "Credential not found" });
       }
@@ -3438,14 +3444,14 @@ For service-to-service authentication, use POST /api/auth/introspect with { "tok
   // Get entity by ID
   app.get("/api/entities/:id", authMiddleware, async (req, res) => {
     try {
-      const entity = await storage.getEntity(req.params.id);
+      const entity = await storage.getEntity(getParam(req.params, 'id'));
       if (!entity) {
         return res.status(404).json({ message: "Entity not found" });
       }
 
       // Check access: must be in same org or super admin
       if (entity.orgId && req.user && !req.user.isSuperAdmin) {
-        const membership = await storage.getMembership(req.user.id, entity.orgId);
+        const membership = await storage.getMembershipByUserAndOrg(req.user.id, entity.orgId);
         if (!membership) {
           return res.status(403).json({ message: "Access denied" });
         }
@@ -3586,14 +3592,14 @@ For service-to-service authentication, use POST /api/auth/introspect with { "tok
   // Update entity
   app.patch("/api/entities/:id", authMiddleware, async (req, res) => {
     try {
-      const entity = await storage.getEntity(req.params.id);
+      const entity = await storage.getEntity(getParam(req.params, 'id'));
       if (!entity) {
         return res.status(404).json({ message: "Entity not found" });
       }
 
       // Check access
       if (entity.orgId && req.user && !req.user.isSuperAdmin) {
-        const membership = await storage.getMembership(req.user.id, entity.orgId);
+        const membership = await storage.getMembershipByUserAndOrg(req.user.id, entity.orgId);
         if (!membership || membership.role === "viewer") {
           return res.status(403).json({ message: "Access denied" });
         }
@@ -3608,7 +3614,7 @@ For service-to-service authentication, use POST /api/auth/introspect with { "tok
       if (status !== undefined) updates.status = status;
       if (metadata !== undefined) updates.metadata = metadata;
 
-      const updated = await storage.updateEntity(req.params.id, updates);
+      const updated = await storage.updateEntity(getParam(req.params, 'id'), updates);
       res.json(updated);
     } catch (error) {
       console.error("Update entity error:", error);
@@ -3625,12 +3631,12 @@ For service-to-service authentication, use POST /api/auth/introspect with { "tok
         return res.status(400).json({ message: "nodeId is required" });
       }
 
-      const entity = await storage.getEntity(req.params.id);
+      const entity = await storage.getEntity(getParam(req.params, 'id'));
       if (!entity) {
         return res.status(404).json({ message: "Entity not found" });
       }
 
-      const updated = await storage.bindEntityToNode(req.params.id, nodeId);
+      const updated = await storage.bindEntityToNode(getParam(req.params, 'id'), nodeId);
       res.json(updated);
     } catch (error) {
       console.error("Bind entity error:", error);
@@ -3641,12 +3647,12 @@ For service-to-service authentication, use POST /api/auth/introspect with { "tok
   // Unbind entity from network node
   app.post("/api/entities/:id/unbind", authMiddleware, async (req, res) => {
     try {
-      const entity = await storage.getEntity(req.params.id);
+      const entity = await storage.getEntity(getParam(req.params, 'id'));
       if (!entity) {
         return res.status(404).json({ message: "Entity not found" });
       }
 
-      const updated = await storage.unbindEntityFromNode(req.params.id);
+      const updated = await storage.unbindEntityFromNode(getParam(req.params, 'id'));
       res.json(updated);
     } catch (error) {
       console.error("Unbind entity error:", error);
@@ -3657,7 +3663,7 @@ For service-to-service authentication, use POST /api/auth/introspect with { "tok
   // Get entity by bound node ID
   app.get("/api/entities/by-node/:nodeId", authMiddleware, async (req, res) => {
     try {
-      const entity = await storage.getEntityByNodeId(req.params.nodeId);
+      const entity = await storage.getEntityByNodeId(getParam(req.params, 'nodeId'));
       if (!entity) {
         return res.status(404).json({ message: "No entity bound to this node" });
       }

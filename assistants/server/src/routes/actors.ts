@@ -1,7 +1,15 @@
 import { Router, Request, Response } from 'express';
 import { db } from '../lib/db.js';
-import { agentPrincipals } from '../models/schema.js';
+import { agentPrincipals } from '@shared/schema.js';
 import { eq, and, desc } from 'drizzle-orm';
+
+/**
+ * Helper to safely extract route params (Express 5.x returns string | string[])
+ */
+function getParam(params: Record<string, string | string[] | undefined>, key: string): string {
+  const value = params[key];
+  return Array.isArray(value) ? value[0] : (value ?? '');
+}
 
 const router = Router();
 
@@ -45,7 +53,7 @@ router.get('/:id', async (req: Request, res: Response) => {
     const orgId = requireOrgId(req, res);
     if (!orgId) return;
 
-    const { id } = req.params;
+    const id = getParam(req.params, 'id');
 
     const agent = await db.select().from(agentPrincipals)
       .where(and(eq(agentPrincipals.id, id), eq(agentPrincipals.orgId, orgId)))
@@ -94,7 +102,7 @@ router.put('/:id', async (req: Request, res: Response) => {
     const orgId = requireOrgId(req, res);
     if (!orgId) return;
 
-    const { id } = req.params;
+    const id = getParam(req.params, 'id');
     const { name, description, defaultGraphId, capabilities, webhooks, assistantConfig, isActive } = req.body;
 
     const [updated] = await db.update(agentPrincipals)
@@ -127,7 +135,7 @@ router.delete('/:id', async (req: Request, res: Response) => {
     const orgId = requireOrgId(req, res);
     if (!orgId) return;
 
-    const { id } = req.params;
+    const id = getParam(req.params, 'id');
 
     const [deleted] = await db.delete(agentPrincipals)
       .where(and(eq(agentPrincipals.id, id), eq(agentPrincipals.orgId, orgId)))

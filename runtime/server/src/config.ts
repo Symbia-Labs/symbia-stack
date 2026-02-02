@@ -12,6 +12,11 @@ export const config = {
     .map((origin) => origin.trim().replace(/\/$/, ''))
     .filter(Boolean),
 
+  // Rate limiting (disabled by default)
+  rateLimitEnabled: process.env.RATE_LIMIT_ENABLED === 'true',
+  rateLimitWindowMs: parseInt(process.env.RATE_LIMIT_WINDOW_MS || '60000', 10),
+  rateLimitMaxRequests: parseInt(process.env.RATE_LIMIT_MAX_REQUESTS || '100', 10),
+
   // Runtime-specific configuration
   runtime: {
     // Maximum concurrent graph executions

@@ -110,6 +110,8 @@ export async function introspectToken(
   type?: string;
   orgId?: string;
   organizations?: Array<{ id: string; name?: string }>;
+  isSuperAdmin?: boolean;
+  entitlements?: string[];
 } | null> {
   try {
     const url = `${IDENTITY_SERVICE_URL}/api/auth/introspect`;
@@ -132,6 +134,8 @@ export async function introspectToken(
       type?: string;
       orgId?: string;
       organizations?: Array<{ id: string; name?: string }>;
+      isSuperAdmin?: boolean;
+      entitlements?: string[];
     }>;
   } catch (error) {
     console.error(`[integrations] Error introspecting token:`, error);

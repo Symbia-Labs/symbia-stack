@@ -123,10 +123,12 @@ export class GraphExecutor extends EventEmitter {
       id: executionId,
       graphId,
       state: 'running',
+      instances: new Map(),
       metrics: {
         messagesProcessed: 0,
         messagesEmitted: 0,
         nodeInvocations: 0,
+        componentInvocations: 0,
         totalLatencyMs: 0,
         avgLatencyMs: 0,
         maxLatencyMs: 0,

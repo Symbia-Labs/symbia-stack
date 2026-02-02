@@ -31,6 +31,14 @@ import {
 } from "../types.js";
 
 // =============================================================================
+// Helper to safely extract route params (Express 5.x returns string | string[])
+// =============================================================================
+function getParam(params: Record<string, string | string[] | undefined>, key: string): string {
+  const value = params[key];
+  return Array.isArray(value) ? value[0] : (value ?? '');
+}
+
+// =============================================================================
 // Route Factory
 // =============================================================================
 
@@ -94,7 +102,7 @@ export function createEvalRoutes(db: PostgresJsDatabase): Router {
    */
   router.get("/benchmarks/:id", async (req: Request, res: Response) => {
     try {
-      const benchmark = getBenchmark(req.params.id);
+      const benchmark = getBenchmark(getParam(req.params, 'id'));
       if (!benchmark) {
         return res.status(404).json({ error: "Benchmark not found" });
       }
@@ -231,7 +239,7 @@ export function createEvalRoutes(db: PostgresJsDatabase): Router {
    */
   router.get("/evaluations/:id", async (req: Request, res: Response) => {
     try {
-      const evaluation = await repository.getEvaluation(req.params.id);
+      const evaluation = await repository.getEvaluation(getParam(req.params, 'id'));
       if (!evaluation) {
         return res.status(404).json({ error: "Evaluation not found" });
       }

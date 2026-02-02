@@ -45,7 +45,7 @@ export class CodeToolInvokeHandler extends BaseActionHandler {
 
   async execute(config: ActionConfig, context: ExecutionContext): Promise<ActionResult> {
     const start = Date.now();
-    const params = config.params as CodeToolInvokeParams;
+    const params = config.params as unknown as CodeToolInvokeParams;
 
     try {
       // Get or find workspace

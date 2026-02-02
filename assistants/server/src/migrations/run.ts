@@ -1,7 +1,7 @@
 import { Pool } from 'pg';
 import { drizzle } from 'drizzle-orm/node-postgres';
 import { migrate } from 'drizzle-orm/node-postgres/migrator';
-import * as schema from '../models/schema.js';
+import * as schema from '@shared/schema.js';
 
 async function runMigrations() {
   const pool = new Pool({

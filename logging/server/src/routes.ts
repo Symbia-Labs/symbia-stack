@@ -17,6 +17,30 @@ declare module "express-session" {
   }
 }
 
+/**
+ * Identity service login response
+ */
+interface IdentityLoginResponse {
+  token?: string;
+  user?: {
+    id: string;
+    email: string;
+    name?: string;
+  };
+  id?: string;
+  email?: string;
+  name?: string;
+  error?: string;
+  message?: string;
+}
+
+/**
+ * Helper to parse JSON response with proper typing
+ */
+async function parseJsonResponse<T>(response: Response): Promise<T> {
+  return response.json() as Promise<T>;
+}
+
 import {
   insertMetricSchema,
   insertDataSourceSchema,
@@ -33,7 +57,7 @@ import {
   objectsIngestSchema,
 } from "@shared/schema";
 import { z } from "zod";
-import { requireAuthContext, hashPassword, generateApiKey, introspectToken } from "./auth";
+import { requireAuthContext, generateApiKey, introspectToken } from "./auth";
 
 // Auth mode for dev bypass
 const AUTH_MODE = (process.env.LOGGING_AUTH_MODE ||
@@ -90,11 +114,11 @@ export async function registerRoutes(
     const token = getBearerToken(req) || req.session?.identityToken || null;
     if (token) {
       const introspection = await introspectToken(token);
-      if (introspection?.active) {
+      if (introspection) {
         const organizations = introspection.organizations || [];
         return {
           user: {
-            id: introspection.sub || req.session?.userId || "unknown",
+            id: introspection.id || req.session?.userId || "unknown",
             email: introspection.email || req.session?.username || "",
             name: introspection.name || req.session?.identityUser?.name || "",
             isSuperAdmin: introspection.isSuperAdmin || false,
@@ -202,7 +226,7 @@ export async function registerRoutes(
           body: JSON.stringify({ email: body.username, password: body.password }),
         });
 
-        const data = await identityResponse.json();
+        const data = await parseJsonResponse<IdentityLoginResponse>(identityResponse);
 
         if (identityResponse.ok) {
           const setCookie = identityResponse.headers.get("set-cookie");

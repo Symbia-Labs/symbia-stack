@@ -16,6 +16,7 @@ export interface OpenAPISpec {
   components?: {
     schemas?: Record<string, SchemaObject>;
     securitySchemes?: Record<string, SecurityScheme>;
+    parameters?: Record<string, Parameter | { $ref: string }>;
   };
   tags?: Array<{
     name: string;
@@ -61,6 +62,19 @@ export interface SchemaObject {
   enum?: any[];
   items?: SchemaObject;
   $ref?: string;
+  format?: string;
+  example?: unknown;
+  default?: unknown;
+  minimum?: number;
+  maximum?: number;
+  minLength?: number;
+  maxLength?: number;
+  pattern?: string;
+  nullable?: boolean;
+  oneOf?: SchemaObject[];
+  anyOf?: SchemaObject[];
+  allOf?: SchemaObject[];
+  additionalProperties?: boolean | SchemaObject;
 }
 
 export interface SecurityScheme {

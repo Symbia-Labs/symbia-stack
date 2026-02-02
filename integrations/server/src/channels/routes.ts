@@ -48,6 +48,14 @@ function extractToken(req: Request): string | null {
 }
 
 /**
+ * Helper to safely extract route params (Express 5.x returns string | string[])
+ */
+function getParam(params: Record<string, string | string[] | undefined>, key: string): string {
+  const value = params[key];
+  return Array.isArray(value) ? value[0] : (value ?? '');
+}
+
+/**
  * Auth middleware for channel routes
  */
 async function authMiddleware(
@@ -200,7 +208,7 @@ export function createChannelRoutes(): Router {
    * Get details for a specific channel type
    */
   router.get("/:channelType", async (req: Request, res: Response) => {
-    const { channelType } = req.params;
+    const channelType = getParam(req.params, 'channelType');
 
     const parseResult = channelTypeSchema.safeParse(channelType);
     if (!parseResult.success) {
@@ -233,7 +241,7 @@ export function createChannelRoutes(): Router {
    * List connections for the authenticated user/org
    */
   router.get("/:channelType/connections", authMiddleware, async (req: Request, res: Response) => {
-    const { channelType } = req.params;
+    const channelType = getParam(req.params, 'channelType');
     const user = (req as any).user;
 
     const parseResult = channelTypeSchema.safeParse(channelType);
@@ -276,7 +284,7 @@ export function createChannelRoutes(): Router {
    * Initiate a new channel connection
    */
   router.post("/:channelType/connect", authMiddleware, async (req: Request, res: Response) => {
-    const { channelType } = req.params;
+    const channelType = getParam(req.params, 'channelType');
     const user = (req as any).user;
     const token = (req as any).token;
     const config = req.body.config || {};
@@ -389,7 +397,8 @@ export function createChannelRoutes(): Router {
     "/:channelType/connections/:connectionId/status",
     authMiddleware,
     async (req: Request, res: Response) => {
-      const { channelType, connectionId } = req.params;
+      const channelType = getParam(req.params, 'channelType');
+    const connectionId = getParam(req.params, 'connectionId');
       const user = (req as any).user;
 
       try {
@@ -461,7 +470,8 @@ export function createChannelRoutes(): Router {
     "/:channelType/connections/:connectionId/disconnect",
     authMiddleware,
     async (req: Request, res: Response) => {
-      const { channelType, connectionId } = req.params;
+      const channelType = getParam(req.params, 'channelType');
+    const connectionId = getParam(req.params, 'connectionId');
       const user = (req as any).user;
 
       try {
@@ -523,7 +533,7 @@ export function createChannelRoutes(): Router {
     "/:channelType/connections/:connectionId",
     authMiddleware,
     async (req: Request, res: Response) => {
-      const { connectionId } = req.params;
+      const connectionId = getParam(req.params, 'connectionId');
       const user = (req as any).user;
 
       try {
@@ -576,7 +586,8 @@ export function createChannelRoutes(): Router {
    * Receive webhook callbacks from external platforms
    */
   router.post("/:channelType/webhook/:connectionId", async (req: Request, res: Response) => {
-    const { channelType, connectionId } = req.params;
+    const channelType = getParam(req.params, 'channelType');
+    const connectionId = getParam(req.params, 'connectionId');
     const startTime = Date.now();
 
     const parseResult = channelTypeSchema.safeParse(channelType);
@@ -715,7 +726,8 @@ export function createChannelRoutes(): Router {
    * Handle webhook verification (some platforms use GET)
    */
   router.get("/:channelType/webhook/:connectionId", async (req: Request, res: Response) => {
-    const { channelType, connectionId } = req.params;
+    const channelType = getParam(req.params, 'channelType');
+    const connectionId = getParam(req.params, 'connectionId');
 
     const parseResult = channelTypeSchema.safeParse(channelType);
     if (!parseResult.success) {
@@ -775,7 +787,8 @@ export function createChannelRoutes(): Router {
     "/:channelType/connections/:connectionId/send",
     authMiddleware,
     async (req: Request, res: Response) => {
-      const { channelType, connectionId } = req.params;
+      const channelType = getParam(req.params, 'channelType');
+    const connectionId = getParam(req.params, 'connectionId');
       const user = (req as any).user;
       const token = (req as any).token;
       const { chatId, text, replyToMessageId, formatting } = req.body;

@@ -355,7 +355,7 @@ export class RoutineCompiler {
       };
 
       // Add debug metadata
-      if (options.debug) {
+      if (options.debug && node.config) {
         node.config._debug = {
           stepId: step.id,
           stepIndex: i,

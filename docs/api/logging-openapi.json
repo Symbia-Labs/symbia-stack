@@ -1,0 +1,1483 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Symbia Logging Service API",
+    "description": "Comprehensive observability platform supporting Logs, Metrics, Traces, and Objects. Requests are scoped by X-Org-Id, X-Service-Id, and X-Env headers.",
+    "version": "2.0.0"
+  },
+  "servers": [
+    {
+      "url": "/api",
+      "description": "API Server"
+    }
+  ],
+  "tags": [
+    {
+      "name": "Logs",
+      "description": "Log stream and entry management"
+    },
+    {
+      "name": "Metrics",
+      "description": "Metric definition and data point management"
+    },
+    {
+      "name": "Traces",
+      "description": "Distributed tracing and span management"
+    },
+    {
+      "name": "Objects",
+      "description": "Binary object and file management"
+    },
+    {
+      "name": "Assistant",
+      "description": "AI-powered log analysis and insights"
+    },
+    {
+      "name": "DataSources",
+      "description": "Data source configuration"
+    },
+    {
+      "name": "Integrations",
+      "description": "External service integrations"
+    },
+    {
+      "name": "Stats",
+      "description": "Dashboard statistics"
+    }
+  ],
+  "paths": {
+    "/logs/streams": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/OrgIdHeader"
+        },
+        {
+          "$ref": "#/components/parameters/ServiceIdHeader"
+        },
+        {
+          "$ref": "#/components/parameters/EnvHeader"
+        },
+        {
+          "$ref": "#/components/parameters/DataClassHeader"
+        },
+        {
+          "$ref": "#/components/parameters/PolicyRefHeader"
+        }
+      ],
+      "get": {
+        "tags": [
+          "Logs"
+        ],
+        "summary": "List all log streams",
+        "responses": {
+          "200": {
+            "description": "List of log streams"
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Logs"
+        ],
+        "summary": "Create a new log stream",
+        "responses": {
+          "201": {
+            "description": "Log stream created"
+          }
+        }
+      }
+    },
+    "/logs/query": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/OrgIdHeader"
+        },
+        {
+          "$ref": "#/components/parameters/ServiceIdHeader"
+        },
+        {
+          "$ref": "#/components/parameters/EnvHeader"
+        },
+        {
+          "$ref": "#/components/parameters/DataClassHeader"
+        },
+        {
+          "$ref": "#/components/parameters/PolicyRefHeader"
+        }
+      ],
+      "post": {
+        "tags": [
+          "Logs"
+        ],
+        "summary": "Query log entries",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "streamIds": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  },
+                  "startTime": {
+                    "type": "string",
+                    "format": "date-time"
+                  },
+                  "endTime": {
+                    "type": "string",
+                    "format": "date-time"
+                  },
+                  "level": {
+                    "type": "string"
+                  },
+                  "search": {
+                    "type": "string"
+                  },
+                  "limit": {
+                    "type": "integer"
+                  },
+                  "offset": {
+                    "type": "integer"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Log query results"
+          }
+        }
+      }
+    },
+    "/logs/ingest": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/OrgIdHeader"
+        },
+        {
+          "$ref": "#/components/parameters/ServiceIdHeader"
+        },
+        {
+          "$ref": "#/components/parameters/EnvHeader"
+        },
+        {
+          "$ref": "#/components/parameters/DataClassHeader"
+        },
+        {
+          "$ref": "#/components/parameters/PolicyRefHeader"
+        }
+      ],
+      "post": {
+        "tags": [
+          "Logs"
+        ],
+        "summary": "Ingest log entries",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "entries"
+                ],
+                "properties": {
+                  "entries": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "required": [
+                        "streamId",
+                        "timestamp"
+                      ],
+                      "properties": {
+                        "streamId": {
+                          "type": "string"
+                        },
+                        "timestamp": {
+                          "type": "string",
+                          "format": "date-time"
+                        },
+                        "level": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "attributes": {
+                          "type": "object"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Logs ingested"
+          }
+        }
+      }
+    },
+    "/metrics": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/OrgIdHeader"
+        },
+        {
+          "$ref": "#/components/parameters/ServiceIdHeader"
+        },
+        {
+          "$ref": "#/components/parameters/EnvHeader"
+        },
+        {
+          "$ref": "#/components/parameters/DataClassHeader"
+        },
+        {
+          "$ref": "#/components/parameters/PolicyRefHeader"
+        }
+      ],
+      "get": {
+        "tags": [
+          "Metrics"
+        ],
+        "summary": "List all metrics",
+        "responses": {
+          "200": {
+            "description": "List of metrics"
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Metrics"
+        ],
+        "summary": "Create a new metric",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "name",
+                  "metricType"
+                ],
+                "properties": {
+                  "name": {
+                    "type": "string"
+                  },
+                  "metricType": {
+                    "type": "string",
+                    "enum": [
+                      "counter",
+                      "gauge",
+                      "histogram",
+                      "summary"
+                    ]
+                  },
+                  "unit": {
+                    "type": "string"
+                  },
+                  "description": {
+                    "type": "string"
+                  },
+                  "labels": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Metric created"
+          }
+        }
+      }
+    },
+    "/metrics/query": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/OrgIdHeader"
+        },
+        {
+          "$ref": "#/components/parameters/ServiceIdHeader"
+        },
+        {
+          "$ref": "#/components/parameters/EnvHeader"
+        },
+        {
+          "$ref": "#/components/parameters/DataClassHeader"
+        },
+        {
+          "$ref": "#/components/parameters/PolicyRefHeader"
+        }
+      ],
+      "post": {
+        "tags": [
+          "Metrics"
+        ],
+        "summary": "Query metric data points",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "metricIds": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  },
+                  "startTime": {
+                    "type": "string",
+                    "format": "date-time"
+                  },
+                  "endTime": {
+                    "type": "string",
+                    "format": "date-time"
+                  },
+                  "labels": {
+                    "type": "object"
+                  },
+                  "aggregation": {
+                    "type": "string"
+                  },
+                  "interval": {
+                    "type": "string"
+                  },
+                  "limit": {
+                    "type": "integer"
+                  },
+                  "offset": {
+                    "type": "integer"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Metric query results"
+          }
+        }
+      }
+    },
+    "/metrics/ingest": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/OrgIdHeader"
+        },
+        {
+          "$ref": "#/components/parameters/ServiceIdHeader"
+        },
+        {
+          "$ref": "#/components/parameters/EnvHeader"
+        },
+        {
+          "$ref": "#/components/parameters/DataClassHeader"
+        },
+        {
+          "$ref": "#/components/parameters/PolicyRefHeader"
+        }
+      ],
+      "post": {
+        "tags": [
+          "Metrics"
+        ],
+        "summary": "Ingest metric data points",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "dataPoints"
+                ],
+                "properties": {
+                  "dataPoints": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "required": [
+                        "metricId",
+                        "timestamp",
+                        "value"
+                      ],
+                      "properties": {
+                        "metricId": {
+                          "type": "string"
+                        },
+                        "timestamp": {
+                          "type": "string",
+                          "format": "date-time"
+                        },
+                        "value": {
+                          "type": "number"
+                        },
+                        "labels": {
+                          "type": "object"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Data points ingested"
+          }
+        }
+      }
+    },
+    "/traces": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/OrgIdHeader"
+        },
+        {
+          "$ref": "#/components/parameters/ServiceIdHeader"
+        },
+        {
+          "$ref": "#/components/parameters/EnvHeader"
+        },
+        {
+          "$ref": "#/components/parameters/DataClassHeader"
+        },
+        {
+          "$ref": "#/components/parameters/PolicyRefHeader"
+        }
+      ],
+      "get": {
+        "tags": [
+          "Traces"
+        ],
+        "summary": "List all traces",
+        "responses": {
+          "200": {
+            "description": "List of traces"
+          }
+        }
+      }
+    },
+    "/traces/{traceId}/spans": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/OrgIdHeader"
+        },
+        {
+          "$ref": "#/components/parameters/ServiceIdHeader"
+        },
+        {
+          "$ref": "#/components/parameters/EnvHeader"
+        },
+        {
+          "$ref": "#/components/parameters/DataClassHeader"
+        },
+        {
+          "$ref": "#/components/parameters/PolicyRefHeader"
+        }
+      ],
+      "get": {
+        "tags": [
+          "Traces"
+        ],
+        "summary": "Get spans for a specific trace",
+        "parameters": [
+          {
+            "name": "traceId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "List of spans for the trace"
+          }
+        }
+      }
+    },
+    "/traces/query": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/OrgIdHeader"
+        },
+        {
+          "$ref": "#/components/parameters/ServiceIdHeader"
+        },
+        {
+          "$ref": "#/components/parameters/EnvHeader"
+        },
+        {
+          "$ref": "#/components/parameters/DataClassHeader"
+        },
+        {
+          "$ref": "#/components/parameters/PolicyRefHeader"
+        }
+      ],
+      "post": {
+        "tags": [
+          "Traces"
+        ],
+        "summary": "Query traces",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "serviceName": {
+                    "type": "string"
+                  },
+                  "operationName": {
+                    "type": "string"
+                  },
+                  "startTime": {
+                    "type": "string",
+                    "format": "date-time"
+                  },
+                  "endTime": {
+                    "type": "string",
+                    "format": "date-time"
+                  },
+                  "tags": {
+                    "type": "object"
+                  },
+                  "minDurationMs": {
+                    "type": "number"
+                  },
+                  "maxDurationMs": {
+                    "type": "number"
+                  },
+                  "limit": {
+                    "type": "integer"
+                  },
+                  "offset": {
+                    "type": "integer"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Trace query results"
+          }
+        }
+      }
+    },
+    "/traces/ingest": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/OrgIdHeader"
+        },
+        {
+          "$ref": "#/components/parameters/ServiceIdHeader"
+        },
+        {
+          "$ref": "#/components/parameters/EnvHeader"
+        },
+        {
+          "$ref": "#/components/parameters/DataClassHeader"
+        },
+        {
+          "$ref": "#/components/parameters/PolicyRefHeader"
+        }
+      ],
+      "post": {
+        "tags": [
+          "Traces"
+        ],
+        "summary": "Ingest trace spans",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "spans"
+                ],
+                "properties": {
+                  "spans": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "required": [
+                        "traceId",
+                        "spanId",
+                        "name",
+                        "startTime"
+                      ],
+                      "properties": {
+                        "traceId": {
+                          "type": "string"
+                        },
+                        "spanId": {
+                          "type": "string"
+                        },
+                        "parentSpanId": {
+                          "type": "string"
+                        },
+                        "name": {
+                          "type": "string"
+                        },
+                        "serviceName": {
+                          "type": "string"
+                        },
+                        "kind": {
+                          "type": "string"
+                        },
+                        "status": {
+                          "type": "string"
+                        },
+                        "startTime": {
+                          "type": "string",
+                          "format": "date-time"
+                        },
+                        "endTime": {
+                          "type": "string",
+                          "format": "date-time"
+                        },
+                        "attributes": {
+                          "type": "object"
+                        },
+                        "events": {
+                          "type": "array"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Spans ingested"
+          }
+        }
+      }
+    },
+    "/objects/streams": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/OrgIdHeader"
+        },
+        {
+          "$ref": "#/components/parameters/ServiceIdHeader"
+        },
+        {
+          "$ref": "#/components/parameters/EnvHeader"
+        },
+        {
+          "$ref": "#/components/parameters/DataClassHeader"
+        },
+        {
+          "$ref": "#/components/parameters/PolicyRefHeader"
+        }
+      ],
+      "get": {
+        "tags": [
+          "Objects"
+        ],
+        "summary": "List all object streams",
+        "responses": {
+          "200": {
+            "description": "List of object streams"
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Objects"
+        ],
+        "summary": "Create a new object stream",
+        "responses": {
+          "201": {
+            "description": "Object stream created"
+          }
+        }
+      }
+    },
+    "/objects/query": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/OrgIdHeader"
+        },
+        {
+          "$ref": "#/components/parameters/ServiceIdHeader"
+        },
+        {
+          "$ref": "#/components/parameters/EnvHeader"
+        },
+        {
+          "$ref": "#/components/parameters/DataClassHeader"
+        },
+        {
+          "$ref": "#/components/parameters/PolicyRefHeader"
+        }
+      ],
+      "post": {
+        "tags": [
+          "Objects"
+        ],
+        "summary": "Query object entries",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "streamIds": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  },
+                  "startTime": {
+                    "type": "string",
+                    "format": "date-time"
+                  },
+                  "endTime": {
+                    "type": "string",
+                    "format": "date-time"
+                  },
+                  "contentType": {
+                    "type": "string"
+                  },
+                  "minSize": {
+                    "type": "number"
+                  },
+                  "maxSize": {
+                    "type": "number"
+                  },
+                  "limit": {
+                    "type": "integer"
+                  },
+                  "offset": {
+                    "type": "integer"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Object query results"
+          }
+        }
+      }
+    },
+    "/objects/ingest": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/OrgIdHeader"
+        },
+        {
+          "$ref": "#/components/parameters/ServiceIdHeader"
+        },
+        {
+          "$ref": "#/components/parameters/EnvHeader"
+        },
+        {
+          "$ref": "#/components/parameters/DataClassHeader"
+        },
+        {
+          "$ref": "#/components/parameters/PolicyRefHeader"
+        }
+      ],
+      "post": {
+        "tags": [
+          "Objects"
+        ],
+        "summary": "Register an object entry",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "streamId"
+                ],
+                "properties": {
+                  "streamId": {
+                    "type": "string"
+                  },
+                  "filename": {
+                    "type": "string"
+                  },
+                  "contentType": {
+                    "type": "string"
+                  },
+                  "size": {
+                    "type": "number"
+                  },
+                  "checksum": {
+                    "type": "string"
+                  },
+                  "storageUrl": {
+                    "type": "string"
+                  },
+                  "metadata": {
+                    "type": "object"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Object registered"
+          }
+        }
+      }
+    },
+    "/assistant/config": {
+      "get": {
+        "tags": [
+          "Assistant"
+        ],
+        "summary": "Get assistant configuration",
+        "description": "Returns the current configuration status of the log assistant, including whether LLM is configured and available capabilities.",
+        "responses": {
+          "200": {
+            "description": "Assistant configuration",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "configured": {
+                      "type": "boolean",
+                      "description": "Whether LLM backend is configured"
+                    },
+                    "capabilities": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      },
+                      "description": "Available assistant capabilities",
+                      "example": [
+                        "summarize",
+                        "analyze",
+                        "group",
+                        "investigate"
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/assistant/summarize": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/OrgIdHeader"
+        },
+        {
+          "$ref": "#/components/parameters/ServiceIdHeader"
+        },
+        {
+          "$ref": "#/components/parameters/EnvHeader"
+        },
+        {
+          "$ref": "#/components/parameters/DataClassHeader"
+        },
+        {
+          "$ref": "#/components/parameters/PolicyRefHeader"
+        }
+      ],
+      "post": {
+        "tags": [
+          "Assistant"
+        ],
+        "summary": "Summarize logs with AI",
+        "description": "Analyzes log entries and generates a natural language summary with actionable insights. Uses LLM when configured, falls back to local analysis otherwise.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "logIds": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    },
+                    "description": "Specific log IDs to analyze (legacy mode)"
+                  },
+                  "startTime": {
+                    "type": "string",
+                    "format": "date-time",
+                    "description": "Start of time range"
+                  },
+                  "endTime": {
+                    "type": "string",
+                    "format": "date-time",
+                    "description": "End of time range"
+                  },
+                  "streamIds": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    },
+                    "description": "Filter to specific log streams"
+                  },
+                  "level": {
+                    "type": "string",
+                    "description": "Filter by log level (error, warn, info, debug)"
+                  },
+                  "search": {
+                    "type": "string",
+                    "description": "Full-text search query"
+                  },
+                  "limit": {
+                    "type": "integer",
+                    "default": 200,
+                    "description": "Maximum logs to analyze (capped at 500)"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Log summary with insights",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "summary": {
+                      "type": "string",
+                      "description": "Natural language summary"
+                    },
+                    "insights": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string"
+                          },
+                          "text": {
+                            "type": "string",
+                            "description": "Insight description"
+                          },
+                          "severity": {
+                            "type": "string",
+                            "enum": [
+                              "critical",
+                              "warning",
+                              "info"
+                            ]
+                          },
+                          "category": {
+                            "type": "string",
+                            "enum": [
+                              "error",
+                              "performance",
+                              "pattern",
+                              "anomaly",
+                              "health"
+                            ]
+                          },
+                          "searchHint": {
+                            "type": "string",
+                            "description": "Query to find related logs"
+                          },
+                          "services": {
+                            "type": "array",
+                            "items": {
+                              "type": "string"
+                            }
+                          },
+                          "count": {
+                            "type": "integer"
+                          }
+                        }
+                      }
+                    },
+                    "errorCount": {
+                      "type": "integer"
+                    },
+                    "warnCount": {
+                      "type": "integer"
+                    },
+                    "patterns": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/assistant/analyze": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/OrgIdHeader"
+        },
+        {
+          "$ref": "#/components/parameters/ServiceIdHeader"
+        },
+        {
+          "$ref": "#/components/parameters/EnvHeader"
+        },
+        {
+          "$ref": "#/components/parameters/DataClassHeader"
+        },
+        {
+          "$ref": "#/components/parameters/PolicyRefHeader"
+        }
+      ],
+      "post": {
+        "tags": [
+          "Assistant"
+        ],
+        "summary": "Analyze errors with AI",
+        "description": "Deep analysis of error logs to identify root causes and suggest remediation actions.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "logIds": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  },
+                  "startTime": {
+                    "type": "string",
+                    "format": "date-time"
+                  },
+                  "endTime": {
+                    "type": "string",
+                    "format": "date-time"
+                  },
+                  "streamIds": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  },
+                  "search": {
+                    "type": "string"
+                  },
+                  "limit": {
+                    "type": "integer",
+                    "default": 200
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Error analysis results",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "summary": {
+                      "type": "string",
+                      "description": "Error analysis summary"
+                    },
+                    "errorMessages": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      },
+                      "description": "Unique error messages found"
+                    },
+                    "possibleCauses": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      },
+                      "description": "Identified root causes"
+                    },
+                    "suggestedActions": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      },
+                      "description": "Recommended remediation steps"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/assistant/investigate": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/OrgIdHeader"
+        },
+        {
+          "$ref": "#/components/parameters/ServiceIdHeader"
+        },
+        {
+          "$ref": "#/components/parameters/EnvHeader"
+        },
+        {
+          "$ref": "#/components/parameters/DataClassHeader"
+        },
+        {
+          "$ref": "#/components/parameters/PolicyRefHeader"
+        }
+      ],
+      "post": {
+        "tags": [
+          "Assistant"
+        ],
+        "summary": "Investigate a specific insight",
+        "description": "Deep-dive investigation into a specific insight from the summary. Returns detailed explanation, related logs, and suggested actions.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "insight"
+                ],
+                "properties": {
+                  "insight": {
+                    "type": "object",
+                    "required": [
+                      "text"
+                    ],
+                    "properties": {
+                      "id": {
+                        "type": "string"
+                      },
+                      "text": {
+                        "type": "string",
+                        "description": "Insight text to investigate"
+                      },
+                      "severity": {
+                        "type": "string",
+                        "enum": [
+                          "critical",
+                          "warning",
+                          "info"
+                        ]
+                      },
+                      "category": {
+                        "type": "string",
+                        "enum": [
+                          "error",
+                          "performance",
+                          "pattern",
+                          "anomaly",
+                          "health"
+                        ]
+                      },
+                      "searchHint": {
+                        "type": "string"
+                      },
+                      "services": {
+                        "type": "array",
+                        "items": {
+                          "type": "string"
+                        }
+                      },
+                      "count": {
+                        "type": "integer"
+                      }
+                    }
+                  },
+                  "startTime": {
+                    "type": "string",
+                    "format": "date-time"
+                  },
+                  "endTime": {
+                    "type": "string",
+                    "format": "date-time"
+                  },
+                  "streamIds": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  },
+                  "level": {
+                    "type": "string"
+                  },
+                  "search": {
+                    "type": "string"
+                  },
+                  "limit": {
+                    "type": "integer",
+                    "default": 200
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Investigation results",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "insight": {
+                      "type": "string",
+                      "description": "Original insight text"
+                    },
+                    "explanation": {
+                      "type": "string",
+                      "description": "Detailed explanation of what's happening"
+                    },
+                    "relatedLogs": {
+                      "type": "array",
+                      "items": {
+                        "type": "object"
+                      },
+                      "description": "Related log entries"
+                    },
+                    "suggestedActions": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      },
+                      "description": "Specific actions to resolve or investigate further"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Insight is required"
+          }
+        }
+      }
+    },
+    "/assistant/group": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/OrgIdHeader"
+        },
+        {
+          "$ref": "#/components/parameters/ServiceIdHeader"
+        },
+        {
+          "$ref": "#/components/parameters/EnvHeader"
+        },
+        {
+          "$ref": "#/components/parameters/DataClassHeader"
+        },
+        {
+          "$ref": "#/components/parameters/PolicyRefHeader"
+        }
+      ],
+      "post": {
+        "tags": [
+          "Assistant"
+        ],
+        "summary": "Group related logs by pattern",
+        "description": "Groups log entries by detected message patterns, normalizing IDs, timestamps, and numbers. Useful for identifying repeated issues.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "logIds": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  },
+                  "startTime": {
+                    "type": "string",
+                    "format": "date-time"
+                  },
+                  "endTime": {
+                    "type": "string",
+                    "format": "date-time"
+                  },
+                  "limit": {
+                    "type": "integer",
+                    "default": 500
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Grouped log patterns",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "groups": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string"
+                          },
+                          "name": {
+                            "type": "string",
+                            "description": "Shortened pattern name"
+                          },
+                          "pattern": {
+                            "type": "string",
+                            "description": "Normalized message pattern"
+                          },
+                          "count": {
+                            "type": "integer",
+                            "description": "Number of logs matching this pattern"
+                          },
+                          "logIds": {
+                            "type": "array",
+                            "items": {
+                              "type": "string"
+                            },
+                            "description": "IDs of matching logs"
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT"
+      },
+      "apiKeyAuth": {
+        "type": "apiKey",
+        "in": "header",
+        "name": "X-API-Key"
+      }
+    },
+    "parameters": {
+      "OrgIdHeader": {
+        "name": "X-Org-Id",
+        "in": "header",
+        "required": false,
+        "description": "Organization ID (required for multi-org users).",
+        "schema": {
+          "type": "string"
+        }
+      },
+      "ServiceIdHeader": {
+        "name": "X-Service-Id",
+        "in": "header",
+        "required": false,
+        "description": "Service identifier (defaults to LOGGING_DEFAULT_SERVICE_ID).",
+        "schema": {
+          "type": "string"
+        }
+      },
+      "EnvHeader": {
+        "name": "X-Env",
+        "in": "header",
+        "required": false,
+        "description": "Environment name (dev|stage|prod).",
+        "schema": {
+          "type": "string"
+        }
+      },
+      "DataClassHeader": {
+        "name": "X-Data-Class",
+        "in": "header",
+        "required": false,
+        "description": "Data classification (none|pii|phi|secret).",
+        "schema": {
+          "type": "string",
+          "enum": [
+            "none",
+            "pii",
+            "phi",
+            "secret"
+          ]
+        }
+      },
+      "PolicyRefHeader": {
+        "name": "X-Policy-Ref",
+        "in": "header",
+        "required": false,
+        "description": "Policy reference string (defaults to LOGGING_DEFAULT_POLICY_REF).",
+        "schema": {
+          "type": "string"
+        }
+      }
+    }
+  },
+  "security": [
+    {
+      "bearerAuth": []
+    },
+    {
+      "apiKeyAuth": []
+    }
+  ]
+}

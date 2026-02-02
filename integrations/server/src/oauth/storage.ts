@@ -277,23 +277,3 @@ function getEnvProviderConfigs(): Array<{
   return configs.filter((c): c is NonNullable<typeof c> => c !== null);
 }
 
-// Type for OAuth connection record (matching database schema)
-type OAuthConnectionRecord = {
-  id: string;
-  userId: string;
-  orgId: string | null;
-  provider: string;
-  oauthUserId: string | null;
-  oauthUserEmail: string | null;
-  oauthUserName: string | null;
-  oauthAvatarUrl: string | null;
-  credentialId: string | null;
-  scopes: string[] | null;
-  status: string;
-  expiresAt: Date | null;
-  connectedAt: Date;
-  lastUsedAt: Date | null;
-  revokedAt: Date | null;
-  createdAt: Date;
-  updatedAt: Date;
-};

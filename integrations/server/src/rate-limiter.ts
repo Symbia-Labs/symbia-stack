@@ -16,6 +16,7 @@
 
 import type { Request, Response, NextFunction } from "express";
 import { IntegrationError } from "./errors.js";
+import { config } from "./config.js";
 
 // =============================================================================
 // Configuration
@@ -212,8 +213,15 @@ const rateLimiter = new RateLimiter();
 /**
  * Rate limiting middleware for execute endpoints.
  * Must be called after auth middleware (needs user/org context).
+ * Disabled by default - enable via RATE_LIMIT_ENABLED=true
  */
 export function rateLimitMiddleware(req: Request, res: Response, next: NextFunction): void {
+  // Skip if rate limiting is disabled (default)
+  if (!config.rateLimitEnabled) {
+    next();
+    return;
+  }
+
   const user = (req as any).user;
   const provider = req.body?.provider;
 
@@ -226,7 +234,7 @@ export function rateLimitMiddleware(req: Request, res: Response, next: NextFunct
   try {
     rateLimiter.checkLimits({
       userId: user.id,
-      orgId: user.orgId,
+      orgId: user.orgId || user.organizations?.[0]?.id,
       provider,
     });
 

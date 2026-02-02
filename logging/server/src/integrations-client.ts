@@ -8,6 +8,13 @@ import { resolveServiceUrl, ServiceId } from "@symbia/sys";
 
 const INTEGRATIONS_SERVICE_URL = resolveServiceUrl(ServiceId.INTEGRATIONS);
 
+/**
+ * Helper to parse JSON response with proper typing
+ */
+async function parseJsonResponse<T>(response: Response): Promise<T> {
+  return response.json() as Promise<T>;
+}
+
 // =============================================================================
 // Types
 // =============================================================================
@@ -44,8 +51,13 @@ export interface ExecuteResponse {
   success: boolean;
   data?: NormalizedLLMResponse;
   error?: string;
+  message?: string;
   requestId: string;
   durationMs: number;
+}
+
+interface IntegrationsStatusResponse {
+  providers?: Array<{ name: string; configured: boolean }>;
 }
 
 // =============================================================================
@@ -100,7 +112,7 @@ export async function executeChat(
       }),
     });
 
-    const result = await response.json();
+    const result = await parseJsonResponse<ExecuteResponse>(response);
 
     if (!response.ok && !result.requestId) {
       return {
@@ -142,7 +154,7 @@ export async function getIntegrationsStatus(): Promise<{
       return { available: false, providers: [] };
     }
 
-    const data = await response.json();
+    const data = await parseJsonResponse<IntegrationsStatusResponse>(response);
     return {
       available: true,
       providers: data.providers || [],

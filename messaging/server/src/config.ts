@@ -14,6 +14,11 @@ export const config = {
     .filter(Boolean),
   assistantsWebhookUrl: process.env.ASSISTANTS_WEBHOOK_URL || `${resolveServiceUrl(ServiceId.ASSISTANTS)}/api/webhook/messaging`,
 
+  // Rate limiting (disabled by default)
+  rateLimitEnabled: process.env.RATE_LIMIT_ENABLED === 'true',
+  rateLimitWindowMs: parseInt(process.env.RATE_LIMIT_WINDOW_MS || '60000', 10),
+  rateLimitMaxRequests: parseInt(process.env.RATE_LIMIT_MAX_REQUESTS || '100', 10),
+
   // Timeout configurations
   // Increased webhook timeout to 60s to allow complex assistant processing
   webhookTimeoutMs: parseInt(process.env.WEBHOOK_TIMEOUT_MS || '60000', 10),

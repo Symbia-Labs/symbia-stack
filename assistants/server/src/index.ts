@@ -41,7 +41,7 @@ const server = createSymbiaServer({
     if (isMemory) {
       console.log("Auto-seeding in-memory database...");
       try {
-        const { orgs, agentPrincipals, promptGraphs } = await import("./models/schema.js");
+        const { orgs, agentPrincipals, promptGraphs } = await import("@shared/schema.js");
         const { DEFAULT_ORG_IDS } = await import("@symbia/seed");
 
         // First, seed the orgs table (required for foreign keys) - must match identity service
@@ -148,11 +148,11 @@ const server = createSymbiaServer({
     // Stats endpoint for platform health monitoring
     app.get('/api/stats', async (_req, res) => {
       try {
-        const { promptGraphs, graphRuns } = await import('./models/schema.js');
+        const { promptGraphs, graphRuns } = await import('@shared/schema.js');
         const { getAllLoadedAssistants } = await import('./services/assistant-loader.js');
         const graphs = await db.select().from(promptGraphs);
         const allRuns = await db.select().from(graphRuns);
-        const activeRuns = allRuns.filter(r => r.status === 'running');
+        const activeRuns = allRuns.filter((r: { status: string }) => r.status === 'running');
         const loadedAssistants = getAllLoadedAssistants();
 
         res.json({

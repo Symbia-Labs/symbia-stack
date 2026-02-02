@@ -224,7 +224,7 @@ export function resolveLLMConfig(
 
   // Apply org defaults if provided
   if (orgDefaults) {
-    resolved = deepMerge(resolved, orgDefaults);
+    resolved = deepMerge(resolved, orgDefaults) as unknown as ResolvedLLMConfig;
   }
 
   // If no config ref, return defaults
@@ -236,7 +236,7 @@ export function resolveLLMConfig(
   if (configRef.preset && configRef.preset !== 'custom') {
     const preset = PRESETS[configRef.preset];
     if (preset) {
-      resolved = deepMerge(resolved, preset);
+      resolved = deepMerge(resolved, preset) as unknown as ResolvedLLMConfig;
     }
   }
 

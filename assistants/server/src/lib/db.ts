@@ -1,5 +1,5 @@
 import { initializeDatabase, setSessionContext, clearSessionContext, type RLSContext } from "@symbia/db";
-import * as schema from "../models/schema.js";
+import * as schema from "@shared/schema.js";
 import { MEMORY_SCHEMA_SQL } from "./memory-schema.js";
 import type { Pool } from "pg";
 

@@ -34,7 +34,7 @@ export class AssistantRouteHandler extends BaseActionHandler {
 
   async execute(config: ActionConfig, context: ExecutionContext): Promise<ActionResult> {
     const startTime = Date.now();
-    const params = config.params as AssistantRouteParams;
+    const params = config.params as unknown as AssistantRouteParams;
 
     // Get target assistant - either from params or from context (set by LLM)
     let targetAssistant = params.targetAssistant;
@@ -132,7 +132,7 @@ export class AssistantRouteHandler extends BaseActionHandler {
       const emitResult = await emitEvent(
         'message.new',
         forwardPayload,
-        undefined,
+        context.conversationId,
         {
           target: 'assistants',
           boundary: 'intra',
@@ -144,7 +144,7 @@ export class AssistantRouteHandler extends BaseActionHandler {
       } else {
         console.warn(`[AssistantRoute] Failed to forward message via SDN, trying direct emit`);
         // Fallback: emit without target constraint
-        await emitEvent('message.new', forwardPayload);
+        await emitEvent('message.new', forwardPayload, context.conversationId);
       }
 
       // Return success - coordinator stays silent, target assistant will respond

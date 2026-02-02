@@ -11,13 +11,15 @@
     "check": "tsc"
   },
   "dependencies": {
+    "@symbia/auth": "file:../symbia-auth",
     "@symbia/db": "file:../symbia-db",
     "@symbia/http": "file:../symbia-http",
     "@symbia/logging-client": "file:../symbia-logging-client",
     "@symbia/relay": "file:../symbia-relay",
     "@symbia/sys": "file:../symbia-sys",
+    "dotenv": "^17.2.3",
     "drizzle-orm": "^0.39.3",
-    "express": "^4.21.2",
+    "express": "^5.2.1",
     "pg": "^8.16.3",
     "pg-mem": "^3.0.5",
     "yaml": "^2.7.0",
@@ -26,8 +28,9 @@
   },
   "devDependencies": {
     "@symbia/md": "file:../symbia-md",
-    "@types/express": "4.17.21",
+    "@types/express": "^5.0.6",
     "@types/node": "^22.10.2",
+    "@types/pg": "^8.16.0",
     "esbuild": "^0.25.0",
     "tsx": "^4.20.5",
     "typescript": "^5.9.3"

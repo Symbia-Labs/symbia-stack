@@ -250,7 +250,7 @@ async function loadInternalService(
       serverUrl: parseResult.serverUrl,
     },
     auth: {
-      type: "bearer",
+      type: "none",
     },
     operations,
     namespace: parseResult.namespace,

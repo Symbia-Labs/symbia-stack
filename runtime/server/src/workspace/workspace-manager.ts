@@ -84,6 +84,9 @@ export class WorkspaceManager {
       workspaceId: workspace.id,
       rootPath: workspace.rootPath,
       permissions: workspace.permissions,
+      orgId: workspace.orgId,
+      userId: workspace.userId,
+      conversationId: workspace.conversationId,
     };
   }
 

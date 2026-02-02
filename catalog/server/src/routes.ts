@@ -13,6 +13,12 @@ import { writeRateLimiter, searchRateLimiter, uploadRateLimiter, RATE_LIMITS } f
 import { artifactStorage } from "./artifact-storage";
 import { buildBootstrapSummary } from "./bootstrap-summary";
 
+// Helper to safely extract string param from Express params (Express 5 returns string | string[])
+function getParam(params: Record<string, string | string[] | undefined>, key: string): string {
+  const value = params[key];
+  return Array.isArray(value) ? value[0] : (value ?? '');
+}
+
 const accessPolicySchema = z.object({
   visibility: z.enum(visibilityLevels),
   actions: z.record(z.object({
@@ -371,7 +377,7 @@ export async function registerRoutes(
 
   app.get("/api/resources/:id", authMiddleware, searchRateLimiter, async (req, res) => {
     try {
-      const resource = await storage.getResource(req.params.id);
+      const resource = await storage.getResource(getParam(req.params, 'id'));
       if (!resource) {
         return res.status(404).json({ error: "Resource not found" });
       }
@@ -416,7 +422,7 @@ export async function registerRoutes(
 
   app.patch("/api/resources/:id", authMiddleware, writeRateLimiter, async (req, res) => {
     try {
-      const resource = await storage.getResource(req.params.id);
+      const resource = await storage.getResource(getParam(req.params, 'id'));
       if (!resource) {
         return res.status(404).json({ error: "Resource not found" });
       }
@@ -434,7 +440,7 @@ export async function registerRoutes(
         }
       }
 
-      const updated = await storage.updateResource(req.params.id, validatedData as any);
+      const updated = await storage.updateResource(getParam(req.params, 'id'), validatedData as any);
       res.json(updated);
     } catch (error) {
       if (error instanceof z.ZodError) {
@@ -447,7 +453,7 @@ export async function registerRoutes(
 
   app.delete("/api/resources/:id", authMiddleware, writeRateLimiter, async (req, res) => {
     try {
-      const resource = await storage.getResource(req.params.id);
+      const resource = await storage.getResource(getParam(req.params, 'id'));
       if (!resource) {
         return res.status(404).json({ error: "Resource not found" });
       }
@@ -456,7 +462,7 @@ export async function registerRoutes(
         return res.status(403).json({ error: "You don't have permission to delete this resource" });
       }
 
-      const deleted = await storage.deleteResource(req.params.id);
+      const deleted = await storage.deleteResource(getParam(req.params, 'id'));
       res.json({ success: true });
     } catch (error) {
       console.error("Error deleting resource:", error);
@@ -572,7 +578,7 @@ export async function registerRoutes(
   // Publish resource
   app.post("/api/resources/:id/publish", authMiddleware, writeRateLimiter, async (req, res) => {
     try {
-      const resource = await storage.getResource(req.params.id);
+      const resource = await storage.getResource(getParam(req.params, 'id'));
       if (!resource) {
         return res.status(404).json({ error: "Resource not found" });
       }
@@ -581,7 +587,7 @@ export async function registerRoutes(
         return res.status(403).json({ error: "You don't have permission to publish this resource" });
       }
 
-      const version = await storage.publishVersion(req.params.id);
+      const version = await storage.publishVersion(getParam(req.params, 'id'));
       res.json(version);
     } catch (error) {
       console.error("Error publishing resource:", error);
@@ -592,7 +598,7 @@ export async function registerRoutes(
   // Resource versions
   app.get("/api/resources/:id/versions", authMiddleware, searchRateLimiter, async (req, res) => {
     try {
-      const versions = await storage.getResourceVersions(req.params.id);
+      const versions = await storage.getResourceVersions(getParam(req.params, 'id'));
       res.json(versions);
     } catch (error) {
       console.error("Error fetching versions:", error);
@@ -614,7 +620,7 @@ export async function registerRoutes(
   // Resource artifacts
   app.get("/api/resources/:id/artifacts", authMiddleware, searchRateLimiter, async (req, res) => {
     try {
-      const resourceArtifacts = await storage.getResourceArtifacts(req.params.id);
+      const resourceArtifacts = await storage.getResourceArtifacts(getParam(req.params, 'id'));
       res.json(resourceArtifacts);
     } catch (error) {
       console.error("Error fetching artifacts:", error);
@@ -625,7 +631,7 @@ export async function registerRoutes(
   // Resource signatures
   app.get("/api/resources/:id/signatures", authMiddleware, searchRateLimiter, async (req, res) => {
     try {
-      const resourceSignatures = await storage.getResourceSignatures(req.params.id);
+      const resourceSignatures = await storage.getResourceSignatures(getParam(req.params, 'id'));
       res.json(resourceSignatures);
     } catch (error) {
       console.error("Error fetching signatures:", error);
@@ -636,7 +642,7 @@ export async function registerRoutes(
   // Resource certifications
   app.get("/api/resources/:id/certifications", authMiddleware, searchRateLimiter, async (req, res) => {
     try {
-      const resourceCertifications = await storage.getResourceCertifications(req.params.id);
+      const resourceCertifications = await storage.getResourceCertifications(getParam(req.params, 'id'));
       res.json(resourceCertifications);
     } catch (error) {
       console.error("Error fetching certifications:", error);
@@ -735,7 +741,7 @@ export async function registerRoutes(
 
   app.delete("/api/api-keys/:id", authMiddleware, requireSuperAdmin, writeRateLimiter, async (req, res) => {
     try {
-      const deleted = await storage.deleteApiKey(req.params.id);
+      const deleted = await storage.deleteApiKey(getParam(req.params, 'id'));
       if (!deleted) {
         return res.status(404).json({ error: "API key not found" });
       }
@@ -758,7 +764,7 @@ export async function registerRoutes(
   });
 
   app.delete("/api/auth/keys/:id", (req, res, next) => {
-    req.url = `/api/api-keys/${req.params.id}`;
+    req.url = `/api/api-keys/${getParam(req.params, 'id')}`;
     app._router.handle(req, res, next);
   });
 
@@ -785,7 +791,7 @@ export async function registerRoutes(
   // Get graph by ID
   app.get("/api/graphs/:id", authMiddleware, searchRateLimiter, async (req, res) => {
     try {
-      const graph = await storage.getResource(req.params.id);
+      const graph = await storage.getResource(getParam(req.params, 'id'));
       if (!graph || graph.type !== 'graph') {
         return res.status(404).json({ error: "Graph not found" });
       }
@@ -852,7 +858,7 @@ export async function registerRoutes(
   // Update graph
   app.patch("/api/graphs/:id", authMiddleware, writeRateLimiter, async (req, res) => {
     try {
-      const graph = await storage.getResource(req.params.id);
+      const graph = await storage.getResource(getParam(req.params, 'id'));
       if (!graph || graph.type !== 'graph') {
         return res.status(404).json({ error: "Graph not found" });
       }
@@ -869,7 +875,7 @@ export async function registerRoutes(
       if (validatedData.tags) updateData.tags = validatedData.tags;
       if (validatedData.metadata) updateData.metadata = validatedData.metadata;
 
-      const updated = await storage.updateResource(req.params.id, updateData);
+      const updated = await storage.updateResource(getParam(req.params, 'id'), updateData);
       res.json(updated);
     } catch (error) {
       if (error instanceof z.ZodError) {
@@ -883,7 +889,7 @@ export async function registerRoutes(
   // Delete graph
   app.delete("/api/graphs/:id", authMiddleware, writeRateLimiter, async (req, res) => {
     try {
-      const graph = await storage.getResource(req.params.id);
+      const graph = await storage.getResource(getParam(req.params, 'id'));
       if (!graph || graph.type !== 'graph') {
         return res.status(404).json({ error: "Graph not found" });
       }
@@ -892,7 +898,7 @@ export async function registerRoutes(
         return res.status(403).json({ error: "You don't have permission to delete this graph" });
       }
 
-      await storage.deleteResource(req.params.id);
+      await storage.deleteResource(getParam(req.params, 'id'));
       res.json({ success: true });
     } catch (error) {
       console.error("Error deleting graph:", error);
@@ -923,7 +929,7 @@ export async function registerRoutes(
   // Get context by ID
   app.get("/api/contexts/:id", authMiddleware, searchRateLimiter, async (req, res) => {
     try {
-      const context = await storage.getResource(req.params.id);
+      const context = await storage.getResource(getParam(req.params, 'id'));
       if (!context || context.type !== 'context') {
         return res.status(404).json({ error: "Context not found" });
       }
@@ -995,7 +1001,7 @@ export async function registerRoutes(
   // Update context
   app.patch("/api/contexts/:id", authMiddleware, writeRateLimiter, async (req, res) => {
     try {
-      const context = await storage.getResource(req.params.id);
+      const context = await storage.getResource(getParam(req.params, 'id'));
       if (!context || context.type !== 'context') {
         return res.status(404).json({ error: "Context not found" });
       }
@@ -1005,7 +1011,7 @@ export async function registerRoutes(
       }
 
       const validatedData = updateContextSchema.parse(req.body);
-      const updated = await storage.updateResource(req.params.id, validatedData as any);
+      const updated = await storage.updateResource(getParam(req.params, 'id'), validatedData as any);
       res.json(updated);
     } catch (error) {
       if (error instanceof z.ZodError) {
@@ -1019,7 +1025,7 @@ export async function registerRoutes(
   // Delete context
   app.delete("/api/contexts/:id", authMiddleware, writeRateLimiter, async (req, res) => {
     try {
-      const context = await storage.getResource(req.params.id);
+      const context = await storage.getResource(getParam(req.params, 'id'));
       if (!context || context.type !== 'context') {
         return res.status(404).json({ error: "Context not found" });
       }
@@ -1028,7 +1034,7 @@ export async function registerRoutes(
         return res.status(403).json({ error: "You don't have permission to delete this context" });
       }
 
-      await storage.deleteResource(req.params.id);
+      await storage.deleteResource(getParam(req.params, 'id'));
       res.json({ success: true });
     } catch (error) {
       console.error("Error deleting context:", error);
@@ -1041,7 +1047,7 @@ export async function registerRoutes(
   // Upload artifact
   app.post("/api/resources/:id/artifacts", authMiddleware, uploadRateLimiter, async (req, res) => {
     try {
-      const resource = await storage.getResource(req.params.id);
+      const resource = await storage.getResource(getParam(req.params, 'id'));
       if (!resource) {
         return res.status(404).json({ error: "Resource not found" });
       }
@@ -1061,10 +1067,10 @@ export async function registerRoutes(
         return res.status(400).json({ error: validation.error });
       }
 
-      const storageUrl = await artifactStorage.save(req.params.id, name, buffer);
+      const storageUrl = await artifactStorage.save(getParam(req.params, 'id'), name, buffer);
       
       const artifact = await storage.createArtifact({
-        resourceId: req.params.id,
+        resourceId: getParam(req.params, 'id'),
         name,
         mimeType: type,
         size: buffer.length,
@@ -1082,7 +1088,7 @@ export async function registerRoutes(
   // Download artifact
   app.get("/api/artifacts/:id/download", authMiddleware, searchRateLimiter, async (req, res) => {
     try {
-      const artifact = await storage.getArtifact(req.params.id);
+      const artifact = await storage.getArtifact(getParam(req.params, 'id'));
       if (!artifact) {
         return res.status(404).json({ error: "Artifact not found" });
       }
@@ -1109,7 +1115,7 @@ export async function registerRoutes(
   // Delete artifact
   app.delete("/api/artifacts/:id", authMiddleware, writeRateLimiter, async (req, res) => {
     try {
-      const artifact = await storage.getArtifact(req.params.id);
+      const artifact = await storage.getArtifact(getParam(req.params, 'id'));
       if (!artifact) {
         return res.status(404).json({ error: "Artifact not found" });
       }
@@ -1124,7 +1130,7 @@ export async function registerRoutes(
       }
 
       await artifactStorage.delete(artifact.storageUrl || '');
-      await storage.deleteArtifact(req.params.id);
+      await storage.deleteArtifact(getParam(req.params, 'id'));
       res.json({ success: true });
     } catch (error) {
       console.error("Error deleting artifact:", error);

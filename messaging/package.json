@@ -9,9 +9,11 @@
     "dev": "NODE_ENV=development tsx watch server/src/index.ts",
     "build": "tsx scripts/build.ts",
     "start": "NODE_ENV=production node dist/index.cjs",
+    "check": "tsc",
     "seed": "tsx server/src/seed.ts"
   },
   "dependencies": {
+    "@symbia/auth": "file:../symbia-auth",
     "@symbia/db": "file:../symbia-db",
     "@symbia/http": "file:../symbia-http",
     "@symbia/logging-client": "file:../symbia-logging-client",

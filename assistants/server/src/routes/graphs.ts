@@ -1,8 +1,16 @@
 import { Router, Request, Response } from 'express';
 import { db } from '../lib/db.js';
-import { promptGraphs, compiledGraphs, graphRuns, runLogs, actorPrincipals } from '../models/schema.js';
+import { promptGraphs, compiledGraphs, graphRuns, runLogs, actorPrincipals } from '@shared/schema.js';
 import { eq, and, desc } from 'drizzle-orm';
 import { v4 as uuidv4 } from 'uuid';
+
+/**
+ * Helper to safely extract route params (Express 5.x returns string | string[])
+ */
+function getParam(params: Record<string, string | string[] | undefined>, key: string): string {
+  const value = params[key];
+  return Array.isArray(value) ? value[0] : (value ?? '');
+}
 
 const router = Router();
 
@@ -36,7 +44,7 @@ router.get('/:id', async (req: Request, res: Response) => {
     const orgId = requireOrgId(req, res);
     if (!orgId) return;
 
-    const { id } = req.params;
+    const id = getParam(req.params, 'id');
 
     const graph = await db.select().from(promptGraphs)
       .where(and(eq(promptGraphs.id, id), eq(promptGraphs.orgId, orgId)))
@@ -82,7 +90,7 @@ router.put('/:id', async (req: Request, res: Response) => {
     const orgId = requireOrgId(req, res);
     if (!orgId) return;
 
-    const { id } = req.params;
+    const id = getParam(req.params, 'id');
     const { name, description, graphJson, triggerConditions, logLevel } = req.body;
 
     const [updated] = await db.update(promptGraphs)
@@ -113,7 +121,7 @@ router.delete('/:id', async (req: Request, res: Response) => {
     const orgId = requireOrgId(req, res);
     if (!orgId) return;
 
-    const { id } = req.params;
+    const id = getParam(req.params, 'id');
 
     const [deleted] = await db.delete(promptGraphs)
       .where(and(eq(promptGraphs.id, id), eq(promptGraphs.orgId, orgId)))
@@ -135,7 +143,7 @@ router.post('/:id/publish', async (req: Request, res: Response) => {
     const orgId = requireOrgId(req, res);
     if (!orgId) return;
 
-    const { id } = req.params;
+    const id = getParam(req.params, 'id');
 
     const graph = await db.select().from(promptGraphs)
       .where(and(eq(promptGraphs.id, id), eq(promptGraphs.orgId, orgId)))
@@ -183,7 +191,7 @@ router.get('/:id/runs', async (req: Request, res: Response) => {
     const orgId = requireOrgId(req, res);
     if (!orgId) return;
 
-    const { id } = req.params;
+    const id = getParam(req.params, 'id');
 
     const graph = await db.select().from(promptGraphs)
       .where(and(eq(promptGraphs.id, id), eq(promptGraphs.orgId, orgId)))

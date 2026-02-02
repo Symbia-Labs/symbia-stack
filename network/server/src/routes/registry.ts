@@ -10,6 +10,14 @@ import * as registry from '../services/registry.js';
 import { requireAuth, requirePermission } from '../middleware/auth.js';
 import { NetworkPermissions } from '../types.js';
 
+/**
+ * Helper to safely extract route params (Express 5.x returns string | string[])
+ */
+function getParam(params: Record<string, string | string[] | undefined>, key: string): string {
+  const value = params[key];
+  return Array.isArray(value) ? value[0] : (value ?? '');
+}
+
 const router = Router();
 
 // All registry routes require authentication
@@ -55,7 +63,7 @@ router.get('/nodes', (_req: Request, res: Response) => {
  * GET /api/registry/nodes/:id
  */
 router.get('/nodes/:id', (req: Request, res: Response) => {
-  const node = registry.getNode(req.params.id);
+  const node = registry.getNode(getParam(req.params, 'id'));
   if (!node) {
     res.status(404).json({ error: 'Node not found' });
     return;
@@ -68,7 +76,7 @@ router.get('/nodes/:id', (req: Request, res: Response) => {
  * POST /api/registry/nodes/:id/heartbeat
  */
 router.post('/nodes/:id/heartbeat', (req: Request, res: Response) => {
-  const success = registry.heartbeat(req.params.id);
+  const success = registry.heartbeat(getParam(req.params, 'id'));
   if (!success) {
     res.status(404).json({ error: 'Node not found' });
     return;
@@ -81,7 +89,7 @@ router.post('/nodes/:id/heartbeat', (req: Request, res: Response) => {
  * DELETE /api/registry/nodes/:id
  */
 router.delete('/nodes/:id', requirePermission(NetworkPermissions.NODES_ADMIN), (req: Request, res: Response) => {
-  const success = registry.unregisterNode(req.params.id);
+  const success = registry.unregisterNode(getParam(req.params, 'id'));
   if (!success) {
     res.status(404).json({ error: 'Node not found' });
     return;
@@ -94,7 +102,7 @@ router.delete('/nodes/:id', requirePermission(NetworkPermissions.NODES_ADMIN), (
  * GET /api/registry/nodes/capability/:capability
  */
 router.get('/nodes/capability/:capability', (req: Request, res: Response) => {
-  const nodes = registry.findNodesByCapability(req.params.capability);
+  const nodes = registry.findNodesByCapability(getParam(req.params, 'capability'));
   res.json({ nodes, count: nodes.length });
 });
 
@@ -104,11 +112,11 @@ router.get('/nodes/capability/:capability', (req: Request, res: Response) => {
  */
 router.get('/nodes/type/:type', (req: Request, res: Response) => {
   const validTypes = ['service', 'assistant', 'sandbox', 'bridge', 'client'];
-  if (!validTypes.includes(req.params.type)) {
+  if (!validTypes.includes(getParam(req.params, 'type'))) {
     res.status(400).json({ error: `Invalid type. Must be one of: ${validTypes.join(', ')}` });
     return;
   }
-  const nodes = registry.findNodesByType(req.params.type as any);
+  const nodes = registry.findNodesByType(getParam(req.params, 'type') as any);
   res.json({ nodes, count: nodes.length });
 });
 
@@ -158,7 +166,7 @@ router.get('/contracts', (req: Request, res: Response) => {
  * DELETE /api/registry/contracts/:id
  */
 router.delete('/contracts/:id', requirePermission(NetworkPermissions.CONTRACTS_WRITE), (req: Request, res: Response) => {
-  const success = registry.deleteContract(req.params.id);
+  const success = registry.deleteContract(getParam(req.params, 'id'));
   if (!success) {
     res.status(404).json({ error: 'Contract not found' });
     return;
@@ -206,7 +214,7 @@ router.get('/bridges', (_req: Request, res: Response) => {
  * GET /api/registry/bridges/:id
  */
 router.get('/bridges/:id', (req: Request, res: Response) => {
-  const bridge = registry.getBridge(req.params.id);
+  const bridge = registry.getBridge(getParam(req.params, 'id'));
   if (!bridge) {
     res.status(404).json({ error: 'Bridge not found' });
     return;
@@ -225,13 +233,13 @@ router.patch('/bridges/:id', requirePermission(NetworkPermissions.NODES_ADMIN), 
     return;
   }
 
-  const success = registry.setBridgeActive(req.params.id, active);
+  const success = registry.setBridgeActive(getParam(req.params, 'id'), active);
   if (!success) {
     res.status(404).json({ error: 'Bridge not found' });
     return;
   }
 
-  const bridge = registry.getBridge(req.params.id);
+  const bridge = registry.getBridge(getParam(req.params, 'id'));
   res.json(bridge);
 });
 
@@ -240,7 +248,7 @@ router.patch('/bridges/:id', requirePermission(NetworkPermissions.NODES_ADMIN), 
  * DELETE /api/registry/bridges/:id
  */
 router.delete('/bridges/:id', requirePermission(NetworkPermissions.NODES_ADMIN), (req: Request, res: Response) => {
-  const success = registry.deleteBridge(req.params.id);
+  const success = registry.deleteBridge(getParam(req.params, 'id'));
   if (!success) {
     res.status(404).json({ error: 'Bridge not found' });
     return;

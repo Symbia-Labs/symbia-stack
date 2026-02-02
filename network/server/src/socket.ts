@@ -24,6 +24,24 @@ import { NetworkPermissions } from './types.js';
 import { resolveServiceUrl, ServiceId } from '@symbia/sys';
 import { telemetry, NetworkEvents, NetworkMetrics } from './telemetry.js';
 
+/**
+ * Introspection response from Identity service
+ */
+interface IntrospectionResponse {
+  active: boolean;
+  sub?: string;
+  type?: string;
+  email?: string;
+  name?: string;
+  entitlements?: string[];
+  roles?: string[];
+  organizations?: Array<{ id: string; name: string; slug: string; role: 'admin' | 'member' | 'viewer' }>;
+  isSuperAdmin?: boolean;
+  agentId?: string;
+  orgId?: string;
+  capabilities?: string[];
+}
+
 // Active watch subscriptions
 const watchSubscriptions = new Map<string, WatchSubscription>();
 
@@ -50,7 +68,7 @@ async function validateAgentToken(token: string): Promise<AgentPrincipal | null>
       return null;
     }
 
-    const data = await response.json();
+    const data = await response.json() as IntrospectionResponse;
 
     // Check if token is active and is an agent
     if (!data.active || data.type !== 'agent') {
@@ -58,10 +76,10 @@ async function validateAgentToken(token: string): Promise<AgentPrincipal | null>
     }
 
     return {
-      id: data.sub,
-      agentId: data.agentId,
-      name: data.name,
-      orgId: data.orgId,
+      id: data.sub!,
+      agentId: data.agentId!,
+      name: data.name!,
+      orgId: data.orgId!,
       capabilities: data.capabilities || [],
     };
   } catch (error) {
@@ -88,7 +106,7 @@ async function validateUserToken(token: string): Promise<UserPrincipal | null> {
       return null;
     }
 
-    const data = await response.json();
+    const data = await response.json() as IntrospectionResponse;
 
     // Check if token is active and is a user
     if (!data.active || data.type !== 'user') {
@@ -96,9 +114,9 @@ async function validateUserToken(token: string): Promise<UserPrincipal | null> {
     }
 
     return {
-      id: data.sub,
-      email: data.email,
-      name: data.name,
+      id: data.sub!,
+      email: data.email!,
+      name: data.name!,
       entitlements: data.entitlements || [],
       roles: data.roles || [],
       organizations: data.organizations || [],

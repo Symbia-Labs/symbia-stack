@@ -1,0 +1,107 @@
+name: PR Check
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+jobs:
+  quick-check:
+    name: Quick Validation
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Check for common issues
+        run: |
+          echo "=== PR Quick Check ==="
+
+          # Check for console.log in changed files
+          CHANGED_FILES=$(git diff --name-only origin/main...HEAD -- '*.ts' | grep -v test || true)
+          if [ -n "$CHANGED_FILES" ]; then
+            echo "Checking changed TypeScript files for console.log..."
+            CONSOLE_LOGS=$(echo "$CHANGED_FILES" | xargs grep -l "console.log" 2>/dev/null || true)
+            if [ -n "$CONSOLE_LOGS" ]; then
+              echo "::warning::Found console.log in: $CONSOLE_LOGS"
+            fi
+          fi
+
+          # Check for TODO/FIXME in changed files
+          if [ -n "$CHANGED_FILES" ]; then
+            echo "Checking for new TODO/FIXME comments..."
+            TODOS=$(echo "$CHANGED_FILES" | xargs grep -lE "(TODO|FIXME)" 2>/dev/null || true)
+            if [ -n "$TODOS" ]; then
+              echo "::notice::Found TODO/FIXME in: $TODOS"
+            fi
+          fi
+
+          echo "=== Quick Check Complete ==="
+
+  size-check:
+    name: PR Size Check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Check PR size
+        run: |
+          ADDITIONS=$(git diff --stat origin/main...HEAD | tail -1 | grep -oE '[0-9]+ insertion' | grep -oE '[0-9]+' || echo 0)
+          DELETIONS=$(git diff --stat origin/main...HEAD | tail -1 | grep -oE '[0-9]+ deletion' | grep -oE '[0-9]+' || echo 0)
+          TOTAL=$((ADDITIONS + DELETIONS))
+
+          echo "PR Stats: +$ADDITIONS -$DELETIONS (total: $TOTAL lines)"
+
+          if [ "$TOTAL" -gt 1000 ]; then
+            echo "::warning::Large PR detected ($TOTAL lines). Consider splitting into smaller PRs."
+          elif [ "$TOTAL" -gt 500 ]; then
+            echo "::notice::Medium-sized PR ($TOTAL lines)."
+          fi
+
+  label:
+    name: Auto-label PR
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Add labels based on files
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const { data: files } = await github.rest.pulls.listFiles({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: context.issue.number,
+            });
+
+            const labels = new Set();
+
+            for (const file of files) {
+              if (file.filename.startsWith('assistants/')) labels.add('service:assistants');
+              if (file.filename.startsWith('catalog/')) labels.add('service:catalog');
+              if (file.filename.startsWith('identity/')) labels.add('service:identity');
+              if (file.filename.startsWith('integrations/')) labels.add('service:integrations');
+              if (file.filename.startsWith('logging/')) labels.add('service:logging');
+              if (file.filename.startsWith('messaging/')) labels.add('service:messaging');
+              if (file.filename.startsWith('network/')) labels.add('service:network');
+              if (file.filename.startsWith('runtime/')) labels.add('service:runtime');
+              if (file.filename.startsWith('symbia-')) labels.add('shared-package');
+              if (file.filename.includes('auth')) labels.add('area:auth');
+              if (file.filename.endsWith('.md')) labels.add('documentation');
+            }
+
+            if (labels.size > 0) {
+              await github.rest.issues.addLabels({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                labels: [...labels],
+              });
+            }

@@ -26,6 +26,11 @@ export const config = {
   identityServiceUrl: process.env.IDENTITY_SERVICE_URL || resolveServiceUrl(ServiceId.IDENTITY),
   loggingServiceUrl: process.env.TELEMETRY_ENDPOINT || resolveServiceUrl(ServiceId.LOGGING),
 
+  // Rate limiting (disabled by default)
+  rateLimitEnabled: process.env.RATE_LIMIT_ENABLED === 'true',
+  rateLimitWindowMs: parseInt(process.env.RATE_LIMIT_WINDOW_MS || '60000', 10),
+  rateLimitMaxRequests: parseInt(process.env.RATE_LIMIT_MAX_REQUESTS || '100', 10),
+
   // Network configuration
   heartbeatIntervalMs: parseInt(process.env.HEARTBEAT_INTERVAL_MS || '30000', 10),
   nodeTimeoutMs: parseInt(process.env.NODE_TIMEOUT_MS || '90000', 10),

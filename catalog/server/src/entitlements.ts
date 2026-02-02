@@ -1,10 +1,10 @@
 import type { Request, Response, NextFunction } from 'express';
 import type { Resource, AccessPolicy, AccessPolicyAction } from '@shared/schema';
 import { defaultAccessPolicy, publicAccessPolicy } from '@shared/schema';
-import type { IdentityUser } from './identity';
+import type { AuthUser } from '@symbia/auth';
 import { Capabilities, Roles, buildEntitlements } from '@symbia/sys';
 
-export function getPrincipalEntitlements(user: IdentityUser | undefined): string[] {
+export function getPrincipalEntitlements(user: AuthUser | undefined): string[] {
   if (!user) {
     return ['public'];
   }
@@ -41,7 +41,7 @@ export function checkEntitlement(
 }
 
 export function canPerformAction(
-  user: IdentityUser | undefined,
+  user: AuthUser | undefined,
   resource: Resource,
   action: AccessPolicyAction
 ): boolean {
@@ -73,7 +73,7 @@ export function canPerformAction(
 
 export function filterResourcesByReadAccess(
   resources: Resource[],
-  user: IdentityUser | undefined
+  user: AuthUser | undefined
 ): Resource[] {
   return resources.filter(resource => canPerformAction(user, resource, 'read'));
 }

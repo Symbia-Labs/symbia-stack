@@ -11,6 +11,14 @@ import * as policy from '../services/policy.js';
 import { requireAuth, requirePermission } from '../middleware/auth.js';
 import { NetworkPermissions } from '../types.js';
 
+/**
+ * Helper to safely extract route params (Express 5.x returns string | string[])
+ */
+function getParam(params: Record<string, string | string[] | undefined>, key: string): string {
+  const value = params[key];
+  return Array.isArray(value) ? value[0] : (value ?? '');
+}
+
 const eventsRouter = Router();
 
 // All event routes require authentication
@@ -99,7 +107,7 @@ eventsRouter.get('/', requirePermission(NetworkPermissions.EVENTS_READ), (req: R
  * GET /api/events/:id/trace
  */
 eventsRouter.get('/:id/trace', requirePermission(NetworkPermissions.TRACES_READ), (req: Request, res: Response) => {
-  const trace = router.getTrace(req.params.id);
+  const trace = router.getTrace(getParam(req.params, 'id'));
   if (!trace) {
     res.status(404).json({ error: 'Trace not found' });
     return;
@@ -112,7 +120,7 @@ eventsRouter.get('/:id/trace', requirePermission(NetworkPermissions.TRACES_READ)
  * GET /api/events/traces/:runId
  */
 eventsRouter.get('/traces/:runId', requirePermission(NetworkPermissions.TRACES_READ), (req: Request, res: Response) => {
-  const traces = router.getTracesForRun(req.params.runId);
+  const traces = router.getTracesForRun(getParam(req.params, 'runId'));
   res.json({ traces, count: traces.length });
 });
 

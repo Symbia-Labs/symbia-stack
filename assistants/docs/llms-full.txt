@@ -29,7 +29,7 @@ Health check
 
 Response: Service is healthy
 
-#### GET /api/v1/status
+#### GET /api/status
 Database connectivity status
 
 Response: Database connected
@@ -38,12 +38,12 @@ Response: Database connected
 
 Prompt graph management
 
-#### GET /api/v1/graphs
+#### GET /api/graphs
 List graphs
 
 Response: List of graphs
 
-#### POST /api/v1/graphs
+#### POST /api/graphs
 Create graph
 
 Request Body:
@@ -60,7 +60,7 @@ Request Body:
 
 Response: Graph created
 
-#### GET /api/v1/graphs/{id}
+#### GET /api/graphs/{id}
 Get graph
 
 Path Parameters:
@@ -68,7 +68,7 @@ Path Parameters:
 
 Response: Graph
 
-#### PUT /api/v1/graphs/{id}
+#### PUT /api/graphs/{id}
 Update graph
 
 Path Parameters:
@@ -87,7 +87,7 @@ Request Body:
 
 Response: Graph updated
 
-#### DELETE /api/v1/graphs/{id}
+#### DELETE /api/graphs/{id}
 Delete graph
 
 Path Parameters:
@@ -95,7 +95,7 @@ Path Parameters:
 
 Response: Graph deleted
 
-#### POST /api/v1/graphs/{id}/publish
+#### POST /api/graphs/{id}/publish
 Publish graph
 
 Path Parameters:
@@ -107,7 +107,7 @@ Response: Graph published
 
 Graph run history and logs
 
-#### GET /api/v1/graphs/{id}/runs
+#### GET /api/graphs/{id}/runs
 List runs for graph
 
 Path Parameters:
@@ -115,7 +115,7 @@ Path Parameters:
 
 Response: List of runs
 
-#### GET /api/v1/runs
+#### GET /api/runs
 List runs
 
 Query Parameters:
@@ -125,7 +125,7 @@ Query Parameters:
 
 Response: List of runs
 
-#### GET /api/v1/runs/{id}
+#### GET /api/runs/{id}
 Get run
 
 Path Parameters:
@@ -133,7 +133,7 @@ Path Parameters:
 
 Response: Run details
 
-#### GET /api/v1/runs/{id}/logs
+#### GET /api/runs/{id}/logs
 Get run logs
 
 Path Parameters:
@@ -148,12 +148,12 @@ Response: Run logs
 
 Actor principal management
 
-#### GET /api/v1/actors
+#### GET /api/actors
 List actor principals
 
 Response: List of actors
 
-#### POST /api/v1/actors
+#### POST /api/actors
 Create actor principal
 
 Request Body:
@@ -170,7 +170,7 @@ Request Body:
 
 Response: Actor created
 
-#### GET /api/v1/actors/{id}
+#### GET /api/actors/{id}
 Get actor principal
 
 Path Parameters:
@@ -178,7 +178,7 @@ Path Parameters:
 
 Response: Actor
 
-#### PUT /api/v1/actors/{id}
+#### PUT /api/actors/{id}
 Update actor principal
 
 Path Parameters:
@@ -197,7 +197,7 @@ Request Body:
 
 Response: Actor updated
 
-#### DELETE /api/v1/actors/{id}
+#### DELETE /api/actors/{id}
 Delete actor principal
 
 Path Parameters:

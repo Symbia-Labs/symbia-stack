@@ -486,9 +486,12 @@ export const ROUTING_CONFIG_DEFAULTS: Partial<AssistantLLMConfig> = {
       maxTokens: 100,
     },
     cacheEmbeddings: true,
+    cacheRoutingDecisions: true,
+    cacheTTLSeconds: 300,
   },
   reliability: {
     timeoutMs: 10000, // Fast timeout for routing
+    streamTimeoutMs: 15000,
     retry: {
       enabled: true,
       maxRetries: 2,
@@ -496,6 +499,11 @@ export const ROUTING_CONFIG_DEFAULTS: Partial<AssistantLLMConfig> = {
       maxDelayMs: 2000,
       backoffMultiplier: 2,
       retryOn: ['timeout', 'rate_limit'],
+    },
+    fallback: {
+      enabled: false,
+      models: [],
+      triggerOn: [],
     },
   },
 };
@@ -508,6 +516,7 @@ export const CONVERSATIONAL_CONFIG_DEFAULTS: Partial<AssistantLLMConfig> = {
     model: 'gpt-4o',
     temperature: 0.7,
     maxTokens: 2048,
+    responseFormat: 'text',
   },
   safety: {
     contentFilter: {
@@ -522,6 +531,7 @@ export const CONVERSATIONAL_CONFIG_DEFAULTS: Partial<AssistantLLMConfig> = {
   },
   reliability: {
     timeoutMs: 45000,
+    streamTimeoutMs: 60000,
     retry: {
       enabled: true,
       maxRetries: 3,
@@ -557,15 +567,22 @@ export const CODE_CONFIG_DEFAULTS: Partial<AssistantLLMConfig> = {
     temperature: 0.2, // Lower for code accuracy
     maxTokens: 4096,
     topP: 0.95,
+    responseFormat: 'text',
   },
   safety: {
     contentFilter: {
       enabled: false, // Code often contains "dangerous" patterns
       level: 'low',
     },
+    promptInjection: {
+      enabled: true,
+      blockSuspicious: false,
+      logAttempts: true,
+    },
   },
   reliability: {
     timeoutMs: 60000, // Longer for complex code generation
+    streamTimeoutMs: 90000,
     retry: {
       enabled: true,
       maxRetries: 2,
@@ -573,6 +590,11 @@ export const CODE_CONFIG_DEFAULTS: Partial<AssistantLLMConfig> = {
       maxDelayMs: 30000,
       backoffMultiplier: 2,
       retryOn: ['timeout', 'rate_limit', 'server_error'],
+    },
+    fallback: {
+      enabled: false,
+      models: [],
+      triggerOn: [],
     },
   },
   context: {
@@ -594,9 +616,11 @@ export const REASONING_CONFIG_DEFAULTS: Partial<AssistantLLMConfig> = {
     temperature: 1, // o-series models require temp=1
     maxTokens: 16000,
     reasoningEffort: 'medium', // Can be: none, low, medium, high, xhigh
+    responseFormat: 'text',
   },
   reliability: {
     timeoutMs: 120000, // Longer for reasoning
+    streamTimeoutMs: 180000,
     retry: {
       enabled: true,
       maxRetries: 2,
@@ -604,6 +628,11 @@ export const REASONING_CONFIG_DEFAULTS: Partial<AssistantLLMConfig> = {
       maxDelayMs: 60000,
       backoffMultiplier: 2,
       retryOn: ['timeout', 'rate_limit'],
+    },
+    fallback: {
+      enabled: false,
+      models: [],
+      triggerOn: [],
     },
   },
 };

@@ -2,6 +2,14 @@ import { Router } from 'express';
 import type { Request, Response } from 'express';
 import { requireAuth, type AuthenticatedRequest } from '../middleware/auth.js';
 
+/**
+ * Helper to safely extract route params (Express 5.x returns string | string[])
+ */
+function getParam(params: Record<string, string | string[] | undefined>, key: string): string {
+  const value = params[key];
+  return Array.isArray(value) ? value[0] : (value ?? '');
+}
+
 const router = Router();
 
 // All admin routes require authentication - these manage assistant configurations
@@ -38,7 +46,7 @@ router.get('/', (req: Request, res: Response) => {
 // Get single assistant
 router.get('/:key', (req: Request, res: Response) => {
   const orgId = req.headers['x-org-id'] as string || 'default';
-  const { key } = req.params;
+  const key = getParam(req.params, 'key');
 
   const orgAssistants = customAssistants[orgId] || {};
   const assistant = orgAssistants[key];
@@ -98,7 +106,7 @@ router.post('/', (req: Request, res: Response) => {
 // Update assistant
 router.put('/:key', (req: Request, res: Response) => {
   const orgId = req.headers['x-org-id'] as string || 'default';
-  const { key } = req.params;
+  const key = getParam(req.params, 'key');
   const body = req.body as Partial<AssistantConfig>;
 
   if (!customAssistants[orgId] || !customAssistants[orgId][key]) {
@@ -128,7 +136,7 @@ router.put('/:key', (req: Request, res: Response) => {
 // Delete assistant
 router.delete('/:key', (req: Request, res: Response) => {
   const orgId = req.headers['x-org-id'] as string || 'default';
-  const { key } = req.params;
+  const key = getParam(req.params, 'key');
 
   if (!customAssistants[orgId] || !customAssistants[orgId][key]) {
     res.status(404).json({ error: 'Assistant not found' });

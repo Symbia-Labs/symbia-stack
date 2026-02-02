@@ -1,0 +1,40 @@
+{
+  "name": "@symbia/auth",
+  "version": "1.0.0",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "license": "MIT",
+  "description": "Shared authentication and authorization utilities for Symbia services",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "require": "./dist/index.js",
+      "default": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch"
+  },
+  "keywords": [
+    "symbia",
+    "auth",
+    "authentication",
+    "authorization",
+    "middleware"
+  ],
+  "author": "Symbia",
+  "peerDependencies": {
+    "@symbia/sys": "*",
+    "express": "^5.0.0"
+  },
+  "devDependencies": {
+    "@symbia/sys": "file:../symbia-sys",
+    "@types/express": "^5.0.6",
+    "@types/node": "^22.10.2",
+    "express": "^5.2.1",
+    "typescript": "^5.9.3"
+  }
+}

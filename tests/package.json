@@ -1,0 +1,16 @@
+{
+  "name": "@symbia/itt-tests",
+  "version": "1.0.0",
+  "description": "Intentions, Trust, Transparency testing framework",
+  "type": "module",
+  "scripts": {
+    "test": "npx tsx run-itt.ts",
+    "test:intentions": "npx tsx run-itt.ts intentions",
+    "test:trust": "npx tsx run-itt.ts trust",
+    "test:transparency": "npx tsx run-itt.ts transparency"
+  },
+  "devDependencies": {
+    "tsx": "^4.7.0",
+    "@types/node": "^22.10.2"
+  }
+}

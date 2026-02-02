@@ -21,6 +21,26 @@ const LOGGING_SERVICE_URL = resolveServiceUrl(ServiceId.LOGGING);
 const CATALOG_SERVICE_URL = resolveServiceUrl(ServiceId.CATALOG);
 const NETWORK_SERVICE_URL = resolveServiceUrl(ServiceId.NETWORK);
 
+/**
+ * Helper to parse JSON response with proper typing
+ */
+async function parseJsonResponse<T>(response: Response): Promise<T> {
+  return response.json() as Promise<T>;
+}
+
+interface LogsApiResponse {
+  logs?: unknown[];
+  entries?: unknown[];
+}
+
+interface EventsApiResponse {
+  events?: unknown[];
+}
+
+interface CatalogApiResponse {
+  resources?: unknown[];
+}
+
 // =============================================================================
 // Types
 // =============================================================================
@@ -138,7 +158,7 @@ async function resolveLogsBinding(
       throw new Error(`Logs API returned ${response.status}`);
     }
 
-    const data = await response.json();
+    const data = await parseJsonResponse<LogsApiResponse>(response);
     return data.logs || data.entries || [];
   } catch (error) {
     console.warn(`[ContextBindings] Failed to resolve logs binding:`, error);
@@ -174,7 +194,7 @@ async function resolveEventsBinding(
       throw new Error(`Events API returned ${response.status}`);
     }
 
-    const data = await response.json();
+    const data = await parseJsonResponse<EventsApiResponse>(response);
     return data.events || [];
   } catch (error) {
     console.warn(`[ContextBindings] Failed to resolve events binding:`, error);
@@ -209,7 +229,7 @@ async function resolveCatalogBinding(
       throw new Error(`Catalog API returned ${response.status}`);
     }
 
-    const data = await response.json();
+    const data = await parseJsonResponse<CatalogApiResponse>(response);
     return data.resources || [];
   } catch (error) {
     console.warn(`[ContextBindings] Failed to resolve catalog binding:`, error);

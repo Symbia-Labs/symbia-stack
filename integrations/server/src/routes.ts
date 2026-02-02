@@ -12,7 +12,8 @@ import {
   type NormalizedEmbeddingResponse,
 } from "@shared/schema.js";
 import { getProvider, getRegisteredProviders, initializeProviders } from "./providers/index.js";
-import { getCredential, introspectToken } from "./credential-client.js";
+import { getCredential } from "./credential-client.js";
+import { authMiddleware, optionalAuth, type AuthUser } from "./auth.js";
 import { getAllProviderConfigs, getProviderConfig, getModelsForProvider } from "./catalog-client.js";
 import {
   integrationRegistry,
@@ -68,16 +69,21 @@ const docsDir = process.env.NODE_ENV === "production"
   : join(__dirname, "../..", "docs");
 
 /**
- * Extract auth token from request
+ * Helper to safely extract route params (Express 5.x returns string | string[])
+ */
+function getParam(params: Record<string, string | string[] | undefined>, key: string): string {
+  const value = params[key];
+  return Array.isArray(value) ? value[0] : (value ?? '');
+}
+
+/**
+ * Extract auth token from request (for credential lookup)
  */
 function extractToken(req: Request): string | null {
-  // Check Authorization header
   const authHeader = req.headers.authorization;
   if (authHeader?.startsWith("Bearer ")) {
     return authHeader.slice(7);
   }
-
-  // Check cookie
   const cookies = req.headers.cookie;
   if (cookies) {
     const tokenMatch = cookies.match(/token=([^;]+)/);
@@ -85,91 +91,7 @@ function extractToken(req: Request): string | null {
       return tokenMatch[1];
     }
   }
-
   return null;
-}
-
-/**
- * Auth middleware - validates token and extracts user info
- */
-async function authMiddleware(
-  req: Request,
-  res: Response,
-  next: () => void
-): Promise<void> {
-  const token = extractToken(req);
-
-  if (!token) {
-    res.status(401).json({ error: "Authentication required" });
-    return;
-  }
-
-  const introspection = await introspectToken(token);
-
-  if (!introspection?.active) {
-    res.status(401).json({ error: "Invalid or expired token" });
-    return;
-  }
-
-  // Determine orgId: prefer header, fall back to token data
-  const headerOrgId = req.headers['x-org-id'] as string | undefined;
-  let orgId: string | undefined = headerOrgId;
-
-  console.log(`[integrations] Auth middleware - introspection:`, JSON.stringify({
-    sub: introspection.sub,
-    type: introspection.type,
-    orgId: introspection.orgId,
-    organizations: introspection.organizations,
-    headerOrgId,
-  }));
-
-  if (!orgId) {
-    // For agents, use orgId directly; for users, use first organization
-    if (introspection.type === 'agent') {
-      orgId = introspection.orgId;
-    } else if (introspection.organizations && introspection.organizations.length > 0) {
-      orgId = introspection.organizations[0].id;
-    }
-  }
-
-  // Require explicit org context — falling back to a hardcoded ID is dangerous
-  // in production because it could route requests to the wrong org's data.
-  if (!orgId) {
-    const env = process.env.NODE_ENV || "development";
-    if (env === "production") {
-      res.status(400).json({ error: "Organization context required. Provide X-Org-Id header or ensure token includes org membership." });
-      return;
-    }
-    // Dev-only fallback — clearly namespaced so it can't collide with real orgs
-    orgId = "dev-default-org";
-    console.warn(`[integrations] No orgId resolved — using dev fallback "${orgId}". This would be rejected in production.`);
-  }
-
-  console.log(`[integrations] Auth resolved - userId: ${introspection.sub}, orgId: ${orgId}`);
-
-  // Attach user info to request
-  (req as any).user = {
-    id: introspection.sub,
-    type: introspection.type,
-    orgId,
-    isSuperAdmin: introspection.isSuperAdmin,
-  };
-  (req as any).token = token;
-
-  // Set RLS context for database queries
-  try {
-    await setRLSContext({
-      orgId,
-      userId: introspection.sub,
-      isSuperAdmin: introspection.isSuperAdmin,
-      capabilities: introspection.entitlements || [],
-    });
-  } catch (error) {
-    console.error("[integrations-service] Failed to set RLS context:", error);
-    // Continue without RLS on error
-  }
-
-  next();
 }
 
 export async function registerRoutes(httpServer: Server, app: Express): Promise<void> {
@@ -441,7 +363,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
   });
 
   app.get("/api/integrations/providers/:provider", async (req: Request, res: Response) => {
-    const { provider } = req.params;
+    const provider = getParam(req.params, 'provider');
     const config = getProviderConfig(provider);
 
     if (!config) {
@@ -453,7 +375,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
   });
 
   app.get("/api/integrations/providers/:provider/models", authMiddleware, async (req: Request, res: Response) => {
-    const { provider } = req.params;
+    const provider = getParam(req.params, 'provider');
     const { capability } = req.query; // Filter by capability: 'chat', 'embedding', 'vision', etc.
     const user = (req as any).user;
     const token = (req as any).token;
@@ -585,7 +507,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
 
   // Get a specific integration
   app.get("/api/integrations/registry/:key", authMiddleware, async (req: Request, res: Response) => {
-    const { key } = req.params;
+    const key = getParam(req.params, 'key');
     const integration = integrationRegistry.get(key);
 
     if (!integration) {
@@ -598,7 +520,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
 
   // Get operations for an integration
   app.get("/api/integrations/registry/:key/operations", authMiddleware, async (req: Request, res: Response) => {
-    const { key } = req.params;
+    const key = getParam(req.params, 'key');
     const operations = integrationRegistry.listOperations(key);
 
     if (operations.length === 0) {
@@ -965,7 +887,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
 
   // Refresh an integration (re-fetch spec and update operations)
   app.post("/api/integrations/registry/:key/refresh", authMiddleware, async (req: Request, res: Response) => {
-    const { key } = req.params;
+    const key = getParam(req.params, 'key');
 
     const result = await integrationRegistry.refresh(key);
 
@@ -1241,7 +1163,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
    */
   app.delete("/api/oauth/connections/:id", authMiddleware, async (req: Request, res: Response) => {
     const user = (req as any).user;
-    const { id } = req.params;
+    const id = getParam(req.params, 'id');
 
     try {
       await oauthService.revokeConnection(id, user.id);
@@ -1578,7 +1500,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
   });
 
   app.post("/api/integrations/circuit-breaker/reset/:provider", authMiddleware, async (req: Request, res: Response) => {
-    const { provider } = req.params;
+    const provider = getParam(req.params, 'provider');
     circuitBreaker.reset(provider);
     res.json({
       success: true,

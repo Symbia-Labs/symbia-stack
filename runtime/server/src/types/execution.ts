@@ -20,6 +20,7 @@ export interface ExecutionMetrics {
   messagesProcessed: number;
   messagesEmitted: number;
   nodeInvocations: number;
+  componentInvocations: number;
   totalLatencyMs: number;
   avgLatencyMs: number;
   maxLatencyMs: number;
@@ -29,10 +30,23 @@ export interface ExecutionMetrics {
   lastActivityTime: number;
 }
 
+export interface NodeInstance {
+  id: string;
+  componentId: string;
+  state: ExecutionState;
+  metrics: {
+    invocations: number;
+    totalLatencyMs: number;
+    avgLatencyMs: number;
+    errorCount: number;
+  };
+}
+
 export interface GraphExecution {
   id: string;
   graphId: string;
   state: ExecutionState;
+  instances: Map<string, NodeInstance>;
   metrics: ExecutionMetrics;
   error?: {
     message: string;

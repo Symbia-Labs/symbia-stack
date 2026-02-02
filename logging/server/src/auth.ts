@@ -1,23 +1,51 @@
-import type { Request, Response, NextFunction } from "express";
-import type { Session, SessionData } from "express-session";
-import { storage } from "./storage";
-import { createHash, randomBytes, timingSafeEqual } from "crypto";
-import { resolveServiceUrl, ServiceId } from "@symbia/sys";
-import { setRLSContext } from "./db";
+/**
+ * Logging Service Authentication
+ *
+ * Uses @symbia/auth for core authentication with logging-specific extensions:
+ * - AuthContext for telemetry scoping (orgId, serviceId, env, dataClass)
+ * - System bootstrap secret support for service-to-service auth
+ * - RLS context integration
+ */
 
-declare module "express" {
+import type { Request, Response, NextFunction } from 'express';
+import type { Session, SessionData } from 'express-session';
+import {
+  createAuthMiddleware,
+  createAuthClient,
+  hashApiKey,
+  generateApiKey as generateApiKeyBase,
+  type AuthUser,
+} from '@symbia/auth';
+import { timingSafeEqual } from 'crypto';
+import { config } from './config.js';
+import { setRLSContext } from './db.js';
+import { storage } from './storage.js';
+
+// Re-export from @symbia/auth
+export { hashApiKey };
+export type { AuthUser };
+
+// Wrap generateApiKey to use logging's prefix
+export function generateApiKey(): { key: string; prefix: string; hash: string } {
+  return generateApiKeyBase('slk');
+}
+
+declare module 'express' {
   interface Request {
     session: Session & Partial<SessionData> & {
       userId?: string;
       username?: string;
+      identityUser?: AuthUser;
     };
   }
 }
 
-export type AuthType = "jwt" | "apiKey" | "session" | "anonymous";
-
+/**
+ * Auth context for telemetry scoping.
+ * Extends beyond simple user auth to include service metadata.
+ */
 export type AuthContext = {
-  authType: AuthType;
+  authType: 'jwt' | 'apiKey' | 'session' | 'anonymous';
   orgId: string;
   serviceId: string;
   env: string;
@@ -29,47 +57,30 @@ export type AuthContext = {
   isSuperAdmin: boolean;
 };
 
-type ApiKeyScope = {
-  orgId: string;
-  serviceId: string;
-  env: string;
-};
-
-export type IdentityIntrospection = {
-  active: boolean;
-  sub?: string;
-  email?: string;
-  name?: string;
-  isSuperAdmin?: boolean;
-  organizations?: Array<{ id: string; name?: string; slug?: string; role?: string }>;
-  entitlements?: string[];
-  roles?: string[];
-};
-
-declare module "express-serve-static-core" {
+declare module 'express-serve-static-core' {
   interface Request {
     authContext?: AuthContext;
   }
 }
 
-const AUTH_MODE = (process.env.LOGGING_AUTH_MODE ||
-  (process.env.NODE_ENV === "production" ? "required" : "optional")) as
-  | "required"
-  | "optional"
-  | "off";
+// Create auth client and middleware using @symbia/auth
+const authClient = createAuthClient({
+  identityServiceUrl: config.identityServiceUrl,
+});
 
-const IDENTITY_SERVICE_URL = `${resolveServiceUrl(ServiceId.IDENTITY)}/api`;
+const auth = createAuthMiddleware({
+  identityServiceUrl: config.identityServiceUrl,
+  adminEntitlements: ['logging:admin', 'cap:logging.admin'],
+  enableImpersonation: false,
+  logger: (level, message) => console.log(`[Logging Auth] ${message}`),
+});
 
-const DEFAULT_ORG_ID = process.env.LOGGING_DEFAULT_ORG_ID || "symbia-dev";
-const DEFAULT_SERVICE_ID = process.env.LOGGING_DEFAULT_SERVICE_ID || "logging-service";
-const DEFAULT_ENV = process.env.LOGGING_DEFAULT_ENV || (process.env.NODE_ENV === "production" ? "prod" : "dev");
-const DEFAULT_DATA_CLASS = process.env.LOGGING_DEFAULT_DATA_CLASS || "none";
-const DEFAULT_POLICY_REF = process.env.LOGGING_DEFAULT_POLICY_REF || "policy/default";
-const AUTH_SHARED_SECRET = process.env.AUTH_SHARED_SECRET || "";
+// Export for backward compatibility
+export const { requireAuth, optionalAuth, requireAdmin, requireSuperAdmin } = auth;
+export const introspectToken = authClient.introspectToken;
+export const verifyApiKey = authClient.verifyApiKey;
 
-const DATA_CLASS_VALUES = new Set(["none", "pii", "phi", "secret"]);
-
-// System bootstrap config - fetched from Identity for service-to-service auth
+// System bootstrap config cache
 interface SystemBootstrapConfig {
   secret: string;
   orgId: string;
@@ -80,29 +91,22 @@ interface SystemBootstrapConfig {
 let systemBootstrapConfig: SystemBootstrapConfig | null = null;
 let bootstrapFetchPromise: Promise<SystemBootstrapConfig | null> | null = null;
 
-/**
- * Fetch system bootstrap config from Identity service
- */
 async function fetchSystemBootstrap(): Promise<SystemBootstrapConfig | null> {
-  if (bootstrapFetchPromise) {
-    return bootstrapFetchPromise;
-  }
+  if (bootstrapFetchPromise) return bootstrapFetchPromise;
 
   bootstrapFetchPromise = (async () => {
     try {
-      const response = await fetch(`${IDENTITY_SERVICE_URL}/bootstrap/internal`, {
-        method: "GET",
-        headers: { "Accept": "application/json" },
+      const response = await fetch(authClient.buildIdentityUrl('/bootstrap/internal'), {
+        method: 'GET',
+        headers: { 'Accept': 'application/json' },
       });
-
       if (response.ok) {
-        const config = (await response.json()) as SystemBootstrapConfig;
-        systemBootstrapConfig = config;
-        console.log("[logging] Fetched system bootstrap config from Identity");
-        return config;
+        systemBootstrapConfig = (await response.json()) as SystemBootstrapConfig;
+        console.log('[logging] Fetched system bootstrap config from Identity');
+        return systemBootstrapConfig;
       }
     } catch (error) {
-      console.warn("[logging] Failed to fetch system bootstrap config:", error);
+      console.warn('[logging] Failed to fetch system bootstrap config:', error);
     }
     return null;
   })();
@@ -112,345 +116,248 @@ async function fetchSystemBootstrap(): Promise<SystemBootstrapConfig | null> {
   return result;
 }
 
-/**
- * Initialize system bootstrap - call on startup
- */
 export async function initSystemBootstrap(): Promise<void> {
   await fetchSystemBootstrap();
 }
 
-/**
- * Validate a system secret, re-fetching if needed
- */
 async function validateSystemSecret(secret: string): Promise<SystemBootstrapConfig | null> {
-  // Try with cached config first
   if (systemBootstrapConfig) {
     try {
       const secretBuffer = Buffer.from(secret);
       const cachedBuffer = Buffer.from(systemBootstrapConfig.secret);
-      if (secretBuffer.length === cachedBuffer.length &&
-          timingSafeEqual(secretBuffer, cachedBuffer)) {
+      if (secretBuffer.length === cachedBuffer.length && timingSafeEqual(secretBuffer, cachedBuffer)) {
         return systemBootstrapConfig;
       }
-    } catch {
-      // Length mismatch or other error - try re-fetching
-    }
+    } catch { /* try re-fetching */ }
   }
 
-  // Re-fetch and try again (in case Identity restarted)
   const freshConfig = await fetchSystemBootstrap();
   if (freshConfig) {
     try {
       const secretBuffer = Buffer.from(secret);
       const freshBuffer = Buffer.from(freshConfig.secret);
-      if (secretBuffer.length === freshBuffer.length &&
-          timingSafeEqual(secretBuffer, freshBuffer)) {
+      if (secretBuffer.length === freshBuffer.length && timingSafeEqual(secretBuffer, freshBuffer)) {
         return freshConfig;
       }
-    } catch {
-      // Validation failed
-    }
+    } catch { /* validation failed */ }
   }
 
   return null;
 }
 
+// Public paths
 const PUBLIC_API_PATHS = new Set([
-  "/api/openapi.json",
-  "/api/docs/openapi.json",
-  "/api/auth/config",
-  "/api/auth/login",
-  "/api/auth/session",
-]);
-const PUBLIC_DOC_PATHS = ["/docs"];
-const INGEST_ONLY_PATHS = new Set([
-  "/api/logs/ingest",
-  "/api/metrics/ingest",
-  "/api/traces/ingest",
-  "/api/objects/ingest",
-  "/api/ingest",
-]);
-const SHARED_SECRET_PATHS = new Set([
-  "/api/logs/streams",
-  "/api/metrics",
-  "/api/objects/streams",
-  ...Array.from(INGEST_ONLY_PATHS),
+  '/api/openapi.json',
+  '/api/docs/openapi.json',
+  '/api/auth/config',
+  '/api/auth/login',
+  '/api/auth/session',
 ]);
 
-export function hashPassword(password: string): string {
-  return createHash("sha256").update(password).digest("hex");
-}
-
-export function generateApiKey(): { key: string; prefix: string; hash: string } {
-  const secret = randomBytes(32).toString("hex");
-  const prefix = "slk_" + secret.slice(0, 8);
-  const key = "slk_" + secret;
-  const hash = createHash("sha256").update(key).digest("hex");
-  return { key, prefix, hash };
-}
+const INGEST_PATHS = new Set([
+  '/api/logs/ingest',
+  '/api/metrics/ingest',
+  '/api/traces/ingest',
+  '/api/objects/ingest',
+  '/api/ingest',
+  '/api/logs/streams',
+  '/api/metrics',
+  '/api/objects/streams',
+]);
 
 function getHeader(req: Request, name: string): string | undefined {
   const value = req.get(name);
-  return value ? value.trim() : undefined;
-}
-
-function parseApiKeyConfig(raw: string): Map<string, ApiKeyScope> {
-  const map = new Map<string, ApiKeyScope>();
-  if (!raw) return map;
-  for (const entry of raw.split(",").map((value) => value.trim()).filter(Boolean)) {
-    const parts = entry.split(":");
-    const key = parts[0];
-    if (!key) continue;
-    const orgId = parts[1] || DEFAULT_ORG_ID;
-    const serviceId = parts[2] || DEFAULT_SERVICE_ID;
-    const env = parts[3] || DEFAULT_ENV;
-    map.set(key, { orgId, serviceId, env });
-  }
-  return map;
-}
-
-const API_KEYS = parseApiKeyConfig(process.env.LOGGING_API_KEYS || "");
-
-export async function introspectToken(token: string): Promise<IdentityIntrospection | null> {
-  try {
-    const response = await fetch(`${IDENTITY_SERVICE_URL}/auth/introspect`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ token }),
-    });
-    if (!response.ok) return null;
-    return (await response.json()) as IdentityIntrospection;
-  } catch {
-    return null;
-  }
-}
-
-function resolveOrgId(introspection: IdentityIntrospection, requestedOrgId?: string): string | null {
-  const orgs = introspection.organizations || [];
-  if (requestedOrgId) {
-    if (introspection.isSuperAdmin) return requestedOrgId;
-    if (orgs.some((org) => org.id === requestedOrgId)) return requestedOrgId;
-    return null;
-  }
-  if (DEFAULT_ORG_ID) {
-    if (introspection.isSuperAdmin) return DEFAULT_ORG_ID;
-    if (orgs.some((org) => org.id === DEFAULT_ORG_ID)) return DEFAULT_ORG_ID;
-    // In development mode, allow access to default org for seeded demo data
-    if (AUTH_MODE === "optional") return DEFAULT_ORG_ID;
-  }
-  if (orgs.length === 1) return orgs[0].id;
-  return null;
-}
-
-function resolveServiceId(requestedServiceId?: string): string | null {
-  if (requestedServiceId) return requestedServiceId;
-  if (DEFAULT_SERVICE_ID) return DEFAULT_SERVICE_ID;
-  return null;
+  return value?.trim() || undefined;
 }
 
 function normalizeDataClass(value?: string): string {
-  if (!value) return DEFAULT_DATA_CLASS;
-  const normalized = value.toLowerCase();
-  return DATA_CLASS_VALUES.has(normalized) ? normalized : DEFAULT_DATA_CLASS;
+  const valid = new Set(['none', 'pii', 'phi', 'secret']);
+  return value && valid.has(value.toLowerCase()) ? value.toLowerCase() : config.defaults.dataClass;
 }
 
 function buildContextFromDefaults(): AuthContext {
   return {
-    authType: "anonymous",
-    orgId: DEFAULT_ORG_ID,
-    serviceId: DEFAULT_SERVICE_ID,
-    env: DEFAULT_ENV,
-    dataClass: DEFAULT_DATA_CLASS,
-    policyRef: DEFAULT_POLICY_REF,
-    actorId: "anonymous",
+    authType: 'anonymous',
+    orgId: config.defaults.orgId,
+    serviceId: config.defaults.serviceId,
+    env: config.defaults.env,
+    dataClass: config.defaults.dataClass,
+    policyRef: config.defaults.policyRef,
+    actorId: 'anonymous',
     entitlements: [],
     roles: [],
     isSuperAdmin: false,
   };
 }
 
-export async function authMiddleware(req: Request, res: Response, next: NextFunction) {
-  if (!req.path.startsWith("/api")) {
-    return next();
+/**
+ * Auth middleware that builds AuthContext for telemetry scoping.
+ * Uses @symbia/auth for token/API key validation.
+ */
+export async function authMiddleware(req: Request, res: Response, next: NextFunction): Promise<void> {
+  if (!req.path.startsWith('/api')) {
+    next();
+    return;
   }
 
-  if (req.method === "OPTIONS" || PUBLIC_API_PATHS.has(req.path)) {
-    return next();
+  if (req.method === 'OPTIONS' || PUBLIC_API_PATHS.has(req.path)) {
+    next();
+    return;
   }
 
-  if (PUBLIC_DOC_PATHS.some((p) => req.path.startsWith(p))) {
-    return next();
+  if (req.path.startsWith('/docs')) {
+    next();
+    return;
   }
 
-  const bearer = getHeader(req, "authorization");
-  const apiKey = getHeader(req, "x-api-key");
-  const requestedOrgId = getHeader(req, "x-org-id");
-  const requestedServiceId = getHeader(req, "x-service-id");
-  const requestedEnv = getHeader(req, "x-env") || getHeader(req, "x-environment");
-  const requestedDataClass = getHeader(req, "x-data-class");
-  const requestedPolicyRef = getHeader(req, "x-policy-ref");
+  const bearer = getHeader(req, 'authorization');
+  const apiKey = getHeader(req, 'x-api-key');
+  const requestedOrgId = getHeader(req, 'x-org-id');
+  const requestedServiceId = getHeader(req, 'x-service-id');
+  const requestedEnv = getHeader(req, 'x-env') || getHeader(req, 'x-environment');
+  const requestedDataClass = getHeader(req, 'x-data-class');
+  const requestedPolicyRef = getHeader(req, 'x-policy-ref');
 
+  // Check session auth
   if (req.session?.userId) {
     const identityUser = req.session.identityUser;
     const userOrgs = identityUser?.organizations || [];
     const isSuperAdmin = identityUser?.isSuperAdmin || false;
-    
-    // Resolve org: prefer header, then user's first org, then default
-    let sessionOrgId = requestedOrgId;
-    if (!sessionOrgId && userOrgs.length > 0) {
-      sessionOrgId = userOrgs[0].id;
-    }
-    if (!sessionOrgId) {
-      sessionOrgId = DEFAULT_ORG_ID;
-    }
-    
-    // Validate org access (super admins can access any org)
-    if (!isSuperAdmin && requestedOrgId && !userOrgs.some((org: any) => org.id === requestedOrgId)) {
-      return res.status(403).json({ error: "Access denied to requested organization" });
+
+    let sessionOrgId = requestedOrgId || userOrgs[0]?.id || config.defaults.orgId;
+
+    if (!isSuperAdmin && requestedOrgId && !userOrgs.some((org: { id: string }) => org.id === requestedOrgId)) {
+      res.status(403).json({ error: 'Access denied to requested organization' });
+      return;
     }
 
     req.authContext = {
-      authType: "session",
+      authType: 'session',
       orgId: sessionOrgId,
-      serviceId: requestedServiceId || DEFAULT_SERVICE_ID,
-      env: requestedEnv || DEFAULT_ENV,
+      serviceId: requestedServiceId || config.defaults.serviceId,
+      env: requestedEnv || config.defaults.env,
       dataClass: normalizeDataClass(requestedDataClass),
-      policyRef: requestedPolicyRef || DEFAULT_POLICY_REF,
+      policyRef: requestedPolicyRef || config.defaults.policyRef,
       actorId: req.session.userId,
-      entitlements: identityUser?.entitlements || ["admin"],
-      roles: identityUser?.roles || ["admin"],
+      entitlements: identityUser?.entitlements || [],
+      roles: identityUser?.roles || [],
       isSuperAdmin,
     };
-    return next();
+    next();
+    return;
   }
 
-  if (bearer && bearer.toLowerCase().startsWith("bearer ")) {
-    const token = bearer.slice("bearer ".length).trim();
+  // Check bearer token
+  if (bearer?.toLowerCase().startsWith('bearer ')) {
+    const token = bearer.slice(7).trim();
 
-    // Check static shared secret (legacy env var approach)
-    if (AUTH_SHARED_SECRET && token === AUTH_SHARED_SECRET) {
-      if (req.method !== "POST" || !SHARED_SECRET_PATHS.has(req.path)) {
-        return res.status(403).json({ error: "Shared secret restricted to telemetry ingest" });
+    // Check system bootstrap secret for ingest paths
+    if (INGEST_PATHS.has(req.path)) {
+      const systemConfig = await validateSystemSecret(token);
+      if (systemConfig) {
+        req.authContext = {
+          authType: 'apiKey',
+          orgId: requestedOrgId || systemConfig.orgId,
+          serviceId: requestedServiceId || systemConfig.serviceId,
+          env: requestedEnv || config.defaults.env,
+          dataClass: normalizeDataClass(requestedDataClass),
+          policyRef: requestedPolicyRef || config.defaults.policyRef,
+          actorId: `system:${requestedServiceId || 'unknown'}`,
+          entitlements: ['telemetry:ingest'],
+          roles: [],
+          isSuperAdmin: false,
+        };
+        next();
+        return;
       }
-
-      req.authContext = {
-        authType: "apiKey",
-        orgId: requestedOrgId || DEFAULT_ORG_ID,
-        serviceId: requestedServiceId || DEFAULT_SERVICE_ID,
-        env: requestedEnv || DEFAULT_ENV,
-        dataClass: normalizeDataClass(requestedDataClass),
-        policyRef: requestedPolicyRef || DEFAULT_POLICY_REF,
-        actorId: "telemetry-shared-secret",
-        entitlements: ["telemetry:ingest"],
-        roles: [],
-        isSuperAdmin: false,
-      };
-      return next();
     }
 
-    // Check dynamic system secret (fetched from Identity)
-    const systemConfig = await validateSystemSecret(token);
-    if (systemConfig) {
-      if (req.method !== "POST" || !SHARED_SECRET_PATHS.has(req.path)) {
-        return res.status(403).json({ error: "System secret restricted to telemetry ingest" });
-      }
-
-      req.authContext = {
-        authType: "apiKey",
-        orgId: requestedOrgId || systemConfig.orgId,
-        serviceId: requestedServiceId || systemConfig.serviceId,
-        env: requestedEnv || DEFAULT_ENV,
-        dataClass: normalizeDataClass(requestedDataClass),
-        policyRef: requestedPolicyRef || DEFAULT_POLICY_REF,
-        actorId: `system:${requestedServiceId || "unknown"}`,
-        entitlements: ["telemetry:ingest"],
-        roles: [],
-        isSuperAdmin: false,
-      };
-      return next();
+    // Use @symbia/auth for token introspection
+    const user = await authClient.introspectToken(token);
+    if (!user) {
+      res.status(401).json({ error: 'Invalid or expired token' });
+      return;
     }
 
-    const introspection = await introspectToken(token);
-    if (!introspection || !introspection.active) {
-      return res.status(401).json({ error: "Invalid or expired token" });
-    }
-
-    const orgId = resolveOrgId(introspection, requestedOrgId);
-    if (!orgId) {
-      return res.status(400).json({ error: "Organization selection required" });
-    }
-
-    const serviceId = resolveServiceId(requestedServiceId);
-    if (!serviceId) {
-      return res.status(400).json({ error: "Service ID required" });
-    }
+    const orgId = requestedOrgId || user.orgId || user.organizations[0]?.id || config.defaults.orgId;
 
     req.authContext = {
-      authType: "jwt",
+      authType: 'jwt',
       orgId,
-      serviceId,
-      env: requestedEnv || DEFAULT_ENV,
+      serviceId: requestedServiceId || config.defaults.serviceId,
+      env: requestedEnv || config.defaults.env,
       dataClass: normalizeDataClass(requestedDataClass),
-      policyRef: requestedPolicyRef || DEFAULT_POLICY_REF,
-      actorId: introspection.sub || "unknown",
-      entitlements: introspection.entitlements || [],
-      roles: introspection.roles || [],
-      isSuperAdmin: Boolean(introspection.isSuperAdmin),
+      policyRef: requestedPolicyRef || config.defaults.policyRef,
+      actorId: user.id,
+      entitlements: user.entitlements,
+      roles: user.roles,
+      isSuperAdmin: user.isSuperAdmin,
     };
-    return next();
+    req.user = user;
+    next();
+    return;
   }
 
+  // Check API key
   if (apiKey) {
-    const envScope = API_KEYS.get(apiKey);
-    if (envScope) {
+    // Try @symbia/auth first
+    const user = await authClient.verifyApiKey(apiKey);
+    if (user) {
       req.authContext = {
-        authType: "apiKey",
-        orgId: envScope.orgId,
-        serviceId: envScope.serviceId,
-        env: envScope.env,
+        authType: 'apiKey',
+        orgId: user.orgId || requestedOrgId || config.defaults.orgId,
+        serviceId: requestedServiceId || config.defaults.serviceId,
+        env: requestedEnv || config.defaults.env,
         dataClass: normalizeDataClass(requestedDataClass),
-        policyRef: requestedPolicyRef || DEFAULT_POLICY_REF,
-        actorId: "api-key",
-        entitlements: [],
-        roles: [],
-        isSuperAdmin: false,
+        policyRef: requestedPolicyRef || config.defaults.policyRef,
+        actorId: user.id,
+        entitlements: user.entitlements,
+        roles: user.roles,
+        isSuperAdmin: user.isSuperAdmin,
       };
-      return next();
+      req.user = user;
+      next();
+      return;
     }
 
+    // Fall back to local storage
     const storedKey = await storage.validateApiKey(apiKey);
     if (storedKey) {
       await storage.updateApiKeyLastUsed(storedKey.id);
       req.authContext = {
-        authType: "apiKey",
-        orgId: storedKey.orgId || DEFAULT_ORG_ID,
-        serviceId: storedKey.serviceId || DEFAULT_SERVICE_ID,
-        env: storedKey.env || DEFAULT_ENV,
+        authType: 'apiKey',
+        orgId: storedKey.orgId || config.defaults.orgId,
+        serviceId: storedKey.serviceId || config.defaults.serviceId,
+        env: storedKey.env || config.defaults.env,
         dataClass: normalizeDataClass(requestedDataClass),
-        policyRef: requestedPolicyRef || DEFAULT_POLICY_REF,
+        policyRef: requestedPolicyRef || config.defaults.policyRef,
         actorId: `apikey:${storedKey.id}`,
         entitlements: storedKey.scopes || [],
         roles: [],
         isSuperAdmin: false,
       };
-      return next();
+      next();
+      return;
     }
 
-    return res.status(401).json({ error: "Invalid API key" });
+    res.status(401).json({ error: 'Invalid API key' });
+    return;
   }
 
-  if (AUTH_MODE === "off" || AUTH_MODE === "optional") {
+  // Anonymous access
+  if (config.authMode === 'off' || config.authMode === 'optional') {
     req.authContext = buildContextFromDefaults();
-    return next();
+    next();
+    return;
   }
 
-  return res.status(401).json({ error: "Authentication required" });
+  res.status(401).json({ error: 'Authentication required' });
 }
 
 export function requireAuthContext(req: Request): AuthContext {
   if (!req.authContext) {
-    const error = new Error("Auth context unavailable");
-    (error as any).status = 401;
+    const error = new Error('Auth context unavailable') as Error & { status: number };
+    error.status = 401;
     throw error;
   }
   return req.authContext;
@@ -458,12 +365,11 @@ export function requireAuthContext(req: Request): AuthContext {
 
 /**
  * RLS middleware - sets PostgreSQL session context for row-level security.
- * Must run after authMiddleware.
  */
-export async function rlsMiddleware(req: Request, res: Response, next: NextFunction) {
+export async function rlsMiddleware(req: Request, _res: Response, next: NextFunction): Promise<void> {
   if (!req.authContext) {
-    // No auth context, skip RLS
-    return next();
+    next();
+    return;
   }
 
   try {
@@ -475,7 +381,7 @@ export async function rlsMiddleware(req: Request, res: Response, next: NextFunct
     });
     next();
   } catch (error) {
-    console.error("[logging-service] Failed to set RLS context:", error);
-    next(); // Continue without RLS on error
+    console.error('[logging-service] Failed to set RLS context:', error);
+    next();
   }
 }

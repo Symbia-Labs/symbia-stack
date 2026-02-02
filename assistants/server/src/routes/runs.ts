@@ -1,7 +1,15 @@
 import { Router, Request, Response } from 'express';
 import { db } from '../lib/db.js';
-import { graphRuns, runLogs } from '../models/schema.js';
+import { graphRuns, runLogs } from '@shared/schema.js';
 import { eq, and, desc, sql } from 'drizzle-orm';
+
+/**
+ * Helper to safely extract route params (Express 5.x returns string | string[])
+ */
+function getParam(params: Record<string, string | string[] | undefined>, key: string): string {
+  const value = params[key];
+  return Array.isArray(value) ? value[0] : (value ?? '');
+}
 
 const router = Router();
 
@@ -43,7 +51,7 @@ router.get('/:id', async (req: Request, res: Response) => {
     const orgId = requireOrgId(req, res);
     if (!orgId) return;
 
-    const { id } = req.params;
+    const id = getParam(req.params, 'id');
 
     const run = await db.select().from(graphRuns)
       .where(and(eq(graphRuns.id, id), eq(graphRuns.orgId, orgId)))
@@ -65,7 +73,7 @@ router.get('/:id/logs', async (req: Request, res: Response) => {
     const orgId = requireOrgId(req, res);
     if (!orgId) return;
 
-    const { id } = req.params;
+    const id = getParam(req.params, 'id');
     const { level } = req.query;
 
     const run = await db.select().from(graphRuns)

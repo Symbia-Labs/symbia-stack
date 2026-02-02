@@ -4,6 +4,14 @@ import type { Rule, RuleSet } from '../engine/types.js';
 import { setRuleSet, getRuns, clearRuns, defaultCoordinator } from '../engine/run-coordinator.js';
 import { requireAuth, type AuthenticatedRequest } from '../middleware/auth.js';
 
+/**
+ * Helper to safely extract route params (Express 5.x returns string | string[])
+ */
+function getParam(params: Record<string, string | string[] | undefined>, key: string): string {
+  const value = params[key];
+  return Array.isArray(value) ? value[0] : (value ?? '');
+}
+
 const router = Router();
 
 // All rules routes require authentication - these control business logic
@@ -32,7 +40,7 @@ router.get('/', (_req: Request, res: Response) => {
 });
 
 router.get('/:orgId', (req: Request, res: Response) => {
-  const { orgId } = req.params;
+  const orgId = getParam(req.params, 'orgId');
   const ruleSet = ruleSets[orgId];
   
   if (!ruleSet) {
@@ -68,7 +76,7 @@ router.post('/', (req: Request, res: Response) => {
 });
 
 router.put('/:orgId', (req: Request, res: Response) => {
-  const { orgId } = req.params;
+  const orgId = getParam(req.params, 'orgId');
   const body = req.body as Partial<RuleSet>;
   
   const existing = ruleSets[orgId];
@@ -93,7 +101,7 @@ router.put('/:orgId', (req: Request, res: Response) => {
 });
 
 router.post('/:orgId/rules', (req: Request, res: Response) => {
-  const { orgId } = req.params;
+  const orgId = getParam(req.params, 'orgId');
   const body = req.body as Partial<Rule>;
   
   const ruleSet = ruleSets[orgId];
@@ -127,15 +135,16 @@ router.post('/:orgId/rules', (req: Request, res: Response) => {
 });
 
 router.delete('/:orgId/rules/:ruleId', (req: Request, res: Response) => {
-  const { orgId, ruleId } = req.params;
-  
+  const orgId = getParam(req.params, 'orgId');
+  const ruleId = getParam(req.params, 'ruleId');
+
   const ruleSet = ruleSets[orgId];
   if (!ruleSet) {
     res.status(404).json({ error: 'Rule set not found' });
     return;
   }
-  
-  const index = ruleSet.rules.findIndex((r) => r.id === ruleId);
+
+  const index = ruleSet.rules.findIndex((r: Rule) => r.id === ruleId);
   if (index === -1) {
     res.status(404).json({ error: 'Rule not found' });
     return;

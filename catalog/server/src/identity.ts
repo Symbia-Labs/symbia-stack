@@ -155,7 +155,7 @@ export async function getUserOrganizations(token: string): Promise<IdentityOrg[]
       return [];
     }
 
-    const data = await response.json();
+    const data = await response.json() as { organizations?: IdentityOrg[] };
     return data.organizations || [];
   } catch (error) {
     console.error('Error fetching organizations:', error);

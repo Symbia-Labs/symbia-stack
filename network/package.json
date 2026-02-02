@@ -8,9 +8,11 @@
   "scripts": {
     "dev": "NODE_ENV=development tsx watch server/src/index.ts",
     "build": "tsx scripts/build.ts",
-    "start": "NODE_ENV=production node dist/index.cjs"
+    "start": "NODE_ENV=production node dist/index.cjs",
+    "check": "tsc"
   },
   "dependencies": {
+    "@symbia/auth": "file:../symbia-auth",
     "@symbia/http": "file:../symbia-http",
     "@symbia/logging-client": "file:../symbia-logging-client",
     "@symbia/sys": "file:../symbia-sys",

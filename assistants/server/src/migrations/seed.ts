@@ -1,5 +1,5 @@
 import { db, pool } from '../lib/db.js';
-import { orgs, users, orgMemberships, llmProviders, promptGraphs, compiledGraphs, graphRuns, runLogs, agentPrincipals, conversations } from '../models/schema.js';
+import { orgs, users, orgMemberships, llmProviders, promptGraphs, compiledGraphs, graphRuns, runLogs, agentPrincipals, conversations } from '@shared/schema.js';
 import { v4 as uuidv4 } from 'uuid';
 import { resolveServiceUrl, ServiceId } from '@symbia/sys';
 

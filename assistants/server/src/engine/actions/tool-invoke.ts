@@ -223,7 +223,7 @@ class MathEvaluator {
  * Unit conversion tool - returns structured result for templates
  */
 class UnitConverter {
-  private static readonly CONVERSIONS: Record<string, Record<string, number>> = {
+  private static readonly CONVERSIONS: Record<string, Record<string, number | string>> = {
     length: {
       m: 1, meter: 1, meters: 1,
       km: 1000, kilometer: 1000, kilometers: 1000,

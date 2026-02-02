@@ -17,6 +17,14 @@ import * as policy from '../services/policy.js';
 import { requirePermission } from '../middleware/auth.js';
 import { NetworkPermissions } from '../types.js';
 
+/**
+ * Helper to safely extract route params (Express 5.x returns string | string[])
+ */
+function getParam(params: Record<string, string | string[] | undefined>, key: string): string {
+  const value = params[key];
+  return Array.isArray(value) ? value[0] : (value ?? '');
+}
+
 const sdnRouter = Router();
 
 /**
@@ -78,7 +86,7 @@ sdnRouter.get('/summary', requirePermission(NetworkPermissions.TOPOLOGY_READ), (
  * Requires: cap:network.traces.read
  */
 sdnRouter.get('/trace/:eventId', requirePermission(NetworkPermissions.TRACES_READ), (req: Request, res: Response) => {
-  const trace = router.getTrace(req.params.eventId);
+  const trace = router.getTrace(getParam(req.params, 'eventId'));
   if (!trace) {
     res.status(404).json({ error: 'Trace not found' });
     return;
@@ -108,8 +116,8 @@ sdnRouter.get('/trace/:eventId', requirePermission(NetworkPermissions.TRACES_REA
  * Requires: cap:network.traces.read
  */
 sdnRouter.get('/traces/:runId', requirePermission(NetworkPermissions.TRACES_READ), (req: Request, res: Response) => {
-  const traces = router.getTracesForRun(req.params.runId);
-  res.json({ traces, count: traces.length, runId: req.params.runId });
+  const traces = router.getTracesForRun(getParam(req.params, 'runId'));
+  res.json({ traces, count: traces.length, runId: getParam(req.params, 'runId') });
 });
 
 /**
@@ -121,7 +129,7 @@ sdnRouter.get('/traces/:runId', requirePermission(NetworkPermissions.TRACES_READ
  */
 sdnRouter.get('/flow/:runId', requirePermission(NetworkPermissions.TRACES_READ), (req: Request, res: Response) => {
   const limit = parseInt(req.query.limit as string) || 500;
-  const events = router.getEventsForRun(req.params.runId, limit);
+  const events = router.getEventsForRun(getParam(req.params, 'runId'), limit);
 
   // Build flow graph
   const nodes = new Set<string>();
@@ -142,7 +150,7 @@ sdnRouter.get('/flow/:runId', requirePermission(NetworkPermissions.TRACES_READ),
   }
 
   res.json({
-    runId: req.params.runId,
+    runId: getParam(req.params, 'runId'),
     nodes: Array.from(nodes).map((id) => {
       const node = registry.getNode(id);
       return { id, name: node?.name, type: node?.type };
