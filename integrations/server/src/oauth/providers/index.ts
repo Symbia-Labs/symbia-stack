@@ -63,5 +63,6 @@ export function initializeOAuthProviders(): void {
 }
 
 // Re-export provider classes and types
-export { OAuthProvider, BaseOAuthProvider, OAuthError } from "./base.js";
+export type { OAuthProvider } from "./base.js";
+export { BaseOAuthProvider, OAuthError } from "./base.js";
 export { replitProvider, ReplitOAuthProvider } from "./replit.js";

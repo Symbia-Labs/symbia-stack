@@ -4,6 +4,7 @@ expertMode = true
 
 [nix]
 channel = "stable-25_05"
+packages = ["postgresql"]
 
 [workflows]
 runButton = "Project"
@@ -17,6 +18,10 @@ author = "agent"
 task = "workflow.run"
 args = "Website"
 
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "Backend Services"
+
 [[workflows.workflow]]
 name = "Website"
 author = "agent"
@@ -29,11 +34,59 @@ waitForPort = 5000
 [workflows.workflow.metadata]
 outputType = "webview"
 
+[[workflows.workflow]]
+name = "Backend Services"
+author = "agent"
+
+[workflows.workflow.metadata]
+outputType = "console"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "./start-replit.sh"
+
 [[ports]]
 localPort = 5000
 externalPort = 80
+
+[[ports]]
+localPort = 5001
+externalPort = 3000
+
+[[ports]]
+localPort = 5002
+externalPort = 3002
+
+[[ports]]
+localPort = 5003
+externalPort = 3003
+
+[[ports]]
+localPort = 5004
+externalPort = 5173
+
+[[ports]]
+localPort = 5005
+externalPort = 4200
+
+[[ports]]
+localPort = 5006
+externalPort = 5000
+
+[[ports]]
+localPort = 5007
+externalPort = 6000
+
+[[ports]]
+localPort = 5054
+externalPort = 3001
 
 [deployment]
 deploymentTarget = "static"
 build = ["bash", "-c", "npm run build:libs && cd website && npm run build"]
 publicDir = "website/dist"
+
+[userenv]
+
+[userenv.shared]
+NETWORK_HASH_SECRET = "symbia-replit-network-secret-v1"
