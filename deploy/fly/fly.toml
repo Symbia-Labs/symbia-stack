@@ -1,24 +1,36 @@
-# Fly.io Configuration - Identity Service (Main Entry Point)
-# This is a template - each service needs its own fly.toml
+# Fly.io Configuration Template
 #
-# To deploy all services, use: ./scripts/deploy-all.sh
+# For Fly.io UI deployment:
+# 1. Create app in Fly.io dashboard
+# 2. Set build arg: SERVICE=identity (or catalog, models, etc.)
+# 3. Deploy from GitHub repo
+#
+# Or via CLI:
+#   flyctl launch --dockerfile Dockerfile
+#   flyctl deploy --build-arg SERVICE=identity
 
 app = "symbia-identity"
 primary_region = "iad"
 
 [build]
-  dockerfile = "../../identity/Dockerfile"
+  dockerfile = "Dockerfile"
   [build.args]
-    # Build context is repo root
-    BUILD_CONTEXT = "../.."
+    SERVICE = "identity"
 
 [env]
   NODE_ENV = "production"
   PORT = "5001"
   HOST = "0.0.0.0"
-  # Internal service URLs (using Fly's private networking)
+  # Internal service URLs (Fly.io private networking)
+  IDENTITY_SERVICE_URL = "http://symbia-identity.internal:5001"
   LOGGING_SERVICE_URL = "http://symbia-logging.internal:5002"
   CATALOG_SERVICE_URL = "http://symbia-catalog.internal:5003"
+  ASSISTANTS_SERVICE_URL = "http://symbia-assistants.internal:5004"
+  MESSAGING_SERVICE_URL = "http://symbia-messaging.internal:5005"
+  RUNTIME_SERVICE_URL = "http://symbia-runtime.internal:5006"
+  INTEGRATIONS_SERVICE_URL = "http://symbia-integrations.internal:5007"
+  MODELS_SERVICE_URL = "http://symbia-models.internal:5008"
+  NETWORK_SERVICE_URL = "http://symbia-network.internal:5054"
 
 [http_service]
   internal_port = 5001
@@ -27,18 +39,9 @@ primary_region = "iad"
   auto_start_machines = true
   min_machines_running = 1
 
-  [http_service.concurrency]
-    type = "requests"
-    hard_limit = 250
-    soft_limit = 200
-
 [[services]]
   protocol = "tcp"
   internal_port = 5001
-
-  [[services.ports]]
-    port = 80
-    handlers = ["http"]
 
   [[services.ports]]
     port = 443
@@ -49,7 +52,6 @@ primary_region = "iad"
     timeout = "5s"
     grace_period = "30s"
     path = "/health/live"
-    method = "GET"
 
 [[vm]]
   cpu_kind = "shared"
