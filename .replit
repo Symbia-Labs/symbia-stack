@@ -87,7 +87,7 @@ externalPort = 3001
 
 [deployment]
 deploymentTarget = "vm"
-build = ["bash", "-c", "npm run build && cd website && npm run build"]
+build = ["bash", "build-for-deploy.sh"]
 run = ["bash", "-c", "./start-replit.sh & cd website && npm run preview -- --host 0.0.0.0 --port 5000"]
 
 [userenv]
