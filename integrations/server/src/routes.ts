@@ -120,6 +120,113 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
   }) as any);
 
   // ==========================================================================
+  // Execute Endpoint (Internal - service-to-service, no auth)
+  // ==========================================================================
+
+  app.post("/api/internal/execute", rateLimitMiddleware, async (req: Request, res: Response) => {
+    const serviceId = req.headers['x-service-id'] as string;
+    const serviceAuth = req.headers['x-internal-auth'] as string;
+    
+    // Only allow internal service-to-service calls with proper auth
+    if (!serviceId) {
+      res.status(401).json({ error: 'X-Service-Id header required for internal calls' });
+      return;
+    }
+    
+    // Validate internal service authentication
+    const internalSecret = process.env.INTERNAL_SERVICE_SECRET || 'symbia-internal-dev-secret';
+    if (serviceAuth !== internalSecret) {
+      res.status(403).json({ error: 'Invalid internal service authentication' });
+      return;
+    }
+    
+    // Validate service ID is from a known internal service
+    const trustedServices = ['messaging', 'assistants', 'runtime', 'catalog'];
+    if (!trustedServices.includes(serviceId)) {
+      res.status(403).json({ error: 'Untrusted service' });
+      return;
+    }
+
+    const startTime = Date.now();
+    const requestId = `int_${randomUUID().slice(0, 12)}`;
+
+    try {
+      const parseResult = executeRequestSchema.safeParse(req.body);
+      if (!parseResult.success) {
+        res.status(400).json({
+          error: 'Invalid request',
+          details: parseResult.error.errors.map(e => `${e.path.join(".")}: ${e.message}`).join(", "),
+          requestId,
+        });
+        return;
+      }
+
+      const request: ExecuteRequest = parseResult.data;
+      const { provider, operation, params } = request;
+
+      const adapter = getProvider(provider);
+      if (!adapter) {
+        res.status(404).json({
+          error: `Unknown provider: ${provider}`,
+          requestId,
+        });
+        return;
+      }
+
+      if (!adapter.supportedOperations.includes(operation)) {
+        res.status(400).json({
+          error: `Provider ${provider} does not support operation: ${operation}`,
+          requestId,
+        });
+        return;
+      }
+
+      // Get API key from environment variables for internal calls
+      const apiKeyMap: Record<string, string | undefined> = {
+        openai: process.env.OPENAI_API_KEY,
+        anthropic: process.env.ANTHROPIC_API_KEY,
+        huggingface: process.env.HUGGINGFACE_API_KEY,
+      };
+      const apiKey = apiKeyMap[provider] || '';
+
+      if (!apiKey) {
+        res.status(400).json({
+          error: `No API key configured for provider: ${provider}`,
+          requestId,
+        });
+        return;
+      }
+
+      const executeOptions = {
+        operation,
+        model: params.model || 'gpt-4o-mini',
+        params,
+        apiKey,
+        timeout: 60000,
+      };
+
+      const result = operation === "embeddings" && adapter.embed
+        ? await adapter.embed(executeOptions)
+        : await adapter.execute(executeOptions);
+
+      console.log(`[Internal Execute] ${serviceId} -> ${provider}/${operation} in ${Date.now() - startTime}ms`);
+
+      res.json({
+        ...result,
+        requestId,
+        durationMs: Date.now() - startTime,
+      });
+    } catch (error) {
+      console.error(`[Internal Execute] Error:`, error);
+      res.status(500).json({
+        error: error instanceof Error ? error.message : 'Unknown error',
+        requestId,
+        durationMs: Date.now() - startTime,
+      });
+    }
+  });
+
+  // ==========================================================================
   // Execute Endpoint
   // ==========================================================================
 
