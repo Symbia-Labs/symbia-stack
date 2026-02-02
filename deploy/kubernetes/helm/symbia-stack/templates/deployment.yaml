@@ -1,0 +1,167 @@
+{{- $root := . -}}
+{{- range $serviceName, $service := .Values.services }}
+{{- if $service.enabled }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "symbia.fullname" $root }}-{{ $serviceName }}
+  labels:
+    {{- include "symbia.labels" $root | nindent 4 }}
+    app.kubernetes.io/component: {{ $serviceName }}
+spec:
+  {{- if not $service.autoscaling.enabled }}
+  replicas: {{ $service.replicas }}
+  {{- end }}
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: {{ $serviceName }}
+      app.kubernetes.io/instance: {{ $root.Release.Name }}
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: {{ $serviceName }}
+        app.kubernetes.io/instance: {{ $root.Release.Name }}
+        app.kubernetes.io/component: {{ $serviceName }}
+    spec:
+      {{- include "symbia.imagePullSecrets" $root | nindent 6 }}
+      serviceAccountName: {{ include "symbia.serviceAccountName" $root }}
+      containers:
+        - name: {{ $serviceName }}
+          image: "{{ $root.Values.global.imageRegistry }}/{{ $serviceName }}:{{ $root.Values.global.imageTag }}"
+          imagePullPolicy: {{ $root.Values.global.imagePullPolicy }}
+          ports:
+            - name: http
+              containerPort: {{ $service.port }}
+              protocol: TCP
+          env:
+            - name: NODE_ENV
+              value: production
+            - name: HOST
+              value: "0.0.0.0"
+            - name: PORT
+              value: {{ $service.port | quote }}
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  {{- if $root.Values.postgresql.enabled }}
+                  name: {{ include "symbia.fullname" $root }}-postgresql
+                  key: password
+                  {{- else if $root.Values.externalDatabase.existingSecret }}
+                  name: {{ $root.Values.externalDatabase.existingSecret }}
+                  key: {{ $root.Values.externalDatabase.existingSecretPasswordKey }}
+                  {{- else }}
+                  name: {{ include "symbia.fullname" $root }}-db
+                  key: password
+                  {{- end }}
+            - name: DATABASE_URL
+              value: {{ include "symbia.databaseUrl" $root | quote }}
+            # Service URLs
+            - name: IDENTITY_SERVICE_URL
+              value: "http://{{ include "symbia.fullname" $root }}-identity:5001"
+            - name: LOGGING_SERVICE_URL
+              value: "http://{{ include "symbia.fullname" $root }}-logging:5002"
+            - name: CATALOG_SERVICE_URL
+              value: "http://{{ include "symbia.fullname" $root }}-catalog:5003"
+            - name: ASSISTANTS_SERVICE_URL
+              value: "http://{{ include "symbia.fullname" $root }}-assistants:5004"
+            - name: MESSAGING_SERVICE_URL
+              value: "http://{{ include "symbia.fullname" $root }}-messaging:5005"
+            - name: RUNTIME_SERVICE_URL
+              value: "http://{{ include "symbia.fullname" $root }}-runtime:5006"
+            - name: INTEGRATIONS_SERVICE_URL
+              value: "http://{{ include "symbia.fullname" $root }}-integrations:5007"
+            - name: MODELS_SERVICE_URL
+              value: "http://{{ include "symbia.fullname" $root }}-models:5008"
+            - name: NETWORK_SERVICE_URL
+              value: "http://{{ include "symbia.fullname" $root }}-network:5054"
+            # Secrets
+            {{- if or $root.Values.secrets.sessionSecret $root.Values.secrets.existingSecret }}
+            - name: SESSION_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: {{ default (printf "%s-secrets" (include "symbia.fullname" $root)) $root.Values.secrets.existingSecret }}
+                  key: session-secret
+            {{- end }}
+            {{- if eq $serviceName "network" }}
+            - name: NETWORK_HASH_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: {{ default (printf "%s-secrets" (include "symbia.fullname" $root)) $root.Values.secrets.existingSecret }}
+                  key: network-hash-secret
+            {{- end }}
+            # LLM Keys for integrations
+            {{- if eq $serviceName "integrations" }}
+            {{- if or $root.Values.llmKeys.openaiApiKey $root.Values.llmKeys.existingSecret }}
+            - name: OPENAI_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ default (printf "%s-llm-keys" (include "symbia.fullname" $root)) $root.Values.llmKeys.existingSecret }}
+                  key: openai-api-key
+                  optional: true
+            {{- end }}
+            {{- if or $root.Values.llmKeys.anthropicApiKey $root.Values.llmKeys.existingSecret }}
+            - name: ANTHROPIC_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ default (printf "%s-llm-keys" (include "symbia.fullname" $root)) $root.Values.llmKeys.existingSecret }}
+                  key: anthropic-api-key
+                  optional: true
+            {{- end }}
+            {{- end }}
+            # Models service specific
+            {{- if eq $serviceName "models" }}
+            - name: MODELS_PATH
+              value: /data/models
+            {{- range $key, $value := $service.env }}
+            - name: {{ $key }}
+              value: {{ $value | quote }}
+            {{- end }}
+            {{- end }}
+          {{- if eq $serviceName "models" }}
+          volumeMounts:
+            - name: models-storage
+              mountPath: /data/models
+          {{- end }}
+          livenessProbe:
+            httpGet:
+              path: /health/live
+              port: http
+            initialDelaySeconds: 30
+            periodSeconds: 15
+            timeoutSeconds: 5
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /health/live
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+          resources:
+            {{- toYaml $service.resources | nindent 12 }}
+      {{- if eq $serviceName "models" }}
+      volumes:
+        - name: models-storage
+          {{- if $service.persistence.enabled }}
+          persistentVolumeClaim:
+            claimName: {{ include "symbia.fullname" $root }}-models
+          {{- else }}
+          emptyDir: {}
+          {{- end }}
+      {{- end }}
+      {{- with $service.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with $service.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with $service.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+{{- end }}
+{{- end }}

@@ -1,0 +1,267 @@
+# DigitalOcean App Platform Specification
+# Deploy: doctl apps create --spec app-spec.yaml
+
+name: symbia-stack
+region: nyc
+
+# Database
+databases:
+  - name: symbia-db
+    engine: PG
+    version: "16"
+    size: db-s-1vcpu-1gb
+    num_nodes: 1
+
+# Services
+services:
+  # Identity Service (public - handles auth)
+  - name: identity
+    github:
+      repo: symbia-labs/symbia-stack
+      branch: main
+      deploy_on_push: true
+    dockerfile_path: identity/Dockerfile
+    http_port: 5001
+    instance_count: 1
+    instance_size_slug: basic-xxs
+    health_check:
+      http_path: /health/live
+      initial_delay_seconds: 30
+      period_seconds: 15
+    envs:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: "5001"
+      - key: HOST
+        value: "0.0.0.0"
+      - key: DATABASE_URL
+        scope: RUN_TIME
+        value: ${symbia-db.DATABASE_URL}
+      - key: SESSION_SECRET
+        scope: RUN_TIME
+        type: SECRET
+      - key: LOGGING_SERVICE_URL
+        value: ${logging.PRIVATE_URL}
+      - key: CATALOG_SERVICE_URL
+        value: ${catalog.PRIVATE_URL}
+    routes:
+      - path: /api/auth
+      - path: /api/users
+      - path: /api/organizations
+
+  # Integrations Service (public - LLM API)
+  - name: integrations
+    github:
+      repo: symbia-labs/symbia-stack
+      branch: main
+      deploy_on_push: true
+    dockerfile_path: integrations/Dockerfile
+    http_port: 5007
+    instance_count: 1
+    instance_size_slug: basic-xxs
+    health_check:
+      http_path: /health/live
+      initial_delay_seconds: 30
+      period_seconds: 15
+    envs:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: "5007"
+      - key: HOST
+        value: "0.0.0.0"
+      - key: DATABASE_URL
+        scope: RUN_TIME
+        value: ${symbia-db.DATABASE_URL}
+      - key: IDENTITY_SERVICE_URL
+        value: ${identity.PRIVATE_URL}
+      - key: CATALOG_SERVICE_URL
+        value: ${catalog.PRIVATE_URL}
+      - key: MODELS_SERVICE_URL
+        value: ${models.PRIVATE_URL}
+      - key: OPENAI_API_KEY
+        scope: RUN_TIME
+        type: SECRET
+      - key: ANTHROPIC_API_KEY
+        scope: RUN_TIME
+        type: SECRET
+    routes:
+      - path: /api/integrations
+      - path: /v1
+
+# Internal Workers (no public routes)
+workers:
+  - name: logging
+    github:
+      repo: symbia-labs/symbia-stack
+      branch: main
+      deploy_on_push: true
+    dockerfile_path: logging/Dockerfile
+    instance_count: 1
+    instance_size_slug: basic-xxs
+    envs:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: "5002"
+      - key: HOST
+        value: "0.0.0.0"
+      - key: DATABASE_URL
+        scope: RUN_TIME
+        value: ${symbia-db.DATABASE_URL}
+      - key: IDENTITY_SERVICE_URL
+        value: ${identity.PRIVATE_URL}
+
+  - name: catalog
+    github:
+      repo: symbia-labs/symbia-stack
+      branch: main
+      deploy_on_push: true
+    dockerfile_path: catalog/Dockerfile
+    instance_count: 1
+    instance_size_slug: basic-xxs
+    envs:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: "5003"
+      - key: HOST
+        value: "0.0.0.0"
+      - key: DATABASE_URL
+        scope: RUN_TIME
+        value: ${symbia-db.DATABASE_URL}
+      - key: IDENTITY_SERVICE_URL
+        value: ${identity.PRIVATE_URL}
+      - key: LOGGING_SERVICE_URL
+        value: ${logging.PRIVATE_URL}
+
+  - name: assistants
+    github:
+      repo: symbia-labs/symbia-stack
+      branch: main
+      deploy_on_push: true
+    dockerfile_path: assistants/Dockerfile
+    instance_count: 1
+    instance_size_slug: basic-xxs
+    envs:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: "5004"
+      - key: HOST
+        value: "0.0.0.0"
+      - key: DATABASE_URL
+        scope: RUN_TIME
+        value: ${symbia-db.DATABASE_URL}
+      - key: IDENTITY_SERVICE_URL
+        value: ${identity.PRIVATE_URL}
+      - key: CATALOG_SERVICE_URL
+        value: ${catalog.PRIVATE_URL}
+      - key: MESSAGING_SERVICE_URL
+        value: ${messaging.PRIVATE_URL}
+      - key: RUNTIME_SERVICE_URL
+        value: ${runtime.PRIVATE_URL}
+      - key: INTEGRATIONS_SERVICE_URL
+        value: ${integrations.PRIVATE_URL}
+
+  - name: messaging
+    github:
+      repo: symbia-labs/symbia-stack
+      branch: main
+      deploy_on_push: true
+    dockerfile_path: messaging/Dockerfile
+    instance_count: 1
+    instance_size_slug: basic-xxs
+    envs:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: "5005"
+      - key: HOST
+        value: "0.0.0.0"
+      - key: DATABASE_URL
+        scope: RUN_TIME
+        value: ${symbia-db.DATABASE_URL}
+      - key: IDENTITY_SERVICE_URL
+        value: ${identity.PRIVATE_URL}
+      - key: CATALOG_SERVICE_URL
+        value: ${catalog.PRIVATE_URL}
+
+  - name: runtime
+    github:
+      repo: symbia-labs/symbia-stack
+      branch: main
+      deploy_on_push: true
+    dockerfile_path: runtime/Dockerfile
+    instance_count: 1
+    instance_size_slug: basic-xxs
+    envs:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: "5006"
+      - key: HOST
+        value: "0.0.0.0"
+      - key: DATABASE_URL
+        scope: RUN_TIME
+        value: ${symbia-db.DATABASE_URL}
+      - key: IDENTITY_SERVICE_URL
+        value: ${identity.PRIVATE_URL}
+      - key: CATALOG_SERVICE_URL
+        value: ${catalog.PRIVATE_URL}
+      - key: MESSAGING_SERVICE_URL
+        value: ${messaging.PRIVATE_URL}
+      - key: INTEGRATIONS_SERVICE_URL
+        value: ${integrations.PRIVATE_URL}
+
+  - name: network
+    github:
+      repo: symbia-labs/symbia-stack
+      branch: main
+      deploy_on_push: true
+    dockerfile_path: network/Dockerfile
+    instance_count: 1
+    instance_size_slug: basic-xxs
+    envs:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: "5054"
+      - key: HOST
+        value: "0.0.0.0"
+      - key: DATABASE_URL
+        scope: RUN_TIME
+        value: ${symbia-db.DATABASE_URL}
+      - key: IDENTITY_SERVICE_URL
+        value: ${identity.PRIVATE_URL}
+      - key: NETWORK_HASH_SECRET
+        scope: RUN_TIME
+        type: SECRET
+
+  # Models service needs more resources
+  - name: models
+    github:
+      repo: symbia-labs/symbia-stack
+      branch: main
+      deploy_on_push: true
+    dockerfile_path: models/Dockerfile
+    instance_count: 1
+    instance_size_slug: professional-xs  # 1GB RAM
+    envs:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: "5008"
+      - key: HOST
+        value: "0.0.0.0"
+      - key: MODELS_PATH
+        value: /data/models
+      - key: IDENTITY_SERVICE_URL
+        value: ${identity.PRIVATE_URL}
+      - key: CATALOG_SERVICE_URL
+        value: ${catalog.PRIVATE_URL}
+      - key: MAX_LOADED_MODELS
+        value: "1"
+      - key: DEFAULT_THREADS
+        value: "2"

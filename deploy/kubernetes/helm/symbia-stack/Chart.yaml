@@ -1,0 +1,28 @@
+apiVersion: v2
+name: symbia-stack
+description: A Helm chart for deploying Symbia Stack - AI-native application platform
+type: application
+version: 0.1.0
+appVersion: "1.2.0"
+
+keywords:
+  - symbia
+  - ai
+  - llm
+  - microservices
+  - platform
+
+home: https://github.com/symbia-labs/symbia-stack
+
+sources:
+  - https://github.com/symbia-labs/symbia-stack
+
+maintainers:
+  - name: Symbia Labs
+    email: support@symbia.io
+
+dependencies:
+  - name: postgresql
+    version: "14.x.x"
+    repository: https://charts.bitnami.com/bitnami
+    condition: postgresql.enabled

@@ -1,0 +1,18 @@
+{{- if and .Values.services.models.enabled .Values.services.models.persistence.enabled }}
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ include "symbia.fullname" . }}-models
+  labels:
+    {{- include "symbia.labels" . | nindent 4 }}
+    app.kubernetes.io/component: models
+spec:
+  accessModes:
+    {{- toYaml .Values.services.models.persistence.accessModes | nindent 4 }}
+  {{- if .Values.services.models.persistence.storageClass }}
+  storageClassName: {{ .Values.services.models.persistence.storageClass }}
+  {{- end }}
+  resources:
+    requests:
+      storage: {{ .Values.services.models.persistence.size }}
+{{- end }}

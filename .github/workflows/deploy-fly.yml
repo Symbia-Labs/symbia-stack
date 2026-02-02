@@ -1,0 +1,194 @@
+name: Deploy to Fly.io
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      services:
+        description: 'Services to deploy (comma-separated or "all")'
+        required: true
+        default: 'all'
+        type: string
+
+env:
+  FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+
+jobs:
+  deploy:
+    name: Deploy Services
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        service:
+          - identity
+          - logging
+          - catalog
+          - assistants
+          - messaging
+          - runtime
+          - integrations
+          - network
+          - models
+      fail-fast: false
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Check if service should deploy
+        id: check
+        run: |
+          SERVICES="${{ github.event.inputs.services || 'all' }}"
+          if [[ "$SERVICES" == "all" ]] || [[ "$SERVICES" == *"${{ matrix.service }}"* ]]; then
+            echo "deploy=true" >> $GITHUB_OUTPUT
+          else
+            echo "deploy=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Setup Fly.io CLI
+        if: steps.check.outputs.deploy == 'true'
+        uses: superfly/flyctl-actions/setup-flyctl@master
+
+      - name: Set image tag
+        if: steps.check.outputs.deploy == 'true'
+        id: meta
+        run: |
+          if [[ "${{ github.ref }}" == refs/tags/v* ]]; then
+            TAG="${{ github.ref_name }}"
+          else
+            TAG="sha-$(echo ${{ github.sha }} | cut -c1-7)"
+          fi
+          echo "tag=$TAG" >> $GITHUB_OUTPUT
+
+      - name: Create fly.toml for ${{ matrix.service }}
+        if: steps.check.outputs.deploy == 'true'
+        run: |
+          SERVICE=${{ matrix.service }}
+          PORT=$(case $SERVICE in
+            identity) echo 5001;;
+            logging) echo 5002;;
+            catalog) echo 5003;;
+            assistants) echo 5004;;
+            messaging) echo 5005;;
+            runtime) echo 5006;;
+            integrations) echo 5007;;
+            models) echo 5008;;
+            network) echo 5054;;
+          esac)
+
+          # Determine if service should be public
+          if [[ "$SERVICE" == "identity" || "$SERVICE" == "integrations" ]]; then
+            PUBLIC="true"
+          else
+            PUBLIC="false"
+          fi
+
+          # Determine Dockerfile
+          if [[ "$SERVICE" == "models" ]]; then
+            DOCKERFILE="models/Dockerfile"
+          else
+            DOCKERFILE="$SERVICE/Dockerfile"
+          fi
+
+          # Memory for models service
+          if [[ "$SERVICE" == "models" ]]; then
+            MEMORY="4096"
+            CPU_KIND="dedicated"
+            CPUS="2"
+          else
+            MEMORY="512"
+            CPU_KIND="shared"
+            CPUS="1"
+          fi
+
+          cat > fly.toml << EOF
+          app = "symbia-$SERVICE"
+          primary_region = "iad"
+
+          [build]
+            dockerfile = "$DOCKERFILE"
+
+          [env]
+            NODE_ENV = "production"
+            PORT = "$PORT"
+            HOST = "0.0.0.0"
+            IDENTITY_SERVICE_URL = "http://symbia-identity.internal:5001"
+            LOGGING_SERVICE_URL = "http://symbia-logging.internal:5002"
+            CATALOG_SERVICE_URL = "http://symbia-catalog.internal:5003"
+            ASSISTANTS_SERVICE_URL = "http://symbia-assistants.internal:5004"
+            MESSAGING_SERVICE_URL = "http://symbia-messaging.internal:5005"
+            RUNTIME_SERVICE_URL = "http://symbia-runtime.internal:5006"
+            INTEGRATIONS_SERVICE_URL = "http://symbia-integrations.internal:5007"
+            MODELS_SERVICE_URL = "http://symbia-models.internal:5008"
+            NETWORK_SERVICE_URL = "http://symbia-network.internal:5054"
+
+          [http_service]
+            internal_port = $PORT
+            force_https = true
+            auto_stop_machines = false
+            auto_start_machines = true
+            min_machines_running = 1
+
+          [[services]]
+            protocol = "tcp"
+            internal_port = $PORT
+
+            [[services.ports]]
+              port = 443
+              handlers = ["tls", "http"]
+
+            [[services.http_checks]]
+              interval = "15s"
+              timeout = "5s"
+              grace_period = "30s"
+              path = "/health/live"
+
+          [[vm]]
+            cpu_kind = "$CPU_KIND"
+            cpus = $CPUS
+            memory_mb = $MEMORY
+          EOF
+
+          # Add volume mount for models
+          if [[ "$SERVICE" == "models" ]]; then
+            cat >> fly.toml << EOF
+
+          [mounts]
+            source = "models_data"
+            destination = "/data/models"
+
+          [env]
+            MODELS_PATH = "/data/models"
+            MAX_LOADED_MODELS = "2"
+          EOF
+          fi
+
+      - name: Deploy ${{ matrix.service }}
+        if: steps.check.outputs.deploy == 'true'
+        run: |
+          # Try to deploy, create app if it doesn't exist
+          flyctl deploy --remote-only --image-label ${{ steps.meta.outputs.tag }} || \
+          (flyctl launch --no-deploy --copy-config --name symbia-${{ matrix.service }} && \
+           flyctl deploy --remote-only --image-label ${{ steps.meta.outputs.tag }})
+
+  verify:
+    name: Verify Deployment
+    needs: deploy
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Setup Fly.io CLI
+        uses: superfly/flyctl-actions/setup-flyctl@master
+
+      - name: Check service health
+        run: |
+          for service in identity catalog integrations; do
+            echo "Checking symbia-$service..."
+            flyctl status -a symbia-$service || true
+          done
+
+      - name: Test identity endpoint
+        run: |
+          curl -sf https://symbia-identity.fly.dev/health/live || echo "Identity check failed"

@@ -1,0 +1,224 @@
+# Symbia Stack Helm Chart - Default Values
+
+# Global settings
+global:
+  imageRegistry: ghcr.io/symbia-labs/symbia-stack
+  imageTag: latest
+  imagePullPolicy: IfNotPresent
+  imagePullSecrets: []
+
+# PostgreSQL (Bitnami chart)
+postgresql:
+  enabled: true
+  auth:
+    database: symbia
+    username: symbia
+    password: ""  # Auto-generated if empty
+    existingSecret: ""
+  primary:
+    persistence:
+      enabled: true
+      size: 10Gi
+    resources:
+      requests:
+        memory: 256Mi
+        cpu: 100m
+
+# External database (when postgresql.enabled: false)
+externalDatabase:
+  host: ""
+  port: 5432
+  database: symbia
+  username: symbia
+  password: ""
+  existingSecret: ""
+  existingSecretPasswordKey: password
+
+# Ingress configuration
+ingress:
+  enabled: false
+  className: nginx
+  annotations: {}
+  hosts:
+    - host: api.symbia.local
+      paths:
+        - path: /api/auth
+          pathType: Prefix
+          service: identity
+          port: 5001
+        - path: /api/users
+          pathType: Prefix
+          service: identity
+          port: 5001
+        - path: /api/integrations
+          pathType: Prefix
+          service: integrations
+          port: 5007
+        - path: /v1
+          pathType: Prefix
+          service: integrations
+          port: 5007
+  tls: []
+
+# Secrets
+secrets:
+  # Auto-generated if empty
+  sessionSecret: ""
+  networkHashSecret: ""
+  # Create a secret with these values or use existingSecret
+  existingSecret: ""
+
+# LLM API Keys (optional)
+llmKeys:
+  openaiApiKey: ""
+  anthropicApiKey: ""
+  huggingfaceToken: ""
+  existingSecret: ""
+
+# Service Configurations
+services:
+  identity:
+    enabled: true
+    replicas: 1
+    port: 5001
+    resources:
+      requests:
+        memory: 256Mi
+        cpu: 100m
+      limits:
+        memory: 512Mi
+        cpu: 500m
+    autoscaling:
+      enabled: false
+      minReplicas: 1
+      maxReplicas: 5
+      targetCPUUtilizationPercentage: 80
+    nodeSelector: {}
+    tolerations: []
+    affinity: {}
+
+  logging:
+    enabled: true
+    replicas: 1
+    port: 5002
+    resources:
+      requests:
+        memory: 256Mi
+        cpu: 100m
+      limits:
+        memory: 512Mi
+        cpu: 500m
+
+  catalog:
+    enabled: true
+    replicas: 1
+    port: 5003
+    resources:
+      requests:
+        memory: 256Mi
+        cpu: 100m
+      limits:
+        memory: 512Mi
+        cpu: 500m
+
+  assistants:
+    enabled: true
+    replicas: 1
+    port: 5004
+    resources:
+      requests:
+        memory: 512Mi
+        cpu: 200m
+      limits:
+        memory: 1Gi
+        cpu: 1000m
+
+  messaging:
+    enabled: true
+    replicas: 1
+    port: 5005
+    resources:
+      requests:
+        memory: 256Mi
+        cpu: 100m
+      limits:
+        memory: 512Mi
+        cpu: 500m
+
+  runtime:
+    enabled: true
+    replicas: 1
+    port: 5006
+    resources:
+      requests:
+        memory: 512Mi
+        cpu: 200m
+      limits:
+        memory: 1Gi
+        cpu: 1000m
+
+  integrations:
+    enabled: true
+    replicas: 1
+    port: 5007
+    resources:
+      requests:
+        memory: 256Mi
+        cpu: 100m
+      limits:
+        memory: 512Mi
+        cpu: 500m
+
+  network:
+    enabled: true
+    replicas: 1
+    port: 5054
+    resources:
+      requests:
+        memory: 256Mi
+        cpu: 100m
+      limits:
+        memory: 512Mi
+        cpu: 500m
+
+  models:
+    enabled: true
+    replicas: 1
+    port: 5008
+    resources:
+      requests:
+        memory: 2Gi
+        cpu: 1000m
+      limits:
+        memory: 4Gi
+        cpu: 2000m
+    persistence:
+      enabled: true
+      size: 50Gi
+      storageClass: ""
+      accessModes:
+        - ReadWriteOnce
+    env:
+      MAX_LOADED_MODELS: "2"
+      IDLE_TIMEOUT_MS: "300000"
+      DEFAULT_GPU_LAYERS: "0"
+      DEFAULT_THREADS: "4"
+
+# Common settings
+commonLabels: {}
+commonAnnotations: {}
+
+# Pod disruption budget
+podDisruptionBudget:
+  enabled: false
+  minAvailable: 1
+
+# Service account
+serviceAccount:
+  create: true
+  name: ""
+  annotations: {}
+
+# Network policies
+networkPolicy:
+  enabled: false

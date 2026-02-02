@@ -1,0 +1,57 @@
+# Fly.io Configuration - Identity Service (Main Entry Point)
+# This is a template - each service needs its own fly.toml
+#
+# To deploy all services, use: ./scripts/deploy-all.sh
+
+app = "symbia-identity"
+primary_region = "iad"
+
+[build]
+  dockerfile = "../../identity/Dockerfile"
+  [build.args]
+    # Build context is repo root
+    BUILD_CONTEXT = "../.."
+
+[env]
+  NODE_ENV = "production"
+  PORT = "5001"
+  HOST = "0.0.0.0"
+  # Internal service URLs (using Fly's private networking)
+  LOGGING_SERVICE_URL = "http://symbia-logging.internal:5002"
+  CATALOG_SERVICE_URL = "http://symbia-catalog.internal:5003"
+
+[http_service]
+  internal_port = 5001
+  force_https = true
+  auto_stop_machines = false
+  auto_start_machines = true
+  min_machines_running = 1
+
+  [http_service.concurrency]
+    type = "requests"
+    hard_limit = 250
+    soft_limit = 200
+
+[[services]]
+  protocol = "tcp"
+  internal_port = 5001
+
+  [[services.ports]]
+    port = 80
+    handlers = ["http"]
+
+  [[services.ports]]
+    port = 443
+    handlers = ["tls", "http"]
+
+  [[services.http_checks]]
+    interval = "15s"
+    timeout = "5s"
+    grace_period = "30s"
+    path = "/health/live"
+    method = "GET"
+
+[[vm]]
+  cpu_kind = "shared"
+  cpus = 1
+  memory_mb = 512
