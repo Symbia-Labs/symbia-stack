@@ -176,7 +176,7 @@ async function registerRoutes(_server: HttpServer, app: Express): Promise<void> 
   // Demo chat endpoint for website (no auth required)
   // This allows anonymous users to chat with assistants via the website
   app.post('/api/send', async (req, res) => {
-    const { content, assistant, channel } = req.body;
+    const { content, assistant, channel, history } = req.body;
     
     if (!content) {
       res.status(400).json({ error: 'content is required' });
@@ -205,6 +205,23 @@ async function registerRoutes(_server: HttpServer, app: Express): Promise<void> 
       // Use default prompt
     }
 
+    // Build message array with history for context continuity
+    const messages: Array<{ role: string; content: string }> = [
+      { role: 'system', content: systemPrompt }
+    ];
+    
+    // Add conversation history if provided
+    if (history && Array.isArray(history)) {
+      for (const msg of history) {
+        if (msg.role && msg.content) {
+          messages.push({ role: msg.role, content: msg.content });
+        }
+      }
+    }
+    
+    // Add the current user message
+    messages.push({ role: 'user', content });
+
     try {
       // Set SSE headers
       res.setHeader('Content-Type', 'text/event-stream');
@@ -226,10 +243,7 @@ async function registerRoutes(_server: HttpServer, app: Express): Promise<void> 
           operation: 'chat.completions',
           params: {
             model: 'meta-llama/Llama-3.2-3B-Instruct',
-            messages: [
-              { role: 'system', content: systemPrompt },
-              { role: 'user', content }
-            ],
+            messages,
             temperature: 0.7,
             maxTokens: 512,
           }
