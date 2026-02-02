@@ -2,7 +2,11 @@ import { useState, useEffect } from 'react';
 import { usePlatformStatus, useAssistants } from './hooks/useSymbia';
 import { PlatformStatus } from './components/PlatformStatus';
 import { AssistantGrid } from './components/AssistantGrid';
+import { IntegrationsDemo } from './components/IntegrationsDemo';
 import { SymbiaScriptDemo } from './components/SymbiaScriptDemo';
+
+// GitHub docs base URL
+const GITHUB_DOCS = 'https://github.com/Symbia-Labs/symbia-stack/blob/main';
 
 // Theme management
 type Theme = 'carbon' | 'sand' | 'stone' | 'mono-blue';
@@ -58,15 +62,15 @@ function App() {
           </a>
 
           <div className="nav-links">
-            <a href="#platform" className="nav-link">Platform</a>
-            <a href="#architecture" className="nav-link">Architecture</a>
             <a href="#assistants" className="nav-link">Assistants</a>
-            <a href="/docs" className="nav-link">Docs</a>
+            <a href="#integrations" className="nav-link">Integrations</a>
+            <a href="#symbia-script" className="nav-link">Symbia Script</a>
+            <a href={`${GITHUB_DOCS}/README.md`} className="nav-link" target="_blank" rel="noopener noreferrer">Docs</a>
           </div>
 
           <div className="nav-actions">
             <PlatformStatus status={platformStatus} compact />
-            <a href="/docs/quickstart" className="btn btn-primary">Get Started</a>
+            <a href={`${GITHUB_DOCS}/README.md#getting-started`} className="btn btn-primary" target="_blank" rel="noopener noreferrer">Get Started</a>
           </div>
         </div>
       </nav>
@@ -84,7 +88,7 @@ function App() {
               Authentication, orchestration, and observability designed for AI-native architectures.
             </p>
             <div className="hero-actions">
-              <a href="/docs/quickstart" className="btn btn-primary btn-lg">
+              <a href={`${GITHUB_DOCS}/README.md#getting-started`} className="btn btn-primary btn-lg" target="_blank" rel="noopener noreferrer">
                 Start Building
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                   <path d="M5 12h14M12 5l7 7-7 7"/>
@@ -138,6 +142,7 @@ function App() {
       <section id="assistants" className="section">
         <div className="container">
           <div className="section-header" style={{ textAlign: 'center', marginBottom: 'var(--space-8)' }}>
+            <span className="section-label">AI Agents</span>
             <h2 className="section-title">Built-in Assistants</h2>
             <p className="section-subtitle">
               {platformStatus.connected
@@ -151,11 +156,71 @@ function App() {
             loading={assistantsLoading}
             connected={platformStatus.connected}
           />
+
+          {/* Docs link */}
+          <div style={{ textAlign: 'center', marginTop: 'var(--space-6)' }}>
+            <a
+              href={`${GITHUB_DOCS}/assistants/docs/llms.txt`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="learn-more-link"
+            >
+              View Assistants Documentation
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M7 17L17 7M17 7H7M17 7v10"/>
+              </svg>
+            </a>
+          </div>
+        </div>
+      </section>
+
+      {/* Integrations Section */}
+      <section id="integrations" className="section" style={{ background: 'var(--bg-muted)', borderTop: '1px solid var(--border)', borderBottom: '1px solid var(--border)' }}>
+        <div className="container">
+          <div className="section-header" style={{ textAlign: 'center', marginBottom: 'var(--space-8)' }}>
+            <span className="section-label">External Connections</span>
+            <h2 className="section-title">
+              <span className="highlight">Integrations</span> - Connect Any API
+            </h2>
+            <p className="section-desc">
+              Register OpenAPI specs or MCP servers to make external APIs available as first-class platform resources.
+              Use them in assistant workflows with full observability and credential management.
+            </p>
+          </div>
+
+          <div style={{ maxWidth: '900px', margin: '0 auto' }}>
+            <IntegrationsDemo />
+          </div>
+
+          {/* Feature highlights */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: 'var(--space-5)', marginTop: 'var(--space-8)' }}>
+            <div style={{ textAlign: 'center' }}>
+              <div style={{ fontSize: '2rem', marginBottom: 'var(--space-2)' }}>📄</div>
+              <h4 style={{ fontWeight: '600', marginBottom: 'var(--space-2)' }}>OpenAPI Native</h4>
+              <p style={{ fontSize: '14px', color: 'var(--text-secondary)' }}>
+                Register any OpenAPI 3.x spec and get automatic operation discovery
+              </p>
+            </div>
+            <div style={{ textAlign: 'center' }}>
+              <div style={{ fontSize: '2rem', marginBottom: 'var(--space-2)' }}>🔧</div>
+              <h4 style={{ fontWeight: '600', marginBottom: 'var(--space-2)' }}>MCP Protocol</h4>
+              <p style={{ fontSize: '14px', color: 'var(--text-secondary)' }}>
+                Connect MCP servers via stdio, HTTP, or WebSocket transports
+              </p>
+            </div>
+            <div style={{ textAlign: 'center' }}>
+              <div style={{ fontSize: '2rem', marginBottom: 'var(--space-2)' }}>🔐</div>
+              <h4 style={{ fontWeight: '600', marginBottom: 'var(--space-2)' }}>Managed Credentials</h4>
+              <p style={{ fontSize: '14px', color: 'var(--text-secondary)' }}>
+                Secure credential storage with automatic injection per request
+              </p>
+            </div>
+          </div>
         </div>
       </section>
 
       {/* Symbia Script Demo Section */}
-      <section id="symbia-script" className="section" style={{ background: 'var(--bg-muted)', borderTop: '1px solid var(--border)', borderBottom: '1px solid var(--border)' }}>
+      <section id="symbia-script" className="section">
         <div className="container">
           <div className="section-header" style={{ textAlign: 'center', marginBottom: 'var(--space-8)' }}>
             <span className="section-label">Developer Experience</span>
@@ -196,6 +261,21 @@ function App() {
               </p>
             </div>
           </div>
+
+          {/* Docs link */}
+          <div style={{ textAlign: 'center', marginTop: 'var(--space-6)' }}>
+            <a
+              href={`${GITHUB_DOCS}/symbia-sys/src/script.ts`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="learn-more-link"
+            >
+              View Symbia Script Source
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M7 17L17 7M17 7H7M17 7v10"/>
+              </svg>
+            </a>
+          </div>
         </div>
       </section>
 
@@ -204,10 +284,9 @@ function App() {
         <div className="container footer-inner">
           <div className="footer-copy">© 2026 Symbia Labs. All rights reserved.</div>
           <div className="footer-links">
-            <a href="/docs" className="footer-link">Documentation</a>
-            <a href="/blog" className="footer-link">Blog</a>
-            <a href="/privacy" className="footer-link">Privacy</a>
-            <a href="/terms" className="footer-link">Terms</a>
+            <a href={`${GITHUB_DOCS}/README.md`} className="footer-link" target="_blank" rel="noopener noreferrer">Documentation</a>
+            <a href="https://github.com/Symbia-Labs/symbia-stack" className="footer-link" target="_blank" rel="noopener noreferrer">GitHub</a>
+            <a href={`${GITHUB_DOCS}/docs/api`} className="footer-link" target="_blank" rel="noopener noreferrer">API Reference</a>
           </div>
         </div>
       </footer>
