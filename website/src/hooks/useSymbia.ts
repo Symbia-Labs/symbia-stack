@@ -22,12 +22,46 @@ export interface PlatformStatus {
   stats?: CatalogStats;
 }
 
+export interface RuleConditionResult {
+  field: string;
+  operator: string;
+  value: unknown;
+  actual: unknown;
+  matched: boolean;
+}
+
+export interface RuleEvaluation {
+  ruleId: string;
+  ruleName: string;
+  description?: string;
+  priority: number;
+  conditions: RuleConditionResult[];
+  matched: boolean;
+}
+
+export interface RuleDecision {
+  ruleSetName: string;
+  totalRules: number;
+  evaluations: RuleEvaluation[];
+  selectedRule?: {
+    id: string;
+    name: string;
+    description?: string;
+  };
+  actions?: Array<{
+    type: string;
+    description: string;
+  }>;
+  complete: boolean;
+}
+
 export interface ChatMessage {
   id: string;
   role: 'user' | 'assistant';
   content: string;
   timestamp: number;
   streaming?: boolean;
+  ruleDecision?: RuleDecision;
 }
 
 // Service definitions
@@ -223,6 +257,80 @@ export function useChat(assistantKey = 'coordinator') {
             if (line.startsWith('data: ')) {
               try {
                 const data = JSON.parse(line.slice(6));
+
+                // Handle rule evaluation events
+                if (data.ruleEval) {
+                  const eval_ = data.ruleEval;
+                  setMessages(prev =>
+                    prev.map(m => {
+                      if (m.id !== assistantMsgId) return m;
+
+                      const currentDecision = m.ruleDecision || {
+                        ruleSetName: '',
+                        totalRules: 0,
+                        evaluations: [],
+                        complete: false,
+                      };
+
+                      if (eval_.phase === 'start') {
+                        return {
+                          ...m,
+                          ruleDecision: {
+                            ...currentDecision,
+                            ruleSetName: eval_.ruleSetName,
+                            totalRules: eval_.totalRules,
+                          },
+                        };
+                      } else if (eval_.phase === 'evaluating') {
+                        return {
+                          ...m,
+                          ruleDecision: {
+                            ...currentDecision,
+                            evaluations: [
+                              ...currentDecision.evaluations,
+                              {
+                                ruleId: eval_.rule.id,
+                                ruleName: eval_.rule.name,
+                                description: eval_.rule.description,
+                                priority: eval_.rule.priority,
+                                conditions: eval_.conditions,
+                                matched: eval_.matched,
+                              },
+                            ],
+                          },
+                        };
+                      } else if (eval_.phase === 'matched') {
+                        return {
+                          ...m,
+                          ruleDecision: {
+                            ...currentDecision,
+                            selectedRule: eval_.selectedRule,
+                            actions: eval_.actions,
+                          },
+                        };
+                      } else if (eval_.phase === 'no_match') {
+                        return {
+                          ...m,
+                          ruleDecision: {
+                            ...currentDecision,
+                            selectedRule: undefined,
+                          },
+                        };
+                      } else if (eval_.phase === 'complete') {
+                        return {
+                          ...m,
+                          ruleDecision: {
+                            ...currentDecision,
+                            complete: true,
+                          },
+                        };
+                      }
+                      return m;
+                    })
+                  );
+                }
+
+                // Handle content streaming
                 if (data.content) {
                   setMessages(prev =>
                     prev.map(m =>

@@ -175,9 +175,10 @@ async function registerRoutes(_server: HttpServer, app: Express): Promise<void> 
 
   // Demo chat endpoint for website (no auth required)
   // This allows anonymous users to chat with assistants via the website
+  // Enhanced with rule evaluation transparency for observability
   app.post('/api/send', async (req, res) => {
     const { content, assistant, channel, history } = req.body;
-    
+
     if (!content) {
       res.status(400).json({ error: 'content is required' });
       return;
@@ -185,16 +186,18 @@ async function registerRoutes(_server: HttpServer, app: Express): Promise<void> 
 
     const assistantKey = assistant || 'coordinator';
     const integrationsUrl = process.env.INTEGRATIONS_URL || 'http://localhost:5007';
+    const catalogUrl = process.env.CATALOG_URL || 'http://localhost:5003';
 
     // Get assistant context from catalog to build proper system prompt
     let systemPrompt = `You are ${assistantKey}, a helpful AI assistant on the Symbia platform.`;
+    let assistantResource: { key: string; type: string; description?: string; metadata?: Record<string, unknown> } | undefined;
+
     try {
-      const catalogUrl = process.env.CATALOG_URL || 'http://localhost:5003';
       const catalogRes = await fetch(`${catalogUrl}/api/bootstrap`);
       if (catalogRes.ok) {
         const resources = await catalogRes.json() as Array<{ key: string; type: string; description?: string; metadata?: Record<string, unknown> }>;
-        const assistantResource = resources.find(r => 
-          r.type === 'assistant' && 
+        assistantResource = resources.find(r =>
+          r.type === 'assistant' &&
           (r.key === assistantKey || r.key === `assistants/${assistantKey}` || r.metadata?.alias === assistantKey)
         );
         if (assistantResource?.description) {
@@ -205,11 +208,180 @@ async function registerRoutes(_server: HttpServer, app: Express): Promise<void> 
       // Use default prompt
     }
 
+    // Set SSE headers early for streaming
+    res.setHeader('Content-Type', 'text/event-stream');
+    res.setHeader('Cache-Control', 'no-cache');
+    res.setHeader('Connection', 'keep-alive');
+    res.flushHeaders();
+
+    // === RULE EVALUATION TRANSPARENCY ===
+    // Evaluate rules and stream decisions to the frontend
+    const ruleSet = assistantResource?.metadata?.ruleSet as {
+      name?: string;
+      rules?: Array<{
+        id: string;
+        name: string;
+        description?: string;
+        priority: number;
+        enabled: boolean;
+        trigger: string;
+        conditions: { logic: string; conditions: Array<{ field: string; operator: string; value: unknown }> };
+        actions: Array<{ type: string; params?: Record<string, unknown> }>;
+      }>;
+    } | undefined;
+
+    if (ruleSet?.rules && ruleSet.rules.length > 0) {
+      // Stream rule evaluation header
+      res.write(`data: ${JSON.stringify({
+        ruleEval: {
+          phase: 'start',
+          ruleSetName: ruleSet.name || 'Default Rules',
+          totalRules: ruleSet.rules.length
+        }
+      })}\n\n`);
+      await new Promise(r => setTimeout(r, 100));
+
+      // Sort rules by priority (highest first) and filter for message.received trigger
+      const applicableRules = ruleSet.rules
+        .filter(rule => rule.enabled && rule.trigger === 'message.received')
+        .sort((a, b) => b.priority - a.priority);
+
+      let matchedRule: typeof applicableRules[0] | null = null;
+
+      // Evaluate each rule and stream the decision
+      for (const rule of applicableRules) {
+        const conditionResults: Array<{ field: string; operator: string; value: unknown; actual: unknown; matched: boolean }> = [];
+        let allConditionsMatch = true;
+
+        // Evaluate conditions against the message
+        if (rule.conditions?.conditions) {
+          for (const cond of rule.conditions.conditions) {
+            if ('field' in cond && 'operator' in cond) {
+              // Get actual value from context
+              let actualValue: unknown = undefined;
+              if (cond.field === 'message.content') {
+                actualValue = content;
+              } else if (cond.field === 'message.content.length') {
+                actualValue = content.length;
+              }
+
+              // Evaluate condition
+              let matched = false;
+              switch (cond.operator) {
+                case 'exists':
+                  matched = actualValue !== undefined && actualValue !== null;
+                  break;
+                case 'not_exists':
+                  matched = actualValue === undefined || actualValue === null;
+                  break;
+                case 'contains':
+                  matched = typeof actualValue === 'string' &&
+                    actualValue.toLowerCase().includes(String(cond.value).toLowerCase());
+                  break;
+                case 'not_contains':
+                  matched = typeof actualValue === 'string' &&
+                    !actualValue.toLowerCase().includes(String(cond.value).toLowerCase());
+                  break;
+                case 'matches':
+                  try {
+                    const regex = new RegExp(String(cond.value), 'i');
+                    matched = typeof actualValue === 'string' && regex.test(actualValue);
+                  } catch { matched = false; }
+                  break;
+                case 'equals':
+                case 'eq':
+                  matched = actualValue === cond.value;
+                  break;
+                case 'greater_than':
+                case 'gt':
+                case 'length_gte':
+                  matched = typeof actualValue === 'number' && actualValue >= Number(cond.value);
+                  break;
+                default:
+                  // For unknown operators, default to true (permissive)
+                  matched = true;
+              }
+
+              conditionResults.push({
+                field: cond.field,
+                operator: cond.operator,
+                value: cond.value,
+                actual: typeof actualValue === 'string' && actualValue.length > 50
+                  ? actualValue.substring(0, 50) + '...'
+                  : actualValue,
+                matched,
+              });
+
+              if (!matched && rule.conditions.logic === 'and') {
+                allConditionsMatch = false;
+              }
+              if (matched && rule.conditions.logic === 'or') {
+                allConditionsMatch = true;
+                break;
+              }
+            }
+          }
+        }
+
+        // Stream this rule's evaluation result
+        res.write(`data: ${JSON.stringify({
+          ruleEval: {
+            phase: 'evaluating',
+            rule: {
+              id: rule.id,
+              name: rule.name,
+              description: rule.description,
+              priority: rule.priority,
+            },
+            conditions: conditionResults,
+            matched: allConditionsMatch,
+          }
+        })}\n\n`);
+        await new Promise(r => setTimeout(r, 150));
+
+        if (allConditionsMatch) {
+          matchedRule = rule;
+          break; // First matching rule wins (by priority)
+        }
+      }
+
+      // Stream which rule was selected and what actions will be taken
+      if (matchedRule) {
+        res.write(`data: ${JSON.stringify({
+          ruleEval: {
+            phase: 'matched',
+            selectedRule: {
+              id: matchedRule.id,
+              name: matchedRule.name,
+              description: matchedRule.description,
+            },
+            actions: matchedRule.actions.map(a => ({
+              type: a.type,
+              description: getActionDescription(a.type, a.params),
+            })),
+          }
+        })}\n\n`);
+        await new Promise(r => setTimeout(r, 200));
+      } else {
+        res.write(`data: ${JSON.stringify({
+          ruleEval: {
+            phase: 'no_match',
+            message: 'No rules matched - using default behavior',
+          }
+        })}\n\n`);
+        await new Promise(r => setTimeout(r, 100));
+      }
+
+      // End rule evaluation phase
+      res.write(`data: ${JSON.stringify({ ruleEval: { phase: 'complete' } })}\n\n`);
+      await new Promise(r => setTimeout(r, 100));
+    }
+
     // Build message array with history for context continuity
     const messages: Array<{ role: string; content: string }> = [
       { role: 'system', content: systemPrompt }
     ];
-    
+
     // Add conversation history if provided
     if (history && Array.isArray(history)) {
       for (const msg of history) {
@@ -218,22 +390,19 @@ async function registerRoutes(_server: HttpServer, app: Express): Promise<void> 
         }
       }
     }
-    
+
     // Add the current user message
     messages.push({ role: 'user', content });
 
     try {
-      // Set SSE headers
-      res.setHeader('Content-Type', 'text/event-stream');
-      res.setHeader('Cache-Control', 'no-cache');
-      res.setHeader('Connection', 'keep-alive');
-      res.flushHeaders();
+      // Stream that we're now generating the response
+      res.write(`data: ${JSON.stringify({ phase: 'generating' })}\n\n`);
 
       // Call integrations service to get LLM response using HuggingFace
       const internalSecret = process.env.INTERNAL_SERVICE_SECRET || 'symbia-internal-dev-secret';
       const llmResponse = await fetch(`${integrationsUrl}/api/internal/execute`, {
         method: 'POST',
-        headers: { 
+        headers: {
           'Content-Type': 'application/json',
           'X-Service-Id': 'messaging',
           'X-Internal-Auth': internalSecret,
@@ -258,15 +427,15 @@ async function registerRoutes(_server: HttpServer, app: Express): Promise<void> 
         return;
       }
 
-      const result = await llmResponse.json() as { 
+      const result = await llmResponse.json() as {
         choices?: Array<{ message?: { content?: string } }>;
-        content?: string; 
+        content?: string;
         error?: string;
       };
-      
+
       // Extract content from OpenAI-compatible format or direct content
       const responseContent = result.choices?.[0]?.message?.content || result.content;
-      
+
       if (responseContent) {
         // Stream the response word by word for a more natural feel
         const words = responseContent.split(' ');
@@ -286,6 +455,34 @@ async function registerRoutes(_server: HttpServer, app: Express): Promise<void> 
       res.end();
     }
   });
+
+  // Helper to describe actions in human-readable form
+  function getActionDescription(actionType: string, params?: Record<string, unknown>): string {
+    switch (actionType) {
+      case 'llm.invoke':
+        return 'Generate AI response';
+      case 'message.send':
+        return params?.content ? `Send: "${String(params.content).substring(0, 40)}..."` : 'Send message';
+      case 'assistant.route':
+        return params?.assistant ? `Route to @${params.assistant}` : 'Route to another assistant';
+      case 'embedding.route':
+        return 'Semantic routing based on message content';
+      case 'tool.invoke':
+        return params?.tool ? `Use ${params.tool} tool` : 'Use a tool';
+      case 'code.tool.invoke':
+        return 'Execute code';
+      case 'handoff.create':
+        return 'Hand off to human agent';
+      case 'context.update':
+        return 'Update conversation context';
+      case 'webhook.call':
+        return 'Call external webhook';
+      case 'integration.invoke':
+        return params?.integration ? `Use ${params.integration} integration` : 'Use integration';
+      default:
+        return actionType.replace(/\./g, ' ').replace(/_/g, ' ');
+    }
+  }
 
   // API routes
   app.use('/api/conversations', conversationsRouter);

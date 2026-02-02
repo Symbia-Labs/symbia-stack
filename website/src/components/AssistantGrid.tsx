@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import type { AssistantResource } from '@symbia/catalog-client';
-import { useChat, type ChatMessage } from '../hooks/useSymbia';
+import { useChat, type ChatMessage, type RuleDecision } from '../hooks/useSymbia';
 import { RuleSetViewer, type RuleSet } from './RuleSetViewer';
 
 interface AssistantGridProps {
@@ -587,6 +587,12 @@ function ChatBubble({ message, aliasColor, assistantAlias }: {
       }}>
         {isUser ? 'You' : assistantAlias}
       </div>
+
+      {/* Rule Decision Display - shown before assistant response */}
+      {!isUser && message.ruleDecision && (
+        <RuleDecisionDisplay decision={message.ruleDecision} aliasColor={aliasColor} />
+      )}
+
       <div style={{
         maxWidth: '85%',
         padding: 'var(--space-3) var(--space-4)',
@@ -599,9 +605,12 @@ function ChatBubble({ message, aliasColor, assistantAlias }: {
         lineHeight: 1.5,
         border: isUser ? 'none' : '1px solid var(--border)',
       }}>
-        {message.content || (message.streaming && (
-          <span style={{ opacity: 0.5 }}>Thinking...</span>
+        {message.content || (message.streaming && !message.ruleDecision?.complete && (
+          <span style={{ opacity: 0.5 }}>Evaluating rules...</span>
         ))}
+        {message.content === '' && message.streaming && message.ruleDecision?.complete && (
+          <span style={{ opacity: 0.5 }}>Generating response...</span>
+        )}
         {message.streaming && message.content && (
           <span style={{
             display: 'inline-block',
@@ -619,6 +628,178 @@ function ChatBubble({ message, aliasColor, assistantAlias }: {
           51%, 100% { opacity: 0; }
         }
       `}</style>
+    </div>
+  );
+}
+
+function RuleDecisionDisplay({ decision, aliasColor }: { decision: RuleDecision; aliasColor: string }) {
+  const [expanded, setExpanded] = useState(true);
+
+  if (!decision.ruleSetName) return null;
+
+  return (
+    <div style={{
+      maxWidth: '100%',
+      marginBottom: 'var(--space-2)',
+      fontSize: 11,
+      fontFamily: 'var(--font-mono)',
+    }}>
+      {/* Header */}
+      <div
+        onClick={() => setExpanded(!expanded)}
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: 'var(--space-2)',
+          padding: 'var(--space-2) var(--space-3)',
+          background: 'var(--bg-elevated)',
+          borderRadius: 'var(--radius-sm)',
+          border: '1px solid var(--border)',
+          cursor: 'pointer',
+          marginBottom: expanded ? 'var(--space-1)' : 0,
+        }}
+      >
+        <span style={{ color: aliasColor }}>⚡</span>
+        <span style={{ color: 'var(--text-secondary)' }}>
+          {decision.complete
+            ? decision.selectedRule
+              ? `Rule matched: ${decision.selectedRule.name}`
+              : 'No rules matched'
+            : `Evaluating ${decision.ruleSetName}...`}
+        </span>
+        <span style={{
+          marginLeft: 'auto',
+          color: 'var(--text-muted)',
+          transform: expanded ? 'rotate(180deg)' : 'rotate(0deg)',
+          transition: 'transform 0.15s',
+        }}>▼</span>
+      </div>
+
+      {/* Expanded details */}
+      {expanded && (
+        <div style={{
+          background: 'var(--bg-elevated)',
+          border: '1px solid var(--border)',
+          borderRadius: 'var(--radius-sm)',
+          padding: 'var(--space-2)',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: 'var(--space-2)',
+        }}>
+          {/* Rule evaluations */}
+          {decision.evaluations.map((eval_, i) => (
+            <div key={eval_.ruleId} style={{
+              display: 'flex',
+              flexDirection: 'column',
+              gap: 'var(--space-1)',
+              padding: 'var(--space-2)',
+              background: eval_.matched ? `${aliasColor}15` : 'transparent',
+              borderRadius: 'var(--radius-sm)',
+              border: eval_.matched ? `1px solid ${aliasColor}40` : '1px solid transparent',
+            }}>
+              <div style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 'var(--space-2)',
+              }}>
+                <span style={{
+                  width: 16,
+                  height: 16,
+                  borderRadius: '50%',
+                  background: eval_.matched ? aliasColor : 'var(--bg-muted)',
+                  color: eval_.matched ? 'white' : 'var(--text-muted)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  fontSize: 10,
+                }}>
+                  {eval_.matched ? '✓' : i + 1}
+                </span>
+                <span style={{
+                  fontWeight: eval_.matched ? 600 : 400,
+                  color: eval_.matched ? aliasColor : 'var(--text-secondary)',
+                }}>
+                  {eval_.ruleName}
+                </span>
+                <span style={{
+                  marginLeft: 'auto',
+                  fontSize: 10,
+                  color: 'var(--text-muted)',
+                }}>
+                  P{eval_.priority}
+                </span>
+              </div>
+
+              {/* Condition results */}
+              {eval_.conditions.length > 0 && (
+                <div style={{
+                  paddingLeft: 24,
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: 2,
+                }}>
+                  {eval_.conditions.map((cond, j) => (
+                    <div key={j} style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 'var(--space-1)',
+                      fontSize: 10,
+                      color: cond.matched ? 'var(--node-input)' : 'var(--node-condition)',
+                    }}>
+                      <span>{cond.matched ? '✓' : '✗'}</span>
+                      <span style={{ color: 'var(--secondary)' }}>{cond.field.split('.').pop()}</span>
+                      <span style={{ color: 'var(--text-muted)' }}>{cond.operator}</span>
+                      <span style={{ color: 'var(--tertiary)' }}>
+                        {typeof cond.value === 'string' ? `"${cond.value}"` : String(cond.value)}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          ))}
+
+          {/* Actions to be taken */}
+          {decision.actions && decision.actions.length > 0 && (
+            <div style={{
+              borderTop: '1px solid var(--border)',
+              paddingTop: 'var(--space-2)',
+              marginTop: 'var(--space-1)',
+            }}>
+              <div style={{
+                fontSize: 10,
+                color: 'var(--text-muted)',
+                marginBottom: 'var(--space-1)',
+              }}>
+                ACTIONS
+              </div>
+              {decision.actions.map((action, i) => (
+                <div key={i} style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 'var(--space-2)',
+                  padding: 'var(--space-1) 0',
+                  color: 'var(--text-secondary)',
+                }}>
+                  <span style={{ color: aliasColor }}>→</span>
+                  <span>{action.description}</span>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* No match state */}
+          {decision.complete && !decision.selectedRule && (
+            <div style={{
+              color: 'var(--text-muted)',
+              fontStyle: 'italic',
+              padding: 'var(--space-2)',
+            }}>
+              No rules matched. Using default LLM behavior.
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }
