@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import type { AssistantResource } from '@symbia/catalog-client';
 import { useChat, type ChatMessage } from '../hooks/useSymbia';
+import { RuleSetViewer, type RuleSet } from './RuleSetViewer';
 
 interface AssistantGridProps {
   assistants: AssistantResource[];
@@ -35,8 +36,8 @@ export function AssistantGrid({ assistants: liveAssistants, loading, connected }
   // Map live catalog data to display format
   const assistants = liveAssistants.map(a => {
     const meta = a.metadata as Record<string, unknown> | undefined;
-    const ruleSet = meta?.ruleSet as { rules?: unknown[] } | undefined;
-    const assistantConfig = meta?.assistantConfig as { capabilities?: unknown[] } | undefined;
+    const ruleSet = meta?.ruleSet as RuleSet | undefined;
+    const assistantConfig = meta?.assistantConfig as { capabilities?: string[] } | undefined;
 
     return {
       key: a.key,
@@ -47,6 +48,9 @@ export function AssistantGrid({ assistants: liveAssistants, loading, connected }
       description: a.description || '',
       routines: ruleSet?.rules?.length || 0,
       capabilities: assistantConfig?.capabilities?.length || 0,
+      // Full data for detail view
+      ruleSet: ruleSet || null,
+      capabilityList: assistantConfig?.capabilities || [],
     };
   });
 
@@ -114,17 +118,21 @@ export function AssistantGrid({ assistants: liveAssistants, loading, connected }
   );
 }
 
+interface AssistantData {
+  key: string;
+  name: string;
+  alias: string;
+  icon: string;
+  status: string;
+  description: string;
+  routines: number;
+  capabilities: number;
+  ruleSet: RuleSet | null;
+  capabilityList: string[];
+}
+
 interface AssistantCardProps {
-  assistant: {
-    key: string;
-    name: string;
-    alias: string;
-    icon: string;
-    status: string;
-    description: string;
-    routines: number;
-    capabilities: number;
-  };
+  assistant: AssistantData;
   selected?: boolean;
   onClick?: () => void;
 }
@@ -222,15 +230,7 @@ function AssistantCard({ assistant, selected, onClick }: AssistantCardProps) {
 }
 
 interface AssistantDetailModalProps {
-  assistant: {
-    key: string;
-    name: string;
-    alias: string;
-    description: string;
-    routines: number;
-    capabilities: number;
-    status: string;
-  };
+  assistant: AssistantData;
   onClose: () => void;
 }
 
@@ -239,6 +239,7 @@ function AssistantDetailModal({ assistant, onClose }: AssistantDetailModalProps)
   const aliasName = assistant.alias.replace('@', '');
   const { messages, isStreaming, sendMessage, clearMessages } = useChat(aliasName);
   const [inputValue, setInputValue] = useState('');
+  const [activeTab, setActiveTab] = useState<'chat' | 'rules'>('chat');
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   // Auto-scroll to bottom when messages change
@@ -335,7 +336,7 @@ function AssistantDetailModal({ assistant, onClose }: AssistantDetailModalProps)
           </button>
         </div>
 
-        {/* Info Section - Collapsible */}
+        {/* Info Section */}
         <div style={{
           padding: 'var(--space-4) var(--space-5)',
           borderBottom: '1px solid var(--border)',
@@ -361,116 +362,206 @@ function AssistantDetailModal({ assistant, onClose }: AssistantDetailModalProps)
           </div>
         </div>
 
-        {/* Chat Messages */}
+        {/* Tab Navigation */}
         <div style={{
-          flex: 1,
-          overflowY: 'auto',
-          padding: 'var(--space-4) var(--space-5)',
           display: 'flex',
-          flexDirection: 'column',
-          gap: 'var(--space-3)',
-          minHeight: 250,
-        }}>
-          {messages.length === 0 && (
-            <div style={{
-              flex: 1,
-              display: 'flex',
-              flexDirection: 'column',
-              alignItems: 'center',
-              justifyContent: 'center',
-              color: 'var(--text-muted)',
-              textAlign: 'center',
-              padding: 'var(--space-6)',
-            }}>
-              <div style={{
-                width: 48,
-                height: 48,
-                borderRadius: '50%',
-                background: `${aliasColor}20`,
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                marginBottom: 'var(--space-3)',
-              }}>
-                <span style={{ fontSize: 20 }}>💬</span>
-              </div>
-              <div style={{ fontSize: 14, marginBottom: 'var(--space-2)' }}>
-                Chat with <span style={{ color: aliasColor, fontWeight: 500 }}>{assistant.alias}</span>
-              </div>
-              <div style={{ fontSize: 12 }}>
-                Send a message to start a conversation
-              </div>
-            </div>
-          )}
-
-          {messages.map((msg) => (
-            <ChatBubble key={msg.id} message={msg} aliasColor={aliasColor} assistantAlias={assistant.alias} />
-          ))}
-          <div ref={messagesEndRef} />
-        </div>
-
-        {/* Chat Input */}
-        <div style={{
-          padding: 'var(--space-4) var(--space-5)',
-          borderTop: '1px solid var(--border)',
-          background: 'var(--bg-muted)',
+          borderBottom: '1px solid var(--border)',
           flexShrink: 0,
         }}>
-          <div style={{
-            display: 'flex',
-            gap: 'var(--space-2)',
-            alignItems: 'flex-end',
-          }}>
-            <textarea
-              value={inputValue}
-              onChange={e => setInputValue(e.target.value)}
-              onKeyDown={handleKeyDown}
-              placeholder={`Ask ${assistant.alias} something...`}
-              rows={1}
-              style={{
-                flex: 1,
-                padding: 'var(--space-3) var(--space-4)',
-                background: 'var(--bg-elevated)',
-                border: '1px solid var(--border)',
-                borderRadius: 'var(--radius-md)',
-                color: 'var(--text-primary)',
-                fontSize: 14,
-                fontFamily: 'inherit',
-                resize: 'none',
-                outline: 'none',
-                minHeight: 42,
-                maxHeight: 120,
-              }}
-            />
-            <button
-              onClick={handleSend}
-              disabled={!inputValue.trim() || isStreaming}
-              style={{
-                padding: 'var(--space-3) var(--space-4)',
-                background: inputValue.trim() && !isStreaming ? 'var(--primary)' : 'var(--bg-elevated)',
-                border: '1px solid',
-                borderColor: inputValue.trim() && !isStreaming ? 'var(--primary)' : 'var(--border)',
-                borderRadius: 'var(--radius-md)',
-                color: inputValue.trim() && !isStreaming ? 'white' : 'var(--text-muted)',
-                fontSize: 14,
-                fontWeight: 500,
-                cursor: inputValue.trim() && !isStreaming ? 'pointer' : 'not-allowed',
-                transition: 'all 0.15s ease',
-                minHeight: 42,
-              }}
-            >
-              {isStreaming ? '...' : 'Send'}
-            </button>
-          </div>
-          <div style={{
-            fontSize: 11,
-            color: 'var(--text-muted)',
-            marginTop: 'var(--space-2)',
-            textAlign: 'center',
-          }}>
-            Press Enter to send
-          </div>
+          <button
+            onClick={() => setActiveTab('chat')}
+            style={{
+              flex: 1,
+              padding: 'var(--space-3)',
+              background: 'none',
+              border: 'none',
+              borderBottom: activeTab === 'chat' ? `2px solid ${aliasColor}` : '2px solid transparent',
+              color: activeTab === 'chat' ? 'var(--text-primary)' : 'var(--text-muted)',
+              fontWeight: activeTab === 'chat' ? 600 : 400,
+              fontSize: 13,
+              cursor: 'pointer',
+              transition: 'all 0.15s ease',
+            }}
+          >
+            💬 Chat
+          </button>
+          <button
+            onClick={() => setActiveTab('rules')}
+            style={{
+              flex: 1,
+              padding: 'var(--space-3)',
+              background: 'none',
+              border: 'none',
+              borderBottom: activeTab === 'rules' ? `2px solid ${aliasColor}` : '2px solid transparent',
+              color: activeTab === 'rules' ? 'var(--text-primary)' : 'var(--text-muted)',
+              fontWeight: activeTab === 'rules' ? 600 : 400,
+              fontSize: 13,
+              cursor: 'pointer',
+              transition: 'all 0.15s ease',
+            }}
+          >
+            📋 Rules ({assistant.routines})
+          </button>
         </div>
+
+        {/* Tab Content */}
+        {activeTab === 'chat' ? (
+          <>
+            {/* Chat Messages */}
+            <div style={{
+              flex: 1,
+              overflowY: 'auto',
+              padding: 'var(--space-4) var(--space-5)',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: 'var(--space-3)',
+              minHeight: 250,
+            }}>
+              {messages.length === 0 && (
+                <div style={{
+                  flex: 1,
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  color: 'var(--text-muted)',
+                  textAlign: 'center',
+                  padding: 'var(--space-6)',
+                }}>
+                  <div style={{
+                    width: 48,
+                    height: 48,
+                    borderRadius: '50%',
+                    background: `${aliasColor}20`,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    marginBottom: 'var(--space-3)',
+                  }}>
+                    <span style={{ fontSize: 20 }}>💬</span>
+                  </div>
+                  <div style={{ fontSize: 14, marginBottom: 'var(--space-2)' }}>
+                    Chat with <span style={{ color: aliasColor, fontWeight: 500 }}>{assistant.alias}</span>
+                  </div>
+                  <div style={{ fontSize: 12 }}>
+                    Send a message to start a conversation
+                  </div>
+                </div>
+              )}
+
+              {messages.map((msg) => (
+                <ChatBubble key={msg.id} message={msg} aliasColor={aliasColor} assistantAlias={assistant.alias} />
+              ))}
+              <div ref={messagesEndRef} />
+            </div>
+
+            {/* Chat Input */}
+            <div style={{
+              padding: 'var(--space-4) var(--space-5)',
+              borderTop: '1px solid var(--border)',
+              background: 'var(--bg-muted)',
+              flexShrink: 0,
+            }}>
+              <div style={{
+                display: 'flex',
+                gap: 'var(--space-2)',
+                alignItems: 'flex-end',
+              }}>
+                <textarea
+                  value={inputValue}
+                  onChange={e => setInputValue(e.target.value)}
+                  onKeyDown={handleKeyDown}
+                  placeholder={`Ask ${assistant.alias} something...`}
+                  rows={1}
+                  style={{
+                    flex: 1,
+                    padding: 'var(--space-3) var(--space-4)',
+                    background: 'var(--bg-elevated)',
+                    border: '1px solid var(--border)',
+                    borderRadius: 'var(--radius-md)',
+                    color: 'var(--text-primary)',
+                    fontSize: 14,
+                    fontFamily: 'inherit',
+                    resize: 'none',
+                    outline: 'none',
+                    minHeight: 42,
+                    maxHeight: 120,
+                  }}
+                />
+                <button
+                  onClick={handleSend}
+                  disabled={!inputValue.trim() || isStreaming}
+                  style={{
+                    padding: 'var(--space-3) var(--space-4)',
+                    background: inputValue.trim() && !isStreaming ? 'var(--primary)' : 'var(--bg-elevated)',
+                    border: '1px solid',
+                    borderColor: inputValue.trim() && !isStreaming ? 'var(--primary)' : 'var(--border)',
+                    borderRadius: 'var(--radius-md)',
+                    color: inputValue.trim() && !isStreaming ? 'white' : 'var(--text-muted)',
+                    fontSize: 14,
+                    fontWeight: 500,
+                    cursor: inputValue.trim() && !isStreaming ? 'pointer' : 'not-allowed',
+                    transition: 'all 0.15s ease',
+                    minHeight: 42,
+                  }}
+                >
+                  {isStreaming ? '...' : 'Send'}
+                </button>
+              </div>
+              <div style={{
+                fontSize: 11,
+                color: 'var(--text-muted)',
+                marginTop: 'var(--space-2)',
+                textAlign: 'center',
+              }}>
+                Press Enter to send
+              </div>
+            </div>
+          </>
+        ) : (
+          /* Rules Tab */
+          <div style={{
+            flex: 1,
+            overflowY: 'auto',
+            padding: 'var(--space-4) var(--space-5)',
+            minHeight: 250,
+          }}>
+            <RuleSetViewer ruleSet={assistant.ruleSet} aliasColor={aliasColor} />
+
+            {/* Capabilities Section */}
+            {assistant.capabilityList.length > 0 && (
+              <div style={{ marginTop: 'var(--space-4)' }}>
+                <div style={{
+                  fontSize: 11,
+                  color: 'var(--text-muted)',
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.5px',
+                  marginBottom: 'var(--space-2)',
+                }}>
+                  Capabilities
+                </div>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--space-2)' }}>
+                  {assistant.capabilityList.map(cap => (
+                    <span
+                      key={cap}
+                      style={{
+                        padding: 'var(--space-1) var(--space-2)',
+                        background: 'var(--bg-elevated)',
+                        border: '1px solid var(--border)',
+                        borderRadius: 'var(--radius-sm)',
+                        fontSize: 11,
+                        fontFamily: 'var(--font-mono)',
+                        color: 'var(--text-secondary)',
+                      }}
+                    >
+                      {cap}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );
