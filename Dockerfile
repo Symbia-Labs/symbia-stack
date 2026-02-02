@@ -61,14 +61,14 @@ COPY symbia-relay/ ./symbia-relay/
 COPY symbia-seed/ ./symbia-seed/
 COPY symbia-md/ ./symbia-md/
 
-# Build shared packages
+# Build shared packages (order matters - dependencies first)
 RUN npm run build -w symbia-sys \
     && npm run build -w symbia-db \
-    && npm run build -w symbia-http \
-    && npm run build -w symbia-auth \
     && npm run build -w symbia-id \
     && npm run build -w symbia-logging-client \
     && npm run build -w symbia-relay \
+    && npm run build -w symbia-auth \
+    && npm run build -w symbia-http \
     && npm run build -w symbia-seed \
     && npm run build -w symbia-md
 
