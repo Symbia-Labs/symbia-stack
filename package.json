@@ -1,0 +1,50 @@
+{
+  "name": "symbia-stack",
+  "version": "1.1.1",
+  "private": true,
+  "description": "Symbia Platform - AI Assistant Infrastructure",
+  "workspaces": [
+    "symbia-sys",
+    "symbia-auth",
+    "symbia-db",
+    "symbia-http",
+    "symbia-relay",
+    "symbia-logging-client",
+    "symbia-seed",
+    "symbia-md",
+    "symbia-id",
+    "symbia-messaging-client",
+    "identity",
+    "logging",
+    "catalog",
+    "messaging",
+    "network",
+    "runtime",
+    "assistants",
+    "integrations",
+    "service-admin"
+  ],
+  "scripts": {
+    "install:all": "npm install",
+    "build:libs": "npm run build -w symbia-sys && npm run build -w symbia-relay -w symbia-logging-client && npm run build -w symbia-auth -w symbia-db -w symbia-http -w symbia-seed -w symbia-md -w symbia-id -w symbia-messaging-client",
+    "build:services": "npm run build -w identity -w logging -w catalog -w messaging -w network -w runtime -w assistants -w integrations -w service-admin",
+    "build": "npm run build:libs && npm run build:services",
+    "dev": "./start-local.sh",
+    "dev:identity": "npm run dev -w identity",
+    "dev:logging": "npm run dev -w logging",
+    "dev:catalog": "npm run dev -w catalog",
+    "dev:messaging": "npm run dev -w messaging",
+    "dev:network": "npm run dev -w network",
+    "dev:runtime": "npm run dev -w runtime",
+    "dev:assistants": "npm run dev -w assistants",
+    "dev:integrations": "npm run dev -w integrations",
+    "dev:service-admin": "npm run dev -w service-admin",
+    "db:setup": "./start-local.sh --db-only",
+    "check": "npm run check --workspaces --if-present",
+    "clean": "rm -rf node_modules */node_modules */dist */.tsbuildinfo"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "license": "MIT"
+}
