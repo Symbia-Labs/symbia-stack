@@ -8,7 +8,7 @@
   "scripts": {
     "dev": "NODE_ENV=development tsx watch server/src/index.ts",
     "build": "tsx scripts/build.ts",
-    "start": "NODE_ENV=production node dist/index.cjs",
+    "start": "NODE_ENV=production node dist/index.mjs",
     "check": "tsc"
   },
   "dependencies": {

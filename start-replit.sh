@@ -112,7 +112,7 @@ start_service() {
   
   cd "$SCRIPT_DIR"
   
-  NODE_ENV=development \
+  NODE_ENV=production \
   PORT=$port \
   HOST=0.0.0.0 \
   SESSION_SECRET=$SESSION_SECRET \
@@ -125,7 +125,7 @@ start_service() {
   MESSAGING_SERVICE_URL=http://localhost:$MESSAGING_PORT \
   RUNTIME_SERVICE_URL=http://localhost:$RUNTIME_PORT \
   INTEGRATIONS_SERVICE_URL=http://localhost:$INTEGRATIONS_PORT \
-  npm run dev -w "$name" > "$PID_DIR/$name.log" 2>&1 &
+  npm run start -w "$name" > "$PID_DIR/$name.log" 2>&1 &
   
   local pid=$!
   echo $pid > "$PID_DIR/$name.pid"

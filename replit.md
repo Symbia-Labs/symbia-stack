@@ -70,3 +70,5 @@ The website frontend proxies API calls to these services via Vite:
 - Fixed TypeScript export issue in integrations/oauth/providers
 - Set up PostgreSQL database with all required schemas
 - Configured Vite on port 5000 with allowedHosts for Replit iframe
+- Updated all services to run in production mode (`node dist/index.mjs`)
+- Fixed package.json start scripts to use .mjs output from esbuild
