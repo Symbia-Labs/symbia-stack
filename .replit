@@ -86,9 +86,10 @@ localPort = 5054
 externalPort = 3001
 
 [deployment]
-deploymentTarget = "static"
-build = ["bash", "-c", "npm run build:libs && cd website && npm run build"]
+deploymentTarget = "vm"
+build = ["bash", "-c", "npm run build:libs && npm run build:services && cd website && npm run build"]
 publicDir = "website/dist"
+run = ["bash", "-c", "./start-replit.sh & cd website && npm run preview -- --host 0.0.0.0 --port 5000"]
 
 [userenv]
 
