@@ -44,3 +44,12 @@ symbia-control-center/
 tmp/
 temp/
 *.tmp
+
+# Backup files
+*.bak
+*.backup
+*~
+*.orig
+
+# Data backup files (from integrations)
+integrations/data/*-backup-*.json

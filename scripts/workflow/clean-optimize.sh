@@ -1,14 +1,23 @@
 #!/bin/bash
 # Clean repos, verify gitignore, optimize packages
-# Usage: ./clean-optimize.sh [--deep]
+# Usage: ./clean-optimize.sh [--deep] [--cruft] [--untrack]
+#
+# Options:
+#   --deep     Remove node_modules as well as dist
+#   --cruft    Remove untracked cruft files (.DS_Store, *.bak, etc.)
+#   --untrack  Remove backup files that are tracked in git (requires commit after)
 
 set -e
 ROOT_DIR="$(cd "$(dirname "$0")/../.." && pwd)"
 DEEP_CLEAN=false
+CRUFT_CLEAN=false
+UNTRACK_BACKUPS=false
 
 for arg in "$@"; do
   case $arg in
     --deep) DEEP_CLEAN=true ;;
+    --cruft) CRUFT_CLEAN=true ;;
+    --untrack) UNTRACK_BACKUPS=true ;;
   esac
 done
 
@@ -107,6 +116,61 @@ for dir in "${SERVICES[@]}"; do
     echo "  $dir/dist: $SIZE"
   fi
 done
+
+# Cruft cleanup - remove untracked temp/backup files
+if [[ "$CRUFT_CLEAN" == "true" ]]; then
+  echo ""
+  echo "--- Removing untracked cruft files ---"
+  cd "$ROOT_DIR"
+
+  # Remove .DS_Store files
+  DS_COUNT=$(find . -name ".DS_Store" -not -path "*/node_modules/*" 2>/dev/null | wc -l | tr -d ' ')
+  if [[ "$DS_COUNT" -gt 0 ]]; then
+    find . -name ".DS_Store" -not -path "*/node_modules/*" -delete 2>/dev/null
+    echo "  ✓ Removed $DS_COUNT .DS_Store files"
+  fi
+
+  # Remove *.bak files (untracked only)
+  BAK_FILES=$(find . -name "*.bak" -not -path "*/node_modules/*" 2>/dev/null)
+  if [[ -n "$BAK_FILES" ]]; then
+    for f in $BAK_FILES; do
+      if ! git ls-files --error-unmatch "$f" &>/dev/null; then
+        rm -f "$f"
+        echo "  ✓ Removed $f"
+      fi
+    done
+  fi
+
+  # Remove *~ backup files
+  TILDE_COUNT=$(find . -name "*~" -not -path "*/node_modules/*" 2>/dev/null | wc -l | tr -d ' ')
+  if [[ "$TILDE_COUNT" -gt 0 ]]; then
+    find . -name "*~" -not -path "*/node_modules/*" -delete 2>/dev/null
+    echo "  ✓ Removed $TILDE_COUNT ~ backup files"
+  fi
+
+  # Remove empty directories
+  find . -type d -empty -not -path "*/node_modules/*" -not -path "*/.git/*" -delete 2>/dev/null || true
+fi
+
+# Untrack backup files from git
+if [[ "$UNTRACK_BACKUPS" == "true" ]]; then
+  echo ""
+  echo "--- Removing tracked backup files from git ---"
+  cd "$ROOT_DIR"
+
+  # Find and remove tracked backup files
+  BACKUP_FILES=$(git ls-files | grep -E "\.backup$|backup-.*\.json$" || true)
+  if [[ -n "$BACKUP_FILES" ]]; then
+    for f in $BACKUP_FILES; do
+      git rm --cached "$f" 2>/dev/null && echo "  ✓ Untracked: $f"
+    done
+    echo ""
+    echo "  NOTE: Run 'git commit' to finalize removal from tracking"
+    echo "  The files still exist locally but won't be tracked in git"
+  else
+    echo "  No tracked backup files found"
+  fi
+fi
 
 echo ""
 echo "=== Clean complete ==="

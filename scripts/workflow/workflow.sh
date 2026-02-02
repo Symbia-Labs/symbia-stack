@@ -106,7 +106,9 @@ Commands:
                      - Check README.md
 
   clean [options]    Clean and optimize
-                     --deep  Also remove node_modules
+                     --deep     Also remove node_modules
+                     --cruft    Remove untracked cruft (.DS_Store, *.bak)
+                     --untrack  Remove tracked backup files from git
 
   commit [message]   Create local commit
                      - Auto-generates message if not provided
