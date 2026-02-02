@@ -529,6 +529,49 @@ export function SymbiaScriptDemo() {
             </div>
           </div>
 
+          {/* API Example */}
+          <div className="api-example">
+            <div className="api-example-header">
+              <span className="api-example-label">API Equivalent</span>
+              <span className="api-example-hint">How this resolves via the Symbia API</span>
+            </div>
+            <div className="api-example-content">
+              <div className="api-request">
+                <div className="api-method">POST</div>
+                <div className="api-url">/api/script/resolve</div>
+              </div>
+              <pre className="api-body">{`{
+  "ref": "${input}",
+  "context": {
+    "userId": "${context.user.id}",
+    "orgId": "${context.org.id}",
+    "conversationId": "${context.context.conversationId}"
+  }
+}`}</pre>
+              <div className="api-response-header">
+                <span className="api-response-label">Response</span>
+                <span className={`api-status ${resolved.success ? 'success' : 'error'}`}>
+                  {resolved.success ? '200 OK' : '400 Error'}
+                </span>
+              </div>
+              <pre className={`api-response ${resolved.success ? 'success' : 'error'}`}>{resolved.success
+                ? `{
+  "success": true,
+  "value": ${typeof resolved.value === 'string' ? `"${resolved.value}"` : JSON.stringify(resolved.value, null, 2)},
+  "type": "${typeof resolved.value}",
+  "ref": {
+    "namespace": "${parsed.namespace}",
+    "path": "${parsed.path}"
+  }
+}`
+                : `{
+  "success": false,
+  "error": "${resolved.error}",
+  "ref": "${input}"
+}`}</pre>
+            </div>
+          </div>
+
           {/* Quick Examples */}
           <div className="quick-examples">
             <div className="examples-label">Try these:</div>
