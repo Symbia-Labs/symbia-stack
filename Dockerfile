@@ -60,7 +60,6 @@ COPY symbia-logging-client/ ./symbia-logging-client/
 COPY symbia-relay/ ./symbia-relay/
 COPY symbia-seed/ ./symbia-seed/
 COPY symbia-md/ ./symbia-md/
-COPY tsconfig.base.json ./
 
 # Build shared packages
 RUN npm run build -w symbia-sys \
@@ -86,6 +85,12 @@ COPY ${SERVICE}/ ./${SERVICE}/
 # Build the service
 RUN npm run build -w ${SERVICE}
 
+# Prepare clean output (handles optional data/docs directories)
+RUN mkdir -p /output \
+    && cp -r ${SERVICE}/dist /output/dist \
+    && (cp -r ${SERVICE}/data /output/data 2>/dev/null || true) \
+    && (cp -r ${SERVICE}/docs /output/docs 2>/dev/null || true)
+
 # =============================================================================
 # Stage 4: Production image
 # =============================================================================
@@ -97,12 +102,8 @@ ENV NODE_ENV=production
 
 WORKDIR /app
 
-# Install runtime dependencies for models service (node-llama-cpp)
-RUN if [ "$SERVICE" = "models" ]; then \
-    apt-get update && apt-get install -y \
-    libgomp1 \
-    && rm -rf /var/lib/apt/lists/*; \
-    fi
+# Install wget for healthcheck
+RUN apt-get update && apt-get install -y wget && rm -rf /var/lib/apt/lists/*
 
 # Copy package files
 COPY package.json package-lock.json ./
@@ -120,7 +121,7 @@ COPY ${SERVICE}/package.json ./${SERVICE}/
 # Install production dependencies only
 RUN npm ci --omit=dev
 
-# Copy built artifacts
+# Copy built shared packages
 COPY --from=builder /app/symbia-sys/dist ./symbia-sys/dist
 COPY --from=builder /app/symbia-db/dist ./symbia-db/dist
 COPY --from=builder /app/symbia-http/dist ./symbia-http/dist
@@ -130,12 +131,10 @@ COPY --from=builder /app/symbia-logging-client/dist ./symbia-logging-client/dist
 COPY --from=builder /app/symbia-relay/dist ./symbia-relay/dist
 COPY --from=builder /app/symbia-seed/dist ./symbia-seed/dist
 COPY --from=builder /app/symbia-md/dist ./symbia-md/dist
-COPY --from=builder /app/${SERVICE}/dist ./${SERVICE}/dist
 
-# Copy data files for catalog service
-COPY --from=builder /app/${SERVICE}/data* ./${SERVICE}/ 2>/dev/null || true
+# Copy service build output (dist, and data/docs if they exist)
+COPY --from=builder /output/ ./${SERVICE}/
 
-# Set the entrypoint based on service
 EXPOSE 5001 5002 5003 5004 5005 5006 5007 5008 5054
 
 CMD ["sh", "-c", "node ${SERVICE}/dist/index.js"]
