@@ -85,12 +85,8 @@ jobs:
             PUBLIC="false"
           fi
 
-          # Determine Dockerfile
-          if [[ "$SERVICE" == "models" ]]; then
-            DOCKERFILE="models/Dockerfile"
-          else
-            DOCKERFILE="$SERVICE/Dockerfile"
-          fi
+          # Use root Dockerfile with SERVICE build arg
+          DOCKERFILE="Dockerfile"
 
           # Memory for models service
           if [[ "$SERVICE" == "models" ]]; then
@@ -109,11 +105,14 @@ jobs:
 
           [build]
             dockerfile = "$DOCKERFILE"
+            [build.args]
+              SERVICE = "$SERVICE"
 
           [env]
             NODE_ENV = "production"
             PORT = "$PORT"
             HOST = "0.0.0.0"
+            IDENTITY_USE_MEMORY_DB = "true"
             IDENTITY_SERVICE_URL = "http://symbia-identity.internal:5001"
             LOGGING_SERVICE_URL = "http://symbia-logging.internal:5002"
             CATALOG_SERVICE_URL = "http://symbia-catalog.internal:5003"

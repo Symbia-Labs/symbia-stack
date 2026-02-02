@@ -55,124 +55,26 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      - name: Build base image
-        uses: docker/build-push-action@v5
-        with:
-          context: .
-          file: docker/Dockerfile.base
-          push: false
-          load: true
-          tags: symbia-base:latest
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+      - name: Build and push all services
+        env:
+          IMAGE_TAG: ${{ steps.meta.outputs.tag }}
+        run: |
+          SERVICES=(identity logging catalog assistants messaging runtime integrations network models)
 
-      - name: Build and push identity
-        uses: docker/build-push-action@v5
-        with:
-          context: .
-          file: identity/Dockerfile
-          push: true
-          tags: |
-            ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/identity:${{ steps.meta.outputs.tag }}
-            ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/identity:latest
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          for service in "${SERVICES[@]}"; do
+            echo "=== Building $service ==="
 
-      - name: Build and push logging
-        uses: docker/build-push-action@v5
-        with:
-          context: .
-          file: logging/Dockerfile
-          push: true
-          tags: |
-            ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/logging:${{ steps.meta.outputs.tag }}
-            ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/logging:latest
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+            # Build using root Dockerfile with SERVICE build arg
+            docker build -t "$REGISTRY/$IMAGE_PREFIX/$service:$IMAGE_TAG" \
+                         -t "$REGISTRY/$IMAGE_PREFIX/$service:latest" \
+                         --build-arg SERVICE="$service" \
+                         -f Dockerfile .
 
-      - name: Build and push catalog
-        uses: docker/build-push-action@v5
-        with:
-          context: .
-          file: catalog/Dockerfile
-          push: true
-          tags: |
-            ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/catalog:${{ steps.meta.outputs.tag }}
-            ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/catalog:latest
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+            docker push "$REGISTRY/$IMAGE_PREFIX/$service:$IMAGE_TAG"
+            docker push "$REGISTRY/$IMAGE_PREFIX/$service:latest"
 
-      - name: Build and push assistants
-        uses: docker/build-push-action@v5
-        with:
-          context: .
-          file: assistants/Dockerfile
-          push: true
-          tags: |
-            ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/assistants:${{ steps.meta.outputs.tag }}
-            ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/assistants:latest
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-
-      - name: Build and push messaging
-        uses: docker/build-push-action@v5
-        with:
-          context: .
-          file: messaging/Dockerfile
-          push: true
-          tags: |
-            ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/messaging:${{ steps.meta.outputs.tag }}
-            ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/messaging:latest
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-
-      - name: Build and push runtime
-        uses: docker/build-push-action@v5
-        with:
-          context: .
-          file: runtime/Dockerfile
-          push: true
-          tags: |
-            ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/runtime:${{ steps.meta.outputs.tag }}
-            ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/runtime:latest
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-
-      - name: Build and push integrations
-        uses: docker/build-push-action@v5
-        with:
-          context: .
-          file: integrations/Dockerfile
-          push: true
-          tags: |
-            ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/integrations:${{ steps.meta.outputs.tag }}
-            ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/integrations:latest
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-
-      - name: Build and push network
-        uses: docker/build-push-action@v5
-        with:
-          context: .
-          file: network/Dockerfile
-          push: true
-          tags: |
-            ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/network:${{ steps.meta.outputs.tag }}
-            ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/network:latest
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-
-      - name: Build and push models
-        uses: docker/build-push-action@v5
-        with:
-          context: .
-          file: models/Dockerfile
-          push: true
-          tags: |
-            ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/models:${{ steps.meta.outputs.tag }}
-            ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/models:latest
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+            echo "✓ $service pushed"
+          done
 
   deploy:
     name: Deploy to VPS

@@ -59,17 +59,6 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      - name: Build base image
-        uses: docker/build-push-action@v5
-        with:
-          context: .
-          file: docker/Dockerfile.base
-          push: false
-          load: true
-          tags: symbia-base:latest
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-
       - name: Build and push service images
         env:
           ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
@@ -90,17 +79,11 @@ jobs:
           for service in "${SERVICES[@]}"; do
             echo "=== Building $service ==="
 
-            # Determine Dockerfile path
-            if [ "$service" = "models" ]; then
-              DOCKERFILE="models/Dockerfile"
-            else
-              DOCKERFILE="$service/Dockerfile"
-            fi
-
-            # Build and push
+            # Build using root Dockerfile with SERVICE build arg
             docker build -t "$ECR_REGISTRY/$ECR_REPOSITORY_PREFIX/$service:$IMAGE_TAG" \
                          -t "$ECR_REGISTRY/$ECR_REPOSITORY_PREFIX/$service:latest" \
-                         -f "$DOCKERFILE" .
+                         --build-arg SERVICE="$service" \
+                         -f Dockerfile .
 
             docker push "$ECR_REGISTRY/$ECR_REPOSITORY_PREFIX/$service:$IMAGE_TAG"
             docker push "$ECR_REGISTRY/$ECR_REPOSITORY_PREFIX/$service:latest"
