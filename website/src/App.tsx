@@ -58,7 +58,7 @@ function App() {
               <path d="M8 16c0-4.4 3.6-8 8-8s8 3.6 8 8-3.6 8-8 8" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
               <circle cx="16" cy="16" r="3" fill="currentColor"/>
             </svg>
-            Symbia
+            Symbia Labs
           </a>
 
           <div className="nav-links">
@@ -79,13 +79,13 @@ function App() {
       <section className="hero">
         <div className="container hero-grid">
           <div className="hero-content">
-            <span className="hero-eyebrow">AI-Native Infrastructure</span>
+            <span className="hero-eyebrow">Infrastructure for the Agentic Era</span>
             <h1 className="hero-title">
-              Build systems where AI is a first-class citizen
+              The Backend for AI-Native Applications
             </h1>
             <p className="hero-subtitle">
-              Symbia is the platform for building systems where AI assistants are first-class principals.
-              Authentication, orchestration, and observability designed for AI-native architectures.
+              AI isn't just an API call — it's a principal. Symbia provides identity, orchestration,
+              and observability for systems where AI agents are first-class actors.
             </p>
             <div className="hero-actions">
               <a href={`${GITHUB_DOCS}/README.md#getting-started`} className="btn btn-primary btn-lg" target="_blank" rel="noopener noreferrer">
