@@ -145,4 +145,4 @@ COPY --from=builder /output/ ./${SERVICE}/
 
 EXPOSE 5001 5002 5003 5004 5005 5006 5007 5008 5054
 
-CMD ["sh", "-c", "node ${SERVICE}/dist/index.js"]
+CMD ["sh", "-c", "npm run start -w ${SERVICE}"]
