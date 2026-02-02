@@ -175,7 +175,7 @@ async function registerRoutes(_server: HttpServer, app: Express): Promise<void> 
 
   // Demo chat endpoint for website (no auth required)
   // This allows anonymous users to chat with assistants via the website
-  app.post('/api/messaging/send', async (req, res) => {
+  app.post('/api/send', async (req, res) => {
     const { content, assistant, channel } = req.body;
     
     if (!content) {
