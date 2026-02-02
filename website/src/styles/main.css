@@ -1201,34 +1201,246 @@
       padding: var(--space-2) var(--space-3);
     }
 
-    /* Context Preview */
-    .context-preview {
-      padding: var(--space-4) var(--space-5);
+    /* Context Editor */
+    .context-editor {
       border-top: 1px solid var(--border);
       background: var(--bg-base);
     }
 
-    .context-preview summary {
+    .context-editor-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: var(--space-4) var(--space-5);
       cursor: pointer;
-      font-size: 12px;
-      color: var(--text-muted);
       user-select: none;
+      transition: background var(--transition-fast);
     }
 
-    .context-preview summary:hover {
+    .context-editor-header:hover {
+      background: var(--bg-muted);
+    }
+
+    .context-editor-title {
+      display: flex;
+      align-items: center;
+      gap: var(--space-2);
+      font-size: 13px;
+      font-weight: 600;
       color: var(--text-secondary);
     }
 
-    .context-preview pre {
-      margin-top: var(--space-3);
+    .context-chevron {
+      width: 16px;
+      height: 16px;
+      transition: transform var(--transition-fast);
+    }
+
+    .context-chevron.expanded {
+      transform: rotate(90deg);
+    }
+
+    .context-editor-hint {
+      font-size: 11px;
+      font-weight: 400;
+      color: var(--text-muted);
+    }
+
+    .context-editor-actions {
+      display: flex;
+      align-items: center;
+      gap: var(--space-2);
+    }
+
+    .context-mode-btn {
+      padding: var(--space-1) var(--space-3);
+      background: var(--bg-muted);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      font-size: 11px;
+      font-weight: 500;
+      color: var(--text-muted);
+      cursor: pointer;
+      transition: all var(--transition-fast);
+    }
+
+    .context-mode-btn:hover {
+      border-color: var(--primary);
+      color: var(--text-secondary);
+    }
+
+    .context-mode-btn.active {
+      background: var(--primary);
+      border-color: var(--primary);
+      color: white;
+    }
+
+    .context-reset-btn {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 28px;
+      height: 28px;
+      background: var(--bg-muted);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      color: var(--text-muted);
+      cursor: pointer;
+      transition: all var(--transition-fast);
+    }
+
+    .context-reset-btn:hover {
+      border-color: var(--secondary);
+      color: var(--secondary);
+    }
+
+    .context-reset-btn svg {
+      width: 14px;
+      height: 14px;
+    }
+
+    .context-editor-content {
+      padding: 0 var(--space-5) var(--space-5);
+    }
+
+    /* Context Fields Mode */
+    .context-fields {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: var(--space-4);
+    }
+
+    .context-namespace {
+      background: var(--bg-muted);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+      overflow: hidden;
+    }
+
+    .context-namespace-header {
+      display: flex;
+      align-items: center;
+      gap: var(--space-2);
+      padding: var(--space-3) var(--space-4);
+      background: var(--bg-subtle);
+      border-bottom: 1px solid var(--border);
+    }
+
+    .context-ns-icon {
+      font-size: 14px;
+    }
+
+    .context-ns-name {
+      font-size: 12px;
+      font-weight: 600;
+      font-family: var(--font-mono);
+      color: var(--primary);
+    }
+
+    .context-namespace-fields {
+      padding: var(--space-3) var(--space-4);
+      display: flex;
+      flex-direction: column;
+      gap: var(--space-2);
+    }
+
+    /* Editable Field */
+    .editable-field {
+      display: flex;
+      align-items: center;
+      gap: var(--space-3);
+    }
+
+    .editable-field-label {
+      font-size: 11px;
+      font-family: var(--font-mono);
+      color: var(--text-muted);
+      min-width: 120px;
+      flex-shrink: 0;
+    }
+
+    .editable-field-value {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      gap: var(--space-2);
+      padding: var(--space-1) var(--space-2);
+      background: var(--bg-base);
+      border: 1px solid transparent;
+      border-radius: var(--radius-sm);
+      font-size: 13px;
+      font-family: var(--font-mono);
+      color: var(--text);
+      cursor: pointer;
+      transition: all var(--transition-fast);
+      min-height: 28px;
+    }
+
+    .editable-field-value:hover {
+      border-color: var(--primary);
+      background: var(--bg-elevated);
+    }
+
+    .editable-field-value .edit-icon {
+      width: 12px;
+      height: 12px;
+      color: var(--text-muted);
+      opacity: 0;
+      transition: opacity var(--transition-fast);
+      flex-shrink: 0;
+    }
+
+    .editable-field-value:hover .edit-icon {
+      opacity: 1;
+    }
+
+    .editable-field-input {
+      flex: 1;
+      padding: var(--space-1) var(--space-2);
+      background: var(--bg-base);
+      border: 1px solid var(--primary);
+      border-radius: var(--radius-sm);
+      font-size: 13px;
+      font-family: var(--font-mono);
+      color: var(--text);
+      outline: none;
+      box-shadow: 0 0 0 3px var(--accent-glow);
+      min-height: 28px;
+    }
+
+    /* Context JSON Mode */
+    .context-json {
+      display: flex;
+      flex-direction: column;
+      gap: var(--space-2);
+    }
+
+    .context-json-error {
+      padding: var(--space-2) var(--space-3);
+      background: color-mix(in srgb, #f85149 10%, transparent);
+      border: 1px solid #f85149;
+      border-radius: var(--radius-sm);
+      font-size: 12px;
+      color: #f85149;
+    }
+
+    .context-json-editor {
+      width: 100%;
+      min-height: 300px;
       padding: var(--space-4);
       background: var(--bg-muted);
       border: 1px solid var(--border);
       border-radius: var(--radius-md);
-      font-size: 11px;
-      overflow-x: auto;
-      max-height: 300px;
-      overflow-y: auto;
+      font-size: 12px;
+      font-family: var(--font-mono);
+      color: var(--text);
+      resize: vertical;
+      line-height: 1.5;
+    }
+
+    .context-json-editor:focus {
+      outline: none;
+      border-color: var(--primary);
     }
 
     /* RESPONSIVE */
