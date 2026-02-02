@@ -25,6 +25,7 @@ ASSISTANTS_PORT="${ASSISTANTS_PORT:-5004}"
 MESSAGING_PORT="${MESSAGING_PORT:-5005}"
 RUNTIME_PORT="${RUNTIME_PORT:-5006}"
 INTEGRATIONS_PORT="${INTEGRATIONS_PORT:-5007}"
+MODELS_PORT="${MODELS_PORT:-5008}"
 NETWORK_PORT="${NETWORK_PORT:-5054}"
 
 PID_DIR="${SCRIPT_DIR}/.local-pids"
@@ -178,6 +179,7 @@ sleep 3
 
 start_service "runtime" "$RUNTIME_PORT"
 start_service "integrations" "$INTEGRATIONS_PORT"
+start_service "models" "$MODELS_PORT"
 start_service "assistants" "$ASSISTANTS_PORT"
 
 sleep 5

@@ -173,6 +173,106 @@ async function registerRoutes(_server: HttpServer, app: Express): Promise<void> 
     }
   });
 
+  // Demo chat endpoint for website (no auth required)
+  // This allows anonymous users to chat with assistants via the website
+  app.post('/api/messaging/send', async (req, res) => {
+    const { content, assistant, channel } = req.body;
+    
+    if (!content) {
+      res.status(400).json({ error: 'content is required' });
+      return;
+    }
+
+    const assistantKey = assistant || 'coordinator';
+    const integrationsUrl = process.env.INTEGRATIONS_URL || 'http://localhost:5007';
+
+    // Get assistant context from catalog to build proper system prompt
+    let systemPrompt = `You are ${assistantKey}, a helpful AI assistant on the Symbia platform.`;
+    try {
+      const catalogUrl = process.env.CATALOG_URL || 'http://localhost:5003';
+      const catalogRes = await fetch(`${catalogUrl}/api/bootstrap`);
+      if (catalogRes.ok) {
+        const resources = await catalogRes.json() as Array<{ key: string; type: string; description?: string; metadata?: Record<string, unknown> }>;
+        const assistantResource = resources.find(r => 
+          r.type === 'assistant' && 
+          (r.key === assistantKey || r.key === `assistants/${assistantKey}` || r.metadata?.alias === assistantKey)
+        );
+        if (assistantResource?.description) {
+          systemPrompt = `You are ${assistantKey}, an AI assistant. ${assistantResource.description}. Be helpful, concise, and friendly.`;
+        }
+      }
+    } catch (e) {
+      // Use default prompt
+    }
+
+    try {
+      // Set SSE headers
+      res.setHeader('Content-Type', 'text/event-stream');
+      res.setHeader('Cache-Control', 'no-cache');
+      res.setHeader('Connection', 'keep-alive');
+      res.flushHeaders();
+
+      // Call integrations service to get LLM response using HuggingFace
+      const internalSecret = process.env.INTERNAL_SERVICE_SECRET || 'symbia-internal-dev-secret';
+      const llmResponse = await fetch(`${integrationsUrl}/api/internal/execute`, {
+        method: 'POST',
+        headers: { 
+          'Content-Type': 'application/json',
+          'X-Service-Id': 'messaging',
+          'X-Internal-Auth': internalSecret,
+        },
+        body: JSON.stringify({
+          provider: 'huggingface',
+          operation: 'chat.completions',
+          params: {
+            model: 'meta-llama/Llama-3.2-3B-Instruct',
+            messages: [
+              { role: 'system', content: systemPrompt },
+              { role: 'user', content }
+            ],
+            temperature: 0.7,
+            maxTokens: 512,
+          }
+        }),
+      });
+
+      if (!llmResponse.ok) {
+        const errorText = await llmResponse.text();
+        console.error('[Demo Chat] LLM error:', errorText);
+        res.write(`data: ${JSON.stringify({ error: 'LLM request failed', details: errorText })}\n\n`);
+        res.end();
+        return;
+      }
+
+      const result = await llmResponse.json() as { 
+        choices?: Array<{ message?: { content?: string } }>;
+        content?: string; 
+        error?: string;
+      };
+      
+      // Extract content from OpenAI-compatible format or direct content
+      const responseContent = result.choices?.[0]?.message?.content || result.content;
+      
+      if (responseContent) {
+        // Stream the response word by word for a more natural feel
+        const words = responseContent.split(' ');
+        for (let i = 0; i < words.length; i++) {
+          const word = words[i] + (i < words.length - 1 ? ' ' : '');
+          res.write(`data: ${JSON.stringify({ content: word })}\n\n`);
+          // Small delay between words for streaming effect
+          await new Promise(r => setTimeout(r, 20));
+        }
+      }
+
+      res.write(`data: ${JSON.stringify({ done: true })}\n\n`);
+      res.end();
+    } catch (error) {
+      console.error('[Demo Chat] Error:', error);
+      res.write(`data: ${JSON.stringify({ error: 'Chat failed', details: String(error) })}\n\n`);
+      res.end();
+    }
+  });
+
   // API routes
   app.use('/api/conversations', conversationsRouter);
   app.use('/api/auth', authRouter);
