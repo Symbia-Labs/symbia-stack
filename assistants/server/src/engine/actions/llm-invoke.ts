@@ -11,6 +11,7 @@ export interface LLMInvokeParams {
   model?: string;
   systemPrompt?: string;
   promptTemplate?: string;
+  userPrompt?: string; // Alias for promptTemplate
   temperature?: number;
   maxTokens?: number;
   contextFields?: string[];
@@ -42,6 +43,16 @@ export class LLMInvokeHandler extends BaseActionHandler {
         console.log(`[LLMInvoke] Stored result in context.${params.resultKey}:`, contextValue);
       }
 
+      // Also store in steps for template reference (like tool.invoke does)
+      const actionId = (config as { id?: string }).id;
+      if (actionId) {
+        if (!context.context.steps) {
+          context.context.steps = {};
+        }
+        (context.context.steps as Record<string, unknown>)[actionId] = { response: response.content };
+        console.log(`[LLMInvoke] Stored result in steps.${actionId}.response`);
+      }
+
       return this.success({
         response: response.content,
         model: response.model,
@@ -59,8 +70,8 @@ export class LLMInvokeHandler extends BaseActionHandler {
   }
 
   private buildPrompt(params: LLMInvokeParams, context: ExecutionContext): string {
-    // Default template for backwards compatibility
-    const template = params.promptTemplate || '{{message.content}}';
+    // Support both promptTemplate and userPrompt (alias)
+    const template = params.promptTemplate || params.userPrompt || '{{message.content}}';
 
     // Use unified Symbia Script interpolation
     // Supports both {{@user.name}} and legacy {{message.content}} syntax

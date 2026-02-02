@@ -5,6 +5,7 @@ import { interpolate } from '../template.js';
 export interface MessageSendParams {
   content?: string;
   contentTemplate?: string;
+  template?: string; // Alias for contentTemplate
   role?: 'assistant' | 'system' | 'agent';
   channel?: string;
   metadata?: Record<string, unknown>;
@@ -20,8 +21,8 @@ export class MessageSendHandler extends BaseActionHandler {
     try {
       let content = params.content || '';
 
-      // Use contentTemplate if provided, otherwise use content
-      const template = params.contentTemplate || content;
+      // Use template or contentTemplate if provided, otherwise use content
+      const template = params.template || params.contentTemplate || content;
 
       // Interpolate using unified Symbia Script system
       // Supports both {{@user.name}} and legacy {{message.content}} syntax

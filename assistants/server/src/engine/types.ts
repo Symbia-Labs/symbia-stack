@@ -65,7 +65,10 @@ export type ConditionOperator =
   | 'in'
   | 'not_in'
   | 'exists'
-  | 'not_exists';
+  | 'not_exists'
+  | 'length_gte'
+  | 'length_lte'
+  | 'length_eq';
 
 export interface Condition {
   field: string;

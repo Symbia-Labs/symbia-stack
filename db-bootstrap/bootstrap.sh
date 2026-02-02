@@ -71,11 +71,12 @@ to_idempotent() {
   # - CREATE INDEX -> CREATE INDEX IF NOT EXISTS
   # - CREATE UNIQUE INDEX -> CREATE UNIQUE INDEX IF NOT EXISTS
   # - CREATE TYPE ... AS ENUM -> DO-block ignoring duplicate_object
+  # Note: Only add IF NOT EXISTS if not already present (avoid duplication)
   sed -r \
     -e 's/^CREATE TYPE "([^"]+)" AS ENUM (.*);$/DO $$ BEGIN CREATE TYPE "\1" AS ENUM \2; EXCEPTION WHEN duplicate_object THEN NULL; END $$;/g' \
-    -e 's/CREATE TABLE "/CREATE TABLE IF NOT EXISTS "/g' \
-    -e 's/CREATE UNIQUE INDEX /CREATE UNIQUE INDEX IF NOT EXISTS /g' \
-    -e 's/CREATE INDEX /CREATE INDEX IF NOT EXISTS /g'
+    -e 's/CREATE TABLE "([^"]+)"/CREATE TABLE IF NOT EXISTS "\1"/g' \
+    -e 's/CREATE UNIQUE INDEX ([^I][^F])/CREATE UNIQUE INDEX IF NOT EXISTS \1/g' \
+    -e 's/CREATE INDEX ([^I][^F])/CREATE INDEX IF NOT EXISTS \1/g'
 }
 
 apply_schema_file() {

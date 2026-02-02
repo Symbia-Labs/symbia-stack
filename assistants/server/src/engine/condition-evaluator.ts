@@ -119,7 +119,34 @@ function evaluateOperator(fieldValue: unknown, operator: ConditionOperator, cond
     
     case 'not_exists':
       return fieldValue === undefined || fieldValue === null;
-    
+
+    case 'length_gte':
+      if (typeof fieldValue === 'string' && typeof conditionValue === 'number') {
+        return fieldValue.length >= conditionValue;
+      }
+      if (Array.isArray(fieldValue) && typeof conditionValue === 'number') {
+        return fieldValue.length >= conditionValue;
+      }
+      return false;
+
+    case 'length_lte':
+      if (typeof fieldValue === 'string' && typeof conditionValue === 'number') {
+        return fieldValue.length <= conditionValue;
+      }
+      if (Array.isArray(fieldValue) && typeof conditionValue === 'number') {
+        return fieldValue.length <= conditionValue;
+      }
+      return false;
+
+    case 'length_eq':
+      if (typeof fieldValue === 'string' && typeof conditionValue === 'number') {
+        return fieldValue.length === conditionValue;
+      }
+      if (Array.isArray(fieldValue) && typeof conditionValue === 'number') {
+        return fieldValue.length === conditionValue;
+      }
+      return false;
+
     default:
       return false;
   }

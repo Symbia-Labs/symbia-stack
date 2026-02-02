@@ -53,6 +53,10 @@ export function toResolutionContext(ctx: ExecutionContext): ResolutionContext {
 
     // Pass through catalog data if available
     catalog: ctx.catalog,
+
+    // Expose steps at top level for template access ({{steps.step-id.result}})
+    // This allows action results to be referenced by subsequent actions
+    steps: (ctx.context as { steps?: Record<string, unknown> })?.steps,
   };
 }
 

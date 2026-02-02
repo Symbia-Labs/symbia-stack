@@ -294,7 +294,7 @@
               "logic": "and",
               "conditions": [
                 { "field": "message.content", "operator": "exists", "value": true },
-                { "field": "message.content", "operator": "matches", "value": "(?i)\\d+\\.?\\d*\\s*\\w+\\s+(to|in|as)\\s+\\w+" }
+                { "field": "message.content", "operator": "matches", "value": "\\d+\\.?\\d*\\s*\\w+\\s+(to|in|as)\\s+\\w+" }
               ]
             },
             "actions": [
@@ -331,7 +331,7 @@
               "logic": "and",
               "conditions": [
                 { "field": "message.content", "operator": "exists", "value": true },
-                { "field": "message.content", "operator": "not_matches", "value": "(?i)\\d+.*to\\s+\\w+" }
+                { "field": "message.content", "operator": "not_matches", "value": "\\d+.*to\\s+\\w+" }
               ]
             },
             "actions": [

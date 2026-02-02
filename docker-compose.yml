@@ -116,6 +116,7 @@ services:
       DATABASE_URL: postgresql://symbia:symbia_dev@postgres:5432/messaging
       IDENTITY_SERVICE_URL: http://identity:5001
       LOGGING_SERVICE_URL: http://logging:5002
+      ASSISTANTS_SERVICE_URL: http://assistants:5004
     ports:
       - "5005:5005"
     depends_on:
@@ -189,6 +190,9 @@ services:
       CATALOG_SERVICE_URL: http://catalog:5003
       LOGGING_SERVICE_URL: http://logging:5002
       INTEGRATIONS_SERVICE_URL: http://integrations:5007
+      MESSAGING_SERVICE_URL: http://messaging:5005
+      MESSAGING_ENDPOINT: http://messaging:5005
+      CATALOG_BASE_URL: http://catalog:5003
     ports:
       - "5004:5004"
     depends_on:
