@@ -1,15 +1,15 @@
-# fly.toml app configuration file generated for symbia-stack on 2026-02-02T18:09:18Z
+# fly.toml app configuration file generated for symbia-stack on 2026-02-02T18:30:26Z
 #
 # See https://fly.io/docs/reference/configuration/ for information about how to use this file.
 #
 
 app = 'symbia-stack'
-primary_region = 'iad'
+primary_region = 'ewr'
 
 [build]
 
 [http_service]
-  internal_port = 5001
+  internal_port = 8080
   force_https = true
   auto_stop_machines = 'stop'
   auto_start_machines = true
