@@ -126,10 +126,11 @@ export function useAssistants() {
     async function fetchAssistants() {
       try {
         const catalog = createCatalogClient({ endpoint: '/svc/catalog' });
-        // Fetch all assistants (published and bootstrap), not just published
-        const result = await catalog.listAssistants();
+        // Use public bootstrap endpoint (no auth required) and filter for assistants
+        const allResources = await catalog.getBootstrap();
+        const assistantResources = allResources.filter(r => r.type === 'assistant') as AssistantResource[];
         if (mounted) {
-          setAssistants(result);
+          setAssistants(assistantResources);
           setLoading(false);
         }
       } catch (e) {
