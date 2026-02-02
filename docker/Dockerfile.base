@@ -8,6 +8,7 @@ WORKDIR /symbia-libs
 
 # Copy all library package files
 COPY symbia-sys/package*.json ./symbia-sys/
+COPY symbia-auth/package*.json ./symbia-auth/
 COPY symbia-db/package*.json ./symbia-db/
 COPY symbia-http/package*.json ./symbia-http/
 COPY symbia-relay/package*.json ./symbia-relay/
@@ -19,6 +20,7 @@ COPY symbia-messaging-client/package*.json ./symbia-messaging-client/
 
 # Install all library dependencies in parallel
 RUN cd symbia-sys && npm ci --ignore-scripts & \
+    cd symbia-auth && npm ci --ignore-scripts & \
     cd symbia-db && npm ci --ignore-scripts & \
     cd symbia-http && npm ci --ignore-scripts & \
     cd symbia-relay && npm ci --ignore-scripts & \
@@ -31,6 +33,7 @@ RUN cd symbia-sys && npm ci --ignore-scripts & \
 
 # Copy library source files
 COPY symbia-sys/ ./symbia-sys/
+COPY symbia-auth/ ./symbia-auth/
 COPY symbia-db/ ./symbia-db/
 COPY symbia-http/ ./symbia-http/
 COPY symbia-relay/ ./symbia-relay/
@@ -47,6 +50,7 @@ RUN cd symbia-relay && npm run build || true
 RUN cd symbia-logging-client && npm run build || true
 
 # Level 1: Depends on Level 0
+RUN cd symbia-auth && npm run build || true
 RUN cd symbia-db && npm run build || true
 RUN cd symbia-http && npm run build || true
 RUN cd symbia-seed && npm run build || true

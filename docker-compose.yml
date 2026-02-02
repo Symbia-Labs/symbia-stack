@@ -73,6 +73,8 @@ services:
     depends_on:
       identity:
         condition: service_healthy
+      network:
+        condition: service_healthy
       db-bootstrap:
         condition: service_completed_successfully
     healthcheck:
@@ -96,6 +98,8 @@ services:
       - "5003:5003"
     depends_on:
       identity:
+        condition: service_healthy
+      network:
         condition: service_healthy
       db-bootstrap:
         condition: service_completed_successfully
@@ -121,6 +125,8 @@ services:
       - "5005:5005"
     depends_on:
       identity:
+        condition: service_healthy
+      network:
         condition: service_healthy
       db-bootstrap:
         condition: service_completed_successfully
@@ -169,6 +175,8 @@ services:
     depends_on:
       catalog:
         condition: service_healthy
+      network:
+        condition: service_healthy
       db-bootstrap:
         condition: service_completed_successfully
     healthcheck:
@@ -197,6 +205,8 @@ services:
       - "5004:5004"
     depends_on:
       catalog:
+        condition: service_healthy
+      network:
         condition: service_healthy
       db-bootstrap:
         condition: service_completed_successfully
@@ -228,6 +238,8 @@ services:
       - "5007:5007"
     depends_on:
       identity:
+        condition: service_healthy
+      network:
         condition: service_healthy
     healthcheck:
       test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://127.0.0.1:5007/health/live"]

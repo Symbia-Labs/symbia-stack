@@ -36,7 +36,7 @@
     "pg": "^8.11.3",
     "pg-mem": "^3.0.5",
     "uuid": "^9.0.1",
-    "zod": "^3.22.4"
+    "zod": "^3.24.2"
   },
   "devDependencies": {
     "@symbia/md": "file:../symbia-md",
@@ -47,11 +47,16 @@
     "@types/express": "^5.0.6",
     "@types/jsonwebtoken": "^9.0.5",
     "@types/morgan": "^1.9.9",
-    "@types/node": "^20.10.6",
+    "@types/node": "^22.10.2",
     "@types/pg": "^8.16.0",
     "@types/uuid": "^9.0.7",
-    "drizzle-kit": "^0.20.12",
-    "tsx": "^4.7.0",
+    "drizzle-kit": "^0.31.8",
+    "tsx": "^4.21.0",
     "typescript": "^5.9.3"
+  },
+  "overrides": {
+    "drizzle-kit": {
+      "@esbuild-kit/esm-loader": "npm:tsx@^4.20.4"
+    }
   }
 }
