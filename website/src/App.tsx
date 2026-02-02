@@ -134,6 +134,26 @@ function App() {
         </div>
       </section>
 
+      {/* Assistants Section */}
+      <section id="assistants" className="section">
+        <div className="container">
+          <div className="section-header" style={{ textAlign: 'center', marginBottom: 'var(--space-8)' }}>
+            <h2 className="section-title">Built-in Assistants</h2>
+            <p className="section-subtitle">
+              {platformStatus.connected
+                ? `${assistants.length} assistants loaded from catalog`
+                : 'Connect to Symbia platform to view assistants'}
+            </p>
+          </div>
+
+          <AssistantGrid
+            assistants={assistants}
+            loading={assistantsLoading}
+            connected={platformStatus.connected}
+          />
+        </div>
+      </section>
+
       {/* Symbia Script Demo Section */}
       <section id="symbia-script" className="section" style={{ background: 'var(--bg-muted)', borderTop: '1px solid var(--border)', borderBottom: '1px solid var(--border)' }}>
         <div className="container">
@@ -176,26 +196,6 @@ function App() {
               </p>
             </div>
           </div>
-        </div>
-      </section>
-
-      {/* Assistants Section */}
-      <section id="assistants" className="section">
-        <div className="container">
-          <div className="section-header" style={{ textAlign: 'center', marginBottom: 'var(--space-8)' }}>
-            <h2 className="section-title">Built-in Assistants</h2>
-            <p className="section-subtitle">
-              {platformStatus.connected
-                ? `${assistants.length} assistants loaded from catalog`
-                : 'Connect to Symbia platform to view assistants'}
-            </p>
-          </div>
-
-          <AssistantGrid
-            assistants={assistants}
-            loading={assistantsLoading}
-            connected={platformStatus.connected}
-          />
         </div>
       </section>
 
