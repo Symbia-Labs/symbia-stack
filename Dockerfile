@@ -42,8 +42,8 @@ COPY integrations/package.json ./integrations/
 COPY network/package.json ./network/
 COPY models/package.json ./models/
 
-# Install all dependencies
-RUN npm ci --include=dev
+# Install all dependencies (use npm install for flexibility with workspaces)
+RUN npm install
 
 # =============================================================================
 # Stage 2: Build shared packages
