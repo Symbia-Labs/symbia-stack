@@ -1,0 +1,95 @@
+# Symbia Stack - Replit Configuration
+# Copy this file to the root of your Replit project
+
+run = "npm run dev"
+entrypoint = "package.json"
+
+# Hidden files in the workspace
+hidden = [".config", "package-lock.json", "node_modules"]
+
+[languages]
+[languages.typescript]
+pattern = "**/{*.ts,*.tsx}"
+[languages.typescript.languageServer]
+start = "typescript-language-server --stdio"
+
+[nix]
+channel = "stable-24_05"
+
+[env]
+NODE_ENV = "development"
+HOST = "0.0.0.0"
+
+# Service ports
+IDENTITY_PORT = "5001"
+LOGGING_PORT = "5002"
+CATALOG_PORT = "5003"
+ASSISTANTS_PORT = "5004"
+MESSAGING_PORT = "5005"
+RUNTIME_PORT = "5006"
+INTEGRATIONS_PORT = "5007"
+MODELS_PORT = "5008"
+NETWORK_PORT = "5054"
+
+# Internal service URLs (Replit hostname)
+IDENTITY_SERVICE_URL = "http://localhost:5001"
+LOGGING_SERVICE_URL = "http://localhost:5002"
+CATALOG_SERVICE_URL = "http://localhost:5003"
+ASSISTANTS_SERVICE_URL = "http://localhost:5004"
+MESSAGING_SERVICE_URL = "http://localhost:5005"
+RUNTIME_SERVICE_URL = "http://localhost:5006"
+INTEGRATIONS_SERVICE_URL = "http://localhost:5007"
+MODELS_SERVICE_URL = "http://localhost:5008"
+NETWORK_SERVICE_URL = "http://localhost:5054"
+
+[packager]
+language = "nodejs"
+[packager.features]
+packageSearch = true
+guessImports = true
+enabledForHosting = false
+
+[unitTest]
+language = "nodejs"
+
+[deployment]
+run = ["sh", "-c", "npm run start:prod"]
+deploymentTarget = "cloudrun"
+ignorePorts = false
+
+[[ports]]
+localPort = 5001
+externalPort = 80
+exposeLocalhost = true
+
+[[ports]]
+localPort = 5002
+externalPort = 5002
+
+[[ports]]
+localPort = 5003
+externalPort = 5003
+
+[[ports]]
+localPort = 5004
+externalPort = 5004
+
+[[ports]]
+localPort = 5005
+externalPort = 5005
+
+[[ports]]
+localPort = 5006
+externalPort = 5006
+
+[[ports]]
+localPort = 5007
+externalPort = 5007
+
+[[ports]]
+localPort = 5008
+externalPort = 5008
+
+[[ports]]
+localPort = 5054
+externalPort = 5054
