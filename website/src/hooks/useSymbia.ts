@@ -183,6 +183,11 @@ export function useChat(assistantKey = 'coordinator') {
     try {
       abortControllerRef.current = new AbortController();
 
+      // Build conversation history from previous messages (excluding the one we just added)
+      const conversationHistory = messages
+        .filter(m => !m.streaming)
+        .map(m => ({ role: m.role, content: m.content }));
+
       // Use the messaging API to send and stream response
       const response = await fetch('/api/messaging/send', {
         method: 'POST',
@@ -191,6 +196,7 @@ export function useChat(assistantKey = 'coordinator') {
           channel: 'website-demo',
           content,
           assistant: assistantKey,
+          history: conversationHistory,
         }),
         signal: abortControllerRef.current.signal,
       });
