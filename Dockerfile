@@ -105,7 +105,7 @@ WORKDIR /app
 # Install wget for healthcheck
 RUN apt-get update && apt-get install -y wget && rm -rf /var/lib/apt/lists/*
 
-# Copy package files
+# Copy ALL package files (npm ci requires complete workspace structure)
 COPY package.json package-lock.json ./
 COPY symbia-sys/package.json ./symbia-sys/
 COPY symbia-db/package.json ./symbia-db/
@@ -116,7 +116,15 @@ COPY symbia-logging-client/package.json ./symbia-logging-client/
 COPY symbia-relay/package.json ./symbia-relay/
 COPY symbia-seed/package.json ./symbia-seed/
 COPY symbia-md/package.json ./symbia-md/
-COPY ${SERVICE}/package.json ./${SERVICE}/
+COPY identity/package.json ./identity/
+COPY logging/package.json ./logging/
+COPY catalog/package.json ./catalog/
+COPY assistants/package.json ./assistants/
+COPY messaging/package.json ./messaging/
+COPY runtime/package.json ./runtime/
+COPY integrations/package.json ./integrations/
+COPY network/package.json ./network/
+COPY models/package.json ./models/
 
 # Install production dependencies only
 RUN npm ci --omit=dev
