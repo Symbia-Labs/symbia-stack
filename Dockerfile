@@ -126,8 +126,8 @@ COPY integrations/package.json ./integrations/
 COPY network/package.json ./network/
 COPY models/package.json ./models/
 
-# Install production dependencies only
-RUN npm ci --omit=dev
+# Install production dependencies only (use npm install for flexibility with workspaces)
+RUN npm install --omit=dev --ignore-scripts
 
 # Copy built shared packages
 COPY --from=builder /app/symbia-sys/dist ./symbia-sys/dist
