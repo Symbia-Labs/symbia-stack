@@ -21,6 +21,9 @@ primary_region = "iad"
   NODE_ENV = "production"
   PORT = "5001"
   HOST = "0.0.0.0"
+  # Use in-memory database for simple deployments (no PostgreSQL needed)
+  # Set to "false" and provide DATABASE_URL secret for persistent storage
+  IDENTITY_USE_MEMORY_DB = "true"
   # Internal service URLs (Fly.io private networking)
   IDENTITY_SERVICE_URL = "http://symbia-identity.internal:5001"
   LOGGING_SERVICE_URL = "http://symbia-logging.internal:5002"
@@ -31,6 +34,14 @@ primary_region = "iad"
   INTEGRATIONS_SERVICE_URL = "http://symbia-integrations.internal:5007"
   MODELS_SERVICE_URL = "http://symbia-models.internal:5008"
   NETWORK_SERVICE_URL = "http://symbia-network.internal:5054"
+
+# REQUIRED secrets (set via: flyctl secrets set KEY=value)
+# SESSION_SECRET - Required for JWT signing (min 32 chars)
+#   flyctl secrets set SESSION_SECRET=your-secure-secret-min-32-chars
+#
+# OPTIONAL secrets:
+# DATABASE_URL - For persistent PostgreSQL storage (disable IDENTITY_USE_MEMORY_DB)
+#   flyctl secrets set DATABASE_URL=postgres://user:pass@host:5432/db
 
 [http_service]
   internal_port = 5001
