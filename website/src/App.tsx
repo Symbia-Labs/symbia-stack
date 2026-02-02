@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { usePlatformStatus, useAssistants } from './hooks/useSymbia';
 import { PlatformStatus } from './components/PlatformStatus';
 import { AssistantGrid } from './components/AssistantGrid';
+import { SymbiaScriptDemo } from './components/SymbiaScriptDemo';
 
 // Theme management
 type Theme = 'carbon' | 'sand' | 'stone' | 'mono-blue';
@@ -128,6 +129,51 @@ function App() {
             </div>
             <div className="hero-visual-content">
               <PlatformStatus status={platformStatus} expanded />
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Symbia Script Demo Section */}
+      <section id="symbia-script" className="section" style={{ background: 'var(--bg-muted)', borderTop: '1px solid var(--border)', borderBottom: '1px solid var(--border)' }}>
+        <div className="container">
+          <div className="section-header" style={{ textAlign: 'center', marginBottom: 'var(--space-8)' }}>
+            <span className="section-label">Developer Experience</span>
+            <h2 className="section-title">
+              <span className="highlight">Symbia Script</span> - Unified Reference System
+            </h2>
+            <p className="section-desc">
+              A consistent syntax for referencing data across the entire platform.
+              Access users, messages, services, and integrations with a single, predictable pattern.
+            </p>
+          </div>
+
+          <div style={{ maxWidth: '900px', margin: '0 auto' }}>
+            <SymbiaScriptDemo />
+          </div>
+
+          {/* Feature highlights */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: 'var(--space-5)', marginTop: 'var(--space-8)' }}>
+            <div style={{ textAlign: 'center' }}>
+              <div style={{ fontSize: '2rem', marginBottom: 'var(--space-2)' }}>@</div>
+              <h4 style={{ fontWeight: '600', marginBottom: 'var(--space-2)' }}>Universal Syntax</h4>
+              <p style={{ fontSize: '14px', color: 'var(--text-secondary)' }}>
+                One pattern to access all platform data: @namespace.path
+              </p>
+            </div>
+            <div style={{ textAlign: 'center' }}>
+              <div style={{ fontSize: '2rem', marginBottom: 'var(--space-2)' }}>{'{{'}...{'}}'}</div>
+              <h4 style={{ fontWeight: '600', marginBottom: 'var(--space-2)' }}>Template Interpolation</h4>
+              <p style={{ fontSize: '14px', color: 'var(--text-secondary)' }}>
+                Embed references anywhere with double-brace syntax
+              </p>
+            </div>
+            <div style={{ textAlign: 'center' }}>
+              <div style={{ fontSize: '2rem', marginBottom: 'var(--space-2)' }}>10+</div>
+              <h4 style={{ fontWeight: '600', marginBottom: 'var(--space-2)' }}>Built-in Namespaces</h4>
+              <p style={{ fontSize: '14px', color: 'var(--text-secondary)' }}>
+                User, org, message, service, integration, catalog & more
+              </p>
             </div>
           </div>
         </div>
