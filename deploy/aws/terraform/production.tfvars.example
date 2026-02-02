@@ -1,0 +1,32 @@
+# Symbia Stack - Production Configuration
+#
+# Copy this file to production.tfvars and fill in your values:
+#   cp production.tfvars.example production.tfvars
+
+aws_region  = "us-east-1"
+environment = "production"
+
+# Networking
+vpc_cidr        = "10.0.0.0/16"
+private_subnets = ["10.0.1.0/24", "10.0.2.0/24"]
+public_subnets  = ["10.0.101.0/24", "10.0.102.0/24"]
+
+# Database
+db_instance_class    = "db.t3.small"  # Use db.t3.micro for dev/staging
+db_allocated_storage = 20
+
+# SSL Certificate (required for HTTPS)
+# Create one in ACM: aws acm request-certificate --domain-name api.symbia.example.com
+certificate_arn = "arn:aws:acm:us-east-1:123456789012:certificate/xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
+
+# Optional: Custom domain
+# domain_name     = "api.symbia.example.com"
+# route53_zone_id = "Z1234567890ABC"
+
+# Container images
+image_tag             = "latest"
+ecr_repository_prefix = "symbia"
+
+# Optional: LLM API keys (stored in Secrets Manager)
+# openai_api_key    = "sk-..."
+# anthropic_api_key = "sk-ant-..."
