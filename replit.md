@@ -43,6 +43,8 @@ Required secrets:
 - `SESSION_SECRET` - Used for JWT and session management
 - `NETWORK_HASH_SECRET` - Used for network policy enforcement
 - `DATABASE_URL` - PostgreSQL connection string (auto-configured)
+- `HUGGINGFACE_API_KEY` - API key for HuggingFace LLM provider (chat functionality)
+- `INTERNAL_SERVICE_SECRET` - Shared secret for internal service-to-service auth (defaults to dev secret)
 
 ## Architecture
 
@@ -72,3 +74,15 @@ The website frontend proxies API calls to these services via Vite:
 - Configured Vite on port 5000 with allowedHosts for Replit iframe
 - Updated all services to run in production mode (`node dist/index.mjs`)
 - Fixed package.json start scripts to use .mjs output from esbuild
+- Added demo chat endpoint `/api/messaging/send` for website chat modals
+- Added internal execute endpoint `/api/internal/execute` with secure service-to-service auth
+- Configured HuggingFace (meta-llama/Llama-3.2-3B-Instruct) as the LLM provider for chat
+- Added models service to startup script (port 5008)
+
+## Chat Flow
+
+The chat modal flow is:
+1. Website sends POST to `/api/messaging/send` (SSE streaming)
+2. Messaging service authenticates and forwards to integrations service
+3. Integrations service calls HuggingFace API with the request
+4. Response streams back through the chain as SSE events
