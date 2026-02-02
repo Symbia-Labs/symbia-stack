@@ -1,5 +1,7 @@
 # Symbia Platform
 
+> **Last Deploy Test:** 2026-02-02T00:00:00Z
+
 ## Overview
 
 Symbia is an AI-native infrastructure platform for building systems where AI assistants are first-class citizens. It provides authentication, orchestration, and observability designed for AI-native architectures.
