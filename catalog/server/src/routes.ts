@@ -44,6 +44,7 @@ const createResourceSchema = z.object({
   name: z.string().min(1).max(255),
   description: z.string().nullable().optional(),
   type: z.enum(resourceTypes),
+  status: z.enum(resourceStatuses).optional(),
   isBootstrap: z.boolean().optional(),
   tags: z.array(z.string()).nullable().optional(),
   orgId: z.string().nullable().optional(),

@@ -10,6 +10,7 @@ export const providerSchema = z.enum([
   "openai",
   "anthropic",
   "huggingface",
+  "symbia-labs",
 ]);
 export type Provider = z.infer<typeof providerSchema>;
 

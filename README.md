@@ -53,7 +53,8 @@ An LLM-native orchestration platform for building, deploying, and operating auto
 | [Assistants](assistants/) | 5004 | Graph-based AI workflow execution with rule engine |
 | [Messaging](messaging/) | 5005 | Real-time communication bus with WebSocket support |
 | [Runtime](runtime/) | 5006 | Dataflow execution engine for component graphs |
-| [Integrations](integrations/) | 5007 | LLM provider gateway (OpenAI, Anthropic, HuggingFace) |
+| [Integrations](integrations/) | 5007 | LLM provider gateway (OpenAI, Anthropic, HuggingFace, symbia-labs) |
+| [Models](models/) | 5008 | Local LLM inference with node-llama-cpp (GGUF models) |
 | [Network](network/) | 5054 | Software-defined network for event routing and service mesh |
 
 ## Shared Libraries
@@ -187,7 +188,8 @@ Tier 2 (Core Services):
 
 Tier 3 (Application Layer):
   ├── Runtime (5006)      ← Identity, Catalog
-  └── Assistants (5004)   ← Identity, Catalog, Messaging, Integrations
+  ├── Assistants (5004)   ← Identity, Catalog, Messaging, Integrations
+  └── Models (5008)       ← Identity, Catalog, Network
 ```
 
 ## Core Capabilities
@@ -236,7 +238,8 @@ Tier 3 (Application Layer):
 - **Object Tracking**: Metadata for files and blobs
 
 ### LLM Integration
-- **Multi-Provider Support**: OpenAI, Anthropic, HuggingFace
+- **Multi-Provider Support**: OpenAI, Anthropic, HuggingFace, symbia-labs (local)
+- **Local Inference**: Run GGUF models locally via Models service (node-llama-cpp)
 - **Credential Routing**: Fetches keys from Identity, never stores locally
 - **Response Normalization**: Consistent schema across providers
 - **Usage Tracking**: Token counts, latency, success/failure metrics

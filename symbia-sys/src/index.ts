@@ -32,6 +32,7 @@ export const ServiceId = {
   SERVER: "server",
   RUNTIME: "runtime",
   INTEGRATIONS: "integrations",
+  MODELS: "models",
 } as const;
 
 export type ServiceId = (typeof ServiceId)[keyof typeof ServiceId];
@@ -48,6 +49,7 @@ export const ServicePorts: Record<ServiceId, number> = {
   [ServiceId.MESSAGING]: 5005,
   [ServiceId.RUNTIME]: 5006,
   [ServiceId.INTEGRATIONS]: 5007,
+  [ServiceId.MODELS]: 5008,
   [ServiceId.NETWORK]: 5054,
 };
 
@@ -63,6 +65,7 @@ export const ServiceLocalEndpoints: Record<ServiceId, string> = {
   [ServiceId.MESSAGING]: "http://localhost:5005",
   [ServiceId.RUNTIME]: "http://localhost:5006",
   [ServiceId.INTEGRATIONS]: "http://localhost:5007",
+  [ServiceId.MODELS]: "http://localhost:5008",
   [ServiceId.NETWORK]: "http://localhost:5054",
 };
 
@@ -78,6 +81,7 @@ const ServicePortEnvVars: Record<ServiceId, string> = {
   [ServiceId.MESSAGING]: "MESSAGING_PORT",
   [ServiceId.RUNTIME]: "RUNTIME_PORT",
   [ServiceId.INTEGRATIONS]: "INTEGRATIONS_PORT",
+  [ServiceId.MODELS]: "MODELS_PORT",
   [ServiceId.NETWORK]: "NETWORK_PORT",
 };
 

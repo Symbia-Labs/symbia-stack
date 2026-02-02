@@ -347,7 +347,7 @@ Key capabilities:
 ### Integrations (Port 5007) — The Gateway
 
 Unified access to LLM providers:
-- **Providers**: OpenAI, Anthropic, HuggingFace
+- **Providers**: OpenAI, Anthropic, HuggingFace, symbia-labs (local)
 - **Operations**: Chat completions, embeddings, text generation
 - **Credentials**: Fetched from Identity, never stored locally
 - **Normalization**: Consistent response schema across providers
@@ -357,6 +357,23 @@ Key capabilities:
 - Usage tracking: token counts, latency, success/failure
 - Model configuration from Catalog resources
 - Execution logging for audit and billing
+- Routing to local Models service via `symbia-labs` provider
+
+### Models (Port 5008) — The Local Engine
+
+Local LLM inference without external API dependencies:
+- **Runtime**: node-llama-cpp for GGUF model execution
+- **OpenAI Compatible**: Drop-in `/v1/chat/completions` endpoint
+- **Model Discovery**: Automatic scanning of `/data/models` directory
+- **Memory Management**: LRU cache with configurable limits
+
+Key capabilities:
+- Provider name: `symbia-labs` (use via Integrations service)
+- LRU caching with max loaded models limit
+- Idle timeout for automatic model unloading
+- Streaming support via Server-Sent Events
+- Catalog registration for model discovery
+- HuggingFace integration for model downloads
 
 ### Network (Port 5054) — The Mesh
 
@@ -498,7 +515,7 @@ Every request receives a trace ID:
 ## What We Don't Do
 
 ### No Built-in ML/Training
-Symbia orchestrates AI, it doesn't train models. Use external providers via Integrations.
+Symbia orchestrates AI and runs inference, but doesn't train models. For training, use external services like HuggingFace AutoTrain. For inference, use external providers via Integrations or run local GGUF models via the Models service.
 
 ### No Guaranteed Exactly-Once Delivery
 Network provides best-effort delivery. Implement idempotency in consumers for exactly-once semantics.
@@ -572,4 +589,4 @@ It's not a framework—it's infrastructure. Build your AI applications on primit
 
 ---
 
-*This document reflects the Symbia Stack architectural intent as of January 2026.*
+*This document reflects the Symbia Stack architectural intent as of February 2026.*

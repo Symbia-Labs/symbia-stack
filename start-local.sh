@@ -38,6 +38,7 @@ ASSISTANTS_PORT="${ASSISTANTS_PORT:-5004}"
 MESSAGING_PORT="${MESSAGING_PORT:-5005}"
 RUNTIME_PORT="${RUNTIME_PORT:-5006}"
 INTEGRATIONS_PORT="${INTEGRATIONS_PORT:-5007}"
+MODELS_PORT="${MODELS_PORT:-5008}"
 NETWORK_PORT="${NETWORK_PORT:-5054}"
 SERVICE_ADMIN_PORT="${SERVICE_ADMIN_PORT:-3000}"
 
@@ -240,6 +241,7 @@ start_service() {
   env_vars="$env_vars MESSAGING_SERVICE_URL=http://localhost:$MESSAGING_PORT"
   env_vars="$env_vars RUNTIME_SERVICE_URL=http://localhost:$RUNTIME_PORT"
   env_vars="$env_vars INTEGRATIONS_SERVICE_URL=http://localhost:$INTEGRATIONS_PORT"
+  env_vars="$env_vars MODELS_SERVICE_URL=http://localhost:$MODELS_PORT"
 
   if [ -n "$db_name" ]; then
     env_vars="$env_vars DATABASE_URL=postgresql://$POSTGRES_USER:$POSTGRES_PASSWORD@$POSTGRES_HOST:$POSTGRES_PORT/$db_name"
@@ -304,6 +306,7 @@ start_all_services() {
   # Tier 4: Depends on catalog
   start_service "runtime" "$RUNTIME_PORT" "runtime"
   start_service "assistants" "$ASSISTANTS_PORT" "assistants"
+  start_service "models" "$MODELS_PORT" ""
 
   # Tier 5: Admin UI
   start_service "service-admin" "$SERVICE_ADMIN_PORT" ""
@@ -323,6 +326,7 @@ show_status() {
   echo "  - Messaging:      http://localhost:$MESSAGING_PORT"
   echo "  - Runtime:        http://localhost:$RUNTIME_PORT"
   echo "  - Integrations:   http://localhost:$INTEGRATIONS_PORT"
+  echo "  - Models:         http://localhost:$MODELS_PORT"
   echo "  - Network:        http://localhost:$NETWORK_PORT"
   echo ""
   log_info "Logs: .local-pids/<service>.log"

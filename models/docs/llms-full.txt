@@ -1,0 +1,311 @@
+# Symbia Models Service - Complete Documentation
+
+> Local LLM inference service using node-llama-cpp.
+
+Provides OpenAI-compatible API endpoints for chat completions and model management.
+Models are automatically registered with the Catalog service for discovery.
+
+## Features
+- OpenAI-compatible /v1/chat/completions endpoint
+- Automatic model discovery from /data/models directory
+- LRU caching with configurable max loaded models
+- Idle timeout for automatic unloading
+- Streaming support via Server-Sent Events
+- Catalog integration for model registry
+
+## Provider Name
+When using through the Integrations service, use provider: "symbia-labs"
+
+## Overview
+
+Local LLM inference using node-llama-cpp with HuggingFace integration.
+
+- OpenAI-compatible /v1/chat/completions endpoint
+- Automatic model discovery from /data/models directory
+- LRU caching with configurable max loaded models
+- Streaming support via Server-Sent Events
+- Catalog integration for model registry
+- Provider name: symbia-labs
+
+## Custom Headers (optional)
+
+- **Authorization**: Bearer token for authenticated endpoints
+- **X-Service-Auth**: Internal service authentication header
+
+## API Reference
+
+Base URL: http://localhost:5008
+
+### OpenAI Compatible
+
+OpenAI-compatible endpoints for drop-in replacement
+
+#### POST /api/v1/chat/completions
+Create chat completion
+OpenAI-compatible chat completion endpoint. Supports both streaming and non-streaming responses.
+
+Request Body:
+```json
+// See ChatCompletionRequest schema
+```
+
+Response: Successful completion
+
+#### GET /api/v1/models
+List available models
+Returns a list of all available local GGUF models.
+
+Response: List of models
+
+#### GET /api/v1/models/{id}
+Get model details
+Returns details about a specific model including load status and capabilities.
+
+Path Parameters:
+- id: Model ID
+
+Response: Model details
+
+### Model Management
+
+Endpoints for managing model lifecycle
+
+#### GET /api/api/models
+List all models
+Returns all available models with detailed metadata.
+
+Response: List of models
+
+#### GET /api/api/models/{id}
+Get model details
+Returns detailed information about a specific model.
+
+Path Parameters:
+- id: Model ID
+
+Response: Model details
+
+#### POST /api/api/models/{id}/load
+Load model into memory
+Loads a model into memory for inference. Requires authentication.
+
+Path Parameters:
+- id: Model ID
+
+Response: Model loaded successfully
+
+#### POST /api/api/models/{id}/unload
+Unload model from memory
+Unloads a model from memory to free resources. Requires authentication.
+
+Path Parameters:
+- id: Model ID
+
+Response: Model unloaded successfully
+
+### Symbia Integration
+
+Symbia platform integration endpoints
+
+#### POST /api/api/integrations/execute
+Execute Symbia integration
+Symbia-compatible execute endpoint for use via the Integrations service.
+
+Request Body:
+```json
+// See ExecuteRequest schema
+```
+
+Response: Execution result
+
+### Stats
+
+Service statistics and metrics
+
+#### GET /api/api/stats
+Get service statistics
+Returns statistics about loaded models and memory usage.
+
+Response: Service statistics
+
+### Health
+
+Health check endpoints
+
+#### GET /api/health/live
+Liveness check
+Returns 200 if the service is alive.
+
+Response: Service is alive
+
+#### GET /api/health/ready
+Readiness check
+Returns 200 if the service is ready to handle requests.
+
+Response: Service is ready
+
+## Data Models
+
+### ChatCompletionRequest
+```typescript
+{
+  model: string;  // Model ID to use for completion
+  messages: array;  // Conversation messages
+  temperature?: number;  // Sampling temperature
+  max_tokens?: integer;  // Maximum tokens to generate
+  stream?: boolean;  // Enable streaming response via SSE
+  top_p?: number;  // Nucleus sampling probability
+  stop?: array;  // Stop sequences
+}
+```
+
+### ChatMessage
+```typescript
+{
+  role: system|user|assistant;  // Message role
+  content: string;  // Message content
+}
+```
+
+### ChatCompletionResponse
+```typescript
+{
+  id?: string;  // Completion ID
+  object?: string;
+  created?: integer;  // Unix timestamp
+  model?: string;  // Model used
+  choices?: array;
+  usage?: object;
+}
+```
+
+### ModelInfo
+```typescript
+{
+  id?: string;  // Model ID
+  object?: string;
+  name?: string;  // Display name
+  filename?: string;  // GGUF filename
+  filepath?: string;  // Full path to model file
+  contextLength?: integer;  // Context window size
+  capabilities?: array;  // Model capabilities (chat, completion, etc.)
+  status?: available|loading|loaded|error;  // Current status
+  loaded?: boolean;  // Whether model is loaded in memory
+  memoryUsageMB?: integer;  // Estimated memory usage in MB
+  createdAt?: string;  // File creation timestamp
+  lastUsed?: string;  // Last inference timestamp
+}
+```
+
+### ModelListResponse
+```typescript
+{
+  object?: string;
+  data?: array;
+}
+```
+
+### ExecuteRequest
+```typescript
+{
+  provider: symbia-labs|local;  // Provider name
+  operation: chat.completions|completions;  // Operation to execute
+  params: object;  // Operation parameters
+}
+```
+
+### ExecuteResponse
+```typescript
+{
+  provider?: string;
+  model?: string;
+  content?: string;
+  usage?: object;
+  finishReason?: stop|length|error;
+  metadata?: object;
+}
+```
+
+### StatsResponse
+```typescript
+{
+  loadedModels?: integer;  // Number of models currently loaded
+  memoryUsageMB?: integer;  // Total memory used by loaded models
+  totalRequests?: integer;  // Total inference requests processed
+}
+```
+
+### ErrorResponse
+```typescript
+{
+  error?: object;
+}
+```
+
+## Authentication
+
+All authenticated endpoints require one of:
+- Cookie: Session cookie (set automatically after login)
+- Header: `Authorization: Bearer <token>`
+- Header: `X-API-Key: <api-key>`
+
+- OpenAI-compatible endpoints (/v1/*) are unauthenticated for local inference
+- Management endpoints require Bearer token authentication
+- Internal service-to-service calls use X-Service-Auth header
+
+## Model Discovery
+
+Models are automatically discovered from the MODELS_PATH directory (default: /data/models).
+
+Supported formats:
+- GGUF files (.gguf) - Quantized models for llama.cpp
+
+Model IDs are derived from filenames by:
+1. Removing the .gguf extension
+2. Converting to lowercase
+3. Replacing non-alphanumeric characters with hyphens
+
+Example: `Llama-3.2-3B-Q4_K_M.gguf` → `llama-3-2-3b-q4-k-m`
+
+## Memory Management
+
+The service uses LRU (Least Recently Used) caching for loaded models:
+
+- **MAX_LOADED_MODELS**: Maximum models in memory (default: 2)
+- **IDLE_TIMEOUT_MS**: Auto-unload after idle period (default: 5 minutes)
+- **DEFAULT_GPU_LAYERS**: GPU layers for acceleration (default: 0)
+- **DEFAULT_THREADS**: CPU threads for inference (default: 4)
+
+When a new model is requested and the limit is reached, the least recently used model is automatically unloaded.
+
+## Catalog Registration
+
+Models are registered in the Catalog service for discovery:
+
+- Key pattern: `integrations/symbia-labs/models/{modelId}`
+- Type: integration
+- Tags: ai, llm, symbia-labs, local, model, gguf
+
+Assistants can query the Catalog to discover available local models.
+
+## Using via Integrations Service
+
+To use local models through the Integrations service:
+
+```json
+{
+  "provider": "symbia-labs",
+  "operation": "chat.completions",
+  "params": {
+    "model": "llama-3-2-3b-q4-k-m",
+    "messages": [
+      {"role": "user", "content": "Hello!"}
+    ]
+  }
+}
+```
+
+## Documentation
+
+- OpenAPI: /docs/openapi.json
+- LLM summary: /docs/llms.txt

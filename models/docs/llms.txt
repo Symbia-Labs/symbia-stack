@@ -1,0 +1,53 @@
+# Symbia Models Service
+
+> Local LLM inference service using node-llama-cpp.
+
+## Overview
+
+Local LLM inference using node-llama-cpp with HuggingFace integration.
+
+- OpenAI-compatible /v1/chat/completions endpoint
+- Automatic model discovery from /data/models directory
+- LRU caching with configurable max loaded models
+- Streaming support via Server-Sent Events
+- Catalog integration for model registry
+- Provider name: symbia-labs
+
+## API Base URL
+
+Use http://localhost:5008 as the base path for all endpoints.
+
+## Quick Reference
+
+- POST /api/v1/chat/completions - Create chat completion
+- GET /api/v1/models - List available models
+- GET /api/v1/models/{id} - Get model details
+- GET /api/api/models - List all models
+- GET /api/api/models/{id} - Get model details
+- POST /api/api/models/{id}/load - Load model into memory
+- POST /api/api/models/{id}/unload - Unload model from memory
+- POST /api/api/integrations/execute - Execute Symbia integration
+- GET /api/api/stats - Get service statistics
+- GET /api/health/live - Liveness check
+- GET /api/health/ready - Readiness check
+
+## Authentication
+
+Methods supported:
+- Bearer token (Authorization: Bearer <token>)
+- API key (X-API-Key header)
+- Session cookie
+
+- OpenAI-compatible endpoints (/v1/*) are unauthenticated for local inference
+- Management endpoints require Bearer token authentication
+- Internal service-to-service calls use X-Service-Auth header
+
+## Custom Headers
+
+- Authorization: Bearer token for authenticated endpoints
+- X-Service-Auth: Internal service authentication header
+
+## Documentation
+
+- OpenAPI: /docs/openapi.json
+- Full docs: /docs/llms-full.txt

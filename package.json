@@ -22,6 +22,7 @@
     "runtime",
     "assistants",
     "integrations",
+    "models",
     "service-admin"
   ],
   "scripts": {

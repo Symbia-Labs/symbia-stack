@@ -237,6 +237,7 @@ services:
       MESSAGING_SERVICE_URL: http://messaging:5005
       RUNTIME_SERVICE_URL: http://runtime:5006
       NETWORK_SERVICE_URL: http://network:5054
+      MODELS_SERVICE_URL: http://models:5008
       # Add API keys for LLM providers
       # OPENAI_API_KEY: ${OPENAI_API_KEY}
       # ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY}
@@ -249,6 +250,41 @@ services:
         condition: service_healthy
     healthcheck:
       test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://127.0.0.1:5007/health/live"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Models Service - Local LLM Inference (node-llama-cpp)
+  models:
+    build:
+      context: .
+      dockerfile: models/Dockerfile
+    environment:
+      NODE_ENV: production
+      PORT: 5008
+      MODELS_PATH: /data/models
+      IDENTITY_SERVICE_URL: http://identity:5001
+      CATALOG_SERVICE_URL: http://catalog:5003
+      LOGGING_SERVICE_URL: http://logging:5002
+      NETWORK_SERVICE_URL: http://network:5054
+      MAX_LOADED_MODELS: ${MAX_LOADED_MODELS:-2}
+      IDLE_TIMEOUT_MS: ${IDLE_TIMEOUT_MS:-300000}
+      DEFAULT_GPU_LAYERS: ${DEFAULT_GPU_LAYERS:-0}
+      DEFAULT_THREADS: ${DEFAULT_THREADS:-4}
+      HUGGINGFACE_TOKEN: ${HUGGINGFACE_TOKEN:-}
+    ports:
+      - "${MODELS_PORT:-5008}:5008"
+    volumes:
+      - models_data:/data/models
+    depends_on:
+      identity:
+        condition: service_healthy
+      catalog:
+        condition: service_healthy
+      network:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://127.0.0.1:5008/health/live"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -282,6 +318,7 @@ services:
 
 volumes:
   postgres_data:
+  models_data:
 
 networks:
   default:

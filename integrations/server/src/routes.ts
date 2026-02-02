@@ -183,9 +183,10 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
         return;
       }
 
-      // Get credential from Identity
-      const credential = await getCredential(user.id, user.orgId, provider, token);
-      if (!credential) {
+      // Get credential from Identity (skip for local providers like symbia-labs)
+      const isLocalProvider = provider === "symbia-labs";
+      const credential = isLocalProvider ? null : await getCredential(user.id, user.orgId, provider, token);
+      if (!isLocalProvider && !credential) {
         const authError = new IntegrationError({
           message: `No ${provider} API key configured. Add your API key in Settings.`,
           category: "auth",
@@ -226,7 +227,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
           operation,
           model: params.model,
           params,
-          apiKey: credential.apiKey,
+          apiKey: credential?.apiKey || "",
           timeout: 60000, // 60 second timeout
         };
 

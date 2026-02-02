@@ -1,0 +1,31 @@
+{
+  "name": "@symbia/models",
+  "version": "1.0.0",
+  "type": "module",
+  "license": "MIT",
+  "description": "Symbia Models Service - Local LLM inference with HuggingFace integration",
+  "scripts": {
+    "dev": "NODE_ENV=development tsx watch server/src/index.ts",
+    "build": "tsx scripts/build.ts",
+    "start": "NODE_ENV=production node dist/index.mjs",
+    "check": "tsc"
+  },
+  "dependencies": {
+    "@symbia/auth": "file:../symbia-auth",
+    "@symbia/http": "file:../symbia-http",
+    "@symbia/logging-client": "file:../symbia-logging-client",
+    "@symbia/relay": "file:../symbia-relay",
+    "@symbia/sys": "file:../symbia-sys",
+    "node-llama-cpp": "^3.3.0",
+    "express": "^5.0.1",
+    "zod": "^3.24.2"
+  },
+  "devDependencies": {
+    "@symbia/md": "file:../symbia-md",
+    "@types/express": "^5.0.0",
+    "@types/node": "^22.10.2",
+    "esbuild": "^0.25.0",
+    "tsx": "^4.20.5",
+    "typescript": "^5.9.3"
+  }
+}
