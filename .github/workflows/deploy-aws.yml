@@ -1,0 +1,191 @@
+name: Deploy to AWS Fargate
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Environment to deploy to'
+        required: true
+        default: 'production'
+        type: choice
+        options:
+          - production
+          - staging
+
+env:
+  AWS_REGION: us-east-1
+  ECR_REPOSITORY_PREFIX: symbia
+  ECS_CLUSTER: symbia-production
+
+jobs:
+  build-and-push:
+    name: Build and Push Images
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+
+    outputs:
+      image_tag: ${{ steps.meta.outputs.tag }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Set image tag
+        id: meta
+        run: |
+          if [[ "${{ github.ref }}" == refs/tags/v* ]]; then
+            TAG="${{ github.ref_name }}"
+          else
+            TAG="sha-$(echo ${{ github.sha }} | cut -c1-7)"
+          fi
+          echo "tag=$TAG" >> $GITHUB_OUTPUT
+          echo "Image tag: $TAG"
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build base image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: docker/Dockerfile.base
+          push: false
+          load: true
+          tags: symbia-base:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Build and push service images
+        env:
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          IMAGE_TAG: ${{ steps.meta.outputs.tag }}
+        run: |
+          SERVICES=(
+            "identity"
+            "logging"
+            "catalog"
+            "assistants"
+            "messaging"
+            "runtime"
+            "integrations"
+            "network"
+            "models"
+          )
+
+          for service in "${SERVICES[@]}"; do
+            echo "=== Building $service ==="
+
+            # Determine Dockerfile path
+            if [ "$service" = "models" ]; then
+              DOCKERFILE="models/Dockerfile"
+            else
+              DOCKERFILE="$service/Dockerfile"
+            fi
+
+            # Build and push
+            docker build -t "$ECR_REGISTRY/$ECR_REPOSITORY_PREFIX/$service:$IMAGE_TAG" \
+                         -t "$ECR_REGISTRY/$ECR_REPOSITORY_PREFIX/$service:latest" \
+                         -f "$DOCKERFILE" .
+
+            docker push "$ECR_REGISTRY/$ECR_REPOSITORY_PREFIX/$service:$IMAGE_TAG"
+            docker push "$ECR_REGISTRY/$ECR_REPOSITORY_PREFIX/$service:latest"
+
+            echo "✓ $service pushed"
+          done
+
+  deploy:
+    name: Deploy to ECS
+    needs: build-and-push
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+
+    steps:
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Update ECS services
+        run: |
+          SERVICES=(
+            "identity"
+            "logging"
+            "catalog"
+            "assistants"
+            "messaging"
+            "runtime"
+            "integrations"
+            "network"
+            "models"
+          )
+
+          echo "Forcing new deployments for all services..."
+
+          for service in "${SERVICES[@]}"; do
+            echo "Updating $service..."
+            aws ecs update-service \
+              --cluster ${{ env.ECS_CLUSTER }} \
+              --service "$service" \
+              --force-new-deployment \
+              --no-cli-pager || echo "Warning: Failed to update $service (may not exist yet)"
+          done
+
+      - name: Wait for services to stabilize
+        run: |
+          echo "Waiting for identity service to stabilize..."
+          aws ecs wait services-stable \
+            --cluster ${{ env.ECS_CLUSTER }} \
+            --services identity \
+            --no-cli-pager || true
+
+          echo "Deployment initiated. Services are updating."
+
+  # Optional: Run Terraform for infrastructure changes
+  terraform:
+    name: Terraform Plan
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    permissions:
+      id-token: write
+      contents: read
+      pull-requests: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+
+      - name: Terraform Init
+        working-directory: deploy/aws/terraform
+        run: terraform init
+
+      - name: Terraform Plan
+        working-directory: deploy/aws/terraform
+        run: terraform plan -var-file=production.tfvars -no-color
+        continue-on-error: true

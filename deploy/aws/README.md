@@ -313,6 +313,90 @@ resource "aws_ecs_task_definition" "models" {
 }
 ```
 
+## CI/CD with GitHub Actions
+
+The repository includes a GitHub Actions workflow for automated deployments.
+
+### Setup
+
+1. **Create an IAM OIDC Provider** for GitHub Actions:
+
+```bash
+# Get the GitHub OIDC thumbprint
+THUMBPRINT=$(openssl s_client -servername token.actions.githubusercontent.com \
+  -showcerts -connect token.actions.githubusercontent.com:443 < /dev/null 2>/dev/null | \
+  openssl x509 -fingerprint -noout | cut -d'=' -f2 | tr -d ':' | tr '[:upper:]' '[:lower:]')
+
+# Create the OIDC provider
+aws iam create-open-id-connect-provider \
+  --url https://token.actions.githubusercontent.com \
+  --client-id-list sts.amazonaws.com \
+  --thumbprint-list $THUMBPRINT
+```
+
+2. **Create an IAM Role** for GitHub Actions:
+
+```bash
+# Create trust policy
+cat > trust-policy.json << 'EOF'
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Principal": {
+        "Federated": "arn:aws:iam::ACCOUNT_ID:oidc-provider/token.actions.githubusercontent.com"
+      },
+      "Action": "sts:AssumeRoleWithWebIdentity",
+      "Condition": {
+        "StringEquals": {
+          "token.actions.githubusercontent.com:aud": "sts.amazonaws.com"
+        },
+        "StringLike": {
+          "token.actions.githubusercontent.com:sub": "repo:YOUR_ORG/symbia-stack:*"
+        }
+      }
+    }
+  ]
+}
+EOF
+
+# Create the role
+aws iam create-role \
+  --role-name symbia-github-deploy \
+  --assume-role-policy-document file://trust-policy.json
+
+# Attach permissions (ECR, ECS, etc.)
+aws iam attach-role-policy \
+  --role-name symbia-github-deploy \
+  --policy-arn arn:aws:iam::aws:policy/AmazonEC2ContainerRegistryPowerUser
+
+aws iam attach-role-policy \
+  --role-name symbia-github-deploy \
+  --policy-arn arn:aws:iam::aws:policy/AmazonECS_FullAccess
+```
+
+3. **Add Repository Secret**:
+
+In GitHub repository settings, add:
+- `AWS_DEPLOY_ROLE_ARN`: `arn:aws:iam::ACCOUNT_ID:role/symbia-github-deploy`
+
+### Workflow Triggers
+
+| Trigger | Action |
+|---------|--------|
+| Push to `main` | Build images, deploy to ECS |
+| Push tag `v*` | Build images with version tag, deploy |
+| Manual dispatch | Select environment, deploy |
+| Pull request | Terraform plan (no apply) |
+
+### Manual Deployment
+
+```bash
+# Trigger workflow manually via GitHub CLI
+gh workflow run deploy-aws.yml -f environment=production
+```
+
 ## Cleanup
 
 ```bash
