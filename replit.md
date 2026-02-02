@@ -14,11 +14,13 @@ This is a Node.js monorepo containing multiple packages:
 
 ## Running the Project
 
-The website runs on port 5000 using Vite:
+Two workflows run the platform:
 
-```bash
-cd website && npm run dev
-```
+1. **Backend Services** - Runs `./start-replit.sh` which:
+   - Sets up database schemas
+   - Starts all 8 microservices in the correct order
+
+2. **Website** - Runs the Vite dev server on port 5000
 
 ## Building
 
@@ -35,22 +37,36 @@ For the website:
 cd website && npm run build
 ```
 
-## Recent Changes
+## Environment Variables
 
-- Configured Vite to run on port 5000 with host 0.0.0.0 and allowedHosts: true for Replit compatibility
-- Built all shared library packages
-- Set up workflow for website development
+Required secrets:
+- `SESSION_SECRET` - Used for JWT and session management
+- `NETWORK_HASH_SECRET` - Used for network policy enforcement
+- `DATABASE_URL` - PostgreSQL connection string (auto-configured)
 
 ## Architecture
 
-The platform consists of multiple microservices:
-- Identity (5001): Authentication and user management
-- Logging (5002): Logging service
-- Catalog (5003): Resource and component registry
-- Assistants (5004): AI assistant management
-- Messaging (5005): Message handling
-- Runtime (5006): Execution runtime
-- Integrations (5007): Third-party integrations
-- Network (5054): Network management
+The platform consists of 8 microservices (all bound to 0.0.0.0):
 
-The website frontend proxies API calls to these services during development.
+| Service | Port | Description |
+|---------|------|-------------|
+| Identity | 5001 | Authentication and user management |
+| Logging | 5002 | Structured logging service |
+| Catalog | 5003 | Resource and component registry |
+| Assistants | 5004 | AI assistant management |
+| Messaging | 5005 | Message handling and routing |
+| Runtime | 5006 | Execution runtime for workflows |
+| Integrations | 5007 | Third-party OAuth and API integrations |
+| Network | 5054 | Event routing and SoftSDN observability (WebSocket) |
+
+The website frontend proxies API calls to these services via Vite:
+- `/api/{service}/*` → `localhost:{port}/api/*`
+- `/svc/{service}/*` → `localhost:{port}/*`
+
+## Recent Changes
+
+- Created `start-replit.sh` for Replit-compatible service startup
+- Configured all services to bind to 0.0.0.0 for proper proxy access
+- Fixed TypeScript export issue in integrations/oauth/providers
+- Set up PostgreSQL database with all required schemas
+- Configured Vite on port 5000 with allowedHosts for Replit iframe

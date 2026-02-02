@@ -114,7 +114,7 @@ start_service() {
   
   NODE_ENV=development \
   PORT=$port \
-  HOST=localhost \
+  HOST=0.0.0.0 \
   SESSION_SECRET=$SESSION_SECRET \
   NETWORK_HASH_SECRET=$NETWORK_HASH_SECRET \
   IDENTITY_SERVICE_URL=http://localhost:$IDENTITY_PORT \
