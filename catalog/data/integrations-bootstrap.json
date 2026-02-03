@@ -525,5 +525,187 @@
       },
       "operations": "auto-discover"
     }
+  },
+  {
+    "id": "int-google-gmail",
+    "key": "integrations/google/gmail",
+    "name": "Gmail",
+    "description": "Read, send, and manage emails via Gmail API",
+    "type": "integration",
+    "status": "published",
+    "isBootstrap": true,
+    "tags": ["google", "email", "gmail", "oauth", "openapi", "channel"],
+    "accessPolicy": {
+      "visibility": "public",
+      "actions": {
+        "read": { "anyOf": ["public"] },
+        "write": { "anyOf": ["role:admin"] }
+      }
+    },
+    "metadata": {
+      "integrationType": "openapi",
+      "specUrl": "https://gmail.googleapis.com/$discovery/rest?version=v1",
+      "serverUrl": "https://gmail.googleapis.com",
+      "authType": "oauth2",
+      "oauthProvider": "google",
+      "scopes": [
+        "https://www.googleapis.com/auth/gmail.readonly",
+        "https://www.googleapis.com/auth/gmail.send",
+        "https://www.googleapis.com/auth/gmail.modify"
+      ],
+      "operations": "auto-discover",
+      "capabilities": {
+        "read": true,
+        "send": true,
+        "labels": true,
+        "threads": true,
+        "drafts": true
+      }
+    }
+  },
+  {
+    "id": "int-google-drive",
+    "key": "integrations/google/drive",
+    "name": "Google Drive",
+    "description": "List, search, create, and manage files in Google Drive",
+    "type": "integration",
+    "status": "published",
+    "isBootstrap": true,
+    "tags": ["google", "drive", "files", "storage", "oauth", "openapi"],
+    "accessPolicy": {
+      "visibility": "public",
+      "actions": {
+        "read": { "anyOf": ["public"] },
+        "write": { "anyOf": ["role:admin"] }
+      }
+    },
+    "metadata": {
+      "integrationType": "openapi",
+      "specUrl": "https://www.googleapis.com/discovery/v1/apis/drive/v3/rest",
+      "serverUrl": "https://www.googleapis.com/drive/v3",
+      "authType": "oauth2",
+      "oauthProvider": "google",
+      "scopes": [
+        "https://www.googleapis.com/auth/drive.readonly",
+        "https://www.googleapis.com/auth/drive.file"
+      ],
+      "operations": "auto-discover",
+      "capabilities": {
+        "list": true,
+        "get": true,
+        "create": true,
+        "update": true,
+        "delete": true,
+        "share": true
+      }
+    }
+  },
+  {
+    "id": "int-google-calendar",
+    "key": "integrations/google/calendar",
+    "name": "Google Calendar",
+    "description": "Create events, check availability, manage calendars",
+    "type": "integration",
+    "status": "published",
+    "isBootstrap": true,
+    "tags": ["google", "calendar", "scheduling", "events", "oauth", "openapi"],
+    "accessPolicy": {
+      "visibility": "public",
+      "actions": {
+        "read": { "anyOf": ["public"] },
+        "write": { "anyOf": ["role:admin"] }
+      }
+    },
+    "metadata": {
+      "integrationType": "openapi",
+      "specUrl": "https://www.googleapis.com/discovery/v1/apis/calendar/v3/rest",
+      "serverUrl": "https://www.googleapis.com/calendar/v3",
+      "authType": "oauth2",
+      "oauthProvider": "google",
+      "scopes": [
+        "https://www.googleapis.com/auth/calendar.readonly",
+        "https://www.googleapis.com/auth/calendar.events"
+      ],
+      "operations": "auto-discover",
+      "capabilities": {
+        "listCalendars": true,
+        "listEvents": true,
+        "createEvent": true,
+        "updateEvent": true,
+        "deleteEvent": true,
+        "freeBusy": true
+      }
+    }
+  },
+  {
+    "id": "int-google-sheets",
+    "key": "integrations/google/sheets",
+    "name": "Google Sheets",
+    "description": "Read and write spreadsheet data, create sheets, apply formatting",
+    "type": "integration",
+    "status": "published",
+    "isBootstrap": true,
+    "tags": ["google", "sheets", "spreadsheet", "data", "oauth", "openapi"],
+    "accessPolicy": {
+      "visibility": "public",
+      "actions": {
+        "read": { "anyOf": ["public"] },
+        "write": { "anyOf": ["role:admin"] }
+      }
+    },
+    "metadata": {
+      "integrationType": "openapi",
+      "specUrl": "https://sheets.googleapis.com/$discovery/rest?version=v4",
+      "serverUrl": "https://sheets.googleapis.com/v4",
+      "authType": "oauth2",
+      "oauthProvider": "google",
+      "scopes": [
+        "https://www.googleapis.com/auth/spreadsheets.readonly",
+        "https://www.googleapis.com/auth/spreadsheets"
+      ],
+      "operations": "auto-discover",
+      "capabilities": {
+        "read": true,
+        "write": true,
+        "create": true,
+        "formatting": true,
+        "charts": true
+      }
+    }
+  },
+  {
+    "id": "int-google-docs",
+    "key": "integrations/google/docs",
+    "name": "Google Docs",
+    "description": "Create and edit documents, insert text, apply formatting",
+    "type": "integration",
+    "status": "published",
+    "isBootstrap": true,
+    "tags": ["google", "docs", "documents", "writing", "oauth", "openapi"],
+    "accessPolicy": {
+      "visibility": "public",
+      "actions": {
+        "read": { "anyOf": ["public"] },
+        "write": { "anyOf": ["role:admin"] }
+      }
+    },
+    "metadata": {
+      "integrationType": "openapi",
+      "specUrl": "https://docs.googleapis.com/$discovery/rest?version=v1",
+      "serverUrl": "https://docs.googleapis.com/v1",
+      "authType": "oauth2",
+      "oauthProvider": "google",
+      "scopes": [
+        "https://www.googleapis.com/auth/documents.readonly",
+        "https://www.googleapis.com/auth/documents"
+      ],
+      "operations": "auto-discover",
+      "capabilities": {
+        "read": true,
+        "create": true,
+        "update": true,
+        "batchUpdate": true
+      }
+    }
   }
 ]

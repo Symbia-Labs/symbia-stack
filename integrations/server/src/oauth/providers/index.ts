@@ -7,6 +7,7 @@
 
 import type { OAuthProvider } from "./base.js";
 import { replitProvider } from "./replit.js";
+import { googleProvider } from "./google.js";
 
 /**
  * Registry of available OAuth providers
@@ -58,6 +59,7 @@ export function isOAuthProviderRegistered(name: string): boolean {
 export function initializeOAuthProviders(): void {
   // Register built-in providers
   registerOAuthProvider(replitProvider);
+  registerOAuthProvider(googleProvider);
 
   console.log(`[oauth] Registered providers: ${getOAuthProviderNames().join(", ")}`);
 }
@@ -66,3 +68,4 @@ export function initializeOAuthProviders(): void {
 export type { OAuthProvider } from "./base.js";
 export { BaseOAuthProvider, OAuthError } from "./base.js";
 export { replitProvider, ReplitOAuthProvider } from "./replit.js";
+export { googleProvider, GoogleOAuthProvider } from "./google.js";

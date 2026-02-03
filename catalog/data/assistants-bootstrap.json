@@ -1117,5 +1117,474 @@
         ]
       }
     }
+  },
+  {
+    "id": "ast-gmail",
+    "key": "assistants/gmail",
+    "name": "Gmail",
+    "description": "Read, search, and send emails using natural language. Requires Google OAuth connection.",
+    "type": "assistant",
+    "status": "published",
+    "isBootstrap": true,
+    "tags": ["assistant", "bootstrap", "google", "gmail", "email", "level-4", "integration"],
+    "accessPolicy": {
+      "visibility": "public",
+      "actions": {
+        "read": { "anyOf": ["public"] },
+        "write": { "anyOf": ["role:admin"] }
+      }
+    },
+    "metadata": {
+      "alias": "gmail",
+      "curriculumLevel": 4,
+      "curriculumTitle": "Hybrid: AI then Logic",
+      "curriculumDescription": "AI understands email intent, then executes via Gmail API",
+      "llmConfig": {
+        "provider": "anthropic",
+        "model": "claude-3-5-sonnet-20241022",
+        "temperature": 0.3,
+        "maxTokens": 1500
+      },
+      "assistantConfig": {
+        "principalId": "assistant:gmail",
+        "principalType": "assistant",
+        "capabilities": ["messaging", "llm.chat", "integrations.google.gmail"]
+      },
+      "ruleSet": {
+        "id": "ruleset-gmail",
+        "name": "Gmail Rules",
+        "description": "Handle email operations via Gmail API",
+        "version": 1,
+        "isActive": true,
+        "rules": [
+          {
+            "id": "gmail-help",
+            "name": "Help Command",
+            "description": "Show Gmail assistant help",
+            "priority": 200,
+            "enabled": true,
+            "trigger": "message.received",
+            "conditions": {
+              "logic": "or",
+              "conditions": [
+                { "field": "message.content", "operator": "matches", "value": "^/help$" },
+                { "field": "message.content", "operator": "matches", "value": "^help$" }
+              ]
+            },
+            "actions": [
+              {
+                "type": "message.send",
+                "params": {
+                  "content": "**Gmail Assistant** (Level 4 - Integration)\n\nI help you manage your email through natural language.\n\n**What I can do:**\n- \"Check my inbox\" - List recent emails\n- \"Search for emails from [person]\" - Find specific emails\n- \"Read the latest email\" - View email content\n- \"Send email to [person] about [topic]\" - Compose and send\n- \"Reply to the last email saying [message]\" - Quick replies\n\n**Requirements:**\n- Google OAuth connection (connect via Settings)\n\n**Why this matters:**\nThis demonstrates AI→Tools hybrid - AI understands your intent, then executes precise API calls."
+                }
+              }
+            ]
+          },
+          {
+            "id": "gmail-action",
+            "name": "Gmail Action",
+            "description": "Process email requests via AI and Gmail API",
+            "priority": 100,
+            "enabled": true,
+            "trigger": "message.received",
+            "conditions": {
+              "logic": "and",
+              "conditions": [
+                { "field": "message.content", "operator": "exists", "value": true },
+                { "field": "message.content", "operator": "length_gte", "value": 3 }
+              ]
+            },
+            "actions": [
+              {
+                "type": "llm.invoke",
+                "id": "step-understand",
+                "params": {
+                  "systemPrompt": "You are a Gmail assistant. Analyze the user's email request and respond helpfully.\n\nFor now, describe what you would do if you had Gmail API access:\n- List emails: describe the search/filter criteria\n- Read email: describe which email to open\n- Send email: draft the email content\n- Search: describe the search query\n\nBe conversational and helpful. If the request is unclear, ask clarifying questions.",
+                  "userPrompt": "{{message.content}}"
+                }
+              },
+              {
+                "type": "message.send",
+                "params": {
+                  "template": "{{steps.step-understand.response}}\n\n---\n*Note: Full Gmail API integration requires OAuth connection. This assistant demonstrates the pattern.*"
+                }
+              }
+            ]
+          }
+        ]
+      }
+    }
+  },
+  {
+    "id": "ast-gdrive",
+    "key": "assistants/gdrive",
+    "name": "Google Drive",
+    "description": "Search, list, and manage files in Google Drive using natural language.",
+    "type": "assistant",
+    "status": "published",
+    "isBootstrap": true,
+    "tags": ["assistant", "bootstrap", "google", "drive", "files", "level-4", "integration"],
+    "accessPolicy": {
+      "visibility": "public",
+      "actions": {
+        "read": { "anyOf": ["public"] },
+        "write": { "anyOf": ["role:admin"] }
+      }
+    },
+    "metadata": {
+      "alias": "drive",
+      "curriculumLevel": 4,
+      "curriculumTitle": "Hybrid: AI then Logic",
+      "curriculumDescription": "AI understands file operations, then executes via Drive API",
+      "llmConfig": {
+        "provider": "anthropic",
+        "model": "claude-3-5-sonnet-20241022",
+        "temperature": 0.3,
+        "maxTokens": 1500
+      },
+      "assistantConfig": {
+        "principalId": "assistant:gdrive",
+        "principalType": "assistant",
+        "capabilities": ["messaging", "llm.chat", "integrations.google.drive"]
+      },
+      "ruleSet": {
+        "id": "ruleset-gdrive",
+        "name": "Google Drive Rules",
+        "description": "Handle file operations via Drive API",
+        "version": 1,
+        "isActive": true,
+        "rules": [
+          {
+            "id": "drive-help",
+            "name": "Help Command",
+            "priority": 200,
+            "enabled": true,
+            "trigger": "message.received",
+            "conditions": {
+              "logic": "or",
+              "conditions": [
+                { "field": "message.content", "operator": "matches", "value": "^/help$" }
+              ]
+            },
+            "actions": [
+              {
+                "type": "message.send",
+                "params": {
+                  "content": "**Google Drive Assistant** (Level 4)\n\nI help you manage files in Google Drive.\n\n**Commands:**\n- \"List my files\" - Show recent files\n- \"Search for [filename]\" - Find files\n- \"Find documents about [topic]\" - Search by content\n- \"Show files in [folder]\" - Browse folders\n- \"Get shareable link for [file]\" - Share files\n\n**Requires:** Google OAuth connection"
+                }
+              }
+            ]
+          },
+          {
+            "id": "drive-action",
+            "name": "Drive Action",
+            "priority": 100,
+            "enabled": true,
+            "trigger": "message.received",
+            "conditions": {
+              "logic": "and",
+              "conditions": [
+                { "field": "message.content", "operator": "exists", "value": true }
+              ]
+            },
+            "actions": [
+              {
+                "type": "llm.invoke",
+                "id": "step-understand",
+                "params": {
+                  "systemPrompt": "You are a Google Drive assistant. Help users with file management requests. Describe what operations you would perform.",
+                  "userPrompt": "{{message.content}}"
+                }
+              },
+              {
+                "type": "message.send",
+                "params": {
+                  "template": "{{steps.step-understand.response}}"
+                }
+              }
+            ]
+          }
+        ]
+      }
+    }
+  },
+  {
+    "id": "ast-gcal",
+    "key": "assistants/gcal",
+    "name": "Google Calendar",
+    "description": "Manage your calendar, create events, and check availability using natural language.",
+    "type": "assistant",
+    "status": "published",
+    "isBootstrap": true,
+    "tags": ["assistant", "bootstrap", "google", "calendar", "scheduling", "level-4", "integration"],
+    "accessPolicy": {
+      "visibility": "public",
+      "actions": {
+        "read": { "anyOf": ["public"] },
+        "write": { "anyOf": ["role:admin"] }
+      }
+    },
+    "metadata": {
+      "alias": "calendar",
+      "curriculumLevel": 4,
+      "curriculumTitle": "Hybrid: AI then Logic",
+      "curriculumDescription": "AI understands scheduling intent, then executes via Calendar API",
+      "llmConfig": {
+        "provider": "anthropic",
+        "model": "claude-3-5-sonnet-20241022",
+        "temperature": 0.3,
+        "maxTokens": 1500
+      },
+      "assistantConfig": {
+        "principalId": "assistant:gcal",
+        "principalType": "assistant",
+        "capabilities": ["messaging", "llm.chat", "integrations.google.calendar"]
+      },
+      "ruleSet": {
+        "id": "ruleset-gcal",
+        "name": "Google Calendar Rules",
+        "description": "Handle calendar operations via Calendar API",
+        "version": 1,
+        "isActive": true,
+        "rules": [
+          {
+            "id": "cal-help",
+            "name": "Help Command",
+            "priority": 200,
+            "enabled": true,
+            "trigger": "message.received",
+            "conditions": {
+              "logic": "or",
+              "conditions": [
+                { "field": "message.content", "operator": "matches", "value": "^/help$" }
+              ]
+            },
+            "actions": [
+              {
+                "type": "message.send",
+                "params": {
+                  "content": "**Google Calendar Assistant** (Level 4)\n\nI help you manage your schedule.\n\n**Commands:**\n- \"What's on my calendar today?\" - View today's events\n- \"Schedule a meeting with [person] on [date]\" - Create events\n- \"When am I free this week?\" - Check availability\n- \"Cancel my 3pm meeting\" - Delete events\n- \"Move my meeting to tomorrow\" - Reschedule\n\n**Requires:** Google OAuth connection"
+                }
+              }
+            ]
+          },
+          {
+            "id": "cal-action",
+            "name": "Calendar Action",
+            "priority": 100,
+            "enabled": true,
+            "trigger": "message.received",
+            "conditions": {
+              "logic": "and",
+              "conditions": [
+                { "field": "message.content", "operator": "exists", "value": true }
+              ]
+            },
+            "actions": [
+              {
+                "type": "llm.invoke",
+                "id": "step-understand",
+                "params": {
+                  "systemPrompt": "You are a Google Calendar assistant. Help users with scheduling requests. Parse dates and times, and describe what calendar operations you would perform.",
+                  "userPrompt": "{{message.content}}"
+                }
+              },
+              {
+                "type": "message.send",
+                "params": {
+                  "template": "{{steps.step-understand.response}}"
+                }
+              }
+            ]
+          }
+        ]
+      }
+    }
+  },
+  {
+    "id": "ast-gsheets",
+    "key": "assistants/gsheets",
+    "name": "Google Sheets",
+    "description": "Read, write, and analyze spreadsheet data using natural language.",
+    "type": "assistant",
+    "status": "published",
+    "isBootstrap": true,
+    "tags": ["assistant", "bootstrap", "google", "sheets", "spreadsheet", "data", "level-4", "integration"],
+    "accessPolicy": {
+      "visibility": "public",
+      "actions": {
+        "read": { "anyOf": ["public"] },
+        "write": { "anyOf": ["role:admin"] }
+      }
+    },
+    "metadata": {
+      "alias": "sheets",
+      "curriculumLevel": 4,
+      "curriculumTitle": "Hybrid: AI then Logic",
+      "curriculumDescription": "AI understands data operations, then executes via Sheets API",
+      "llmConfig": {
+        "provider": "anthropic",
+        "model": "claude-3-5-sonnet-20241022",
+        "temperature": 0.3,
+        "maxTokens": 1500
+      },
+      "assistantConfig": {
+        "principalId": "assistant:gsheets",
+        "principalType": "assistant",
+        "capabilities": ["messaging", "llm.chat", "integrations.google.sheets"]
+      },
+      "ruleSet": {
+        "id": "ruleset-gsheets",
+        "name": "Google Sheets Rules",
+        "description": "Handle spreadsheet operations via Sheets API",
+        "version": 1,
+        "isActive": true,
+        "rules": [
+          {
+            "id": "sheets-help",
+            "name": "Help Command",
+            "priority": 200,
+            "enabled": true,
+            "trigger": "message.received",
+            "conditions": {
+              "logic": "or",
+              "conditions": [
+                { "field": "message.content", "operator": "matches", "value": "^/help$" }
+              ]
+            },
+            "actions": [
+              {
+                "type": "message.send",
+                "params": {
+                  "content": "**Google Sheets Assistant** (Level 4)\n\nI help you work with spreadsheet data.\n\n**Commands:**\n- \"Read data from [spreadsheet]\" - View contents\n- \"Add row with [data]\" - Insert data\n- \"Find cells containing [value]\" - Search\n- \"Sum column A\" - Calculations\n- \"Create a chart from the data\" - Visualize\n\n**Requires:** Google OAuth connection"
+                }
+              }
+            ]
+          },
+          {
+            "id": "sheets-action",
+            "name": "Sheets Action",
+            "priority": 100,
+            "enabled": true,
+            "trigger": "message.received",
+            "conditions": {
+              "logic": "and",
+              "conditions": [
+                { "field": "message.content", "operator": "exists", "value": true }
+              ]
+            },
+            "actions": [
+              {
+                "type": "llm.invoke",
+                "id": "step-understand",
+                "params": {
+                  "systemPrompt": "You are a Google Sheets assistant. Help users with spreadsheet operations. Describe what data operations you would perform.",
+                  "userPrompt": "{{message.content}}"
+                }
+              },
+              {
+                "type": "message.send",
+                "params": {
+                  "template": "{{steps.step-understand.response}}"
+                }
+              }
+            ]
+          }
+        ]
+      }
+    }
+  },
+  {
+    "id": "ast-gdocs",
+    "key": "assistants/gdocs",
+    "name": "Google Docs",
+    "description": "Create and edit documents using natural language.",
+    "type": "assistant",
+    "status": "published",
+    "isBootstrap": true,
+    "tags": ["assistant", "bootstrap", "google", "docs", "documents", "writing", "level-4", "integration"],
+    "accessPolicy": {
+      "visibility": "public",
+      "actions": {
+        "read": { "anyOf": ["public"] },
+        "write": { "anyOf": ["role:admin"] }
+      }
+    },
+    "metadata": {
+      "alias": "docs",
+      "curriculumLevel": 4,
+      "curriculumTitle": "Hybrid: AI then Logic",
+      "curriculumDescription": "AI understands document operations, then executes via Docs API",
+      "llmConfig": {
+        "provider": "anthropic",
+        "model": "claude-3-5-sonnet-20241022",
+        "temperature": 0.3,
+        "maxTokens": 1500
+      },
+      "assistantConfig": {
+        "principalId": "assistant:gdocs",
+        "principalType": "assistant",
+        "capabilities": ["messaging", "llm.chat", "integrations.google.docs"]
+      },
+      "ruleSet": {
+        "id": "ruleset-gdocs",
+        "name": "Google Docs Rules",
+        "description": "Handle document operations via Docs API",
+        "version": 1,
+        "isActive": true,
+        "rules": [
+          {
+            "id": "docs-help",
+            "name": "Help Command",
+            "priority": 200,
+            "enabled": true,
+            "trigger": "message.received",
+            "conditions": {
+              "logic": "or",
+              "conditions": [
+                { "field": "message.content", "operator": "matches", "value": "^/help$" }
+              ]
+            },
+            "actions": [
+              {
+                "type": "message.send",
+                "params": {
+                  "content": "**Google Docs Assistant** (Level 4)\n\nI help you create and edit documents.\n\n**Commands:**\n- \"Create a new document called [title]\" - New doc\n- \"Read [document name]\" - View contents\n- \"Add paragraph: [text]\" - Insert text\n- \"Find and replace [old] with [new]\" - Edit\n- \"Format the heading as bold\" - Styling\n\n**Requires:** Google OAuth connection"
+                }
+              }
+            ]
+          },
+          {
+            "id": "docs-action",
+            "name": "Docs Action",
+            "priority": 100,
+            "enabled": true,
+            "trigger": "message.received",
+            "conditions": {
+              "logic": "and",
+              "conditions": [
+                { "field": "message.content", "operator": "exists", "value": true }
+              ]
+            },
+            "actions": [
+              {
+                "type": "llm.invoke",
+                "id": "step-understand",
+                "params": {
+                  "systemPrompt": "You are a Google Docs assistant. Help users with document creation and editing. Describe what document operations you would perform.",
+                  "userPrompt": "{{message.content}}"
+                }
+              },
+              {
+                "type": "message.send",
+                "params": {
+                  "template": "{{steps.step-understand.response}}"
+                }
+              }
+            ]
+          }
+        ]
+      }
+    }
   }
 ]
