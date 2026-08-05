@@ -1,0 +1,575 @@
+/**
+ * Symbia Control Center — Global Styles
+ * Imports design tokens and defines component classes
+ */
+
+/* Import design tokens */
+@import '../../../website/design-system/tokens.css';
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  html {
+    font-size: var(--text-base);
+  }
+
+  body {
+    @apply bg-surface-base text-text-primary font-sans antialiased;
+    font-feature-settings: 'liga' 1, 'calt' 1;
+    line-height: var(--leading-normal);
+  }
+
+  ::selection {
+    background-color: rgba(63, 184, 175, 0.3);
+    color: var(--text-primary);
+  }
+
+  /* Scrollbar styling */
+  ::-webkit-scrollbar {
+    @apply w-2 h-2;
+  }
+
+  ::-webkit-scrollbar-track {
+    @apply bg-surface-sunken;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    @apply bg-border rounded-full;
+    transition: background-color var(--transition-fast);
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background-color: rgba(63, 184, 175, 0.5);
+  }
+
+  /* Focus visible for accessibility */
+  :focus-visible {
+    outline: 2px solid var(--primary-500);
+    outline-offset: 2px;
+  }
+
+  /* Reduced motion support */
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+    }
+  }
+}
+
+@layer components {
+  /* ==========================================
+     CARDS
+  ========================================== */
+  .card {
+    @apply bg-surface-raised border border-border rounded-lg;
+    box-shadow: var(--shadow-sm);
+  }
+
+  .card-elevated {
+    @apply bg-surface-overlay border border-border rounded-lg;
+    box-shadow: var(--shadow-md);
+  }
+
+  /* Light mode: cards use very subtle shadows instead of heavy borders */
+  [data-theme="light"] .card,
+  [data-theme="light"] .scc-card {
+    border-color: var(--border-muted);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04), 0 1px 2px rgba(0, 0, 0, 0.02);
+  }
+
+  [data-theme="light"] .card-elevated {
+    border-color: var(--border-muted);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06), 0 1px 2px rgba(0, 0, 0, 0.02);
+  }
+
+  /* ==========================================
+     BUTTONS
+  ========================================== */
+  .btn {
+    @apply inline-flex items-center justify-center gap-2
+           px-4 py-2 rounded-md font-medium text-sm
+           transition-all duration-fast
+           disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+
+  .btn-primary {
+    @apply btn bg-primary-500 text-text-inverse
+           hover:bg-primary-600 active:bg-primary-700
+           hover:shadow-glow;
+  }
+
+  .btn-secondary {
+    @apply btn bg-surface-raised border border-border text-text-primary
+           hover:bg-surface-highlight hover:border-border-emphasis
+           active:bg-surface-sunken;
+  }
+
+  .btn-ghost {
+    @apply btn bg-transparent text-text-secondary
+           hover:bg-surface-highlight hover:text-text-primary
+           active:bg-surface-sunken;
+  }
+
+  .btn-danger {
+    @apply btn bg-error-muted text-error border
+           hover:bg-error hover:text-text-inverse;
+    border-color: rgba(248, 81, 73, 0.3);
+  }
+
+  .btn-danger:active {
+    background-color: rgba(248, 81, 73, 0.8);
+  }
+
+  .btn-sm {
+    @apply px-3 py-1.5 text-xs;
+  }
+
+  .btn-lg {
+    @apply px-6 py-3 text-base;
+  }
+
+  .btn-icon {
+    @apply p-2 rounded-md text-text-secondary
+           hover:bg-surface-highlight hover:text-text-primary
+           transition-colors duration-fast;
+  }
+
+  /* Legacy button classes for backwards compatibility */
+  .scc-button {
+    @apply btn-primary;
+  }
+
+  .scc-button-secondary {
+    @apply btn-secondary;
+  }
+
+  .scc-button-ghost {
+    @apply btn-ghost;
+  }
+
+  /* ==========================================
+     INPUTS
+  ========================================== */
+  .input {
+    @apply w-full bg-surface-sunken border border-border rounded-md
+           px-3 py-2 text-text-primary placeholder-text-muted
+           focus:outline-none focus:border-border-emphasis focus:ring-1
+           disabled:opacity-50 disabled:cursor-not-allowed
+           transition-all duration-fast;
+    height: 36px;
+  }
+
+  .input:focus {
+    --tw-ring-color: rgba(63, 184, 175, 0.5);
+  }
+
+  .input-lg {
+    @apply input px-4 py-3;
+    height: 44px;
+  }
+
+  .textarea {
+    @apply input min-h-[100px] resize-y;
+    height: auto;
+  }
+
+  .label {
+    @apply block text-sm font-medium text-text-secondary mb-1;
+  }
+
+  /* Legacy input classes */
+  .scc-input {
+    @apply input;
+  }
+
+  .scc-label {
+    @apply label;
+  }
+
+  /* ==========================================
+     LINKS
+  ========================================== */
+  .link {
+    @apply text-text-link hover:text-primary-400 underline underline-offset-2
+           transition-colors duration-fast;
+  }
+
+  .scc-link {
+    @apply link;
+  }
+
+  /* ==========================================
+     BADGES
+  ========================================== */
+  .badge {
+    @apply inline-flex items-center px-2 py-0.5 rounded-full
+           text-xs font-medium;
+  }
+
+  .badge-primary {
+    @apply badge text-primary-400 border;
+    background-color: rgba(63, 184, 175, 0.2);
+    border-color: rgba(63, 184, 175, 0.3);
+  }
+
+  .badge-success {
+    @apply badge bg-success-muted text-success;
+  }
+
+  .badge-warning {
+    @apply badge bg-warning-muted text-warning;
+  }
+
+  .badge-error {
+    @apply badge bg-error-muted text-error;
+  }
+
+  .badge-info {
+    @apply badge bg-info-muted text-info;
+  }
+
+  .badge-builtin {
+    @apply badge bg-badge-builtin-bg text-badge-builtin-text;
+  }
+
+  .badge-active {
+    @apply badge bg-badge-active-bg text-badge-active-text;
+  }
+
+  /* ==========================================
+     STATUS INDICATORS
+  ========================================== */
+  .status-indicator {
+    @apply w-2 h-2 rounded-full;
+  }
+
+  .status-indicator-connected,
+  .status-connected {
+    @apply bg-success shadow-[0_0_8px_var(--success)];
+  }
+
+  .status-indicator-connecting,
+  .status-connecting {
+    @apply bg-warning animate-pulse;
+  }
+
+  .status-indicator-disconnected,
+  .status-disconnected {
+    @apply bg-text-muted;
+  }
+
+  .status-indicator-error,
+  .status-error {
+    @apply bg-error shadow-[0_0_8px_var(--error)];
+  }
+
+  /* ==========================================
+     TABS
+  ========================================== */
+  .tabs {
+    @apply flex border-b border-border;
+  }
+
+  .tab {
+    @apply px-4 py-2.5 text-sm font-medium text-text-secondary
+           border-b-2 border-transparent -mb-px
+           hover:text-text-primary hover:border-border
+           transition-all duration-fast;
+  }
+
+  .tab-active {
+    @apply text-primary-500 border-primary-500;
+  }
+
+  /* ==========================================
+     SIDEBAR NAVIGATION
+  ========================================== */
+  .nav-item {
+    @apply flex items-center gap-3 px-3 py-2.5 rounded-md
+           text-sm text-text-secondary
+           hover:bg-surface-highlight hover:text-text-primary
+           transition-all duration-fast;
+  }
+
+  .nav-item-active {
+    @apply bg-surface-highlight text-text-primary
+           border-l-[3px] border-primary-500 -ml-px pl-[calc(0.75rem-1px)];
+  }
+
+  /* ==========================================
+     MODALS
+  ========================================== */
+  .modal-overlay {
+    @apply fixed inset-0 bg-black/70 z-modal
+           flex items-center justify-center;
+  }
+
+  .modal {
+    @apply bg-surface-overlay border border-border rounded-xl
+           shadow-xl max-w-[560px] w-full mx-4 p-6;
+  }
+
+  .modal-header {
+    @apply text-lg font-semibold text-text-primary mb-4;
+  }
+
+  .modal-body {
+    @apply text-text-secondary;
+  }
+
+  .modal-footer {
+    @apply flex justify-end gap-3 mt-6 pt-4 border-t border-border;
+  }
+
+  /* ==========================================
+     LOG LEVELS
+  ========================================== */
+  .log-debug {
+    @apply text-log-debug bg-log-debug-bg;
+  }
+
+  .log-info {
+    @apply text-log-info bg-log-info-bg;
+  }
+
+  .log-warn {
+    @apply text-log-warn bg-log-warn-bg;
+  }
+
+  .log-error {
+    @apply text-log-error bg-log-error-bg;
+  }
+
+  /* ==========================================
+     LEGACY SCC CLASSES (backwards compatibility)
+  ========================================== */
+  .scc-card {
+    @apply card;
+  }
+}
+
+@layer utilities {
+  /* Text glows */
+  .text-glow {
+    text-shadow: 0 0 10px rgba(63, 184, 175, 0.5);
+  }
+
+  .text-glow-strong {
+    text-shadow: 0 0 20px rgba(63, 184, 175, 0.7);
+  }
+
+  /* Truncate with ellipsis */
+  .truncate-2 {
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+
+  .truncate-3 {
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+
+  /* Focus ring utility */
+  .focus-ring:focus-visible {
+    outline: 2px solid var(--primary-500);
+    outline-offset: 2px;
+  }
+
+  /* Transition utilities */
+  .transition-fast {
+    transition: var(--transition-fast);
+  }
+
+  .transition-base {
+    transition: var(--transition-base);
+  }
+
+  .transition-slow {
+    transition: var(--transition-slow);
+  }
+
+  .transition-colors-fast {
+    transition: var(--transition-colors);
+  }
+}
+
+/* ==========================================
+   REACT FLOW OVERRIDES
+========================================== */
+.react-flow {
+  --xy-background-color: var(--surface-base);
+}
+
+.react-flow__node {
+  font-family: var(--font-mono);
+}
+
+.react-flow__edge-path {
+  stroke: var(--border-default);
+  stroke-width: 2;
+  transition: stroke-width 0.3s ease, stroke 0.3s ease;
+}
+
+.react-flow__edge.selected .react-flow__edge-path,
+.react-flow__edge:hover .react-flow__edge-path {
+  stroke: var(--primary-500);
+}
+
+.react-flow__controls {
+  background: var(--surface-raised);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-md);
+}
+
+.react-flow__controls-button {
+  background: var(--surface-raised);
+  border-color: var(--border-default);
+  color: var(--text-secondary);
+  width: 24px;
+  height: 24px;
+}
+
+.react-flow__controls-button:hover {
+  background: var(--surface-highlight);
+}
+
+.react-flow__controls-button svg {
+  fill: currentColor;
+  width: 12px;
+  height: 12px;
+}
+
+.react-flow__background {
+  background-color: var(--surface-base);
+}
+
+.react-flow__background pattern circle {
+  fill: var(--border-muted) !important;
+}
+
+/* Network graph specific styles */
+.network-graph-canvas {
+  background-color: var(--surface-base) !important;
+}
+
+.network-graph-canvas .react-flow__background {
+  background-color: var(--surface-base);
+}
+
+.network-graph-controls {
+  background: var(--surface-raised) !important;
+  border: 1px solid var(--border-default) !important;
+  border-radius: var(--radius-lg) !important;
+  box-shadow: var(--shadow-lg) !important;
+}
+
+.network-graph-controls button {
+  background: var(--surface-raised) !important;
+  border-color: var(--border-default) !important;
+  color: var(--text-secondary) !important;
+}
+
+.network-graph-controls button:hover {
+  background: var(--surface-highlight) !important;
+}
+
+.network-graph-controls button svg {
+  fill: var(--text-secondary) !important;
+}
+
+/* ==========================================
+   NETWORK GRAPH ANIMATIONS
+========================================== */
+.network-node-active {
+  animation: node-pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes node-pulse {
+  0%, 100% {
+    filter: brightness(1);
+  }
+  50% {
+    filter: brightness(1.15);
+  }
+}
+
+.edge-particle {
+  filter: drop-shadow(0 0 3px currentColor);
+}
+
+.edge-glow {
+  animation: edge-glow-pulse 2s ease-in-out infinite;
+}
+
+@keyframes edge-glow-pulse {
+  0%, 100% {
+    opacity: 0.15;
+  }
+  50% {
+    opacity: 0.3;
+  }
+}
+
+.network-node-activity-ring {
+  position: absolute;
+  inset: -4px;
+  border-radius: 10px;
+  pointer-events: none;
+  animation: activity-ring 1s ease-out forwards;
+}
+
+@keyframes activity-ring {
+  0% {
+    transform: scale(1);
+    opacity: 0.6;
+  }
+  100% {
+    transform: scale(1.15);
+    opacity: 0;
+  }
+}
+
+/* React Flow edge animation */
+.react-flow__edge.animated path {
+  stroke-dasharray: 5;
+  animation: flow 0.5s linear infinite;
+}
+
+@keyframes flow {
+  from {
+    stroke-dashoffset: 10;
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+.traffic-badge {
+  animation: badge-appear 0.3s ease-out;
+}
+
+@keyframes badge-appear {
+  from {
+    transform: scale(0.8);
+    opacity: 0;
+  }
+  to {
+    transform: scale(1);
+    opacity: 1;
+  }
+}

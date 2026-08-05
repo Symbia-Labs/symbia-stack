@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <rect width="100" height="100" rx="20" fill="#0a0a1a"/>
+  <text x="50" y="68"
+        font-family="monospace"
+        font-size="50"
+        font-weight="bold"
+        text-anchor="middle"
+        fill="#00d4ff">J</text>
+  <circle cx="75" cy="25" r="8" fill="#00d4ff" opacity="0.8">
+    <animate attributeName="opacity" values="0.8;0.3;0.8" dur="2s" repeatCount="indefinite"/>
+  </circle>
+</svg>
