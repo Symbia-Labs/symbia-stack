@@ -1,4 +1,4 @@
-import { endpoints } from '@/config/endpoints';
+import { endpoints, socketPath } from '@/config/endpoints';
 import { useAuthStore } from '@/stores/authStore';
 import { useOrgStore } from '@/stores/orgStore';
 import type { Conversation, Message } from '@/stores/messagingStore';
@@ -388,6 +388,10 @@ export function connectSocket(handlers: SocketEventHandlers): Socket {
   }
 
   socket = io(endpoints.messaging.base, {
+    // Proxied through this app's own server. Without an explicit path,
+    // Socket.IO would try /socket.io on the console's origin, which belongs to
+    // no service and hangs rather than failing.
+    path: socketPath('messaging'),
     auth: { token },
     autoConnect: true,
     reconnection: true,

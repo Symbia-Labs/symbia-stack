@@ -12,6 +12,7 @@
 import { io, Socket } from 'socket.io-client';
 import { useAuthStore } from '@/stores/authStore';
 import { getServiceUrl } from '@/config/services';
+import { socketPath } from '@/config/endpoints';
 import { DEBUG } from '@/config/debug';
 
 // =============================================================================
@@ -281,6 +282,7 @@ export function connectNetworkSocket(handlers: NetworkEventHandlers): Socket {
   }
 
   socket = io(socketUrl, {
+    path: socketPath('network'),
     auth: token ? { token } : undefined,
     autoConnect: true,
     reconnection: true,

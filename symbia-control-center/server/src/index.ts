@@ -13,7 +13,7 @@ import { createSymbiaServer } from '@symbia/http';
 import { ServiceId, resolveServicePort } from '@symbia/sys';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { mountServiceProxies, PROXIED_SERVICES } from './proxy.js';
+import { mountServiceProxies, mountSocketUpgrades, PROXIED_SERVICES } from './proxy.js';
 import { mountStatic } from './static.js';
 
 const serviceId = ServiceId.CONTROL_CENTER;
@@ -31,12 +31,17 @@ const server = createSymbiaServer({
   // config.
   cors: { origins: [], allowLocalhost: false },
 
-  registerRoutes: async (_httpServer, app) => {
+  registerRoutes: async (httpServer, app) => {
     // Proxies BEFORE static: /svc/* must never be answered by the SPA
     // fallback. A proxy route silently returning index.html is the
     // "API call succeeds while the button does nothing" failure inverted, and
     // just as hard to see.
     mountServiceProxies(app);
+
+    // WebSocket upgrades arrive on the HTTP server, not through Express, so
+    // they need wiring separately from the middleware above.
+    mountSocketUpgrades(httpServer);
+
     mountStatic(app, distDir);
   },
 

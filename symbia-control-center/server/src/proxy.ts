@@ -20,8 +20,10 @@
  * whichever they need. Rewriting away path segments here is what broke health
  * checks in the earlier /api/{service} entries.
  */
-import { createProxyMiddleware, type Options } from 'http-proxy-middleware';
+import { createProxyMiddleware, type Options, type RequestHandler } from 'http-proxy-middleware';
 import type { Express } from 'express';
+import type { Server } from 'node:http';
+import type { Socket } from 'node:net';
 import { ServicePorts, ServiceId, RunningServices } from '@symbia/sys';
 
 /**
@@ -45,6 +47,15 @@ export function serviceTarget(id: ServiceId): string {
   return `http://${host ?? 'localhost'}:${ServicePorts[id]}`;
 }
 
+/**
+ * Keyed by service so the HTTP `upgrade` listener can reuse the same handler
+ * instance the Express middleware uses — http-proxy-middleware requires this.
+ * Registering a second handler for the upgrade would give the socket a
+ * different proxy than its own polling requests, which fails intermittently
+ * and looks like a network problem rather than a wiring one.
+ */
+const handlers = new Map<ServiceId, RequestHandler>();
+
 export function mountServiceProxies(app: Express): void {
   for (const id of PROXIED_SERVICES) {
     const target = serviceTarget(id);
@@ -52,6 +63,10 @@ export function mountServiceProxies(app: Express): void {
     const options: Options = {
       target,
       changeOrigin: true,
+      // Socket.IO and raw WebSocket upgrades. Previously these bypassed the
+      // proxy entirely and dialled localhost:PORT direct (F6) — cross-origin
+      // where every HTTP call beside them was not.
+      ws: true,
       // Strip only the /svc/{id} prefix. Everything after it reaches the
       // service unaltered, so /svc/logging/health hits /health and
       // /svc/logging/api/logs hits /api/logs.
@@ -84,6 +99,38 @@ export function mountServiceProxies(app: Express): void {
       },
     };
 
-    app.use(`/svc/${id}`, createProxyMiddleware(options));
+    const handler = createProxyMiddleware(options);
+    handlers.set(id, handler);
+    app.use(`/svc/${id}`, handler);
   }
+}
+
+/**
+ * Route WebSocket upgrades to the right service.
+ *
+ * Express middleware never sees an `upgrade` request — it arrives on the HTTP
+ * server, not through the router — so mounting the proxy on the app is not
+ * enough. Without this, a Socket.IO client falls back to long-polling (which
+ * DOES go through Express) and appears to work, while every upgrade silently
+ * fails. That is the worst available outcome: chat and log streaming would
+ * function, slowly, and nothing would say why.
+ */
+export function mountSocketUpgrades(httpServer: Server): void {
+  httpServer.on('upgrade', (req, socket, head) => {
+    const url = req.url ?? '';
+    const id = PROXIED_SERVICES.find((s) => url.startsWith(`/svc/${s}/`));
+
+    if (!id) {
+      // Not ours. Destroy rather than leave it hanging — an unanswered
+      // upgrade holds the connection open until the client times out, which
+      // presents as "slow" instead of "wrong".
+      socket.destroy();
+      return;
+    }
+
+    // Node types the upgrade socket as Duplex; http-proxy-middleware wants
+    // net.Socket. It is a net.Socket at runtime — this is a type-level gap in
+    // the library's signature, not a behavioural one.
+    handlers.get(id)?.upgrade?.(req, socket as Socket, head);
+  });
 }

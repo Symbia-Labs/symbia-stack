@@ -27,10 +27,28 @@ function buildUrl(serviceId: string): string {
 
 // Socket URLs go through the proxy too. They previously did NOT — they dialled
 // http://localhost:PORT directly, which made them cross-origin where the HTTP
-// calls beside them were not (F6). Socket.IO is given the origin and a path so
-// the upgrade is proxied like everything else.
+// calls beside them were not (F6). That worked only because messaging and
+// network happen to be two of the four services that send CORS headers; it was
+// never a design, just a survivor.
+//
+// Socket.IO takes the page origin plus an explicit path. The upgrade request
+// then goes to /svc/{id}/socket.io on this server, which strips the prefix and
+// forwards /socket.io to the service — identical to how every HTTP call is
+// handled, over the same origin, through the same proxy.
 function buildSocketUrl(): string {
   return typeof window !== 'undefined' ? window.location.origin : '';
+}
+
+/**
+ * Socket.IO `path` option for a service.
+ *
+ * Must be passed wherever `io()` is called. Without it Socket.IO defaults to
+ * `/socket.io`, which on this origin is the control center's own root and
+ * belongs to no service — the connection would hang rather than fail loudly,
+ * which is the worse of the two outcomes.
+ */
+export function socketPath(serviceId: string): string {
+  return `/svc/${serviceId}/socket.io`;
 }
 
 export const endpoints = {
@@ -63,12 +81,18 @@ export const endpoints = {
   },
 
   messaging: {
+    // The Socket.IO origin. Paired with socketPath('messaging') at the io()
+    // call site — the origin alone is not enough.
     get base() {
-      // WebSocket needs direct URL, not proxy
       return buildSocketUrl();
     },
+    // HTTP. Note this used to be `${base}/api`, which after base became the
+    // page origin would have resolved to http://localhost:8000/api — this
+    // service's own root, not messaging's. Caught before it shipped, but it is
+    // exactly the class of thing that survives a port: a getter that still
+    // composes cleanly and now means something else.
     get api() {
-      return `${this.base}/api`;
+      return `${buildUrl(ServiceId.MESSAGING)}`;
     },
     get conversations() {
       return `${this.api}/conversations`;
