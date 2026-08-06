@@ -7,6 +7,13 @@ is reduced to what legitimately lives outside the platform: the device twin.
 It generates readings and POSTs them to the graph's ingress. No state, no
 derivation, no persistence here.
 
+It also no longer stands the pipeline up. The runtime hydrates published
+graphs from the catalog on boot and executes those declared as pipelines, so
+`energy-pipeline` is already running before this process starts. Delivery is
+one POST. If the ingress reports no running execution, that is a real
+condition to surface — register the graph and let the runtime hydrate it —
+not something a data feed should paper over by loading graphs itself.
+
   python3 feeder.py --once     one tick, print the graph's derived output
   python3 feeder.py            run forever
 """
@@ -28,7 +35,6 @@ IDENTITY = "http://localhost:5001"
 RUNTIME = "http://localhost:5006"
 EMAIL = "gap-probe@symbia.test"
 PASSWORD = "GapProbe!2026x"
-GRAPH_FILE = HERE.parent / "graphs" / "energy-pipeline.graph.json"
 
 _token: str | None = None
 
@@ -60,25 +66,8 @@ def login() -> None:
         _token = json.loads(r.read())["token"]
 
 
-def ensure_pipeline() -> None:
-    """Load + execute the graph if no running instance exists (until the
-    runtime hydrates graphs from the catalog on boot, someone must)."""
-    try:
-        api(RUNTIME, "/api/ingress/energy-pipeline", body={"probe": True})
-        return  # a running execution answered
-    except RuntimeError:
-        pass
-    definition = json.loads(GRAPH_FILE.read_text())
-    loaded = api(RUNTIME, "/api/graphs", body=definition)
-    graph_id = loaded.get("id") or loaded.get("graphId")
-    started = api(RUNTIME, f"/api/graphs/{graph_id}/execute", body={})
-    print(f"[feeder] loaded energy-pipeline (graph {graph_id}, "
-          f"execution {started['executionId']})", flush=True)
-
-
 def run(once: bool, scenario_path: str | None, tick_s: float) -> int:
     login()
-    ensure_pipeline()
     site = json.loads(Path(SITE_JSON).read_text())
     sim = Sim(site, load_scenario(scenario_path))
     t = 9.5 * 3600.0
@@ -86,7 +75,18 @@ def run(once: bool, scenario_path: str | None, tick_s: float) -> int:
         _state, readings = sim.tick(t, tick_s)
         t += tick_s
         # One batch delivery per tick: the ingress fans the array out in-graph.
-        resp = api(RUNTIME, "/api/ingress/energy-pipeline", body=readings)
+        try:
+            resp = api(RUNTIME, "/api/ingress/energy-pipeline", body=readings)
+        except RuntimeError as e:
+            if "404" in str(e) or "409" in str(e):
+                raise SystemExit(
+                    "energy-pipeline is not loaded/running in the runtime.\n"
+                    "The runtime hydrates published graphs from the catalog on boot, so "
+                    "register it and restart (or wait for the reconcile pass):\n"
+                    "  node scripts/register-graph.mjs energy/graphs/energy-pipeline.graph.json --role pipeline\n"
+                    f"underlying: {e}"
+                ) from None
+            raise
         delivered = resp.get("delivered", 0)
         last = (resp.get("outputs") or {}).get("sink:out") or {}
         pue = ((last.get("value") or {}).get("result")

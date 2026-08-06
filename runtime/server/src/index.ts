@@ -3,9 +3,11 @@
  *
  * Graph execution engine for Symbia Script workflows.
  *
- * NOTE: This service has been simplified. The component-based execution model
- * has been removed and requires a complete rework. Graph loading and validation
- * work, but actual execution is stubbed.
+ * The catalog is the source of truth; this service is the handler. On boot it
+ * publishes its component manifests to the catalog, hydrates published graph
+ * resources, and stands up the ones declared as pipelines/services — so a
+ * graph does not require an external actor to load and execute it before
+ * anything can be delivered to it.
  */
 
 import express from 'express';
@@ -28,6 +30,7 @@ import { setupDocRoutes } from './doc-routes.js';
 import { GraphExecutor } from './executor/index.js';
 import { createGraphRoutes, createExecutionRoutes, createRoutineRoutes } from './routes/index.js';
 import { createSocketHandlers } from './socket.js';
+import { CatalogSync } from './catalog/sync.js';
 
 const docsDir = path.resolve(process.cwd(), 'docs');
 
@@ -36,13 +39,23 @@ const telemetry = createTelemetryClient({
   serviceId: process.env.TELEMETRY_SERVICE_ID || config.serviceId,
 });
 
+// The catalog sync owns the manifest authority the executor validates against.
+// Declared before the executor so the resolver can be handed in by reference —
+// the executor asks the sync what is manifested, rather than the sync pushing
+// state into the executor.
+let catalogSync: CatalogSync | undefined;
+
 // Initialize graph executor
 const graphExecutor = new GraphExecutor({
   maxConcurrentExecutions: config.runtime.maxConcurrentExecutions,
   defaultTimeout: config.runtime.defaultExecutionTimeout,
   maxBackpressureQueue: config.runtime.maxBackpressureQueue,
   enableMetrics: config.runtime.enableMetrics,
+  manifestEnforcement: config.runtime.manifestEnforcement,
+  manifestResolver: () => catalogSync?.getManifestedKeys(),
 });
+
+catalogSync = new CatalogSync(graphExecutor);
 
 // Sink components write through the runtime's own telemetry client
 // (system-authenticated, batched, idempotent metric creation).
@@ -276,7 +289,28 @@ server.start()
     });
 
     console.log(`[Runtime] Service started on port ${config.port}`);
-    console.log('[Runtime] NOTE: Execution functionality is stubbed pending runtime rework');
+    console.log(
+      `[Runtime] manifest enforcement: ${config.runtime.manifestEnforcement}` +
+        (config.runtime.manifestEnforcement === 'strict'
+          ? ' (graphs referencing unmanifested components are refused on load)'
+          : '')
+    );
+
+    // Catalog -> runtime edge. Publish manifests, hydrate published graphs,
+    // stand up the ones declared as pipelines/services, then keep reconciling.
+    try {
+      const report = await catalogSync!.start();
+      console.log(
+        `[Runtime] catalog sync — loaded ${report.graphsLoaded.length} graph(s), started ${report.graphsStarted.length}` +
+          (report.errors.length ? `, ${report.errors.length} error(s)` : '')
+      );
+      for (const e of report.errors) {
+        console.error(`[Runtime] catalog sync error (${e.key}): ${e.error}`);
+      }
+    } catch (error) {
+      console.error('[Runtime] catalog sync failed at boot:', (error as Error).message);
+      if (config.catalog.failFast) process.exit(1);
+    }
   })
   .catch((error) => {
     console.error('Failed to start server:', error);
@@ -285,8 +319,10 @@ server.start()
 
 // Graceful shutdown handler for relay
 process.on('SIGTERM', async () => {
+  catalogSync?.stop();
   await shutdownRelay();
 });
 process.on('SIGINT', async () => {
+  catalogSync?.stop();
   await shutdownRelay();
 });

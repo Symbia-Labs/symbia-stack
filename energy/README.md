@@ -53,7 +53,13 @@ Every derivation has a **refusal return**. `rollup` emits `incomplete`; `ratio` 
 
 **What was removed, and why (6 Aug 2026).** `service/server.py` (the unregistered :5010 service), `service/sinks.py`, and `app/pipeline.py` are gone — items 1 and 5 on the "consequences to reverse" list in `API-MEASUREMENTS.md`. The derivation they performed now runs inside the runtime graph as registered components (`symbia.state.join`, `symbia.compute.arithmetic`, `symbia.sink.metric`), so an out-of-band Python service computing platform values no longer exists to drift from the platform. `derive.py` stays deliberately: it is the reference implementation of refusal semantics, and keeping it testable outside a container rebuild is the point of it. `data/` (captured reading streams) was archived out of the repo — it is regenerable from `sim/`.
 
-**The scaffolding that remains.** `feeder.py` still concedes one thing in `ensure_pipeline()`: it probes the ingress and loads/executes the graph if nothing is already running. That is not the design — executing a graph is meant to be barebones, with the engine owning hydration, lifecycle, and dispatch. It exists only because the runtime does not yet hydrate graphs from the catalog on boot, so *something* has to stand the execution up first. Once Phase 1 lands (the catalog is the source of truth; the engine is the handler), that call drops away and delivery collapses to a single POST to the ingress.
+**The scaffolding is gone (Phase 1, 6 Aug 2026).** `feeder.py` used to concede one thing in `ensure_pipeline()`: it probed the ingress and loaded/executed the graph if nothing was running. The runtime now hydrates published graphs from the catalog on boot and stands up those declared `role: pipeline`, so `energy-pipeline` is already running before the feeder starts. Delivery is a single POST. If the ingress reports no running execution, the feeder says so and stops rather than loading graphs itself — that is a real condition (the graph is not registered or not published), not something a data feed should paper over.
+
+Register the pipeline with:
+
+```bash
+node scripts/register-graph.mjs energy/graphs/energy-pipeline.graph.json --role pipeline
+```
 
 ## Scenarios (the regression suite)
 

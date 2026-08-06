@@ -179,6 +179,62 @@ the runtime can express what they were doing.
 - **`energy/data/` archived out of the repo** (94 MB of captured `.jsonl` streams,
   regenerable from `sim/`). Archived to `~/symbia-stack-backups/`, not in git.
 
+---
+
+## Update — 6 Aug 2026, Phase 1 (catalog → runtime edge) confirmed live
+
+Measured against the running stack, not anticipated.
+
+- **D1 fully resolved.** The runtime publishes a manifest for all 16 compiled
+  components to the catalog on boot (`registered 16, failed 0`, each with a
+  `registry.ledger` entry, principal `service:internal`, gate `service`). A
+  graph node is now resolved against the **catalog's** manifest set at load
+  time, not the in-process registry.
+  **Proof the gate is real, not decorative:** with `symbia.io.delay`'s manifest
+  deleted from the catalog, loading a graph that uses it returns
+  `Graph references components with no registered catalog manifest: b -> symbia.io.delay`
+  — even though the implementation is compiled into the running bundle. The
+  registry, not the code, decides what may run.
+
+- **D3 resolved.** `POST /api/graphs` with a valid `GraphDefinition` loads
+  (confirmed 200 with a two-node control graph). The 5 Aug 400 was legitimate
+  validation of a minimal payload, as suspected. Logged then as *unconfirmed*;
+  now closed.
+
+- **The external load/execute concession is gone.** `energy-pipeline` is
+  registered as a published catalog `graph` resource with `role: pipeline`. The
+  runtime hydrates and stands it up on boot (`loaded 1 graph(s), started 1`) and
+  the 30s reconcile pass picks up newly registered graphs with no restart —
+  observed standing the pipeline up 30s after registration. `feeder.py` no
+  longer loads or executes anything: one POST delivers 225 readings, the graph
+  derives PUE 1.3453 on the canonical lane, and `energy.v2.facility_kw`,
+  `energy.v2.it_kw`, `energy.v2.pue` land in Logging with real data points
+  (e.g. 3498.15, labels `{site: dc1}`). 680 messages processed, 0 errors.
+
+### New defects found while verifying Phase 1
+
+| id | finding | evidence | status |
+|---|---|---|---|
+| **D6** | **Graph-written metrics are effectively write-only.** Sinks write via the runtime's telemetry client, which authenticates with the identity bootstrap secret and lands data in the **system org** (`…0001`). But the system secret is only accepted on `INGEST_PATHS`; `POST /api/metrics/query` rejects it (`401 Invalid or expired token`). A user JWT can read it, but only if the caller knows to pass `X-Org-Id: …0001` explicitly — nothing advertises that. So a graph can persist a series that the obvious read path cannot see. | Queried as user → 0 `energy.v2.*` series. Same query with explicit system org → 10 series with data. | **Open.** This is why rebuilding `EnergyPanel.tsx` against `energy.v2.*` is not just a UI job. |
+| **D7** | **Duplicate metric series per runtime restart.** `ensureMetric` caches by name in-process only, and metric names are not unique per (org, service), so each restart creates a *new* `energy.v2.pue` series rather than reusing the existing one. Three now exist. Readers must union them or silently see a fraction of the data. | 3 × `energy.v2.pue`, 3 × `energy.v2.it_kw` after 3 restarts. | **Open.** |
+| **D8** | **`GET /api/graphs` reports a count it does not return.** Responds `{"loadedGraphs":1,"activeExecutions":1,"graphs":[]}` — the summary says one graph is loaded and the array is empty. The same shape of defect as the dashboard reporting 8/8 healthy without checking. | Observed with the energy pipeline loaded and running. | **Open.** |
+| **D9** | **Two catalog `graph` resources carry no graph.** `energy.graph.pue` and `energy.graph.ingest` are published `type: graph` resources whose metadata contains no `nodes`/`edges`. They were registered before a definition was required, so the registry asserts two graphs exist that cannot be run. Hydration now names them on every pass rather than skipping quietly. | `catalog sync error (energy.graph.pue): graph resource has no usable definition under metadata.definition` | **Open** — decide whether to populate or unregister. |
+
+**Also corrected during this work:** the first manifest registration wrote all 16
+resources under the catalog's *default private* access policy, making the
+contracts unreadable to every caller that had not already authenticated as a
+writer. The gate belongs on registration, not on discovery — manifests and
+registered graphs now carry public-read / gated-write. A contract nobody can
+read is not a contract.
+
+**A parsing bug worth recording, because it cost a debug cycle:**
+`GET /api/resources` returns a **bare array**; the MCP wrapper over the same
+endpoint returns `{resources, total, has_more}`. The runtime's client assumed
+the wrapper's envelope, silently parsed `[]`, concluded nothing was registered,
+and every create came back `400 already exists`. Both shapes are now accepted.
+The general lesson: probe the actual response shape of the surface you are
+calling, not the one you saw through a different wrapper.
+
 **Consequences still open:** 2 (`symbia-control-center/vite.config.ts` hand-added
 `energy: 5010` route — now pointing at a service that no longer exists), 3
 (`model/site.json`: 227 points in a file, not catalog resources — D2 `point` type

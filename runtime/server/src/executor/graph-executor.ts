@@ -37,11 +37,31 @@ export interface TraceEntry {
   summary: string;
 }
 
+/**
+ * How hard the executor enforces that a graph node's component is backed by a
+ * registered catalog manifest.
+ *
+ * `strict` is the honest default: the platform's central claim is that no
+ * capability enters without a recorded gate, and a mode that silently degrades
+ * to "run it anyway" would be that claim without a mechanism again. When the
+ * catalog is unreachable in strict mode, graph loads fail loudly rather than
+ * quietly falling back to trusting the in-process registry.
+ */
+export type ManifestEnforcement = 'strict' | 'warn' | 'off';
+
 export interface GraphExecutorConfig {
   maxConcurrentExecutions?: number;
   defaultTimeout?: number;
   maxBackpressureQueue?: number;
   enableMetrics?: boolean;
+  /**
+   * Returns the component keys the catalog currently manifests, or undefined
+   * if that set is not known (catalog never reached, or reachable but not yet
+   * synced). Undefined is distinct from empty: empty means the registry
+   * genuinely has no components.
+   */
+  manifestResolver?: () => Set<string> | undefined;
+  manifestEnforcement?: ManifestEnforcement;
 }
 
 export interface ExecutorEvents {
@@ -105,6 +125,8 @@ export class GraphExecutor extends EventEmitter {
       defaultTimeout: executorConfig.defaultTimeout ?? config.runtime.defaultExecutionTimeout,
       maxBackpressureQueue: executorConfig.maxBackpressureQueue ?? config.runtime.maxBackpressureQueue,
       enableMetrics: executorConfig.enableMetrics ?? config.runtime.enableMetrics,
+      manifestResolver: executorConfig.manifestResolver ?? (() => undefined),
+      manifestEnforcement: executorConfig.manifestEnforcement ?? config.runtime.manifestEnforcement,
     };
   }
 
@@ -520,6 +542,67 @@ export class GraphExecutor extends EventEmitter {
         throw new Error(`Edge references unknown target node: ${edge.target.node}`);
       }
     }
+
+    this.resolveComponents(definition);
+  }
+
+  /**
+   * Resolve every node's component against (a) the in-process implementation
+   * registry and (b) the catalog's registered manifests.
+   *
+   * Both checks happen at LOAD time. Previously an unknown component was only
+   * discovered when a message reached that node — a graph could sit "loaded"
+   * and apparently healthy while containing a node that could never run. A
+   * contract that is only checked on the happy path is not a contract.
+   *
+   * The manifest check is the Phase 1 edge: the catalog is the source of truth
+   * for what a component *is*, and the runtime refuses to run a node whose
+   * contract was never registered, even though the implementation happens to
+   * be compiled into this very bundle.
+   */
+  private resolveComponents(definition: GraphDefinition): void {
+    const missingImpl: string[] = [];
+    for (const node of definition.nodes) {
+      if (!node.component) {
+        throw new Error(`Node "${node.id}" has no component`);
+      }
+      if (!getComponent(node.component)) {
+        missingImpl.push(`${node.id} -> ${node.component}`);
+      }
+    }
+    if (missingImpl.length > 0) {
+      throw new Error(
+        `Graph references components with no registered implementation: ${missingImpl.join(', ')}`
+      );
+    }
+
+    const enforcement = this.config.manifestEnforcement;
+    if (enforcement === 'off') return;
+
+    const manifested = this.config.manifestResolver();
+    if (manifested === undefined) {
+      // The catalog was never reached, so we cannot tell a manifested
+      // component from an unmanifested one. Guessing "allow" here is precisely
+      // the failure mode Phase 1 exists to remove.
+      const msg =
+        'Component manifests unavailable (catalog not reached) — cannot verify graph components against the registry';
+      if (enforcement === 'strict') {
+        throw new Error(
+          `${msg}. Set RUNTIME_MANIFEST_ENFORCEMENT=warn to load graphs against the in-process registry alone.`
+        );
+      }
+      console.warn(`[GraphExecutor] ${msg} (enforcement=warn, loading anyway)`);
+      return;
+    }
+
+    const unmanifested = definition.nodes
+      .filter((n) => !manifested.has(n.component as string))
+      .map((n) => `${n.id} -> ${n.component}`);
+    if (unmanifested.length === 0) return;
+
+    const msg = `Graph references components with no registered catalog manifest: ${unmanifested.join(', ')}`;
+    if (enforcement === 'strict') throw new Error(msg);
+    console.warn(`[GraphExecutor] ${msg} (enforcement=warn, loading anyway)`);
   }
 
   private buildTopology(definition: GraphDefinition): LoadedGraph['topology'] {

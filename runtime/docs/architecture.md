@@ -15,7 +15,7 @@ A graph is a DAG of nodes (each bound to a registered `component`) connected by 
 
 State lives in `GraphExecutor` as three in-memory `Map`s — `loadedGraphs`, `executions`, `timers`. Components (`symbia.io.*`, `symbia.logic.*`, `symbia.compute.*`, `symbia.state.*`, `symbia.sink.*`, `symbia.source.*`, `symbia.transform.*`, `symbia.routine.*`) are registered in-process at boot.
 
-**The gap in one line:** the runtime holds **no reference to the catalog**. Graphs exist only once something POSTs them, are lost on restart, and no external producer can reach a graph until an actor has first loaded *and* executed it. INTENT.md positions the Catalog as the registry (components, graphs, executors) and the Runtime as the executor — but the edge between them isn't built. That single missing edge is what forces the external `feeder.py` scaffolding (see the energy README) and sits underneath defects D1–D4.
+**The gap that used to be here (closed 6 Aug 2026):** the runtime held **no reference to the catalog**. Graphs existed only once something POSTed them, were lost on restart, and no external producer could reach a graph until an actor had first loaded *and* executed it. That single missing edge forced the external `feeder.py` scaffolding and sat underneath defects D1–D4. It is now built — see Phase 1 below. Graphs are still lost on restart in the sense that execution *state* is in-memory (Phase 3), but the graphs themselves rehydrate from the catalog.
 
 ## Target architecture
 
@@ -25,13 +25,13 @@ State lives in `GraphExecutor` as three in-memory `Map`s — `loadedGraphs`, `ex
 
 Ordered by dependency. The sequencing principle (Brian, 5 Aug): **enforcement first** — build the registration gate so the constraint is real, *then* rebuild energy underneath it and let it fail loudly wherever the API falls short. If registration stays optional, rebuilding correctly prevents nothing.
 
-| Phase | Goal | Closes |
-|---|---|---|
-| 0 | Registration is real and gated | D2b, D2, D1 |
-| 1 | Catalog → runtime hydration + reconciliation | D3, removes external load/execute |
-| 2 | Ingress as a declared, gated surface | D4 |
-| 3 | Durable executions | — |
-| 4 | Registry-derived topology / governance closure | D5 |
+| Phase | Goal | Closes | Status |
+|---|---|---|---|
+| 0 | Registration is real and gated | D2b, D2, D1 | **Done** (6 Aug 2026) |
+| 1 | Catalog → runtime hydration + reconciliation | D3, removes external load/execute | **Done** (6 Aug 2026) |
+| 2 | Ingress as a declared, gated surface | D4 | Open |
+| 3 | Durable executions | — | Open |
+| 4 | Registry-derived topology / governance closure | D5 | Open |
 
 ### Phase 0 — Make registration real (critical path)
 
@@ -40,11 +40,18 @@ The blocker under everything is **D2b**: catalog refuses writes (403) even with 
 - Land the catalog write path **with the gate**, not a bare route — registration must be enforced and ledgered, not decorative (this is the "property claimed with no mechanism to enforce it" defect, resolved at its root).
 - Add a first-class `component` manifest resource (key, version, typed input/output ports, the capability/gate it requires) and a proper `graph` resource type (D2: catalog's type enum currently lacks these).
 
-### Phase 1 — Hydration & reconciliation (kills the scaffolding)
+### Phase 1 — Hydration & reconciliation (kills the scaffolding) — **implemented**
 
-- On boot, the runtime queries the catalog for published graphs; graphs tagged as pipelines/services with a declared `metadata.ingress` are auto-loaded and auto-executed. This directly removes the "someone must stand the execution up" concession — `feeder.py`'s `ensure_pipeline()` disappears, and delivery becomes a single POST to the ingress.
-- Resolve each graph node's `component` against its catalog manifest at **load time** (implementations may stay compiled for now); a node referencing an unmanifested component is rejected on load, not at runtime. This defuses D1 without shipping a plugin loader on day one — the contract moves into the catalog even while the code stays in the bundle.
-- A reconciliation loop converges loaded graphs to catalog state (load new/updated, unload removed), ideally driven by **Network service** events rather than polling.
+Implemented in `server/src/catalog/` (`client.ts`, `manifests.ts`, `sync.ts`), wired at boot in `index.ts`.
+
+- **Manifest self-registration.** On boot the runtime publishes a `ComponentManifest` for every component compiled into it — key, version, `implementation: builtin`, typed ports, required capability — as a gated, ledgered catalog resource under `components/<key>`. Idempotent: existing manifests are compared field-by-field and PATCHed only on real drift. 16 manifests register on a clean boot.
+- **Load-time component resolution.** `validateGraph` now resolves every node twice: against the in-process implementation registry, and against the catalog's manifest set. Both checks are at *load* time — previously an unknown component was only discovered when a message reached that node, so a graph could sit "loaded" and apparently healthy containing a node that could never run. Enforcement is `RUNTIME_MANIFEST_ENFORCEMENT` = `strict` (default) | `warn` | `off`. In strict mode, an unreachable catalog fails graph loads rather than silently falling back to trusting the in-process registry — the fallback would be the "property claimed with no mechanism" defect again.
+- **Hydration and auto-standing.** The runtime queries the catalog for published `graph` resources and loads each `metadata.definition`. Those declaring `role: pipeline|service` are auto-executed, so external producers can POST to the ingress immediately. `feeder.py`'s `ensure_pipeline()` is gone; delivery is a single POST.
+- **Reconciliation.** A poll (`RUNTIME_RECONCILE_INTERVAL_MS`, default 30s) converges loaded graphs on catalog state: new and updated graphs load, removed or unpublished graphs unload. Passes never overlap. **Polling is interim** — driving this off Network service events is the target, and is named here rather than left to look like the design.
+
+**Registration is now the only way in.** `scripts/register-graph.mjs` publishes a graph definition to the catalog; nothing loads a graph by reading the filesystem.
+
+**Deliberate asymmetry: manifests are registered at boot, not re-asserted on every reconcile.** Deleting a component's manifest therefore disables that component for graph loads until the runtime restarts. That is the point — if the runtime silently re-created any manifest an operator removed, the registry would not be authoritative and the gate would be decorative. Verified: with `symbia.io.delay`'s manifest deleted, a graph using it is refused at load with *"no registered catalog manifest"*, even though the implementation is compiled into the running bundle.
 
 ### Phase 2 — Ingress as a declared, gated surface
 
