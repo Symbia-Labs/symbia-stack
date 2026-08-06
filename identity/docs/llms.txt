@@ -67,6 +67,52 @@ Use /api as the base path for all endpoints.
 - GET /api/admin/users/{userId}/roles - Get user's global roles
 - POST /api/admin/users/{userId}/roles - Grant a global role to a user
 - DELETE /api/admin/users/{userId}/roles/{roleKey} - Revoke a global role from a user
+- DELETE /api/admin/orgs/{id} - Delete orgs
+- PATCH /api/admin/orgs/{id} - Update orgs
+- DELETE /api/admin/users/{id} - Delete users
+- PATCH /api/admin/users/{id} - Update users
+- DELETE /api/auth/keys/{id} - Delete keys
+- GET /api/auth/keys/{id} - Get keys
+- DELETE /api/credentials/{id} - Delete credentials
+- DELETE /api/orgs/{orgId}/members/{memberId} - Delete members
+- PATCH /api/orgs/{orgId}/members/{memberId} - Update members
+- GET /api/admin/audit-logs - List audit logs
+- GET /api/admin/orgs - List orgs
+- GET /api/admin/plans - List plans
+- POST /api/admin/plans - Create plans
+- GET /api/admin/users - List users
+- GET /api/auth/agent/me - Get me
+- GET /api/auth/config - Get config
+- GET /api/auth/keys - List keys
+- POST /api/auth/keys - Create keys
+- GET /api/auth/me - Get me
+- GET /api/auth/user/me - Get me
+- GET /api/bootstrap/service - Get service
+- GET /api/credentials - List credentials
+- POST /api/credentials - Create credentials
+- GET /api/entities - List entities
+- POST /api/entities - Create entities
+- GET /api/entities/by-node/{nodeId} - Get by node
+- GET /api/entities/{id} - Get entities
+- PATCH /api/entities/{id} - Update entities
+- GET /api/stats - List stats
+- PATCH /api/admin/plans/{id} - Update plans
+- POST /api/auth/agent/login - Login auth agent login
+- POST /api/auth/agent/refresh - Refresh auth agent refresh
+- POST /api/auth/agent/register - Register auth agent register
+- POST /api/auth/forgot-password - Create forgot password
+- POST /api/auth/keys/{id}/revoke - Revoke auth keys revoke
+- POST /api/auth/keys/{id}/rotate - Rotate auth keys rotate
+- POST /api/auth/reset-password - Create reset password
+- POST /api/auth/user/login - Login auth user login
+- POST /api/auth/user/refresh - Refresh auth user refresh
+- POST /api/auth/user/register - Register auth user register
+- POST /api/entities/resolve - Resolve entities resolve
+- POST /api/entities/sync - Sync entities sync
+- POST /api/entities/{id}/bind - Bind entities bind
+- POST /api/entities/{id}/unbind - Unbind entities unbind
+- POST /api/orgs/{id}/members/invite - Invite orgs members invite
+- POST /api/users/me/password - Create password
 
 ## Authentication
 

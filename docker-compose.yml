@@ -56,6 +56,15 @@ services:
       PORT: 5001
       DATABASE_URL: postgresql://${POSTGRES_USER:-symbia}:${POSTGRES_PASSWORD:-symbia_dev}@postgres:5432/identity
       SESSION_SECRET: ${SESSION_SECRET:-symbia-dev-secret-change-in-production}
+      # Development switch. Untokened requests run as the first existing user.
+      # OFF unless set: a gate skipped by default is not a gate.
+      #
+      # The control center's login-disabled build depends on this. Before
+      # 6 Aug 2026 only the CLIENT half existed — App.tsx probed for it and
+      # identity had no such setting — so the probe could never succeed and a
+      # dev auto-login with hardcoded credentials was silently carrying the
+      # whole console.
+      DEV_NO_AUTH: ${DEV_NO_AUTH:-false}
     ports:
       - "${IDENTITY_PORT:-5001}:5001"
     depends_on:
