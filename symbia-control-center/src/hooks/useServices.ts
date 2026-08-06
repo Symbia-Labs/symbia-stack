@@ -22,6 +22,7 @@ import {
   type NetworkEventHandlers,
 } from '@/services/networkClient';
 import { loggingStreamClient, pollingManager } from '@/services/loggingStreamClient';
+import { DEBUG } from '@/config/debug';
 
 interface UseServicesOptions {
   enableAssistants?: boolean;
@@ -54,7 +55,7 @@ export function useServices(options: UseServicesOptions = {}) {
   useEffect(() => {
     if (organizations.length > 0 && !orgId) {
       const firstOrg = organizations[0];
-      if (import.meta.env.DEV) {
+      if (DEBUG) {
         console.log('[useServices] Auto-setting org to:', firstOrg.id, firstOrg.name);
       }
       setCurrentOrg(firstOrg.id);
@@ -76,7 +77,7 @@ export function useServices(options: UseServicesOptions = {}) {
     const currentToken = useAuthStore.getState().token;
     const currentOrgId = useOrgStore.getState().currentOrgId;
 
-    if (import.meta.env.DEV) {
+    if (DEBUG) {
       console.log('[useServices] loadAssistantsData called', { hasToken: !!currentToken, currentOrgId });
     }
 
@@ -107,7 +108,7 @@ export function useServices(options: UseServicesOptions = {}) {
         assistantsClient.listAssistants(),
       ]);
 
-      if (import.meta.env.DEV) {
+      if (DEBUG) {
         console.log('[useServices] Assistants data loaded', {
           graphs: graphs.length,
           actors: actors.length,
@@ -146,11 +147,11 @@ export function useServices(options: UseServicesOptions = {}) {
     try {
       const topology = await networkClient.getTopology();
       actions.setNetworkTopology(topology);
-      if (import.meta.env.DEV) {
+      if (DEBUG) {
         console.log('[useServices] Loaded topology via REST:', topology.nodes.length, 'nodes');
       }
     } catch (error) {
-      if (import.meta.env.DEV) {
+      if (DEBUG) {
         console.error('[useServices] Failed to load topology via REST:', error);
       }
       // Track permission errors specifically
@@ -171,12 +172,12 @@ export function useServices(options: UseServicesOptions = {}) {
       const eventsWithTraces = await networkClient.getRecentEvents({ limit: 500 });
       if (eventsWithTraces && Array.isArray(eventsWithTraces)) {
         actions.setRecentNetworkEvents(eventsWithTraces);
-        if (import.meta.env.DEV) {
+        if (DEBUG) {
           console.log('[useServices] Loaded events via REST:', eventsWithTraces.length, 'events');
         }
       }
     } catch (error) {
-      if (import.meta.env.DEV) {
+      if (DEBUG) {
         console.error('[useServices] Failed to load events via REST:', error);
       }
       // Track permission errors but don't block
@@ -200,16 +201,16 @@ export function useServices(options: UseServicesOptions = {}) {
 
         // Subscribe to SDN events if enabled
         if (networkEventStream) {
-          if (import.meta.env.DEV) {
+          if (DEBUG) {
             console.log('[useServices] Subscribing to SDN events (networkEventStream enabled)');
           }
           try {
             const subId = await subscribeToSDNEvents();
-            if (import.meta.env.DEV) {
+            if (DEBUG) {
               console.log('[useServices] SDN subscription successful:', subId);
             }
           } catch (error) {
-            if (import.meta.env.DEV) {
+            if (DEBUG) {
               console.error('[useServices] Failed to subscribe to SDN events:', error);
             }
             // Track permission errors
@@ -224,7 +225,7 @@ export function useServices(options: UseServicesOptions = {}) {
             }
           }
         } else {
-          if (import.meta.env.DEV) {
+          if (DEBUG) {
             console.log('[useServices] SDN event streaming not enabled (networkEventStream=false)');
           }
         }
@@ -259,7 +260,7 @@ export function useServices(options: UseServicesOptions = {}) {
       },
 
       onNodeDisconnected: (event) => {
-        if (import.meta.env.DEV) {
+        if (DEBUG) {
           console.log('[useServices] Node disconnected:', event.nodeId);
         }
       },
@@ -323,7 +324,7 @@ export function useServices(options: UseServicesOptions = {}) {
       // Store capabilities (SOR for UI components)
       if (capabilities) {
         actions.setCapabilities(capabilities);
-        if (import.meta.env.DEV) {
+        if (DEBUG) {
           console.log('[useServices] Loaded capabilities:', {
             providers: capabilities.providers.length,
             chatModels: capabilities.modelsByPurpose.chat.length,
@@ -332,7 +333,7 @@ export function useServices(options: UseServicesOptions = {}) {
         }
       }
 
-      if (import.meta.env.DEV) {
+      if (DEBUG) {
         console.log('[useServices] Loaded integrations:', integrations.length);
       }
     } catch (error) {
@@ -357,7 +358,7 @@ export function useServices(options: UseServicesOptions = {}) {
     // Check cache (5 minute TTL)
     const cacheAge = state.capabilitiesFetchedAt ? Date.now() - state.capabilitiesFetchedAt : Infinity;
     if (!forceRefresh && state.capabilities && cacheAge < 5 * 60 * 1000) {
-      if (import.meta.env.DEV) {
+      if (DEBUG) {
         console.log('[useServices] Using cached capabilities (age:', Math.round(cacheAge / 1000), 's)');
       }
       return state.capabilities;
@@ -402,14 +403,14 @@ export function useServices(options: UseServicesOptions = {}) {
       // Set initial logs
       actions.setRecentLogs(initialLogs);
 
-      if (import.meta.env.DEV) {
+      if (DEBUG) {
         console.log('[useServices] Initial logs loaded:', initialLogs.length);
       }
 
       // Subscribe to live log updates - use addLogs to merge new logs with existing
       const logsSubscriptionId = loggingStreamClient.subscribeLogs(
         (logs) => {
-          if (import.meta.env.DEV) {
+          if (DEBUG) {
             console.log('[useServices] SSE received logs batch:', logs.length);
           }
           // Use addLogs to merge, not setRecentLogs which replaces
@@ -476,7 +477,7 @@ export function useServices(options: UseServicesOptions = {}) {
       const topology = await networkClient.getTopology();
       actions.setNetworkTopology(topology);
     } catch (error) {
-      if (import.meta.env.DEV) {
+      if (DEBUG) {
         console.error('[useServices] Failed to refresh topology:', error);
       }
       if (error instanceof NetworkPermissionError) {
@@ -535,7 +536,7 @@ export function useServices(options: UseServicesOptions = {}) {
     if (orgId !== lastOrgIdRef.current) {
       lastOrgIdRef.current = orgId;
 
-      if (import.meta.env.DEV) {
+      if (DEBUG) {
         console.log('[useServices] OrgId changed, loading org-dependent services', {
           orgId,
           enableAssistants,

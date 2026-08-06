@@ -2,6 +2,7 @@ import { endpoints } from '@/config/endpoints';
 import { useAuthStore } from '@/stores/authStore';
 import { useOrgStore } from '@/stores/orgStore';
 import type { Conversation, Message } from '@/stores/messagingStore';
+import { DEBUG } from '@/config/debug';
 
 // Types for messaging operations
 export interface CreateConversationParams {
@@ -187,12 +188,9 @@ class MessagingBridge {
 
   async generateTopicName(conversationId: string): Promise<string | null> {
     try {
-      // Call the coordinator's topic name generation endpoint
-      // Use same URL pattern as assistantsClient for proxy compatibility
-      const baseUrl = import.meta.env.DEV
-        ? '/api/assistants'
-        : `${endpoints.assistants.base}`;
-      const url = `${baseUrl}/coordinator/topic-name`;
+      // Call the coordinator's topic name generation endpoint.
+      // Same origin as everything else — there is no dev variant any more.
+      const url = `${endpoints.assistants.base}/coordinator/topic-name`;
 
       const response = await fetch(url, {
         method: 'POST',
@@ -270,7 +268,7 @@ function emitWithTimeout<T>(
  */
 function setupSocketListeners(handlers: SocketEventHandlers): void {
   if (!socket) return;
-  const isDev = import.meta.env.DEV;
+  const isDev = DEBUG;
 
   // IMPORTANT: Remove ALL existing listeners before adding new ones
   // This prevents the memory leak where listeners accumulate
@@ -360,7 +358,7 @@ function setupSocketListeners(handlers: SocketEventHandlers): void {
 
 export function connectSocket(handlers: SocketEventHandlers): Socket {
   const token = useAuthStore.getState().token;
-  const isDev = import.meta.env.DEV;
+  const isDev = DEBUG;
   const thisConnectionId = ++connectionId;
 
   if (isDev) {
@@ -438,7 +436,7 @@ export function getConnectionStatus(): 'connected' | 'connecting' | 'disconnecte
 }
 
 export async function joinConversation(conversationId: string): Promise<boolean> {
-  const isDev = import.meta.env.DEV;
+  const isDev = DEBUG;
 
   if (!socket?.connected) {
     if (isDev) console.log('[Socket] Cannot join conversation - socket not connected');
@@ -472,7 +470,7 @@ export async function sendSocketMessage(
   content: string,
   options?: Omit<SendMessageParams, 'content'>
 ): Promise<Message | null> {
-  const isDev = import.meta.env.DEV;
+  const isDev = DEBUG;
 
   if (!socket?.connected) {
     if (isDev) console.log('[Socket] Cannot send message - socket not connected');
@@ -517,7 +515,7 @@ export async function sendSocketControl(
   event: string,
   options?: Omit<ControlEventParams, 'event'>
 ): Promise<boolean> {
-  const isDev = import.meta.env.DEV;
+  const isDev = DEBUG;
 
   if (!socket?.connected) {
     if (isDev) console.log('[Socket] Cannot send control - socket not connected');

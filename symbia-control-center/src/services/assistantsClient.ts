@@ -128,11 +128,6 @@ class AssistantsClient {
   }
 
   private getBaseUrl(): string {
-    // In development, use Vite proxy to avoid CORS issues
-    // Proxy rewrites /api/assistants/* to http://localhost:5004/api/*
-    if (import.meta.env.DEV) {
-      return '/api/assistants';
-    }
     return `${getServiceUrl('assistants')}/api`;
   }
 

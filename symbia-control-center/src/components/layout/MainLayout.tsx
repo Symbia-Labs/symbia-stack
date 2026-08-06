@@ -36,12 +36,6 @@ const IconIntegrations = () => (
   </svg>
 );
 
-const IconEnergy = () => (
-  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-    <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />
-  </svg>
-);
-
 const IconLogs = () => (
   <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
@@ -54,7 +48,12 @@ const IconChat = () => (
   </svg>
 );
 
-export type PanelId = 'overview' | 'network' | 'assistants' | 'integrations' | 'energy' | 'logs' | 'chat';
+// 'energy' removed 6 Aug 2026. The energy prototype does not use the platform
+// API, and carrying its panel forward under a rebuild whose whole argument is
+// that capability arrives through declared paths would have shipped that
+// arrangement rather than examined it. Panel archived to archive/energy/;
+// returns when energy reaches the platform through the API.
+export type PanelId = 'overview' | 'network' | 'assistants' | 'integrations' | 'logs' | 'chat';
 
 function PaletteControl({ collapsed }: { collapsed: boolean }) {
   const [isOpen, setIsOpen] = useState(false);
@@ -271,7 +270,6 @@ export function MainLayout({ activePanel, onPanelChange, children }: MainLayoutP
     { id: 'network', label: 'Network', icon: IconNetwork },
     { id: 'assistants', label: 'Assistants', icon: IconAssistants, badge: loadedAssistants.length },
     { id: 'integrations', label: 'Integrations', icon: IconIntegrations, badge: providers.length },
-    { id: 'energy', label: 'Energy', icon: IconEnergy },
     { id: 'logs', label: 'Logs', icon: IconLogs },
     { id: 'chat', label: 'Chat', icon: IconChat },
   ];

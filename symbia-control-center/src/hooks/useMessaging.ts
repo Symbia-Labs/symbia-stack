@@ -3,6 +3,7 @@ import { useMessagingStore, type Message } from '@/stores/messagingStore';
 import { useAuthStore } from '@/stores/authStore';
 import { useOrgStore } from '@/stores/orgStore';
 import { usePlatformStore } from '@/stores/platformStore';
+import { DEBUG } from '@/config/debug';
 import {
   messagingBridge,
   connectSocket,
@@ -49,7 +50,7 @@ export function useMessaging() {
   // Create stable handler references to prevent reconnection on every render
   const handlersRef = useRef({
     onConnect: () => {
-      const isDev = import.meta.env.DEV;
+      const isDev = DEBUG;
       if (isDev) console.log('[useMessaging] Connected!');
       isConnectingRef.current = false;
       setConnectionStatus('connected');
@@ -60,7 +61,7 @@ export function useMessaging() {
       });
     },
     onDisconnect: (reason: string) => {
-      const isDev = import.meta.env.DEV;
+      const isDev = DEBUG;
       if (isDev) console.log('[useMessaging] Disconnected:', reason);
       // Don't set to disconnected if we're about to reconnect
       const status = getConnectionStatus();
@@ -90,7 +91,7 @@ export function useMessaging() {
       });
     },
     onReconnecting: (attempt: number) => {
-      const isDev = import.meta.env.DEV;
+      const isDev = DEBUG;
       if (isDev) console.log('[useMessaging] Reconnecting, attempt:', attempt);
       setConnectionStatus('connecting');
       addEvent({
@@ -110,7 +111,7 @@ export function useMessaging() {
       });
     },
     onMessage: (message: { id: string; conversation_id: string; sender_id: string; sender_type: string; content?: string }) => {
-      const isDev = import.meta.env.DEV;
+      const isDev = DEBUG;
       if (isDev) {
         console.log('[useMessaging] Received message:new event:', {
           id: message.id,
@@ -141,7 +142,7 @@ export function useMessaging() {
       setTyping(event.conversationId, event.userId, false);
     },
     onControl: (event: { event: string }) => {
-      const isDev = import.meta.env.DEV;
+      const isDev = DEBUG;
       if (isDev) console.log('[Control Event]', event);
       addEvent({
         type: event.event,
@@ -154,7 +155,7 @@ export function useMessaging() {
 
   // Connect socket when authenticated (or always in dev mode)
   useEffect(() => {
-    const isDev = import.meta.env.DEV;
+    const isDev = DEBUG;
     const currentAttempt = ++connectionAttemptRef.current;
 
     if (isDev) {
@@ -275,7 +276,7 @@ export function useMessaging() {
   // Send message (prefer WebSocket, fallback to REST)
   const sendMessage = useCallback(
     async (conversationId: string, content: string, options?: Omit<SendMessageParams, 'content'>): Promise<Message | null> => {
-      const isDev = import.meta.env.DEV;
+      const isDev = DEBUG;
 
       // Try WebSocket first
       try {

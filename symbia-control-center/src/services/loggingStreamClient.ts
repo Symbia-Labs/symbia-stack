@@ -332,25 +332,33 @@ class LoggingStreamClient {
       headers['Authorization'] = `Bearer ${token}`;
     }
 
-    // Required context headers for logging service
-    // In development, omit X-Org-Id to let the logging service use its default
-    // "symbia-dev" which matches the seeded demo data
-    if (orgId && !import.meta.env.DEV) {
+    // Context headers for the logging service.
+    //
+    // BEHAVIOUR CHANGE, 6 Aug 2026. Two of these were gated on
+    // import.meta.env.DEV and were not logging — they were the app deciding
+    // what to claim about itself based on a flag that measured wrong.
+    //
+    // X-Org-Id was OMITTED in "development" so the logging service would fall
+    // back to its "symbia-dev" default, which matched the seeded demo data.
+    // That is a convenience that hides whether org scoping works at all: the
+    // panel showed rows either way. It is now always sent when we have one, so
+    // an org with no data shows no data — which is the truth.
+    //
+    // X-Env was `DEV ? 'development' : 'production'`. A browser cannot know
+    // which environment a stack is deployed as; it was reporting a build flag
+    // as a fact about the world. It is no longer sent. The service may default
+    // it, refuse without it, or ignore it — any of those is more honest than a
+    // guess, and if the service needs it, it should come from the service.
+    if (orgId) {
       headers['X-Org-Id'] = orgId;
     }
     headers['X-Service-Id'] = 'control-center';
-    headers['X-Env'] = import.meta.env.DEV ? 'development' : 'production';
     headers['X-Data-Class'] = 'internal';
 
     return headers;
   }
 
   private getBaseUrl(): string {
-    // In development, use Vite proxy to avoid CORS issues
-    // Proxy rewrites /api/logging/* to http://localhost:5002/api/*
-    if (import.meta.env.DEV) {
-      return '/api/logging';
-    }
     return `${getServiceUrl('logging')}/api`;
   }
 

@@ -6,6 +6,7 @@ import { usePlatformStore } from '@/stores/platformStore';
 import { identityClient } from '@/services/identityClient';
 import { disconnectSocket } from '@/services/messagingBridge';
 import { telemetry } from '@/services/loggingClient';
+import { DEBUG } from '@/config/debug';
 
 export function useAuth() {
   const navigate = useNavigate();
@@ -50,7 +51,7 @@ export function useAuth() {
       }
 
       // Dev mode: auto-login with dev credentials
-      if (import.meta.env.DEV) {
+      if (DEBUG) {
         try {
           console.log('[Auth] Dev mode: attempting auto-login...');
           const { user: userData, token: authToken } = await identityClient.login(

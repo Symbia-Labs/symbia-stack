@@ -45,11 +45,16 @@ const server = createSymbiaServer({
     enableLiveness: true,
     enableReadiness: true,
     // Readiness reports on this service only. It deliberately does NOT probe
-    // the nine services behind the proxy: a console that reports itself
-    // unready because logging is down would be reporting someone else's
-    // state as its own, and the console's whole job is to show that state
-    // rather than to be conflated with it.
-    readinessCheck: async () => ({ status: 'ok' }),
+    // the services behind the proxy: a console that reports itself unready
+    // because logging is down would be reporting someone else's state as its
+    // own, and the console's whole job is to show that state rather than to be
+    // conflated with it.
+    //
+    // What it does check is the one thing that is genuinely its own
+    // precondition — that there is something to serve. mountStatic already
+    // refuses to start without dist/index.html, so reaching here means it is
+    // present.
+    readinessCheck: async () => true,
   },
 });
 

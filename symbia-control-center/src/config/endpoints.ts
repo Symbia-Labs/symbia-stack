@@ -1,38 +1,36 @@
-// Service endpoints - uses @symbia/sys for port definitions
-import { ServiceId, ServicePorts } from '@symbia/sys';
-
-// Helper to build endpoint URL
+// Service endpoints.
 //
 // SYMBIA_MARKER_A4_ENDPOINTS_PROXY_20260805
-// This file carried the SAME defect that config/services.ts was fixed for
-// earlier today, and the fix there did not reach here — a shared-looking
-// concern with two independent implementations, which is how identity's
-// forked authMiddleware also survived a patch to @symbia/auth.
 //
-// The defect: gating the proxy on `import.meta.env.DEV`. Measured in the
-// running page, that flag is FALSE even under `npm run dev` (NODE_ENV leaks
-// in from the environment), so every identity call fell through to an
-// absolute http://localhost:5001 URL. Identity sends no CORS headers, so the
-// browser blocked the response before the app saw it — surfacing as
-// "Failed to load credentials: TypeError: Failed to fetch", which the
-// provider cards then rendered as "Not configured" for every provider.
+// This file is the second half of a forked concern. config/services.ts had
+// the same defect, was fixed, and the fix did not reach here — the same shape
+// as identity's authMiddleware surviving a patch to @symbia/auth. Both halves
+// are now one line each, calling the same thing, so there is nothing left to
+// fork.
 //
-// Detect the dev server by the origin actually serving the page, exactly as
-// services.ts does.
-function buildUrl(serviceId: string, useProxy = true): string {
-  const port = ServicePorts[serviceId as keyof typeof ServicePorts];
-  if (useProxy && typeof window !== 'undefined' && window.location.port === '5173') {
-    return `/svc/${serviceId}/api`;
-  }
-  const envVar = `VITE_${serviceId.toUpperCase()}_URL`;
-  return import.meta.env[envVar] || `http://localhost:${port}/api`;
+// The defect both files carried: choosing between a dev proxy and an absolute
+// http://localhost:PORT URL. `import.meta.env.DEV` measured FALSE in the
+// running page even under `npm run dev`, so identity calls fell through to
+// absolute URLs; identity sends no CORS headers, so the browser blocked the
+// response before the app saw it, surfacing as "Failed to load credentials:
+// TypeError: Failed to fetch" and rendering every provider as
+// "Not configured".
+//
+// The page is now served by the control center service, which proxies
+// /svc/{id} on the same origin in every environment. No branch.
+import { ServiceId } from '@symbia/sys';
+import { getServiceUrl } from './services';
+
+function buildUrl(serviceId: string): string {
+  return `${getServiceUrl(serviceId)}/api`;
 }
 
-// Direct socket URL (no proxy for WebSocket)
-function buildSocketUrl(serviceId: string): string {
-  const port = ServicePorts[serviceId as keyof typeof ServicePorts];
-  const envVar = `VITE_${serviceId.toUpperCase()}_URL`;
-  return import.meta.env[envVar] || `http://localhost:${port}`;
+// Socket URLs go through the proxy too. They previously did NOT — they dialled
+// http://localhost:PORT directly, which made them cross-origin where the HTTP
+// calls beside them were not (F6). Socket.IO is given the origin and a path so
+// the upgrade is proxied like everything else.
+function buildSocketUrl(): string {
+  return typeof window !== 'undefined' ? window.location.origin : '';
 }
 
 export const endpoints = {
@@ -67,7 +65,7 @@ export const endpoints = {
   messaging: {
     get base() {
       // WebSocket needs direct URL, not proxy
-      return buildSocketUrl(ServiceId.MESSAGING);
+      return buildSocketUrl();
     },
     get api() {
       return `${this.base}/api`;
@@ -181,7 +179,7 @@ export const endpoints = {
       return buildUrl(ServiceId.NETWORK);
     },
     get socketBase() {
-      return buildSocketUrl(ServiceId.NETWORK);
+      return buildSocketUrl();
     },
     get nodes() {
       return `${this.base}/sdn/nodes`;

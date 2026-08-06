@@ -19,14 +19,12 @@ import { AssistantsPanel } from '@/components/panels/AssistantsPanel';
 import { IntegrationsPanel } from '@/components/panels/IntegrationsPanel';
 import { LogSearchPanel } from '@/components/panels/LogSearchPanel';
 import { ChatPanel } from '@/components/panels/ChatPanel';
-import { EnergyPanel } from '@/components/panels/EnergyPanel';
 
 const PANELS: Record<PanelId, React.ComponentType> = {
   overview: OverviewPanel,
   network: NetworkPanel,
   assistants: AssistantsPanel,
   integrations: IntegrationsPanel,
-  energy: EnergyPanel,
   logs: LogSearchPanel,
   chat: ChatPanel,
 };

@@ -45,8 +45,11 @@ function AuthInitializer({ children }: { children: React.ReactNode }) {
       // it says we are. Deliberately NOT gated on a client env var — the
       // previous version was, and debugging "did VITE_DEV_NO_AUTH reach the
       // bundle?" wasted the whole loop. Ask the service; believe the answer.
+      //
+      // This is the pattern the whole rebuild generalises: the page cannot
+      // know what environment it is in, so it does not guess. It asks.
       try {
-        const res = await fetch('/api/identity/auth/me');
+        const res = await fetch('/svc/identity/api/auth/me');
         if (res.ok) {
           const data = await res.json();
           if (data?.user) {
@@ -70,36 +73,19 @@ function AuthInitializer({ children }: { children: React.ReactNode }) {
         console.log('[Auth] no-auth probe failed; falling through to login', err);
       }
 
-      // Dev mode: auto-login with dev credentials
-      if (import.meta.env.DEV) {
-        try {
-          console.log('[Auth] Dev mode: attempting auto-login...');
-          const { user: userData, token: authToken } = await identityClient.login(
-            'dev@example.com',
-            'password123'
-          );
-          setAuth(
-            {
-              id: userData.id,
-              email: userData.email,
-              name: userData.name,
-              isSuperAdmin: userData.isSuperAdmin,
-              entitlements: userData.entitlements || [],
-              roles: userData.roles || [],
-            },
-            authToken,
-            userData.organizations || []
-          );
-          console.log('[Auth] Dev mode: auto-login successful', {
-            entitlements: userData.entitlements?.length || 0,
-          });
-          return;
-        } catch (err) {
-          console.log('[Auth] Dev mode: auto-login failed (identity service may not be ready)', err);
-        }
-      }
-
-      // Login is disabled: never clear to a logged-out state, just stop loading.
+      // REMOVED 6 Aug 2026: a dev-mode auto-login with hardcoded credentials
+      // (dev@example.com / password123), gated on import.meta.env.DEV.
+      //
+      // It is deliberately not re-gated on ?debug. It was behaviour, not
+      // logging, and it was the same mistake as everything else this rebuild
+      // removes: the page guessing what environment it was in and then acting
+      // on the guess. The untokened probe above already covers the legitimate
+      // case — if login is disabled, identity says so and we believe it. If
+      // identity requires a token, the login screen is the correct answer, in
+      // development as much as anywhere else.
+      //
+      // Consequence to expect rather than discover: a developer who relied on
+      // landing already logged in now sees the login form.
       setLoading(false);
     };
 
@@ -134,7 +120,7 @@ export function App() {
             /integrations, /chat, /assistants … into a redirect, so no view
             was linkable and the address bar never tracked navigation.
           */}
-          {['overview', 'network', 'assistants', 'integrations', 'energy', 'logs', 'chat'].map(
+          {['overview', 'network', 'assistants', 'integrations', 'logs', 'chat'].map(
             (panel) => (
               <Route
                 key={panel}

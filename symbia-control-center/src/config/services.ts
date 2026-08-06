@@ -61,34 +61,35 @@ export const SERVICES: ServiceConfig[] = [
   color: SERVICE_COLORS[id] || '#64748b',
 }));
 
-// Get service URL - in browser, use local endpoints
+/**
+ * Where to reach a service from the browser.
+ *
+ * Always same-origin, in every environment. The page is served by the control
+ * center service on 8000, which proxies /svc/{id} to that service's root.
+ *
+ * There is no branch here any more, and that is the point of the rebuild.
+ * This function used to choose between a dev proxy and an absolute
+ * http://localhost:PORT URL. Absolute URLs are cross-origin, and five of the
+ * services send no CORS headers, so the browser blocked responses before the
+ * app saw them — which is why the dashboard read "3/8 healthy" on a stack
+ * where every container was healthy, and why every integration provider
+ * rendered as "Not configured".
+ *
+ * Two attempts to pick the right branch both failed:
+ *   - `import.meta.env.DEV` measured FALSE in the running page even under
+ *     `npm run dev`, because NODE_ENV leaked in from the environment.
+ *   - `window.location.port === '5173'` worked, but only because a dev server
+ *     happened to be on that port, and it left production silently taking the
+ *     cross-origin path.
+ *
+ * A branch that cannot be evaluated correctly should not exist. Now there is
+ * one origin and no decision.
+ *
+ * Path shape: /svc/{id} maps to the service ROOT, so callers append either
+ * `/health` (root) or `/api/...` themselves.
+ */
 export function getServiceUrl(serviceId: string): string {
-  // In dev, go through the Vite proxy — never straight at http://localhost:PORT.
-  //
-  // Absolute URLs make these cross-origin requests, and only messaging, runtime
-  // and network send CORS headers. That is precisely why the dashboard read
-  // "3/8 healthy" while every container was in fact healthy, and why the
-  // Integrations panel died with "Failed to fetch": the browser blocked the
-  // response before the app ever saw it. The proxy makes them same-origin.
-  //
-  // Health lives at /health (root) on every service, while the API lives under
-  // /api — so callers append either. `/svc/{id}` is proxied to the service
-  // root, which serves both without rewriting away path segments.
-  // Do NOT gate this on import.meta.env.DEV — measured in the running page,
-  // that flag is FALSE here even under `npm run dev` (NODE_ENV leaks in from
-  // the environment), so an earlier version of this fix silently did nothing.
-  // Detect the dev server by the origin actually serving the page instead.
-  if (typeof window !== 'undefined' && window.location.port === '5173') {
-    return `/svc/${serviceId}`;
-  }
-
-  const endpoint = ServiceLocalEndpoints[serviceId as keyof typeof ServiceLocalEndpoints];
-  if (endpoint) return endpoint;
-
-  // Fallback
-  const service = SERVICES.find((s) => s.id === serviceId);
-  if (!service) throw new Error(`Unknown service: ${serviceId}`);
-  return `http://localhost:${service.port}`;
+  return `/svc/${serviceId}`;
 }
 
 // Re-export ServiceId for convenience

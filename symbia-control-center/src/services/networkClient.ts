@@ -11,7 +11,8 @@
  */
 import { io, Socket } from 'socket.io-client';
 import { useAuthStore } from '@/stores/authStore';
-import { getServiceUrl, ServicePorts } from '@/config/services';
+import { getServiceUrl } from '@/config/services';
+import { DEBUG } from '@/config/debug';
 
 // =============================================================================
 // Error Types
@@ -156,7 +157,7 @@ const HEARTBEAT_INTERVAL_MS = 30000;
 function registerClientNode(): void {
   if (!socket?.connected) return;
 
-  const isDev = import.meta.env.DEV;
+  const isDev = DEBUG;
   const user = useAuthStore.getState().user;
   const clientId = `client:control-center:${user?.id || 'anonymous'}`;
   const clientName = user ? `${user.name || user.email}'s Control Center` : 'Control Center';
@@ -237,10 +238,12 @@ function registerClientNode(): void {
  * Get the Network service socket URL (direct, not proxied)
  */
 function getNetworkSocketUrl(): string {
-  const envVar = 'VITE_NETWORK_URL';
-  const envUrl = import.meta.env[envVar];
-  if (envUrl) return envUrl;
-  return `http://localhost:${ServicePorts.network}`;
+  // Same origin. This used to dial http://localhost:5009 directly, bypassing
+  // the proxy that every HTTP call beside it went through (F6) — so the
+  // sockets were cross-origin where the fetches were not, and depended on the
+  // network service being the one of five that happens to send CORS headers.
+  // The upgrade is now proxied like everything else; see server/src/proxy.ts.
+  return typeof window !== 'undefined' ? window.location.origin : '';
 }
 
 /**
@@ -248,7 +251,7 @@ function getNetworkSocketUrl(): string {
  */
 export function connectNetworkSocket(handlers: NetworkEventHandlers): Socket {
   const token = useAuthStore.getState().token;
-  const isDev = import.meta.env.DEV;
+  const isDev = DEBUG;
 
   if (isDev) {
     console.log('[NetworkSocket] Connecting to:', getNetworkSocketUrl());
@@ -444,7 +447,7 @@ export function subscribeToSDNEvents(options?: {
   source?: string;
   eventType?: string;
 }): Promise<string> {
-  const isDev = import.meta.env.DEV;
+  const isDev = DEBUG;
   return new Promise((resolve, reject) => {
     if (!socket?.connected) {
       if (isDev) console.log('[NetworkSocket] Cannot subscribe - not connected');
@@ -518,11 +521,6 @@ class NetworkRESTClient {
   }
 
   private getBaseUrl(): string {
-    // In development, use Vite proxy to avoid CORS issues
-    // Proxy rewrites /api/network/* to http://localhost:5054/api/*
-    if (import.meta.env.DEV) {
-      return '/api/network';
-    }
     return `${getServiceUrl('network')}/api`;
   }
 

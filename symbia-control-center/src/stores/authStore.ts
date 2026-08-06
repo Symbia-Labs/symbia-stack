@@ -79,12 +79,19 @@ interface AuthState {
 }
 
 /**
- * VITE_DEV_NO_AUTH — pairs with identity's DEV_NO_AUTH.
- * When set, the login screen is skipped and requests go out without a token;
- * identity attaches them to the first existing user (loopback only).
- * Both halves must be enabled: the UI cannot bypass the service on its own.
+ * REMOVED 6 Aug 2026: `VITE_DEV_NO_AUTH`, a build-time flag claiming that
+ * identity had login disabled.
+ *
+ * It could disagree with the service it described — the UI could believe
+ * auth was off while identity still required a token, or the reverse — and
+ * debugging "did VITE_DEV_NO_AUTH reach the bundle?" cost a whole loop.
+ *
+ * App.tsx already replaced it with the honest version: make an untokened
+ * request and see whether identity answers. The service knows; the bundle
+ * only ever guessed. Kept exported as `false` so any surviving consumer
+ * behaves as though auth is required, which is the safe direction.
  */
-export const DEV_NO_AUTH = import.meta.env.VITE_DEV_NO_AUTH === 'true';
+export const DEV_NO_AUTH = false;
 
 const devUser = {
   id: 'dev-no-auth',
