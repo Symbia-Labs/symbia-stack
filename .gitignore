@@ -34,9 +34,6 @@ Thumbs.db
 # Office documents / test reports
 *.docx
 
-# Excluded from v1.0 release
-symbia-control-center/
-
 # Docker
 .docker/
 
