@@ -14,6 +14,7 @@ SERVICES=(
   "integrations"
   "logging"
   "messaging"
+  "models"
   "network"
   "runtime"
 )
@@ -55,7 +56,7 @@ if [[ -f "$ROOT_DIR/INTENT.md" ]]; then
   echo "  Found INTENT.md - checking for key concepts..."
 
   # Check that key services are mentioned
-  for svc in "identity" "catalog" "assistants" "messaging" "runtime" "network" "logging" "integrations"; do
+  for svc in "identity" "catalog" "assistants" "messaging" "runtime" "network" "logging" "integrations" "models"; do
     if grep -qi "$svc" "$ROOT_DIR/INTENT.md"; then
       echo "    ✓ $svc documented"
     else
@@ -83,6 +84,22 @@ if [[ -f "$ROOT_DIR/README.md" ]]; then
 else
   echo "  WARNING: README.md not found"
   ISSUES=$((ISSUES + 1))
+fi
+
+echo ""
+echo "--- Checking OpenAPI spec vs implemented routes ---"
+if command -v python3 >/dev/null 2>&1; then
+  if python3 "$ROOT_DIR/scripts/workflow/validate-openapi-routes.py" >/tmp/symbia-openapi-routes.txt 2>&1; then
+    echo "  OK: every advertised endpoint is backed by a real route"
+    grep -E "implemented-but-undocumented: [1-9]" /tmp/symbia-openapi-routes.txt >/dev/null 2>&1 \
+      && echo "  NOTE: some implemented routes are not yet in the OpenAPI specs (see /tmp/symbia-openapi-routes.txt)"
+  else
+    echo "  FAIL: OpenAPI specs advertise routes that are not implemented (see /tmp/symbia-openapi-routes.txt)"
+    tail -1 /tmp/symbia-openapi-routes.txt
+    ISSUES=$((ISSUES + 1))
+  fi
+else
+  echo "  SKIP: python3 not available"
 fi
 
 echo ""

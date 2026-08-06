@@ -660,3 +660,69 @@ export const apiDocumentation: OpenAPIV3.Document = {
     },
   },
 };
+
+
+// --- Auto-documented endpoints (added by the API documentation validation sweep) ---
+// These routes are implemented but were missing from the spec above. Entries are
+// thin-but-accurate (method, path, params, standard responses); field-level request/
+// response schemas are marked `x-auto-documented` and can be enriched over time.
+{
+  const __autoDocumentedPaths: Record<string, any> = {
+  "/bootstrap/service": {
+    "get": {
+      "tags": [
+        "Bootstrap"
+      ],
+      "summary": "Get service",
+      "description": "Documented from the implemented route. Request/response schema to be enriched.",
+      "x-auto-documented": true,
+      "responses": {
+        "200": {
+          "description": "Success",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true
+              }
+            }
+          }
+        },
+        "401": {
+          "description": "Unauthorized"
+        }
+      }
+    }
+  },
+  "/platform/health": {
+    "get": {
+      "tags": [
+        "Platform"
+      ],
+      "summary": "Get health",
+      "description": "Documented from the implemented route. Request/response schema to be enriched.",
+      "x-auto-documented": true,
+      "responses": {
+        "200": {
+          "description": "Success",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true
+              }
+            }
+          }
+        },
+        "401": {
+          "description": "Unauthorized"
+        }
+      }
+    }
+  }
+};
+  const __paths = apiDocumentation.paths as Record<string, any>;
+  for (const [key, ops] of Object.entries(__autoDocumentedPaths)) {
+    __paths[key] = { ...(__paths[key] || {}), ...(ops as Record<string, any>) };
+  }
+}

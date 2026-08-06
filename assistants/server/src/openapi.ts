@@ -622,3 +622,242 @@ export const openApiSpec: any = {
     },
   },
 };
+
+
+// --- Auto-documented endpoints (added by the API documentation validation sweep) ---
+// These routes are implemented but were missing from the spec above. Entries are
+// thin-but-accurate (method, path, params, standard responses); field-level request/
+// response schemas are marked `x-auto-documented` and can be enriched over time.
+{
+  const __autoDocumentedPaths: Record<string, any> = {
+  "/rules/runs": {
+    "delete": {
+      "tags": [
+        "Rules"
+      ],
+      "summary": "Delete runs",
+      "description": "Documented from the implemented route. Request/response schema to be enriched.",
+      "x-auto-documented": true,
+      "responses": {
+        "204": {
+          "description": "Deleted"
+        },
+        "401": {
+          "description": "Unauthorized"
+        }
+      }
+    },
+    "get": {
+      "tags": [
+        "Rules"
+      ],
+      "summary": "List runs",
+      "description": "Documented from the implemented route. Request/response schema to be enriched.",
+      "x-auto-documented": true,
+      "responses": {
+        "200": {
+          "description": "Success",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true
+              }
+            }
+          }
+        },
+        "401": {
+          "description": "Unauthorized"
+        }
+      }
+    }
+  },
+  "/rules/{orgId}/rules/{ruleId}": {
+    "delete": {
+      "tags": [
+        "Rules"
+      ],
+      "summary": "Delete rules",
+      "description": "Documented from the implemented route. Request/response schema to be enriched.",
+      "x-auto-documented": true,
+      "parameters": [
+        {
+          "name": "orgId",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string"
+          }
+        },
+        {
+          "name": "ruleId",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string"
+          }
+        }
+      ],
+      "responses": {
+        "204": {
+          "description": "Deleted"
+        },
+        "401": {
+          "description": "Unauthorized"
+        },
+        "404": {
+          "description": "Not found"
+        }
+      }
+    }
+  },
+  "/assistants": {
+    "get": {
+      "tags": [
+        "Assistants"
+      ],
+      "summary": "List assistants",
+      "description": "Documented from the implemented route. Request/response schema to be enriched.",
+      "x-auto-documented": true,
+      "responses": {
+        "200": {
+          "description": "Success",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true
+              }
+            }
+          }
+        },
+        "401": {
+          "description": "Unauthorized"
+        }
+      }
+    }
+  },
+  "/assistants/mentionable": {
+    "get": {
+      "tags": [
+        "Assistants"
+      ],
+      "summary": "Get mentionable",
+      "description": "Documented from the implemented route. Request/response schema to be enriched.",
+      "x-auto-documented": true,
+      "responses": {
+        "200": {
+          "description": "Success",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true
+              }
+            }
+          }
+        },
+        "401": {
+          "description": "Unauthorized"
+        }
+      }
+    }
+  },
+  "/bootstrap/service": {
+    "get": {
+      "tags": [
+        "Bootstrap"
+      ],
+      "summary": "Get service",
+      "description": "Documented from the implemented route. Request/response schema to be enriched.",
+      "x-auto-documented": true,
+      "responses": {
+        "200": {
+          "description": "Success",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true
+              }
+            }
+          }
+        },
+        "401": {
+          "description": "Unauthorized"
+        }
+      }
+    }
+  },
+  "/stats": {
+    "get": {
+      "tags": [
+        "Stats"
+      ],
+      "summary": "List stats",
+      "description": "Documented from the implemented route. Request/response schema to be enriched.",
+      "x-auto-documented": true,
+      "responses": {
+        "200": {
+          "description": "Success",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true
+              }
+            }
+          }
+        },
+        "401": {
+          "description": "Unauthorized"
+        }
+      }
+    }
+  },
+  "/webhook/messaging": {
+    "post": {
+      "tags": [
+        "Webhook"
+      ],
+      "summary": "Messaging webhook messaging",
+      "description": "Documented from the implemented route. Request/response schema to be enriched.",
+      "x-auto-documented": true,
+      "requestBody": {
+        "required": true,
+        "content": {
+          "application/json": {
+            "schema": {
+              "type": "object",
+              "additionalProperties": true
+            }
+          }
+        }
+      },
+      "responses": {
+        "201": {
+          "description": "Success",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true
+              }
+            }
+          }
+        },
+        "400": {
+          "description": "Invalid input"
+        },
+        "401": {
+          "description": "Unauthorized"
+        }
+      }
+    }
+  }
+};
+  const __paths = openApiSpec.paths as Record<string, any>;
+  for (const [key, ops] of Object.entries(__autoDocumentedPaths)) {
+    __paths[key] = { ...(__paths[key] || {}), ...(ops as Record<string, any>) };
+  }
+}

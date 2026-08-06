@@ -624,3 +624,914 @@ export const apiDocumentation: OpenAPIDocument = {
     },
   },
 };
+
+
+// --- Auto-documented endpoints (added by the API documentation validation sweep) ---
+// These routes are implemented but were missing from the spec above. Entries are
+// thin-but-accurate (method, path, params, standard responses); field-level request/
+// response schemas are marked `x-auto-documented` and can be enriched over time.
+{
+  const __autoDocumentedPaths: Record<string, any> = {
+  "/api/oauth/connections/{id}": {
+    "delete": {
+      "tags": [
+        "Api"
+      ],
+      "summary": "Delete connections",
+      "description": "Documented from the implemented route. Request/response schema to be enriched.",
+      "x-auto-documented": true,
+      "parameters": [
+        {
+          "name": "id",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string"
+          }
+        }
+      ],
+      "responses": {
+        "204": {
+          "description": "Deleted"
+        },
+        "401": {
+          "description": "Unauthorized"
+        },
+        "404": {
+          "description": "Not found"
+        }
+      }
+    }
+  },
+  "/admin/users": {
+    "get": {
+      "tags": [
+        "Admin"
+      ],
+      "summary": "List users",
+      "description": "Documented from the implemented route. Request/response schema to be enriched.",
+      "x-auto-documented": true,
+      "responses": {
+        "200": {
+          "description": "Success",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true
+              }
+            }
+          }
+        },
+        "401": {
+          "description": "Unauthorized"
+        }
+      }
+    }
+  },
+  "/api/integrations/channels/benchmarks": {
+    "get": {
+      "tags": [
+        "Api"
+      ],
+      "summary": "List benchmarks",
+      "description": "Documented from the implemented route. Request/response schema to be enriched.",
+      "x-auto-documented": true,
+      "responses": {
+        "200": {
+          "description": "Success",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true
+              }
+            }
+          }
+        },
+        "401": {
+          "description": "Unauthorized"
+        }
+      }
+    }
+  },
+  "/api/integrations/channels/benchmarks/{id}": {
+    "get": {
+      "tags": [
+        "Api"
+      ],
+      "summary": "Get benchmarks",
+      "description": "Documented from the implemented route. Request/response schema to be enriched.",
+      "x-auto-documented": true,
+      "parameters": [
+        {
+          "name": "id",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string"
+          }
+        }
+      ],
+      "responses": {
+        "200": {
+          "description": "Success",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true
+              }
+            }
+          }
+        },
+        "401": {
+          "description": "Unauthorized"
+        },
+        "404": {
+          "description": "Not found"
+        }
+      }
+    }
+  },
+  "/api/integrations/channels/catalog/export": {
+    "get": {
+      "tags": [
+        "Api"
+      ],
+      "summary": "Export api integrations channels catalog export",
+      "description": "Documented from the implemented route. Request/response schema to be enriched.",
+      "x-auto-documented": true,
+      "responses": {
+        "200": {
+          "description": "Success",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true
+              }
+            }
+          }
+        },
+        "401": {
+          "description": "Unauthorized"
+        }
+      }
+    }
+  },
+  "/api/integrations/channels/catalog/preview": {
+    "get": {
+      "tags": [
+        "Api"
+      ],
+      "summary": "Preview api integrations channels catalog preview",
+      "description": "Documented from the implemented route. Request/response schema to be enriched.",
+      "x-auto-documented": true,
+      "responses": {
+        "200": {
+          "description": "Success",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true
+              }
+            }
+          }
+        },
+        "401": {
+          "description": "Unauthorized"
+        }
+      }
+    }
+  },
+  "/api/integrations/channels/evaluations": {
+    "get": {
+      "tags": [
+        "Api"
+      ],
+      "summary": "List evaluations",
+      "description": "Documented from the implemented route. Request/response schema to be enriched.",
+      "x-auto-documented": true,
+      "responses": {
+        "200": {
+          "description": "Success",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true
+              }
+            }
+          }
+        },
+        "401": {
+          "description": "Unauthorized"
+        }
+      }
+    }
+  },
+  "/api/integrations/channels/evaluations/{id}": {
+    "get": {
+      "tags": [
+        "Api"
+      ],
+      "summary": "Get evaluations",
+      "description": "Documented from the implemented route. Request/response schema to be enriched.",
+      "x-auto-documented": true,
+      "parameters": [
+        {
+          "name": "id",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string"
+          }
+        }
+      ],
+      "responses": {
+        "200": {
+          "description": "Success",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true
+              }
+            }
+          }
+        },
+        "401": {
+          "description": "Unauthorized"
+        },
+        "404": {
+          "description": "Not found"
+        }
+      }
+    }
+  },
+  "/api/integrations/channels/models": {
+    "get": {
+      "tags": [
+        "Api"
+      ],
+      "summary": "List models",
+      "description": "Documented from the implemented route. Request/response schema to be enriched.",
+      "x-auto-documented": true,
+      "responses": {
+        "200": {
+          "description": "Success",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true
+              }
+            }
+          }
+        },
+        "401": {
+          "description": "Unauthorized"
+        }
+      }
+    }
+  },
+  "/api/integrations/channels/scores": {
+    "get": {
+      "tags": [
+        "Api"
+      ],
+      "summary": "List scores",
+      "description": "Documented from the implemented route. Request/response schema to be enriched.",
+      "x-auto-documented": true,
+      "responses": {
+        "200": {
+          "description": "Success",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true
+              }
+            }
+          }
+        },
+        "401": {
+          "description": "Unauthorized"
+        }
+      }
+    }
+  },
+  "/api/integrations/models": {
+    "get": {
+      "tags": [
+        "Api"
+      ],
+      "summary": "List models",
+      "description": "Documented from the implemented route. Request/response schema to be enriched.",
+      "x-auto-documented": true,
+      "responses": {
+        "200": {
+          "description": "Success",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true
+              }
+            }
+          }
+        },
+        "401": {
+          "description": "Unauthorized"
+        }
+      }
+    }
+  },
+  "/api/integrations/namespace": {
+    "get": {
+      "tags": [
+        "Api"
+      ],
+      "summary": "Get namespace",
+      "description": "Documented from the implemented route. Request/response schema to be enriched.",
+      "x-auto-documented": true,
+      "responses": {
+        "200": {
+          "description": "Success",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true
+              }
+            }
+          }
+        },
+        "401": {
+          "description": "Unauthorized"
+        }
+      }
+    }
+  },
+  "/api/integrations/operations/search": {
+    "get": {
+      "tags": [
+        "Api"
+      ],
+      "summary": "Get search",
+      "description": "Documented from the implemented route. Request/response schema to be enriched.",
+      "x-auto-documented": true,
+      "responses": {
+        "200": {
+          "description": "Success",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true
+              }
+            }
+          }
+        },
+        "401": {
+          "description": "Unauthorized"
+        }
+      }
+    }
+  },
+  "/api/integrations/registry/{key}": {
+    "get": {
+      "tags": [
+        "Api"
+      ],
+      "summary": "Get registry",
+      "description": "Documented from the implemented route. Request/response schema to be enriched.",
+      "x-auto-documented": true,
+      "parameters": [
+        {
+          "name": "key",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string"
+          }
+        }
+      ],
+      "responses": {
+        "200": {
+          "description": "Success",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true
+              }
+            }
+          }
+        },
+        "401": {
+          "description": "Unauthorized"
+        },
+        "404": {
+          "description": "Not found"
+        }
+      }
+    }
+  },
+  "/api/integrations/usage/by-user": {
+    "get": {
+      "tags": [
+        "Api"
+      ],
+      "summary": "Get by user",
+      "description": "Documented from the implemented route. Request/response schema to be enriched.",
+      "x-auto-documented": true,
+      "responses": {
+        "200": {
+          "description": "Success",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true
+              }
+            }
+          }
+        },
+        "401": {
+          "description": "Unauthorized"
+        }
+      }
+    }
+  },
+  "/api/integrations/usage/logs": {
+    "get": {
+      "tags": [
+        "Api"
+      ],
+      "summary": "List logs",
+      "description": "Documented from the implemented route. Request/response schema to be enriched.",
+      "x-auto-documented": true,
+      "responses": {
+        "200": {
+          "description": "Success",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true
+              }
+            }
+          }
+        },
+        "401": {
+          "description": "Unauthorized"
+        }
+      }
+    }
+  },
+  "/api/oauth/callback": {
+    "get": {
+      "tags": [
+        "Api"
+      ],
+      "summary": "Callback api oauth callback",
+      "description": "Documented from the implemented route. Request/response schema to be enriched.",
+      "x-auto-documented": true,
+      "responses": {
+        "200": {
+          "description": "Success",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true
+              }
+            }
+          }
+        },
+        "401": {
+          "description": "Unauthorized"
+        }
+      }
+    }
+  },
+  "/api/oauth/connections": {
+    "get": {
+      "tags": [
+        "Api"
+      ],
+      "summary": "List connections",
+      "description": "Documented from the implemented route. Request/response schema to be enriched.",
+      "x-auto-documented": true,
+      "responses": {
+        "200": {
+          "description": "Success",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true
+              }
+            }
+          }
+        },
+        "401": {
+          "description": "Unauthorized"
+        }
+      }
+    }
+  },
+  "/api/oauth/providers": {
+    "get": {
+      "tags": [
+        "Api"
+      ],
+      "summary": "List providers",
+      "description": "Documented from the implemented route. Request/response schema to be enriched.",
+      "x-auto-documented": true,
+      "responses": {
+        "200": {
+          "description": "Success",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true
+              }
+            }
+          }
+        },
+        "401": {
+          "description": "Unauthorized"
+        }
+      }
+    }
+  },
+  "/api/stats": {
+    "get": {
+      "tags": [
+        "Api"
+      ],
+      "summary": "List stats",
+      "description": "Documented from the implemented route. Request/response schema to be enriched.",
+      "x-auto-documented": true,
+      "responses": {
+        "200": {
+          "description": "Success",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true
+              }
+            }
+          }
+        },
+        "401": {
+          "description": "Unauthorized"
+        }
+      }
+    }
+  },
+  "/api/integrations/channels/benchmarks/run": {
+    "post": {
+      "tags": [
+        "Api"
+      ],
+      "summary": "Run api integrations channels benchmarks run",
+      "description": "Documented from the implemented route. Request/response schema to be enriched.",
+      "x-auto-documented": true,
+      "requestBody": {
+        "required": true,
+        "content": {
+          "application/json": {
+            "schema": {
+              "type": "object",
+              "additionalProperties": true
+            }
+          }
+        }
+      },
+      "responses": {
+        "201": {
+          "description": "Success",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true
+              }
+            }
+          }
+        },
+        "400": {
+          "description": "Invalid input"
+        },
+        "401": {
+          "description": "Unauthorized"
+        }
+      }
+    }
+  },
+  "/api/integrations/channels/catalog/sync": {
+    "post": {
+      "tags": [
+        "Api"
+      ],
+      "summary": "Sync api integrations channels catalog sync",
+      "description": "Documented from the implemented route. Request/response schema to be enriched.",
+      "x-auto-documented": true,
+      "requestBody": {
+        "required": true,
+        "content": {
+          "application/json": {
+            "schema": {
+              "type": "object",
+              "additionalProperties": true
+            }
+          }
+        }
+      },
+      "responses": {
+        "201": {
+          "description": "Success",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true
+              }
+            }
+          }
+        },
+        "400": {
+          "description": "Invalid input"
+        },
+        "401": {
+          "description": "Unauthorized"
+        }
+      }
+    }
+  },
+  "/api/integrations/channels/recommendations": {
+    "post": {
+      "tags": [
+        "Api"
+      ],
+      "summary": "Recommendations api integrations channels recommendations",
+      "description": "Documented from the implemented route. Request/response schema to be enriched.",
+      "x-auto-documented": true,
+      "requestBody": {
+        "required": true,
+        "content": {
+          "application/json": {
+            "schema": {
+              "type": "object",
+              "additionalProperties": true
+            }
+          }
+        }
+      },
+      "responses": {
+        "201": {
+          "description": "Success",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true
+              }
+            }
+          }
+        },
+        "400": {
+          "description": "Invalid input"
+        },
+        "401": {
+          "description": "Unauthorized"
+        }
+      }
+    }
+  },
+  "/api/integrations/channels/scores/aggregate": {
+    "post": {
+      "tags": [
+        "Api"
+      ],
+      "summary": "Aggregate api integrations channels scores aggregate",
+      "description": "Documented from the implemented route. Request/response schema to be enriched.",
+      "x-auto-documented": true,
+      "requestBody": {
+        "required": true,
+        "content": {
+          "application/json": {
+            "schema": {
+              "type": "object",
+              "additionalProperties": true
+            }
+          }
+        }
+      },
+      "responses": {
+        "201": {
+          "description": "Success",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true
+              }
+            }
+          }
+        },
+        "400": {
+          "description": "Invalid input"
+        },
+        "401": {
+          "description": "Unauthorized"
+        }
+      }
+    }
+  },
+  "/api/integrations/parse/mcp": {
+    "post": {
+      "tags": [
+        "Api"
+      ],
+      "summary": "Create mcp",
+      "description": "Documented from the implemented route. Request/response schema to be enriched.",
+      "x-auto-documented": true,
+      "requestBody": {
+        "required": true,
+        "content": {
+          "application/json": {
+            "schema": {
+              "type": "object",
+              "additionalProperties": true
+            }
+          }
+        }
+      },
+      "responses": {
+        "201": {
+          "description": "Success",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true
+              }
+            }
+          }
+        },
+        "400": {
+          "description": "Invalid input"
+        },
+        "401": {
+          "description": "Unauthorized"
+        }
+      }
+    }
+  },
+  "/api/integrations/parse/openapi": {
+    "post": {
+      "tags": [
+        "Api"
+      ],
+      "summary": "Create openapi",
+      "description": "Documented from the implemented route. Request/response schema to be enriched.",
+      "x-auto-documented": true,
+      "requestBody": {
+        "required": true,
+        "content": {
+          "application/json": {
+            "schema": {
+              "type": "object",
+              "additionalProperties": true
+            }
+          }
+        }
+      },
+      "responses": {
+        "201": {
+          "description": "Success",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true
+              }
+            }
+          }
+        },
+        "400": {
+          "description": "Invalid input"
+        },
+        "401": {
+          "description": "Unauthorized"
+        }
+      }
+    }
+  },
+  "/api/integrations/registry/{key}/refresh": {
+    "post": {
+      "tags": [
+        "Api"
+      ],
+      "summary": "Refresh api integrations registry refresh",
+      "description": "Documented from the implemented route. Request/response schema to be enriched.",
+      "x-auto-documented": true,
+      "parameters": [
+        {
+          "name": "key",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string"
+          }
+        }
+      ],
+      "requestBody": {
+        "required": true,
+        "content": {
+          "application/json": {
+            "schema": {
+              "type": "object",
+              "additionalProperties": true
+            }
+          }
+        }
+      },
+      "responses": {
+        "201": {
+          "description": "Success",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true
+              }
+            }
+          }
+        },
+        "400": {
+          "description": "Invalid input"
+        },
+        "401": {
+          "description": "Unauthorized"
+        },
+        "404": {
+          "description": "Not found"
+        }
+      }
+    }
+  },
+  "/api/oauth/authorize": {
+    "post": {
+      "tags": [
+        "Api"
+      ],
+      "summary": "Authorize api oauth authorize",
+      "description": "Documented from the implemented route. Request/response schema to be enriched.",
+      "x-auto-documented": true,
+      "requestBody": {
+        "required": true,
+        "content": {
+          "application/json": {
+            "schema": {
+              "type": "object",
+              "additionalProperties": true
+            }
+          }
+        }
+      },
+      "responses": {
+        "201": {
+          "description": "Success",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true
+              }
+            }
+          }
+        },
+        "400": {
+          "description": "Invalid input"
+        },
+        "401": {
+          "description": "Unauthorized"
+        }
+      }
+    }
+  }
+};
+  const __paths = apiDocumentation.paths as Record<string, any>;
+  for (const [key, ops] of Object.entries(__autoDocumentedPaths)) {
+    __paths[key] = { ...(__paths[key] || {}), ...(ops as Record<string, any>) };
+  }
+}

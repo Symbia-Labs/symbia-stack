@@ -753,6 +753,110 @@
           }
         }
       }
+    },
+    "/auth/config": {
+      "get": {
+        "tags": [
+          "Auth"
+        ],
+        "summary": "Get config",
+        "description": "Documented from the implemented route. Request/response schema to be enriched.",
+        "x-auto-documented": true,
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        }
+      }
+    },
+    "/auth/me": {
+      "get": {
+        "tags": [
+          "Auth"
+        ],
+        "summary": "Get me",
+        "description": "Documented from the implemented route. Request/response schema to be enriched.",
+        "x-auto-documented": true,
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        }
+      }
+    },
+    "/bootstrap/service": {
+      "get": {
+        "tags": [
+          "Bootstrap"
+        ],
+        "summary": "Get service",
+        "description": "Documented from the implemented route. Request/response schema to be enriched.",
+        "x-auto-documented": true,
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        }
+      }
+    },
+    "/stats": {
+      "get": {
+        "tags": [
+          "Stats"
+        ],
+        "summary": "List stats",
+        "description": "Documented from the implemented route. Request/response schema to be enriched.",
+        "x-auto-documented": true,
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        }
+      }
     }
   },
   "components": {

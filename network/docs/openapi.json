@@ -970,6 +970,58 @@
           }
         }
       }
+    },
+    "/bootstrap/service": {
+      "get": {
+        "tags": [
+          "Bootstrap"
+        ],
+        "summary": "Get service",
+        "description": "Documented from the implemented route. Request/response schema to be enriched.",
+        "x-auto-documented": true,
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        }
+      }
+    },
+    "/platform/health": {
+      "get": {
+        "tags": [
+          "Platform"
+        ],
+        "summary": "Get health",
+        "description": "Documented from the implemented route. Request/response schema to be enriched.",
+        "x-auto-documented": true,
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        }
+      }
     }
   },
   "components": {

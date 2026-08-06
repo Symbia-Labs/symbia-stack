@@ -14,6 +14,7 @@ SERVICES=(
   "integrations"
   "logging"
   "messaging"
+  "models"
   "network"
   "runtime"
 )
