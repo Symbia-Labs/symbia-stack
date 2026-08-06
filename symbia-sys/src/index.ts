@@ -23,22 +23,34 @@ export * from './auth.js';
  * Service identifiers used across the platform
  */
 export const ServiceId = {
+  /**
+   * Reserved. Nothing listens on this. Held so the slot is not claimed by
+   * something else. See `RunningServices` — anything enumerating this registry
+   * in order to *reach* a service must exclude it, and must do so through that
+   * export rather than by repeating the filter.
+   */
+  SERVER: "server",
   IDENTITY: "identity",
   LOGGING: "logging",
   CATALOG: "catalog",
   ASSISTANTS: "assistants",
   MESSAGING: "messaging",
-  NETWORK: "network",
-  SERVER: "server",
   RUNTIME: "runtime",
   INTEGRATIONS: "integrations",
   MODELS: "models",
+  NETWORK: "network",
+  /** Operator console. Serves its own built assets and proxies /svc/{id}. */
+  CONTROL_CENTER: "control-center",
+  /** Admin/API front end. Was `service-admin` on 3000, unregistered. */
+  API: "api",
 } as const;
 
 export type ServiceId = (typeof ServiceId)[keyof typeof ServiceId];
 
 /**
- * Default ports for each service
+ * Default ports for each service.
+ *
+ * Tiers: base services 5000+, control center 8000, API 9000.
  */
 export const ServicePorts: Record<ServiceId, number> = {
   [ServiceId.SERVER]: 5000,
@@ -50,24 +62,35 @@ export const ServicePorts: Record<ServiceId, number> = {
   [ServiceId.RUNTIME]: 5006,
   [ServiceId.INTEGRATIONS]: 5007,
   [ServiceId.MODELS]: 5008,
-  [ServiceId.NETWORK]: 5054,
+  [ServiceId.NETWORK]: 5009,
+  [ServiceId.CONTROL_CENTER]: 8000,
+  [ServiceId.API]: 9000,
 };
 
 /**
- * Local development endpoints for each service
+ * Services that actually listen.
+ *
+ * `SERVER` is registered but not running, so "registered" and "running" are
+ * different predicates. This is the ONE place that difference is expressed.
+ * A second copy of this filter — inline in a proxy config, a compose
+ * generator, a health sweep — is the drift this export exists to prevent.
  */
-export const ServiceLocalEndpoints: Record<ServiceId, string> = {
-  [ServiceId.SERVER]: "http://localhost:5000",
-  [ServiceId.IDENTITY]: "http://localhost:5001",
-  [ServiceId.LOGGING]: "http://localhost:5002",
-  [ServiceId.CATALOG]: "http://localhost:5003",
-  [ServiceId.ASSISTANTS]: "http://localhost:5004",
-  [ServiceId.MESSAGING]: "http://localhost:5005",
-  [ServiceId.RUNTIME]: "http://localhost:5006",
-  [ServiceId.INTEGRATIONS]: "http://localhost:5007",
-  [ServiceId.MODELS]: "http://localhost:5008",
-  [ServiceId.NETWORK]: "http://localhost:5054",
-};
+export const RunningServices: ServiceId[] = (
+  Object.values(ServiceId) as ServiceId[]
+).filter((id) => id !== ServiceId.SERVER);
+
+/**
+ * Local development endpoints for each service.
+ *
+ * Derived from ServicePorts. Previously hand-maintained alongside it, which
+ * meant the two could disagree and nothing would say so.
+ */
+export const ServiceLocalEndpoints: Record<ServiceId, string> =
+  Object.fromEntries(
+    (Object.entries(ServicePorts) as [ServiceId, number][]).map(
+      ([id, port]) => [id, `http://localhost:${port}`]
+    )
+  ) as Record<ServiceId, string>;
 
 /**
  * Environment variable names for service ports
@@ -83,6 +106,8 @@ const ServicePortEnvVars: Record<ServiceId, string> = {
   [ServiceId.INTEGRATIONS]: "INTEGRATIONS_PORT",
   [ServiceId.MODELS]: "MODELS_PORT",
   [ServiceId.NETWORK]: "NETWORK_PORT",
+  [ServiceId.CONTROL_CENTER]: "CONTROL_CENTER_PORT",
+  [ServiceId.API]: "API_PORT",
 };
 
 /**

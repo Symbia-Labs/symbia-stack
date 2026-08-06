@@ -2,7 +2,7 @@ import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import path from 'path';
 
-import { ServicePorts, ServiceId } from '@symbia/sys';
+import { ServicePorts, ServiceId, RunningServices } from '@symbia/sys';
 
 // Defect D5 — the route table used to be hand-maintained here, duplicating a
 // registry this app already depends on. Two consequences showed up in practice:
@@ -21,10 +21,17 @@ import { ServicePorts, ServiceId } from '@symbia/sys';
 // is exactly the platform's services and nothing else. `energy: 5010` existed
 // only because energy was, at the time, an unregistered service; that is the
 // condition the app model removes rather than routes around.
+// NOTE: this file is deleted in step 6 of
+// docs/2026-08-06-control-center-rebuild.md. The same route table now lives in
+// symbia-control-center/server/src/proxy.ts, which serves it in every
+// environment rather than only under a dev server.
+//
+// The `server` filter is no longer repeated here — @symbia/sys exports
+// RunningServices, which is the one place "registered but not listening" is
+// expressed. A service also does not proxy to itself.
 const serviceProxies: Record<string, number> = Object.fromEntries(
-  (Object.values(ServiceId) as ServiceId[])
-    // `server` is not a running service in this stack; it is a placeholder id.
-    .filter((id) => id !== ServiceId.SERVER)
+  RunningServices
+    .filter((id) => id !== ServiceId.CONTROL_CENTER)
     .map((id) => [id, ServicePorts[id]])
 );
 
