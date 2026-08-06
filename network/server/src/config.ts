@@ -2,7 +2,7 @@
  * Network Service Configuration
  */
 
-import { ServiceId, resolveServiceUrl } from '@symbia/sys';
+import { ServiceId, resolveServiceUrl, resolveServicePort } from '@symbia/sys';
 
 function getEnvArray(key: string, defaultValue: string[]): string[] {
   const value = process.env[key];
@@ -12,14 +12,19 @@ function getEnvArray(key: string, defaultValue: string[]): string[] {
 
 export const config = {
   serviceId: ServiceId.NETWORK,
-  port: parseInt(process.env.PORT || '5054', 10),
+  // Derived. Was `parseInt(process.env.PORT || '5054', 10)` — a hardcoded
+  // default in a file that already imports the registry holding it.
+  port: resolveServicePort(ServiceId.NETWORK),
   host: process.env.HOST || '0.0.0.0',
 
-  // CORS origins
+  // CORS origins.
+  //
+  // The control center is served from its own service on 8000 and calls
+  // services through its own /svc/{id} proxy, so it is same-origin and needs
+  // no entry here. The 5173 Vite entry is retained only until step 6 of
+  // docs/2026-08-06-control-center-rebuild.md removes the dev server.
   corsOrigins: getEnvArray('CORS_ORIGINS', [
-    'http://localhost:3000',
-    'http://localhost:5000',
-    'http://localhost:5173', // Vite dev server (control center)
+    'http://localhost:5173', // Vite dev server (control center) — removed at step 6
   ]),
 
   // Service endpoints - resolved via @symbia/sys (supports env overrides)

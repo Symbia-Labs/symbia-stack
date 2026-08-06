@@ -8,7 +8,7 @@
  * - Sample SDN events demonstrating the event flow
  */
 
-import { ServiceId } from '@symbia/sys';
+import { ServiceId, ServicePorts } from '@symbia/sys';
 import * as registry from './services/registry.js';
 import * as router from './services/router.js';
 
@@ -20,64 +20,64 @@ interface SeedService {
   port: number;
 }
 
-const DEV_SERVICES: SeedService[] = [
+// Ports are derived from @symbia/sys, not restated. This array previously
+// carried its own copy of all eight, so a port change in the registry left the
+// mesh seeding the old one and nothing said so.
+const DEV_SERVICE_SHAPES: Omit<SeedService, 'port'>[] = [
   {
     id: ServiceId.IDENTITY,
     name: 'Identity Service',
     type: 'service',
     capabilities: ['auth', 'users', 'orgs', 'api-keys'],
-    port: 5001,
   },
   {
     id: ServiceId.LOGGING,
     name: 'Logging Service',
     type: 'service',
     capabilities: ['telemetry', 'logs', 'metrics', 'traces'],
-    port: 5002,
   },
   {
     id: ServiceId.CATALOG,
     name: 'Catalog Service',
     type: 'service',
     capabilities: ['resources', 'schemas', 'manifests'],
-    port: 5003,
   },
   {
     id: ServiceId.ASSISTANTS,
     name: 'Assistants Service',
     type: 'assistant',
     capabilities: ['graphs', 'actors', 'runs', 'ai-engine'],
-    port: 5004,
   },
   {
     id: ServiceId.MESSAGING,
     name: 'Messaging Service',
     type: 'service',
     capabilities: ['conversations', 'messages', 'realtime'],
-    port: 5005,
   },
   {
     id: ServiceId.RUNTIME,
     name: 'Runtime Service',
     type: 'sandbox',
     capabilities: ['graphs', 'execution', 'sandbox'],
-    port: 5006,
   },
   {
     id: ServiceId.INTEGRATIONS,
     name: 'Integrations Service',
     type: 'bridge',
     capabilities: ['providers', 'credentials', 'external-apis'],
-    port: 5007,
   },
   {
     id: ServiceId.NETWORK,
     name: 'Network Service',
     type: 'service',
     capabilities: ['registry', 'routing', 'policies', 'sdn'],
-    port: 5054,
   },
 ];
+
+const DEV_SERVICES: SeedService[] = DEV_SERVICE_SHAPES.map((s) => ({
+  ...s,
+  port: ServicePorts[s.id as keyof typeof ServicePorts],
+}));
 
 /**
  * Seed the network registry with known dev services.

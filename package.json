@@ -44,6 +44,7 @@
     "dev:service-admin": "npm run dev -w service-admin",
     "db:setup": "./start-local.sh --db-only",
     "check": "npm run check --workspaces --if-present",
+    "check:ports": "tsx scripts/check-ports.ts",
     "clean": "rm -rf node_modules */node_modules */dist */.tsbuildinfo"
   },
   "engines": {

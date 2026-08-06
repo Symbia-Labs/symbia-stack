@@ -2,32 +2,35 @@
 /**
  * symbia-mcp-server — MCP access to the locally running Symbia stack.
  *
- * Read-only tools over the nine services (identity, logging, catalog,
- * assistants, messaging, runtime, integrations, network, models) on localhost.
+ * Read-only tools over the services registered in @symbia/sys, on localhost.
+ * The service list is NOT restated here — it is read from the registry, so a
+ * service cannot be swept by this tool without being registered, and cannot
+ * linger here after being removed.
+ *
  * Authenticates against the Identity service with SYMBIA_EMAIL /
  * SYMBIA_PASSWORD (defaults to the gap-probe test user).
  */
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { z } from "zod";
+import { ServicePorts, RunningServices, type ServiceId } from "@symbia/sys";
 
 const EMAIL = process.env.SYMBIA_EMAIL ?? "gap-probe@symbia.test";
 const PASSWORD = process.env.SYMBIA_PASSWORD ?? "GapProbe!2026x";
 const HOST = process.env.SYMBIA_HOST ?? "localhost";
 const CHARACTER_LIMIT = 25000;
 
-const PORTS = {
-  identity: 5001,
-  logging: 5002,
-  catalog: 5003,
-  assistants: 5004,
-  messaging: 5005,
-  runtime: 5006,
-  integrations: 5007,
-  models: 5008,
-  network: 5054,
-} as const;
-type ServiceName = keyof typeof PORTS;
+// Derived from @symbia/sys. This was a hand-maintained map keyed by service
+// name with its own copy of every port, in a tool whose entire job is to
+// report the truth about a running stack — so a port change made it confidently
+// wrong rather than obviously broken. `network: 5054` outlived the move to
+// 5009 in exactly that way.
+//
+// RunningServices excludes `server`, which is registered but never listens.
+const PORTS: Record<ServiceId, number> = Object.fromEntries(
+  RunningServices.map((id) => [id, ServicePorts[id]])
+) as Record<ServiceId, number>;
+type ServiceName = ServiceId;
 
 let token: string | null = null;
 

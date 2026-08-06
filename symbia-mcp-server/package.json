@@ -13,6 +13,7 @@
   "engines": { "node": ">=18" },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.6.1",
+    "@symbia/sys": "file:../symbia-sys",
     "zod": "^3.23.8"
   },
   "devDependencies": {

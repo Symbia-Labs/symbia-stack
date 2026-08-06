@@ -262,7 +262,7 @@ show_status() {
   echo "  - Messaging:      http://localhost:5005"
   echo "  - Runtime:        http://localhost:5006"
   echo "  - Integrations:   http://localhost:5007"
-  echo "  - Network:        http://localhost:5054"
+  echo "  - Network:        http://localhost:5009"
   echo ""
 }
 

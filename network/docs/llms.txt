@@ -55,6 +55,8 @@ Use /api as the base path for all endpoints.
 - GET /api/sdn/policies - Get policies (read-only)
 - POST /api/sdn/simulate - Simulate event routing
 - GET /api/sdn/graph - Get network graph
+- GET /api/bootstrap/service - Get service
+- GET /api/platform/health - Get health
 
 ## Authentication
 

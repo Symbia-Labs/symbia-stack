@@ -44,8 +44,8 @@ ENV NODE_ENV=production
 ENV HOST=0.0.0.0
 
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
-  CMD wget --no-verbose --tries=1 --spider http://127.0.0.1:5054/health/live || exit 1
+  CMD wget --no-verbose --tries=1 --spider http://127.0.0.1:5009/health/live || exit 1
 
-EXPOSE 5054
+EXPOSE 5009
 
 CMD ["node", "dist/index.mjs"]

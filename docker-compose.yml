@@ -6,7 +6,7 @@
 # All ports can be customized via environment variables or .env file.
 # Default ports: postgres=5432, identity=5001, logging=5002, catalog=5003,
 # assistants=5004, messaging=5005, runtime=5006, integrations=5007,
-# network=5054, service-admin=3000
+# network=5009, service-admin=3000
 
 services:
   # PostgreSQL database
@@ -149,17 +149,17 @@ services:
       dockerfile: network/Dockerfile
     environment:
       NODE_ENV: production
-      PORT: 5054
+      PORT: 5009
       IDENTITY_SERVICE_URL: http://identity:5001
       LOGGING_SERVICE_URL: http://logging:5002
       NETWORK_HASH_SECRET: ${NETWORK_HASH_SECRET:-symbia-network-dev-secret}
     ports:
-      - "${NETWORK_PORT:-5054}:5054"
+      - "${NETWORK_PORT:-5009}:5009"
     depends_on:
       identity:
         condition: service_healthy
     healthcheck:
-      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://127.0.0.1:5054/health/live"]
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://127.0.0.1:5009/health/live"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -236,7 +236,7 @@ services:
       ASSISTANTS_SERVICE_URL: http://assistants:5004
       MESSAGING_SERVICE_URL: http://messaging:5005
       RUNTIME_SERVICE_URL: http://runtime:5006
-      NETWORK_SERVICE_URL: http://network:5054
+      NETWORK_SERVICE_URL: http://network:5009
       MODELS_SERVICE_URL: http://models:5008
       # Add API keys for LLM providers
       # OPENAI_API_KEY: ${OPENAI_API_KEY}
@@ -266,7 +266,7 @@ services:
       IDENTITY_SERVICE_URL: http://identity:5001
       CATALOG_SERVICE_URL: http://catalog:5003
       LOGGING_SERVICE_URL: http://logging:5002
-      NETWORK_SERVICE_URL: http://network:5054
+      NETWORK_SERVICE_URL: http://network:5009
       MAX_LOADED_MODELS: ${MAX_LOADED_MODELS:-2}
       IDLE_TIMEOUT_MS: ${IDLE_TIMEOUT_MS:-300000}
       DEFAULT_GPU_LAYERS: ${DEFAULT_GPU_LAYERS:-0}
