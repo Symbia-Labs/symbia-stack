@@ -1,0 +1,25 @@
+name: meter-drift
+description: >
+  The IT main slowly reads 2% high per hour. No quality code catches this —
+  the meter is alive, fresh, and lying by a little. Only the energy-balance
+  check finds it, by reconciling the branch sum against the parent.
+
+  This is the facility equivalent of a held-out partition: a check the system
+  cannot pass by agreeing with itself.
+faults:
+  - kind: drift
+    points: dc1.it.main.kw
+    start_s: 34200
+    rate_per_hour: 0.02
+expect:
+  - id: balance_diverges
+    assert: energy_balance_residual_exceeds_tolerance_within_2h
+    because: >
+      Sum of rack meters is unaffected; dc1.it.main.kw drifts away from it.
+      The residual grows monotonically and must be raised as a finding, not
+      absorbed as noise.
+  - id: quality_codes_do_not_catch_it
+    assert: it_main_quality_remains_good
+    because: >
+      Stated explicitly so nobody claims credit for the wrong mechanism.
+      Freshness checks cannot detect bias; only an independent check can.

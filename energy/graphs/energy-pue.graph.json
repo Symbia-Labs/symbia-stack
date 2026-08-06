@@ -1,0 +1,24 @@
+{
+  "symbia": "graph/1.0",
+  "name": "energy-pue",
+  "version": "1.0.0",
+  "description": "Derives PUE (Power Usage Effectiveness) = facility kW / IT kW using the runtime's exact-arithmetic component. The computation is canonical: recomputable from the graph and its inputs. Inject {facility_kw, it_kw} at 'entry'; the derived ratio arrives at 'sink'. Division errors (e.g. it_kw = 0) exit on the arithmetic error port into the error log.",
+  "author": "energy",
+  "nodes": [
+    { "id": "entry", "component": "symbia.io.passthrough" },
+    { "id": "pue", "component": "symbia.compute.arithmetic",
+      "config": { "expression": "{facility_kw} / {it_kw}" } },
+    { "id": "audit", "component": "symbia.io.log" },
+    { "id": "sink", "component": "symbia.io.collect" },
+    { "id": "errlog", "component": "symbia.io.log" },
+    { "id": "errsink", "component": "symbia.io.collect" }
+  ],
+  "edges": [
+    { "id": "e1", "source": { "node": "entry", "port": "out" }, "target": { "node": "pue", "port": "in" } },
+    { "id": "e2", "source": { "node": "pue", "port": "out" }, "target": { "node": "audit", "port": "in" } },
+    { "id": "e3", "source": { "node": "audit", "port": "out" }, "target": { "node": "sink", "port": "in" } },
+    { "id": "e4", "source": { "node": "pue", "port": "error" }, "target": { "node": "errlog", "port": "in" } },
+    { "id": "e5", "source": { "node": "errlog", "port": "out" }, "target": { "node": "errsink", "port": "in" } }
+  ],
+  "metadata": { "domain": "energy", "role": "derive", "derives": "pue" }
+}

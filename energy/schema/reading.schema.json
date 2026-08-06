@@ -1,0 +1,77 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://symbia.io/schema/energy/reading.schema.json",
+  "title": "Symbia Energy — reading envelope",
+  "description": "Every value that reaches a screen is one of these. This is the existing Symbia provenance envelope with facility quality codes (OPC-UA / BACnet reliability shaped) so it reads natively to anyone who has done controls work.\n\nThree invariants are enforced here rather than by convention:\n  1. method estimated|asserted implies lane apocryphal. A forecast can never be re-canonicalised downstream.\n  2. quality missing implies value null. NEVER zero. A dead meter reporting 0 kW makes PUE look excellent; that is the specific lie this product exists to prevent.\n  3. trustworthy is derived, never asserted: exact AND inputs_verified AND quality good.",
+  "type": "object",
+  "required": ["point", "value", "unit", "ts", "method", "lane", "quality"],
+  "additionalProperties": false,
+  "properties": {
+    "point": { "type": "string" },
+    "value": {
+      "type": ["number", "boolean", "string", "null"],
+      "description": "null when quality is missing. There is no sentinel value; a sentinel is a number that lies."
+    },
+    "unit": { "type": "string" },
+    "ts": { "type": "string", "format": "date-time", "description": "When the value was TRUE in the field, not when it was received." },
+    "received_ts": { "type": "string", "format": "date-time" },
+    "age_s": { "type": ["number", "null"] },
+
+    "method": {
+      "enum": ["measured", "computed", "estimated", "asserted"],
+      "description": "measured = a meter said so. computed = arithmetic over other readings, recomputable from expression+inputs. estimated = a model produced it (forecast, inference). asserted = a human or system claimed it with no computation behind it."
+    },
+    "lane": { "enum": ["canonical", "apocryphal"] },
+    "quality": {
+      "enum": ["good", "stale", "uncertain", "missing", "override"],
+      "description": "good = fresh and trusted. stale = older than the point's max_age_s. uncertain = source flagged it (BACnet reliability fault, Sparkplug rebirth pending). missing = no value available. override = a human has forced it, which is honest but not measured."
+    },
+
+    "expression": {
+      "type": ["string", "null"],
+      "description": "For computed readings: the literal expression, so the client can recompute and disagree. A computed number without an expression is an assertion wearing arithmetic's clothes."
+    },
+    "inputs": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["point", "value", "ts", "quality"],
+        "properties": {
+          "point": { "type": "string" },
+          "value": { "type": ["number", "boolean", "string", "null"] },
+          "ts": { "type": "string" },
+          "quality": { "type": "string" }
+        }
+      },
+      "default": []
+    },
+    "exact": { "type": "boolean", "default": false },
+    "inputs_verified": { "type": "boolean", "default": false },
+    "trustworthy": {
+      "type": "boolean",
+      "description": "DERIVED: exact AND inputs_verified AND quality == good. Never set directly."
+    },
+
+    "source": { "type": "string" },
+
+    "uncomputable_reason": {
+      "type": ["string", "null"],
+      "description": "Set when a derive step declined to produce a value. Must name the specific missing or bad input, e.g. 'dc1.it.main.kw quality=missing since 20:31:07'. A refusal without a reason is just a gap."
+    }
+  },
+
+  "allOf": [
+    {
+      "if": { "properties": { "quality": { "const": "missing" } }, "required": ["quality"] },
+      "then": { "properties": { "value": { "const": null } } }
+    },
+    {
+      "if": { "properties": { "method": { "enum": ["estimated", "asserted"] } }, "required": ["method"] },
+      "then": { "properties": { "lane": { "const": "apocryphal" } } }
+    },
+    {
+      "if": { "properties": { "method": { "const": "computed" } }, "required": ["method"] },
+      "then": { "required": ["expression", "inputs"] }
+    }
+  ]
+}

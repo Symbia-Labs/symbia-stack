@@ -1,0 +1,45 @@
+name: meter-death
+description: >
+  The headline scenario. The IT main meter dies and reports 0 kW while the
+  hall is drawing several MW. On a conventional trend PUE now improves,
+  because total/IT with a collapsing denominator gets larger — or, in the
+  version that actually ships in most tools, the tile simply shows a number
+  that is arithmetically valid and physically absurd.
+
+  The platform must refuse to compute PUE and name the dead point. Not
+  estimate it, not hold the last value over, not interpolate.
+
+# t is absolute sim-seconds. Sim starts at --start-hour (default 09:30 = 34200).
+faults:
+  - kind: death
+    points: dc1.it.main.kw
+    start_s: 34500          # ~5 minutes after start at default start-hour
+    end_s: 35100            # recovers after 10 minutes, so the demo can show
+                            # PUE returning with a fresh receipt
+
+expect:
+  # Assertions the regression runner checks against the truth ledger.
+  - id: pue_uncomputable
+    window_s: [34500, 35100]
+    assert: platform_pue_is_uncomputable
+    because: >
+      A ratio with a missing or zero numerator has no value. The reading
+      envelope forbids quality:missing carrying a non-null value, and
+      compute.ratio has no edge from its `undefined` port to a number.
+
+  - id: no_silent_zero
+    window_s: [34500, 35100]
+    assert: reported_it_main_flagged_not_trusted
+    because: >
+      A meter reporting exactly 0.0 while its downstream racks report several
+      MW is internally inconsistent. The energy-balance check on balance_group
+      busway_p* must diverge from dc1.it.main.kw and raise, even before the
+      quality codes catch up.
+
+  - id: recovery_is_clean
+    window_s: [35100, 35400]
+    assert: platform_pue_recovers_with_fresh_receipt
+    because: >
+      After recovery the PUE reading must be method:computed with both inputs
+      timestamped after the fault window. A value carried over the gap would
+      be an assertion wearing arithmetic's clothes.

@@ -1,0 +1,21 @@
+name: meter-freeze
+description: >
+  The most dangerous of the three meter faults, because the number stays
+  plausible. The IT main holds its last value forever while real load moves
+  underneath it. Nothing about the value looks wrong; only its AGE does.
+faults:
+  - kind: freeze
+    points: dc1.it.main.kw
+    start_s: 34500
+expect:
+  - id: goes_stale
+    assert: it_main_quality_becomes_stale_within_max_age
+    because: >
+      The point declares max_age_s 10. A value that stops changing still has
+      a timestamp; the platform must age it rather than trusting it because
+      it looks reasonable.
+  - id: pue_stops_being_trustworthy
+    assert: pue_trustworthy_false_while_input_stale
+    because: >
+      trustworthy is derived (exact AND inputs_verified AND quality good).
+      A stale input must break it even though the arithmetic still succeeds.
