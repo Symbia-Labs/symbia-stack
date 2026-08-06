@@ -340,6 +340,48 @@ in-memory, so a restart drops running pipelines even though the graphs rehydrate
 |---|---|---|---|
 | **D10** | **New service schemas never reach an existing dev install.** `docker-compose.override.yml` replaces the whole `db-bootstrap` step with `echo "Skipping bootstrap - tables already exist"`. The check is not "are *these* tables present" but "has bootstrap ever run", so adding a table to any service is silently a no-op locally — the service then starts and fails at first query. The runtime schema had to be applied by hand with `psql`. | `docker-compose up db-bootstrap` → `Skipping bootstrap - tables already exist`, with `runtime` DB present but empty. | **Open** — the real `bootstrap.sh` is already idempotent (`CREATE TABLE IF NOT EXISTS`), so the override could simply run it instead of stubbing it. |
 
+---
+
+## Update — 6 Aug 2026, D10 resolved and a generality audit
+
+- **D10 resolved.** `docker-compose.override.yml` replaced the whole
+  `db-bootstrap` step with an echo. Services no longer *wait* on bootstrap
+  (which is what made restarts fast), but bootstrap itself now runs — it was
+  already idempotent, so skipping it bought nothing the `depends_on` removals
+  did not already buy. Verified by dropping `graph_executions` and re-running:
+  the table was recreated and `operator_state`'s existing rows were untouched.
+
+### The bigger finding: the platform had started to grow the shape of its test case
+
+`energy/` is a **forcing function, not the product**. A single exercising
+application creates a standing risk that nobody notices, because the only thing
+running on the platform is the thing the platform grew around. That had already
+begun:
+
+| leak | where | why it matters |
+|---|---|---|
+| `symbia.state.join`'s published manifest documented `config.select` as `{"facility_kw": "dc1.elec.utility.main.kw"}` | the **catalog contract every consumer reads** | a general-purpose stream operator describing itself in data-centre electrical vocabulary |
+| `symbia.state.latest`, `.join`, `.rollup` defaulted `config.keyField` to `"point"` | component defaults | a term from telemetry historians, inherited by every graph in every other domain |
+
+Both fixed. The default is now `"key"`; `energy-pipeline` declares
+`"keyField": "point"` **explicitly**, because a domain's vocabulary belongs to
+the application, not the engine. Component contracts bumped to 1.2.0 and
+re-published. Audited: **zero** domain-specific vocabulary remains across all 16
+published manifests.
+
+A second worked example was added in an unrelated domain
+([`examples/graphs/order-margin.graph.json`](../examples/graphs/order-margin.graph.json),
+commerce) which runs the identical path — registration → hydration → gated
+ingress → durable state → metric sink — and uses the **default** `keyField`
+with no domain configuration at all. Delivered `{revenue: 1000, cost: 420}`,
+derived margin **0.58** on the canonical lane, 12 hops.
+
+**An unplanned demonstration.** Changing the default broke `energy-pipeline`
+(PUE went `null`) until it was re-registered — because the runtime hydrates from
+the **catalog**, not from the file on disk. Editing `energy-pipeline.graph.json`
+changed nothing at all until `register-graph.mjs` published it. That is Phase 1
+working exactly as intended, observed by accident rather than by design.
+
 **Consequences still open:** 2 (`symbia-control-center/vite.config.ts` hand-added
 `energy: 5010` route — now pointing at a service that no longer exists), 3
 (`model/site.json`: 227 points in a file, not catalog resources — D2 `point` type

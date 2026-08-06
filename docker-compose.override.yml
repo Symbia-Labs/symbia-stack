@@ -1,11 +1,21 @@
 # Symbia Stack - Development Overrides
 # This file is automatically loaded by docker-compose
-# Removes db-bootstrap dependency for fast restarts (tables already exist)
-
+#
+# Services do not WAIT on db-bootstrap here, which is what makes restarts fast.
+# Bootstrap itself still runs.
+#
+# Defect D10: this file used to replace db-bootstrap entirely with
+#   command: ["echo", "Skipping bootstrap - tables already exist"]
+# The condition that claim rested on was "bootstrap has run before", not "these
+# tables exist". So any table added to any service was silently a no-op on an
+# existing dev install, and the service would start healthy and then fail at
+# its first query. The runtime's Phase 3 schema had to be applied by hand with
+# psql to discover this.
+#
+# bootstrap.sh is already idempotent — it creates databases only if missing and
+# rewrites its DDL to CREATE TABLE / INDEX IF NOT EXISTS — so skipping it bought
+# nothing that removing the depends_on conditions below does not already buy.
 services:
-  # Make db-bootstrap a no-op for subsequent runs
-  db-bootstrap:
-    command: ["echo", "Skipping bootstrap - tables already exist"]
 
   # Identity - remove db-bootstrap dependency
   identity:

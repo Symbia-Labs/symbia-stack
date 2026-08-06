@@ -9,7 +9,8 @@
     { "id": "valid", "component": "symbia.logic.filter",
       "config": { "field": "value", "op": "exists" } },
     { "id": "join", "component": "symbia.state.join",
-      "config": { "select": {
+      "config": { "keyField": "point",
+                  "select": {
         "facility_kw": "dc1.elec.utility.main.kw",
         "it_kw": "dc1.it.main.kw" } } },
     { "id": "m_facility", "component": "symbia.sink.metric",

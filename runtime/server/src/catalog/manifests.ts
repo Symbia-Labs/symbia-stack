@@ -24,7 +24,7 @@ export const COMPONENT_KEY_PREFIX = 'components/';
  * — the catalog should never describe ports the bundle no longer has.
  */
 export const COMPONENT_CONTRACT_VERSION =
-  process.env.RUNTIME_COMPONENT_CONTRACT_VERSION ?? '1.1.0';
+  process.env.RUNTIME_COMPONENT_CONTRACT_VERSION ?? '1.2.0';
 
 /** Capability a caller must hold to execute a runtime component. */
 export const COMPONENT_CAPABILITY =

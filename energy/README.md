@@ -2,6 +2,15 @@
 
 A data-center energy monitoring app built **through the Symbia platform API alone**. It is a forcing function: if a piece of it cannot be built through the API, that is a platform defect to be logged — not a reason to reach outside. The running record of those defects is [`API-MEASUREMENTS.md`](./API-MEASUREMENTS.md), which is the primary deliverable of this exercise.
 
+> **This is a test case, not the product.** Symbia Stack is general purpose;
+> energy is the load applied to it. Nothing here should shape the platform's
+> contracts, and when it has, that is itself a defect — see the 6 Aug 2026
+> generality audit in `API-MEASUREMENTS.md`, which found data-centre vocabulary
+> in a published component manifest and a telemetry-historian term as a
+> platform-wide default. Other domains live in [`examples/`](../examples/), and
+> a second one exists specifically so the platform is never validated against
+> this application alone.
+
 > The rule (Brian, 5 Aug 2026): *If I cannot build a piece of this through the Symbia API alone, that is a platform defect to be logged, not a reason to reach outside.*
 
 ## What it does

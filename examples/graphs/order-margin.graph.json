@@ -1,0 +1,40 @@
+{
+  "symbia": "graph/1.0",
+  "name": "order-margin",
+  "version": "1.0.0",
+  "description": "Worked example in a domain unrelated to the energy test case: joins the latest order revenue and fulfilment cost, derives gross margin ratio, and persists it as a metric. Uses the platform's default keyField (\"key\") with no domain vocabulary configured, which is the point — the components carry no assumption about what is being measured.",
+  "author": "examples",
+  "nodes": [
+    { "id": "entry", "component": "symbia.io.passthrough" },
+    { "id": "valid", "component": "symbia.logic.filter",
+      "config": { "field": "value", "op": "exists" } },
+    { "id": "join", "component": "symbia.state.join",
+      "config": { "select": {
+        "revenue": "orders.revenue",
+        "cost": "orders.fulfilment_cost" } } },
+    { "id": "m_revenue", "component": "symbia.sink.metric",
+      "config": { "name": "examples.orders.revenue", "valueField": "revenue",
+                  "labels": { "example": "order-margin" } } },
+    { "id": "margin", "component": "symbia.compute.arithmetic",
+      "config": { "expression": "({revenue} - {cost}) / {revenue}" } },
+    { "id": "m_margin", "component": "symbia.sink.metric",
+      "config": { "name": "examples.orders.margin", "valueField": "result",
+                  "labels": { "example": "order-margin" } } },
+    { "id": "sink", "component": "symbia.io.collect" },
+    { "id": "errlog", "component": "symbia.sink.log",
+      "config": { "level": "warn", "message": "[order-margin]" } },
+    { "id": "errsink", "component": "symbia.io.collect" }
+  ],
+  "edges": [
+    { "id": "e1", "source": { "node": "entry", "port": "out" }, "target": { "node": "valid", "port": "in" } },
+    { "id": "e2", "source": { "node": "valid", "port": "pass" }, "target": { "node": "join", "port": "in" } },
+    { "id": "e3", "source": { "node": "join", "port": "out" }, "target": { "node": "m_revenue", "port": "in" } },
+    { "id": "e4", "source": { "node": "m_revenue", "port": "out" }, "target": { "node": "margin", "port": "in" } },
+    { "id": "e5", "source": { "node": "margin", "port": "out" }, "target": { "node": "m_margin", "port": "in" } },
+    { "id": "e6", "source": { "node": "m_margin", "port": "out" }, "target": { "node": "sink", "port": "in" } },
+    { "id": "e7", "source": { "node": "margin", "port": "error" }, "target": { "node": "errlog", "port": "in" } },
+    { "id": "e8", "source": { "node": "errlog", "port": "out" }, "target": { "node": "errsink", "port": "in" } }
+  ],
+  "metadata": { "domain": "commerce", "role": "pipeline",
+                "ingress": { "node": "entry", "port": "in" } }
+}

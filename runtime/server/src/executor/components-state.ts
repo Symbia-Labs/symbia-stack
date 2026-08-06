@@ -48,11 +48,11 @@ registerComponent({
   id: 'symbia.state.latest',
   name: 'Latest By Key',
   description:
-    'Remembers the most recent message per config.keyField (default "point") and passes the message through. The current snapshot {key: message} is available downstream via the "snapshot" port.',
+    'Remembers the most recent message per config.keyField (default "key") and passes the message through. The current snapshot {key: message} is available downstream via the "snapshot" port.',
   inputs: ['in'],
   outputs: ['out', 'snapshot'],
   handler: (input, ctx) => {
-    const keyField = String(ctx.config.keyField ?? 'point');
+    const keyField = String(ctx.config.keyField ?? 'key');
     const key = field(input.value, keyField);
     const state = stateFor(ctx);
     if (key !== undefined) state.set(String(key), input.value);
@@ -64,12 +64,12 @@ registerComponent({
   id: 'symbia.state.join',
   name: 'Join Latest',
   description:
-    'Joins the latest values of selected keys from a keyed stream. config.select maps output fields to key values, e.g. {"facility_kw": "dc1.elec.utility.main.kw"}; config.keyField (default "point") and config.valueField (default "value") locate key and value in each message. Emits the joined object on "out" once every selected key has been seen (then on every update); until then emits {have, need} on "pending".',
+    'Joins the latest values of selected keys from a keyed stream. config.select maps output fields to key values, e.g. {"price": "ticker.acme", "volume": "volume.acme"}; config.keyField (default "key") and config.valueField (default "value") locate key and value in each message. Emits the joined object on "out" once every selected key has been seen (then on every update); until then emits {have, need} on "pending".',
   inputs: ['in'],
   outputs: ['out', 'pending'],
   handler: (input, ctx) => {
     const select = (ctx.config.select ?? {}) as Record<string, string>;
-    const keyField = String(ctx.config.keyField ?? 'point');
+    const keyField = String(ctx.config.keyField ?? 'key');
     const valueField = String(ctx.config.valueField ?? 'value');
     const state = stateFor(ctx);
 
@@ -129,13 +129,13 @@ registerComponent({
   id: 'symbia.state.rollup',
   name: 'Rollup Expected Set',
   description:
-    'Aggregates the latest values of an expected key set (config.expected: [keys], config.op: sum|mean|min|max, keyField/valueField as in join). Emits {value, op, coverage, present, missing} on "out". A rollup with missing inputs is emitted on the apocryphal lane: a partial total must not pass as the total.',
+    'Aggregates the latest values of an expected key set (config.expected: [keys], config.op: sum|mean|min|max, keyField (default "key") / valueField as in join). Emits {value, op, coverage, present, missing} on "out". A rollup with missing inputs is emitted on the apocryphal lane: a partial total must not pass as the total.',
   inputs: ['in'],
   outputs: ['out'],
   handler: (input, ctx) => {
     const expected = ((ctx.config.expected ?? []) as unknown[]).map(String);
     const op = String(ctx.config.op ?? 'sum');
-    const keyField = String(ctx.config.keyField ?? 'point');
+    const keyField = String(ctx.config.keyField ?? 'key');
     const valueField = String(ctx.config.valueField ?? 'value');
     const state = stateFor(ctx);
 
