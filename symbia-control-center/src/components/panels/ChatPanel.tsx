@@ -5,6 +5,8 @@
  * Supports @mentions to invite assistants into conversations.
  */
 import { useState, useEffect, useRef, useCallback } from 'react';
+import { Bubble, GroupTimestamp } from '@/components/chat/Bubble';
+import type { Skin } from '@/components/chat/skins';
 import { useMessaging } from '@/hooks/useMessaging';
 import { useAuth } from '@/hooks/useAuth';
 import type { Message } from '@/stores/messagingStore';
@@ -32,63 +34,11 @@ interface MentionableAssistant {
   key: string;
 }
 
-function MessageBubble({
-  message,
-  isOwn,
-  userName,
-}: {
-  message: Message;
-  isOwn: boolean;
-  userName?: string;
-}) {
-  const timestamp = new Date(message.created_at);
-
-  // Extract assistant name from sender_id like "assistant:log-analyst"
-  const getAssistantName = (senderId: string) => {
-    if (senderId.startsWith('assistant:')) {
-      const key = senderId.replace('assistant:', '');
-      // Convert key to display name (e.g., "log-analyst" -> "Log Analyst")
-      return key.split('-').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
-    }
-    return 'AI Assistant';
-  };
-
-  return (
-    <div className={`flex ${isOwn ? 'justify-end' : 'justify-start'}`}>
-      <div
-        className={`
-          max-w-[75%] rounded-lg px-4 py-2
-          ${isOwn
-            ? 'bg-emerald-600/20 border border-emerald-500/30'
-            : message.sender_type === 'agent'
-            ? 'bg-scc-secondary/20 border border-scc-secondary/30'
-            : 'bg-slate-700/50 border border-slate-600/30'
-          }
-        `}
-      >
-        {/* Show name for own messages (green) and others */}
-        <p className={`text-xs font-medium mb-1 ${
-          isOwn
-            ? 'text-emerald-400'
-            : message.sender_type === 'agent'
-            ? 'text-scc-secondary'
-            : 'text-slate-400'
-        }`}>
-          {isOwn
-            ? (userName || 'You')
-            : message.sender_type === 'agent'
-            ? getAssistantName(message.sender_id)
-            : message.sender_id.slice(0, 8)
-          }
-        </p>
-        <p className="text-sm text-slate-200 whitespace-pre-wrap">{message.content}</p>
-        <p className="text-xs text-slate-500 mt-1 text-right">
-          {timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-        </p>
-      </div>
-    </div>
-  );
-}
+// The local MessageBubble that lived here was removed 6 Aug 2026. It was one
+// of THREE implementations of a message bubble in this app -- this one,
+// components/messaging/MessageBubble.tsx, and whatever the popout would have
+// grown. All rendering now goes through components/chat/Bubble.tsx, which is
+// skin-aware. A shared concern with N implementations is not shared.
 
 function TypingIndicator({ users }: { users: string[] }) {
   if (users.length === 0) return null;
@@ -264,7 +214,15 @@ function RefSuggestionDropdown({
   );
 }
 
-export function ChatPanel() {
+/**
+ * Chat, rendered inside the phone-shaped popout (components/chat/ChatWindow).
+ *
+ * The window owns the frame, the title and the connection status, so this
+ * renders only the conversation surface and the composer. It no longer draws
+ * its own header — two headers was the first thing that looked wrong when the
+ * panel was dropped into the window.
+ */
+export function ChatPanel({ skin }: { skin: Skin }) {
   const { user } = useAuth();
   const {
     conversations,
@@ -305,7 +263,6 @@ export function ChatPanel() {
   // Track assistants that are currently responding
   const [respondingAssistants, setRespondingAssistants] = useState<Set<string>>(new Set());
 
-  const selectedConversation = conversations.find((c) => c.id === selectedConversationId);
   const conversationMessages = selectedConversationId ? getConversationMessages(selectedConversationId) : [];
   const typingUsers = selectedConversationId ? getTypingUsersFromHook(selectedConversationId) : [];
 
@@ -753,25 +710,6 @@ export function ChatPanel() {
 
   return (
     <div className="flex-1 min-h-0 flex flex-col">
-      {/* Chat Header */}
-      <div className="shrink-0 px-4 py-2 border-b border-scc-border flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <h1 className="font-medium text-slate-200">
-            {selectedConversation?.name || 'Chat'}
-          </h1>
-          {/* Connection status */}
-          <div className="flex items-center gap-1.5 text-xs">
-            <div className={`w-2 h-2 rounded-full ${
-              connectionStatus === 'connected'
-                ? 'bg-emerald-500'
-                : connectionStatus === 'connecting'
-                ? 'bg-amber-500 animate-pulse'
-                : 'bg-slate-500'
-            }`} />
-            <span className="text-slate-500 capitalize">{connectionStatus}</span>
-          </div>
-        </div>
-      </div>
 
         {/* Messages */}
         <div
@@ -789,22 +727,34 @@ export function ChatPanel() {
                 <svg className="w-12 h-12 mx-auto mb-4 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
                 </svg>
-                <p className="text-lg font-medium text-slate-300">What can I help you with?</p>
-                <p className="text-sm text-slate-600 mt-2">
+                <p className="text-[18px] font-medium text-white/85">What can I help you with?</p>
+                <p className="text-[16px] text-white/45 mt-2 px-6">
                   Just ask a question and I'll connect you with the right assistant
                 </p>
               </div>
             </div>
           ) : (
             <>
-              {conversationMessages.map((msg: Message) => (
-                <MessageBubble
-                  key={msg.id}
-                  message={msg}
-                  isOwn={msg.sender_id === user?.id}
-                  userName={user?.email?.split('@')[0] || user?.id?.slice(0, 8)}
-                />
-              ))}
+              {conversationMessages.map((msg: Message, i: number) => {
+                const prev = conversationMessages[i - 1];
+                const startsGroup = !prev || prev.sender_id !== msg.sender_id;
+                // iMessage prints one timestamp above a run rather than one per
+                // bubble; the gap between messages is where it belongs.
+                const gap =
+                  !prev ||
+                  new Date(msg.created_at).getTime() - new Date(prev.created_at).getTime() > 5 * 60_000;
+                return (
+                  <div key={msg.id}>
+                    {gap && <GroupTimestamp iso={msg.created_at} skin={skin} />}
+                    <Bubble
+                      message={msg}
+                      isOwn={msg.sender_id === user?.id}
+                      skin={skin}
+                      startsGroup={startsGroup}
+                    />
+                  </div>
+                );
+              })}
               {/* Show responding indicators for assistants that are processing */}
               {(() => {
                 // Filter out coordinator - it's a silent orchestrator
@@ -836,7 +786,7 @@ export function ChatPanel() {
         <TypingIndicator users={typingUsers} />
 
         {/* Input - always visible */}
-        <div className="shrink-0 p-4 border-t border-scc-border relative">
+        <div className={`shrink-0 p-3 relative z-10 ${skin.input.bar}`}>
           {/* @mention dropdown */}
           {showMentionDropdown && filteredMentions.length > 0 && (
             <MentionDropdown
@@ -857,15 +807,15 @@ export function ChatPanel() {
             />
           )}
 
-          <div className="flex gap-2">
+          <div className="flex gap-2 items-end">
             <textarea
               ref={inputRef}
               value={inputValue}
               onChange={handleInputChange}
               onKeyDown={handleKeyDown}
-              placeholder="Ask anything... (@ for assistants or @context. for data)"
+              placeholder="Message"
               rows={1}
-              className="scc-input flex-1 resize-none text-sm min-h-[40px] max-h-32"
+              className={`flex-1 resize-none min-h-[44px] max-h-[96px] overflow-y-auto outline-none ${skin.input.field}`}
               disabled={connectionStatus !== 'connected'}
               autoFocus
             />
@@ -873,10 +823,10 @@ export function ChatPanel() {
               onClick={handleSendMessage}
               disabled={!inputValue.trim() || isSending || connectionStatus !== 'connected'}
               className={`
-                px-4 rounded font-medium transition-all shrink-0
+                w-11 h-11 grid place-items-center font-medium transition-all shrink-0 self-end
                 ${inputValue.trim() && !isSending && connectionStatus === 'connected'
-                  ? 'bg-scc-primary hover:bg-scc-primary/80 text-white'
-                  : 'bg-slate-700 text-slate-500 cursor-not-allowed'
+                  ? skin.input.send
+                  : `${skin.input.sendIdle} cursor-not-allowed`
                 }
               `}
             >

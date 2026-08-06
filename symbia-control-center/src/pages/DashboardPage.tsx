@@ -10,7 +10,7 @@
  * navigation writes back to it, which makes the address bar the single source
  * of truth rather than a decoration.
  */
-import { useCallback } from 'react';
+import { useCallback, useRef } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { MainLayout, type PanelId } from '@/components/layout/MainLayout';
 import { OverviewPanel } from '@/components/panels/OverviewPanel';
@@ -19,17 +19,23 @@ import { AssistantsPanel } from '@/components/panels/AssistantsPanel';
 import { IntegrationsPanel } from '@/components/panels/IntegrationsPanel';
 import { LogSearchPanel } from '@/components/panels/LogSearchPanel';
 import { ChatPanel } from '@/components/panels/ChatPanel';
+import { ChatWindow } from '@/components/chat/ChatWindow';
+import { ConnectionDot } from '@/components/chat/ConnectionDot';
 
-const PANELS: Record<PanelId, React.ComponentType> = {
+/**
+ * Chat is NOT in here. It stopped being a panel on 6 Aug 2026 and became a
+ * phone-shaped popout that floats over whatever panel you are on — an operator
+ * reading logs should not have to leave them to ask a question.
+ */
+const PANELS: Record<Exclude<PanelId, 'chat'>, React.ComponentType> = {
   overview: OverviewPanel,
   network: NetworkPanel,
   assistants: AssistantsPanel,
   integrations: IntegrationsPanel,
   logs: LogSearchPanel,
-  chat: ChatPanel,
 };
 
-const PANEL_IDS = Object.keys(PANELS) as PanelId[];
+const PANEL_IDS = [...(Object.keys(PANELS) as PanelId[]), 'chat' as PanelId];
 
 /**
  * Read the panel out of the path. Accepts both `/integrations` and
@@ -46,11 +52,23 @@ export function panelFromPath(pathname: string): PanelId {
 }
 
 export function DashboardPage() {
+  // Which panel the popout floats over. A ref, not state: it must not trigger a
+  // re-render, and it is read during render only to answer "what was I looking
+  // at before I opened chat".
+  const lastNonChatPanel = useRef<PanelId>('overview');
   const location = useLocation();
   const navigate = useNavigate();
 
   const activePanel = panelFromPath(location.pathname);
-  const PanelComponent = PANELS[activePanel];
+  const chatOpen = activePanel === 'chat';
+
+  // /chat is still a real, linkable route — the C5 deep-link work stands — but
+  // it now renders the popout over a panel rather than replacing the screen.
+  // The panel underneath is whatever you were last on; overview when the URL
+  // was typed cold.
+  const underlying = chatOpen ? lastNonChatPanel.current : activePanel;
+  const PanelComponent = PANELS[underlying as Exclude<PanelId, 'chat'>] ?? OverviewPanel;
+  if (!chatOpen) lastNonChatPanel.current = activePanel;
 
   const handlePanelChange = useCallback(
     (panel: PanelId) => {
@@ -60,9 +78,20 @@ export function DashboardPage() {
     [navigate]
   );
 
+  // Closing returns to the panel underneath, so the address bar keeps matching
+  // what is on screen. Closing the window while the URL still said /chat was
+  // the first thing that felt broken.
+  const closeChat = useCallback(
+    () => navigate(`/${lastNonChatPanel.current}`),
+    [navigate]
+  );
+
   return (
     <MainLayout activePanel={activePanel} onPanelChange={handlePanelChange}>
       <PanelComponent />
+      <ChatWindow open={chatOpen} onClose={closeChat} status={<ConnectionDot />}>
+        {(skin) => <ChatPanel skin={skin} />}
+      </ChatWindow>
     </MainLayout>
   );
 }
