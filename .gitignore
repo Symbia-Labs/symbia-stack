@@ -44,3 +44,7 @@ symbia-control-center/
 tmp/
 temp/
 *.tmp
+
+# Python bytecode
+__pycache__/
+*.py[cod]
