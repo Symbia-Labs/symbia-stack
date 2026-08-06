@@ -72,6 +72,13 @@ export async function registerIngress(
     graphName: string;
     graphKey: string;
     orgId?: string;
+    /**
+     * App that owns the graph this ingress belongs to. An ingress is created by
+     * the runtime rather than by whoever registered the graph, so without this
+     * it would be an unclaimed app-layer resource by construction — the
+     * platform manufacturing exactly the orphans it reports.
+     */
+    app?: string;
     ingress: IngressDeclaration;
     existing?: CatalogResource;
   }
@@ -79,6 +86,7 @@ export async function registerIngress(
   const key = `${INGRESS_KEY_PREFIX}${params.graphName}`;
   const metadata = {
     kind: 'runtime.ingress',
+    ...(params.app ? { app: params.app } : {}),
     graph: params.graphName,
     graphKey: params.graphKey,
     endpoint: `/api/ingress/${params.graphName}`,

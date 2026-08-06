@@ -12,6 +12,7 @@ import { canPerformAction, filterResourcesByReadAccess, getPublicReadPolicy } fr
 import { writeRateLimiter, searchRateLimiter, uploadRateLimiter, RATE_LIMITS } from "./rate-limit";
 import { artifactStorage } from "./artifact-storage";
 import { buildBootstrapSummary } from "./bootstrap-summary";
+import { checkAppRequires, PLATFORM_VERSION } from "./app-requires";
 
 // Helper to safely extract string param from Express params (Express 5 returns string | string[])
 function getParam(params: Record<string, string | string[] | undefined>, key: string): string {
@@ -461,6 +462,16 @@ export async function registerRoutes(
             details: manifest.error.errors,
           });
         }
+        // An app declaring what the platform must provide, never checked
+        // against what the platform provides, is a claim with no mechanism.
+        const unmet = await checkAppRequires(manifest.data as any);
+        if (unmet.length > 0) {
+          return res.status(409).json({
+            error: "App requirements not met by this platform",
+            platformVersion: PLATFORM_VERSION,
+            unmet,
+          });
+        }
         validatedData.metadata = { ...(raw as Record<string, unknown>), manifest: manifest.data };
       }
 
@@ -506,7 +517,52 @@ export async function registerRoutes(
         }
       }
 
+      // Manifests are validated on update, not only on create. Until now this
+      // route validated nothing, so a resource could be registered with a
+      // correct manifest and then PATCHed into an invalid one — and every
+      // `--republish` bypassed the gate entirely. A gate that can be skipped
+      // by choosing a different verb is not a gate.
+      const effectiveType = validatedData.type ?? resource.type;
+      if (validatedData.metadata !== undefined && validatedData.metadata !== null) {
+        const raw = validatedData.metadata as Record<string, unknown>;
+        const manifestInput = (raw as any).manifest ?? raw;
+
+        if (effectiveType === "component") {
+          const manifest = componentManifestSchema.safeParse(manifestInput);
+          if (!manifest.success) {
+            return res.status(400).json({
+              error: "Invalid component manifest",
+              details: manifest.error.errors,
+            });
+          }
+          validatedData.metadata = { ...raw, manifest: manifest.data };
+        }
+
+        if (effectiveType === "app") {
+          const manifest = appManifestSchema.safeParse(manifestInput);
+          if (!manifest.success) {
+            return res.status(400).json({
+              error: "Invalid app manifest",
+              details: manifest.error.errors,
+            });
+          }
+          const unmet = await checkAppRequires(manifest.data as any);
+          if (unmet.length > 0) {
+            return res.status(409).json({
+              error: "App requirements not met by this platform",
+              platformVersion: PLATFORM_VERSION,
+              unmet,
+            });
+          }
+          validatedData.metadata = { ...raw, manifest: manifest.data };
+        }
+      }
+
       const updated = await storage.updateResource(getParam(req.params, 'id'), validatedData as any);
+      // Updates are ledgered too. Registration was auditable while every
+      // change after it was silent, which makes the ledger a record of first
+      // writes rather than of what the registry currently asserts.
+      registryLedger(req, "update", updated ?? resource);
       res.json(updated);
     } catch (error) {
       if (error instanceof z.ZodError) {

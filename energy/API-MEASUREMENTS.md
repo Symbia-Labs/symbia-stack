@@ -444,6 +444,70 @@ alone succeeds. And the control center is a **nested git repository** with one
 commit and no remote, gitignored by the parent — so it has not been under shared
 version control at all.
 
+---
+
+## Update — 6 Aug 2026, the app model made load-bearing
+
+The three app manifests registered earlier today were **decorative**. They
+declared `provides`, `requires` and `privilege`, and nothing checked any of it —
+the same defect the ledger keeps recording, reproduced by the very work meant to
+fix it. Measured before doing anything about it:
+
+```
+Apps registered: 3
+apps/order-margin  claims: 0 graph(s), 0 ingress(es)
+apps/energy        claims: 0 graph(s), 0 ingress(es)
+apps/control-center claims: 0 graph(s), 0 ingress(es)
+
+REGISTERED BUT UNCLAIMED (entered outside any app):
+  graph graphs/energy-pipeline, graphs/order-margin,
+        energy.graph.pue, energy.graph.ingest
+  ingress ingress/energy-pipeline, ingress/order-margin
+
+declared-but-missing: 0   unclaimed: 6
+```
+
+**`requires` is now enforced at registration**, catalog-side rather than in the
+registration script — a gate that lives in a helper is skipped by not using the
+helper. Three refusal modes confirmed live:
+
+| attempt | result |
+|---|---|
+| `symbia.does.not.exist@^1.0.0` | **409** *no component manifest registered for "symbia.does.not.exist"* |
+| `symbia.state.join@^9.0.0` | **409** *registered version 1.2.0 does not satisfy ^9.0.0* |
+| `requires.services: ["telepathy"]` | **409** *"telepathy" is not a service this platform provides* |
+
+This is the mechanism for the failure that actually happened: when `keyField`'s
+default changed from `"point"` to `"key"`, energy silently derived `null`
+instead of a PUE. A declared, checked requirement turns that into a refusal at
+the boundary instead of a wrong answer at runtime.
+
+**Ownership is now a fact on the resource, not a claim in a manifest.** Graphs
+record `metadata.app`; the runtime propagates the owning app onto the ingress it
+creates, since an ingress is created by the runtime rather than by whoever
+registered the graph — without that the platform would manufacture exactly the
+orphans it reports. After claiming, reconciliation is clean:
+
+```
+apps/order-margin   claims: 1 graph(s), 1 ingress(es)
+apps/energy         claims: 3 graph(s), 1 ingress(es)
+apps/control-center claims: 0 graph(s), 0 ingress(es)
+No unclaimed app-layer resources.
+declared-but-missing: 0   unclaimed: 0
+```
+
+`scripts/verify-apps.mjs` checks both directions and exits non-zero on either,
+so it can gate a build. The 16 builtin components are excluded as platform
+substrate — the platform is not an app, so they are expected to have no owner
+rather than reported as orphans forever.
+
+### Two defects found while building the gate
+
+| id | finding | status |
+|---|---|---|
+| **D12** | **`PATCH /api/resources` validated nothing.** Component manifests had been checked on create since Phase 0 and never on update, so a resource could be registered with a valid manifest and then PATCHed into an invalid one — and every `--republish` bypassed the gate entirely. A gate that can be skipped by choosing a different verb is not a gate. | **Resolved.** Confirmed: PATCHing energy with `symbia.state.join@^9.0.0` → 409; PATCHing a garbage manifest → 400; the app itself left intact. |
+| **D13** | **Updates were not ledgered.** `registryLedger` fired on create and publish only, so the ledger recorded first writes rather than what the registry currently asserts. Registration was auditable while every change after it was silent. | **Resolved.** `action: "update"` entries now emitted. |
+
 **Consequences still open:** 2 (resolved above — was `symbia-control-center/vite.config.ts` hand-added
 `energy: 5010` route — now pointing at a service that no longer exists), 3
 (`model/site.json`: 227 points in a file, not catalog resources — D2 `point` type

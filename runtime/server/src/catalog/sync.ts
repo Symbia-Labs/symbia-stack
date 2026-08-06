@@ -254,6 +254,8 @@ export class CatalogSync {
               graphName: definition.name,
               graphKey: resource.key,
               orgId: resource.orgId ?? undefined,
+              // Inherit the graph's owning app so the ingress is claimed too.
+              app: ((resource.metadata ?? {}) as Record<string, unknown>).app as string | undefined,
               ingress,
               existing: ingressResources.get(`${INGRESS_KEY_PREFIX}${definition.name}`),
             });

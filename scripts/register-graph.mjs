@@ -10,7 +10,13 @@
  *
  * Usage:
  *   node scripts/register-graph.mjs <graph.json> [--key K] [--role pipeline]
- *                                   [--org ORG_ID] [--status published] [--republish]
+ *                                   [--app apps/foo] [--org ORG_ID]
+ *                                   [--status published] [--republish]
+ *
+ * --app records the owning app. Ownership is a fact stored on the resource,
+ * not a claim in the app's manifest; the two are reconciled in both directions
+ * by scripts/verify-apps.mjs. A graph with no owning app is an unclaimed
+ * app-layer resource, which under declare-first has no legitimate path.
  *
  * --org matters for more than bookkeeping: the owning org is what authorises
  * delivery to the graph's ingress, and it is the org that anything the graph
@@ -70,9 +76,18 @@ async function api(method, urlPath, body) {
   return parsed;
 }
 
+const owningApp = flag('app', definition.metadata?.app);
+if (!owningApp) {
+  console.warn(
+    'warning: no --app given. This graph will be an unclaimed app-layer resource;\n' +
+    '         scripts/verify-apps.mjs will report it as entered outside any app.'
+  );
+}
+
 const metadata = {
   ...(definition.metadata ?? {}),
   ...(role ? { role } : {}),
+  ...(owningApp ? { app: owningApp } : {}),
   ingress: definition.metadata?.ingress,
   definition,
 };
@@ -143,6 +158,7 @@ console.log(`  key:       ${result.key}`);
 console.log(`  id:        ${result.id}`);
 console.log(`  status:    ${result.status}`);
 console.log(`  role:      ${role ?? '(none — will be loaded but not started)'}`);
+console.log(`  app:       ${owningApp ?? '(UNCLAIMED)'}`);
 console.log(`  ingress:   ${definition.metadata?.ingress ? JSON.stringify(definition.metadata.ingress) : '(none)'}`);
 console.log(`  nodes:     ${definition.nodes.length}, edges: ${definition.edges.length}`);
 console.log('');
