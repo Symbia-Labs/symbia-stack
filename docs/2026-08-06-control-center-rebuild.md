@@ -1,6 +1,14 @@
-# Control center rebuild — design
+# Control center rebuild — design, and what was built
 
-*6 August 2026. Design only. No code written. Disputable.*
+*6 August 2026. Steps 1–9 built. Step 10 (browser) NOT DONE — see §14.
+Disputable.*
+
+> **Status.** The plan below was executed in nine commits, `828fdf0..b44744a`.
+> Three things in it were wrong and are corrected in place rather than
+> rewritten: the Monaco diagnosis (§6), the dead-code analysis (§6), and the
+> claim that the WebSocket step failed (§12, prediction 1). **No part of this
+> has been checked in a browser**, which is the project's own standard for
+> anything user-facing. §14 records what that leaves unknown.
 
 Two changes requested after a read of `DEVELOPER.md`:
 
@@ -781,7 +789,86 @@ Registered before any measurement, to be reported as broken if broken.
 
 ---
 
-## 13. Not checked
+## 13. What was measured, and what was not
+
+*Added 6 Aug after building steps 1–9.*
+
+### Measured over HTTP, against the running stack
+
+All ten registered services reachable through `/svc/{id}/health` on 8000 —
+`identity logging catalog assistants messaging runtime integrations models api`
+returned 200; `network` returned 502, explained below. Every console route
+(`/ /overview /network /assistants /integrations /logs /chat`) served 200 on a
+direct request, so the SPA fallback holds and deep links survive a reload.
+`/vendor/monaco/vs/loader.js` served 200 from this origin.
+
+Socket.IO upgrades were tested with a **websocket-only** client — no polling
+fallback, so a failure could not hide — with a direct connection as control:
+
+| service | direct | via proxy | reading |
+|---|---|---|---|
+| messaging | `Authentication required` | `Authentication required` | identical; transport works |
+| logging | `websocket error` | `websocket error` | identical; no Socket.IO server there |
+| catalog | `websocket error` | `websocket error` | identical |
+
+The proxy reproduces direct behaviour everywhere the comparison is valid. SSE
+through the proxy returned 401 from the logging service — the service
+answering, not the proxy failing.
+
+Source-level: `import.meta.env` and `5173` appear in `symbia-control-center/src`
+only inside comments explaining their removal. Type errors 49 → 43, and the
+only file that changed is the one archived; **zero introduced**.
+
+### Not measured, and therefore not claimed
+
+**Nothing has been opened in a browser.** The Chrome extension is not connected
+to this session. `DEVELOPER.md` §4 and this project's standing constraints both
+say the same thing: *a green health check is not a working UI*, and an API call
+that succeeds while the button does nothing is the exact failure being hunted.
+Every result above is the kind of evidence that rule exists to distrust.
+
+So, explicitly **UNCHECKED** — not passing, not failing:
+
+- **All four capabilities.** A graph rendered. Logs listed, searched, streaming.
+  The catalog browsed and a resource opened in the editor. A chat message sent
+  and a reply streamed back. None of these have been seen.
+- Whether Monaco loads in the editor, and whether the network tab shows **no**
+  request to `cdn.jsdelivr.net`. The jsdelivr URL is still a string inside
+  `dist/app.js` — it is the loader's bundled default — so grepping the bundle
+  proves nothing either way. Only the network tab settles it.
+- Whether `/energy` redirects cleanly rather than rendering a blank shell. It
+  returns 200 because the SPA fallback serves `index.html` to every non-asset
+  path; what React Router then does is a client-side fact.
+- Whether the login form now appears where a developer previously landed
+  already logged in. The dev auto-login was removed; that consequence was
+  predicted, not observed.
+- Whether removing the dev-only `X-Org-Id` omission changed what the logs panel
+  displays.
+
+**Two environment facts that are not defects but do affect what the above
+means:**
+
+- The `network` container is still on **5054**; the registry says 5009. The
+  rebuild did not finish in this session, so `/svc/network` returns
+  `{"error":"upstream_unreachable","target":"http://localhost:5009"}`. That is
+  the proxy reporting a real condition rather than a confident zero, and it
+  resolves with `docker-compose up -d --build network`. Until then the network
+  graph — half of capability 1 — cannot work.
+- `symbia_stack_health` will now sweep **eleven** services rather than nine,
+  because the MCP server reads the registry instead of its own list.
+  `control-center` and `api` will appear, and will read unreachable until the
+  containers are built.
+
+### To finish this
+
+1. `docker-compose up -d --build network control-center service-admin`
+2. Open `http://localhost:8000` in a browser with the network tab open.
+3. Work the four capabilities in Brian's order and record what each does — not
+   whether it "works". §11's list is the script.
+
+---
+
+## 14. Not checked
 
 - **`~/vscode/symbia-workbench`** — now looked at, and the original scope
   question ("port workbench capabilities into the control center") rests on a
