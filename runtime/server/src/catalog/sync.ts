@@ -21,6 +21,7 @@ import type { GraphDefinition } from '../types/graph.js';
 import { config } from '../config.js';
 import { CatalogUnavailableError, RuntimeCatalogClient, type CatalogResource } from './client.js';
 import { fetchManifestedComponentKeys, syncComponentManifests } from './manifests.js';
+import { INGRESS_KEY_PREFIX, readIngress, registerIngress } from './ingress.js';
 
 /** Roles that mean "this graph should be running", not "this graph exists". */
 const STANDING_ROLES = new Set(['pipeline', 'service']);
@@ -33,6 +34,8 @@ interface HydratedGraph {
   /** Catalog's updatedAt at the time we loaded it, for change detection. */
   revision: string;
   name: string;
+  /** Org that owns the graph; governs ingress authorization and metric attribution. */
+  orgId?: string;
 }
 
 export interface SyncReport {
@@ -89,6 +92,18 @@ export class CatalogSync {
    * treats that as "cannot verify" rather than "nothing is manifested".
    */
   getManifestedKeys = (): Set<string> | undefined => this.manifestedKeys;
+
+  /**
+   * Owning org for a hydrated graph, by graph name. The ingress gate needs it
+   * to decide whether a caller may deliver. Undefined for graphs loaded ad hoc
+   * rather than hydrated from the catalog.
+   */
+  getGraphOrg = (graphName: string): string | undefined => {
+    for (const entry of this.hydrated.values()) {
+      if (entry.name === graphName) return entry.orgId;
+    }
+    return undefined;
+  };
 
   /** Boot sequence: register manifests, then hydrate, then start reconciling. */
   async start(): Promise<SyncReport> {
@@ -167,6 +182,15 @@ export class CatalogSync {
     const resources = (await this.catalog.listResources({ type: 'graph', status: 'published' }))
       .filter((r) => r.type === 'graph');
 
+    // Existing ingress records, so re-registration updates rather than 400s on
+    // a duplicate key.
+    const ingressResources = new Map<string, CatalogResource>();
+    if (config.catalog.registerIngress) {
+      for (const r of await this.catalog.listResources({ type: 'integration' })) {
+        if (r.key.startsWith(INGRESS_KEY_PREFIX)) ingressResources.set(r.key, r);
+      }
+    }
+
     const seen = new Set<string>();
 
     for (const resource of resources) {
@@ -193,14 +217,44 @@ export class CatalogSync {
           report.graphsUnloaded.push(existing.name);
         }
 
-        const loaded = await this.executor.loadGraph(definition);
+        // Values this graph derives belong to the org that owns it, not to the
+        // runtime's system identity. A graph resource with no org falls back to
+        // the system org — and says so, because that is a registration gap, not
+        // a default worth hiding.
+        if (!resource.orgId) {
+          console.warn(
+            `[CatalogSync] graph "${resource.key}" has no orgId — anything it derives will be attributed to the system org`
+          );
+        }
+        const loaded = await this.executor.loadGraph(definition, { orgId: resource.orgId ?? undefined });
         this.hydrated.set(resource.id, {
           resourceId: resource.id,
           graphId: loaded.id,
           revision,
           name: definition.name,
+          orgId: resource.orgId ?? undefined,
         });
         report.graphsLoaded.push(definition.name);
+
+        // Declare the delivery surface in the registry (Phase 2 / D4). An
+        // ingress that is not registered cannot be discovered or governed.
+        const ingress = readIngress(definition);
+        if (ingress && config.catalog.registerIngress) {
+          try {
+            await registerIngress(this.catalog, {
+              graphName: definition.name,
+              graphKey: resource.key,
+              orgId: resource.orgId ?? undefined,
+              ingress,
+              existing: ingressResources.get(`${INGRESS_KEY_PREFIX}${definition.name}`),
+            });
+          } catch (error) {
+            report.errors.push({
+              key: `ingress:${definition.name}`,
+              error: (error as Error).message,
+            });
+          }
+        }
 
         const role = roleOf(resource, definition);
         const shouldStand =

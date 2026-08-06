@@ -10,7 +10,12 @@
  *
  * Usage:
  *   node scripts/register-graph.mjs <graph.json> [--key K] [--role pipeline]
- *                                   [--status published] [--republish]
+ *                                   [--org ORG_ID] [--status published] [--republish]
+ *
+ * --org matters for more than bookkeeping: the owning org is what authorises
+ * delivery to the graph's ingress, and it is the org that anything the graph
+ * derives is attributed to. A graph with no org derives into the system org
+ * and its ingress cannot be authorised at all under strict enforcement.
  *
  * Auth: uses X-Service-Auth, matching CATALOG_INTERNAL_SERVICE_TOKEN when set
  * (falls back to the literal 'internal' for local dev, as the catalog does).
@@ -86,12 +91,21 @@ const accessPolicy = {
   },
 };
 
+const orgId = flag('org', undefined);
+if (!orgId) {
+  console.warn(
+    'warning: no --org given. The graph will derive into the system org, and under\n' +
+    '         strict ingress enforcement nothing will be authorised to deliver to it.'
+  );
+}
+
 const payload = {
   key,
   name: definition.name,
   description: definition.description,
   type: 'graph',
   status,
+  ...(orgId ? { orgId } : {}),
   tags: ['graph', ...(role ? [role] : []), ...(definition.metadata?.domain ? [definition.metadata.domain] : [])],
   accessPolicy,
   metadata,
@@ -117,6 +131,7 @@ const result = existing
       name: payload.name,
       description: payload.description,
       status,
+      ...(orgId ? { orgId } : {}),
       tags: payload.tags,
       accessPolicy,
       metadata,

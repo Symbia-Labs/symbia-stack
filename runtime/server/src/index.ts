@@ -22,6 +22,7 @@ import { config } from './config.js';
 import { optionalAuth, requireAuth } from './auth.js';
 import { registerComponent, getComponent } from './executor/components.js';
 import { registerSinkComponents } from './executor/components-sinks.js';
+import { MetricWriter } from './executor/metric-writer.js';
 import './executor/components-state.js';
 import './executor/components-sources.js';
 import { setupDocRoutes } from './doc-routes.js';
@@ -31,6 +32,7 @@ import { GraphExecutor } from './executor/index.js';
 import { createGraphRoutes, createExecutionRoutes, createRoutineRoutes } from './routes/index.js';
 import { createSocketHandlers } from './socket.js';
 import { CatalogSync } from './catalog/sync.js';
+import { checkIngressAccess, readIngress } from './catalog/ingress.js';
 
 const docsDir = path.resolve(process.cwd(), 'docs');
 
@@ -57,10 +59,14 @@ const graphExecutor = new GraphExecutor({
 
 catalogSync = new CatalogSync(graphExecutor);
 
-// Sink components write through the runtime's own telemetry client
-// (system-authenticated, batched, idempotent metric creation).
+// Metric sinks write through the runtime's own writer rather than the shared
+// telemetry client, because a graph's derived series must be attributed to the
+// org that owns the graph, deduplicated across restarts, and able to report a
+// failed write instead of silently dropping it (defects D6/D7).
+const metricWriter = new MetricWriter({ serviceId: config.serviceId });
+
 registerSinkComponents({
-  metric: (name, value, labels) => telemetry.metric(name, value, labels),
+  metric: (name, value, labels, orgId) => metricWriter.write({ name, value, labels, orgId }),
   log: (level, message, metadata) => telemetry.log(level, message, metadata),
 });
 
@@ -201,9 +207,13 @@ async function registerRoutes(_server: HttpServer, app: Express): Promise<void> 
   });
 
   // Push ingress: external producers deliver into a named RUNNING graph
-  // without tracking execution ids — the missing boundary that previously
-  // forced every feed through an out-of-band runner. The graph declares its
-  // entry in metadata.ingress ({node, port}); defaults to entry/in.
+  // without tracking execution ids. The graph declares its entry in
+  // metadata.ingress ({node, port, capability}); defaults to entry/in.
+  //
+  // Phase 2: this is a *gated* capability, not merely an authenticated route.
+  // Delivery is checked against the org that owns the graph and any capability
+  // the ingress declares — authentication alone would let any logged-in
+  // principal push into any running pipeline.
   app.post('/api/ingress/:graphName', requireAuth, async (req, res) => {
     try {
       const name = String(req.params.graphName);
@@ -212,6 +222,30 @@ async function registerRoutes(_server: HttpServer, app: Express): Promise<void> 
         res.status(404).json({ error: `No loaded graph named: ${name}` });
         return;
       }
+
+      const declared = readIngress(graph.definition) ?? { node: 'entry', port: 'in' };
+      const gate = checkIngressAccess({
+        graphOrgId: graph.orgId ?? catalogSync?.getGraphOrg(name),
+        ingress: declared,
+        caller: {
+          isSuperAdmin: req.user?.isSuperAdmin,
+          entitlements: req.user?.entitlements,
+          organizations: req.user?.organizations,
+        },
+        enforcement: config.ingressEnforcement,
+      });
+      if (!gate.allowed) {
+        res.status(403).json({
+          error: `Delivery to ingress "${name}" refused: ${gate.reason}`,
+          ingress: {
+            graph: name,
+            requiresCapability: declared.capability ?? null,
+            declaredIn: `catalog resource ingress/${name}`,
+          },
+        });
+        return;
+      }
+
       const exec = graphExecutor.getAllExecutions()
         .filter((e) => e.graphId === graph.id && e.state === 'running')
         .sort((a, b) => (b.createdAt?.getTime() ?? 0) - (a.createdAt?.getTime() ?? 0))[0];
@@ -219,10 +253,8 @@ async function registerRoutes(_server: HttpServer, app: Express): Promise<void> 
         res.status(409).json({ error: `Graph "${name}" has no running execution` });
         return;
       }
-      const ingress = ((graph.definition.metadata ?? {}) as Record<string, unknown>).ingress as
-        | { node?: string; port?: string } | undefined;
-      const node = ingress?.node ?? 'entry';
-      const port = ingress?.port ?? 'in';
+      const node = declared.node;
+      const port = declared.port;
       // An array body is a batch: one delivery per element, one HTTP call total.
       // (Also keeps the request-metrics volume proportional to ticks, not
       // readings — per-reading HTTP calls flooded the telemetry queue.)

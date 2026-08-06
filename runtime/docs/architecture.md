@@ -29,7 +29,7 @@ Ordered by dependency. The sequencing principle (Brian, 5 Aug): **enforcement fi
 |---|---|---|---|
 | 0 | Registration is real and gated | D2b, D2, D1 | **Done** (6 Aug 2026) |
 | 1 | Catalog → runtime hydration + reconciliation | D3, removes external load/execute | **Done** (6 Aug 2026) |
-| 2 | Ingress as a declared, gated surface | D4 | Open |
+| 2 | Ingress as a declared, gated surface | D4 | **Done** (6 Aug 2026) |
 | 3 | Durable executions | — | Open |
 | 4 | Registry-derived topology / governance closure | D5 | Open |
 
@@ -53,9 +53,21 @@ Implemented in `server/src/catalog/` (`client.ts`, `manifests.ts`, `sync.ts`), w
 
 **Deliberate asymmetry: manifests are registered at boot, not re-asserted on every reconcile.** Deleting a component's manifest therefore disables that component for graph loads until the runtime restarts. That is the point — if the runtime silently re-created any manifest an operator removed, the registry would not be authoritative and the gate would be decorative. Verified: with `symbia.io.delay`'s manifest deleted, a graph using it is refused at load with *"no registered catalog manifest"*, even though the implementation is compiled into the running bundle.
 
-### Phase 2 — Ingress as a declared, gated surface
+### Phase 2 — Ingress as a declared, gated surface — **implemented**
 
-The `POST /api/ingress/{graphName}` route already exists, but it requires a graph that is already running and isn't itself a declared, governed capability. Make a graph's `metadata.ingress` compile to an addressable, authenticated endpoint that is registered and gated like any other capability (D4: today an external ingress cannot be declared through the API, so it cannot be gated). End state: external delivery is one POST; the engine does the rest.
+Implemented in `server/src/catalog/ingress.ts`, enforced on the delivery route in `index.ts`.
+
+Phase 1's `POST /api/ingress/{graphName}` was merely *authenticated*: any logged-in principal could deliver into any running graph. Authentication is not authorization, and an ingress nobody declared is a surface nobody governs.
+
+- **Declared.** When a graph hydrates, its `metadata.ingress` is registered as a catalog `integration` resource under `ingress/<graphName>`, recording the endpoint, entry node/port, required capability, and — in plain text — the authorization rule in force. The gate is legible from the registry, not only from the code that enforces it. This is what makes D4's "an external ingress cannot be declared, so it cannot be gated" false.
+- **Gated.** Delivery is checked in order: super admins pass; a capability declared by the ingress must be held; the caller must belong to the org that owns the graph. A graph with **neither an owning org nor a declared capability is an undeclared surface and is refused** under strict enforcement — allowing it would restore exactly the Phase 1 behaviour this phase removes. `RUNTIME_INGRESS_ENFORCEMENT` = `strict` (default) | `warn` | `off`.
+
+Org membership was chosen as the primary gate because it works against the identity model that actually exists. The alternative — a bespoke entitlement per ingress — would have required granting capabilities that no principal currently holds, which in practice means either inventing a grant path or defaulting the gate open.
+
+Verified live, in this order:
+1. With `energy-pipeline` owned by no org, the feeder's delivery was refused: *"this graph declares no owning org and no ingress capability, so delivery cannot be authorised"*.
+2. Re-registered under the feeder's org; the reconcile pass reloaded it and delivery succeeded (225 readings, PUE 1.3453).
+3. A newly created authenticated user in a different org was refused: *"caller is not a member of the org that owns this graph"*, with a pointer to `catalog resource ingress/energy-pipeline`.
 
 ### Phase 3 — Durable executions
 

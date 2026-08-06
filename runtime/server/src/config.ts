@@ -59,5 +59,17 @@ export const config = {
     // strict manifest enforcement still refuses to load graphs, so the
     // degradation is loud, not silent.
     failFast: process.env.RUNTIME_CATALOG_FAIL_FAST === 'true',
+    // Register each hydrated graph's ingress as a catalog resource, so a
+    // delivery surface is declared and discoverable rather than implicit.
+    registerIngress: process.env.RUNTIME_REGISTER_INGRESS !== 'false',
   },
+
+  // Ingress authorization (roadmap Phase 2). strict = enforce the declared
+  // gate, warn = log what would be refused and allow, off = authenticate only.
+  // Strict by default: authentication is not authorization, and an ingress
+  // that any logged-in principal can post to is not a gated capability.
+  ingressEnforcement: (process.env.RUNTIME_INGRESS_ENFORCEMENT || 'strict') as
+    | 'strict'
+    | 'warn'
+    | 'off',
 };

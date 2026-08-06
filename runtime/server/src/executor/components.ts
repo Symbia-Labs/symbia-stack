@@ -31,6 +31,11 @@ export interface ComponentContext {
   nodeId: string;
   executionId: string;
   config: Record<string, unknown>;
+  /**
+   * Org that owns the graph this node belongs to. Sinks use it to attribute
+   * what they persist, so a derived series lands where its owner can find it.
+   */
+  orgId?: string;
   log: (msg: string) => void;
 }
 

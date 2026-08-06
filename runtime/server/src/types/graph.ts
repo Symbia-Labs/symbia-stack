@@ -66,4 +66,12 @@ export interface LoadedGraph {
     outputNodes: string[];
   };
   loadedAt: Date;
+  /**
+   * Org that owns this graph, taken from its catalog resource. Values a graph
+   * derives belong to whoever owns the graph, so sinks attribute their writes
+   * to this org rather than to the runtime's own system identity (defect D6).
+   * Undefined for graphs loaded ad hoc via POST /api/graphs, which have no
+   * owning resource — those fall back to the system org.
+   */
+  orgId?: string;
 }

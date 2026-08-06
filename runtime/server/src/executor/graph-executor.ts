@@ -133,7 +133,10 @@ export class GraphExecutor extends EventEmitter {
   /**
    * Load a graph definition
    */
-  async loadGraph(definition: GraphDefinition): Promise<LoadedGraph> {
+  async loadGraph(
+    definition: GraphDefinition,
+    opts: { orgId?: string } = {}
+  ): Promise<LoadedGraph> {
     const graphId = uuid();
 
     // Validate graph
@@ -147,6 +150,7 @@ export class GraphExecutor extends EventEmitter {
       definition,
       topology,
       loadedAt: new Date(),
+      orgId: opts.orgId,
     };
 
     this.loadedGraphs.set(graphId, loadedGraph);
@@ -249,6 +253,7 @@ export class GraphExecutor extends EventEmitter {
           const raw = await component.handler(msg, {
             nodeId,
             executionId: execution.id,
+            orgId: graph.orgId,
             config: (node.config ?? {}) as Record<string, unknown>,
             log: (m) => trace.push({ node: nodeId, port: 'log', lane: msg.lane, ms: 0, summary: m }),
           });

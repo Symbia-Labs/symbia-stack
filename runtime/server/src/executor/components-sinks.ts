@@ -13,7 +13,18 @@
 import { registerComponent } from './components.js';
 
 interface SinkDeps {
-  metric: (name: string, value: number, labels?: Record<string, unknown>) => void;
+  /**
+   * Persist a data point. Returns false when the writer is known to be
+   * failing, so the sink can route to its `error` port rather than report a
+   * success it cannot vouch for. `orgId` attributes the series to the org that
+   * owns the graph (defect D6).
+   */
+  metric: (
+    name: string,
+    value: number,
+    labels?: Record<string, unknown>,
+    orgId?: string
+  ) => boolean;
   log: (level: string, message: string, metadata?: Record<string, unknown>) => void;
 }
 
@@ -26,7 +37,7 @@ export function registerSinkComponents(deps: SinkDeps): void {
     id: 'symbia.sink.metric',
     name: 'Metric Sink',
     description:
-      'Writes a numeric data point to the Logging metrics service via the runtime telemetry client. config.name is the metric name (created as a gauge on first use); config.valueField (default "value") locates the number in the message — dotted paths supported (e.g. "out.result"); config.labels attaches labels. Passes the input through on "out"; non-numeric values exit on "error".',
+      'Writes a numeric data point to the Logging metrics service, attributed to the org that owns the graph. config.name is the metric name (a gauge series is resolved or created on first use); config.valueField (default "value") locates the number in the message — dotted paths supported (e.g. "out.result"); config.labels attaches labels. Passes the input through on "out"; non-numeric values and failed writes exit on "error".',
     inputs: ['in'],
     outputs: ['out', 'error'],
     handler: (input, ctx) => {
@@ -39,8 +50,20 @@ export function registerSinkComponents(deps: SinkDeps): void {
       if (!Number.isFinite(num)) {
         return { error: { error: `valueField "${path.join('.')}" is not numeric`, got: v } };
       }
-      deps.metric(name, num, (ctx.config.labels ?? {}) as Record<string, unknown>);
-      ctx.log(`[metric] ${name} = ${num}`);
+      const accepted = deps.metric(
+        name,
+        num,
+        (ctx.config.labels ?? {}) as Record<string, unknown>,
+        ctx.orgId
+      );
+      if (!accepted) {
+        // A sink that reports success while the write path is broken is the
+        // same defect as a Save button that persists nothing.
+        return {
+          error: { error: `metric write path is failing; "${name}" was not persisted`, value: num },
+        };
+      }
+      ctx.log(`[metric] ${name} = ${num}${ctx.orgId ? ` (org ${ctx.orgId})` : ''}`);
       return { out: input };
     },
   });

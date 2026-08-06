@@ -235,6 +235,65 @@ and every create came back `400 already exists`. Both shapes are now accepted.
 The general lesson: probe the actual response shape of the surface you are
 calling, not the one you saw through a different wrapper.
 
+---
+
+## Update — 6 Aug 2026, D6/D7 resolved and Phase 2 (gated ingress) landed
+
+- **D6 resolved, both halves.**
+  *Read symmetry:* the logging service now accepts the system bootstrap
+  credential on a narrow set of telemetry read paths (`/api/metrics`,
+  `/api/metrics/query`, logs, traces) with a read-only `telemetry:read`
+  entitlement. A service can read back what it wrote. Confirmed: `POST
+  /api/metrics/query` returns **200** where it previously returned *401 Invalid
+  or expired token*, and the grant did not widen — `GET /api/data-sources` with
+  the same credential still returns **401**.
+  *Org attribution:* metric sinks now write through a runtime-local
+  `MetricWriter` that attributes each series to the org owning the graph,
+  taken from its catalog resource. `energy-pipeline` re-registered under the
+  feeder's org; `energy.v2.facility_kw`, `energy.v2.it_kw` and `energy.v2.pue`
+  are now returned by a **plain** authenticated query with no `X-Org-Id`
+  gymnastics (3498.15, 2600.35, 1.3452612). A graph with no owning org logs a
+  warning and falls back to the system org rather than doing so silently.
+
+- **D7 resolved.** The writer resolves an existing series by (org, service,
+  name) before creating one. Confirmed across a runtime restart: one series per
+  metric name, not one per restart.
+
+- **A related defect fixed while here:** the metric sink previously reported
+  success whichever way the write went, because the shared telemetry client
+  swallows errors after retries and returns null. The sink now routes a failed
+  write to its `error` port — *"metric write path is failing; X was not
+  persisted"*. A sink that reports success while the write path is broken is
+  the same defect as a Save button that persists nothing.
+
+- **D4 resolved — Phase 2.** A graph's `metadata.ingress` is registered on
+  hydration as a catalog `integration` resource (`ingress/<graphName>`)
+  recording endpoint, node/port, required capability, and the authorization
+  rule in plain text. Delivery is gated: super admin, or the capability the
+  ingress declares, or membership of the org that owns the graph. **A graph
+  with neither an owning org nor a declared capability is an undeclared surface
+  and is refused.**
+
+  Measured, in this order:
+
+  | step | result |
+  |---|---|
+  | Feeder delivers while `energy-pipeline` has no owning org | **403** — *"this graph declares no owning org and no ingress capability, so delivery cannot be authorised"* |
+  | Re-register under the feeder's org; reconcile reloads it | delivery succeeds, 225 readings, PUE 1.3453 canonical |
+  | A newly registered authenticated user in another org delivers | **403** — *"caller is not a member of the org that owns this graph"*, pointing at `catalog resource ingress/energy-pipeline` |
+
+  Note what step 1 means: the previously working feeder was **broken by design**
+  when the gate turned on, and stayed broken until the graph was given a real
+  owner. That is the gate being load-bearing rather than decorative.
+
+**Still open after this pass:** D8 (`GET /api/graphs` reports `loadedGraphs: 1`
+alongside `graphs: []`), D9 (`energy.graph.pue` / `energy.graph.ingest` are
+published `graph` resources containing no graph), consequence 3 (the 227-point
+model is a file, not catalog resources — the `point` type decision), consequence
+6 (`EnergyPanel.tsx`, now rebuildable against `energy.v2.*` since those series
+are readable in a real org), and Phase 3 durability: executions are still
+in-memory, so a restart drops running pipelines even though the graphs rehydrate.
+
 **Consequences still open:** 2 (`symbia-control-center/vite.config.ts` hand-added
 `energy: 5010` route — now pointing at a service that no longer exists), 3
 (`model/site.json`: 227 points in a file, not catalog resources — D2 `point` type

@@ -21,6 +21,7 @@ export interface CatalogResource {
   description?: string | null;
   type: string;
   status: string;
+  orgId?: string | null;
   tags?: string[] | null;
   accessPolicy?: { visibility?: string; actions?: Record<string, unknown> } | null;
   metadata?: Record<string, unknown> | null;

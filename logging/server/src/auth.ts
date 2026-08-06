@@ -165,6 +165,38 @@ const INGEST_PATHS = new Set([
   '/api/objects/streams',
 ]);
 
+/**
+ * Telemetry read paths the system bootstrap credential may use.
+ *
+ * Defect D6 (energy/API-MEASUREMENTS.md): the system credential was accepted
+ * on INGEST_PATHS but refused everywhere else, so a service could write a
+ * metric series and then be told "Invalid or expired token" when it tried to
+ * read the same series back. Values were persisted that the writer itself
+ * could not retrieve — write-only telemetry.
+ *
+ * The grant here is deliberately narrow: query and list for telemetry the
+ * credential can already write. It confers `telemetry:read` only, never
+ * `telemetry:ingest`, and covers no admin, data-source or integration route.
+ * Read symmetry with what it can write — nothing wider.
+ */
+const TELEMETRY_READ_PATHS = new Set([
+  '/api/metrics',
+  '/api/metrics/query',
+  '/api/logs',
+  '/api/logs/query',
+  '/api/logs/streams',
+  '/api/traces',
+  '/api/traces/query',
+  '/api/query',
+]);
+
+/** GET on a read path, or the POST-body query endpoints. */
+function isTelemetryRead(method: string, path: string): boolean {
+  if (!TELEMETRY_READ_PATHS.has(path)) return false;
+  if (method === 'GET') return true;
+  return method === 'POST' && path.endsWith('/query');
+}
+
 function getHeader(req: Request, name: string): string | undefined {
   const value = req.get(name);
   return value?.trim() || undefined;
@@ -251,8 +283,11 @@ export async function authMiddleware(req: Request, res: Response, next: NextFunc
   if (bearer?.toLowerCase().startsWith('bearer ')) {
     const token = bearer.slice(7).trim();
 
-    // Check system bootstrap secret for ingest paths
-    if (INGEST_PATHS.has(req.path)) {
+    // Check system bootstrap secret for ingest paths, and for the narrow set of
+    // telemetry read paths that make writes retrievable by their writer (D6).
+    const wantsIngest = INGEST_PATHS.has(req.path);
+    const wantsRead = isTelemetryRead(req.method, req.path);
+    if (wantsIngest || wantsRead) {
       const systemConfig = await validateSystemSecret(token);
       if (systemConfig) {
         req.authContext = {
@@ -263,7 +298,10 @@ export async function authMiddleware(req: Request, res: Response, next: NextFunc
           dataClass: normalizeDataClass(requestedDataClass),
           policyRef: requestedPolicyRef || config.defaults.policyRef,
           actorId: `system:${requestedServiceId || 'unknown'}`,
-          entitlements: ['telemetry:ingest'],
+          // Ingest is granted only on ingest paths. A read-path request gets
+          // read and nothing else, so widening the read surface cannot widen
+          // what the credential may write.
+          entitlements: wantsIngest ? ['telemetry:ingest', 'telemetry:read'] : ['telemetry:read'],
           roles: [],
           isSuperAdmin: false,
         };
