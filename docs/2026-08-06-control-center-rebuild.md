@@ -1,6 +1,6 @@
 # Control center rebuild — design, and what was built
 
-*6 August 2026. Steps 1–9 built. Step 10 (browser) NOT DONE — see §14.
+*6 August 2026. Steps 1–9 built. Step 10 (browser) NOT DONE — see §13.
 Disputable.*
 
 > **Status.** The plan below was executed in nine commits, `828fdf0..b44744a`.
@@ -8,7 +8,7 @@ Disputable.*
 > rewritten: the Monaco diagnosis (§6), the dead-code analysis (§6), and the
 > claim that the WebSocket step failed (§12, prediction 1). **No part of this
 > has been checked in a browser**, which is the project's own standard for
-> anything user-facing. §14 records what that leaves unknown.
+> anything user-facing. §13 records what that leaves unknown.
 
 Two changes requested after a read of `DEVELOPER.md`:
 
