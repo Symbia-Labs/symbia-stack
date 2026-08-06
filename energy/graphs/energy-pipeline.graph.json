@@ -1,0 +1,44 @@
+{
+  "symbia": "graph/1.0",
+  "name": "energy-pipeline",
+  "version": "2.0.0",
+  "description": "Self-contained energy pipeline: raw meter readings arrive at the ingress (POST /api/ingress/energy-pipeline), are validity-filtered, joined on the latest facility and IT power points, derived into PUE by exact arithmetic (canonical lane), and persisted as metrics — all in-graph. The external feeder only delivers readings; it holds no state and computes nothing.",
+  "author": "energy",
+  "nodes": [
+    { "id": "entry", "component": "symbia.io.passthrough" },
+    { "id": "valid", "component": "symbia.logic.filter",
+      "config": { "field": "value", "op": "exists" } },
+    { "id": "join", "component": "symbia.state.join",
+      "config": { "select": {
+        "facility_kw": "dc1.elec.utility.main.kw",
+        "it_kw": "dc1.it.main.kw" } } },
+    { "id": "m_facility", "component": "symbia.sink.metric",
+      "config": { "name": "energy.v2.facility_kw", "valueField": "facility_kw",
+                  "labels": { "site": "dc1" } } },
+    { "id": "m_it", "component": "symbia.sink.metric",
+      "config": { "name": "energy.v2.it_kw", "valueField": "it_kw",
+                  "labels": { "site": "dc1" } } },
+    { "id": "pue", "component": "symbia.compute.arithmetic",
+      "config": { "expression": "{facility_kw} / {it_kw}" } },
+    { "id": "m_pue", "component": "symbia.sink.metric",
+      "config": { "name": "energy.v2.pue", "valueField": "result",
+                  "labels": { "site": "dc1" } } },
+    { "id": "sink", "component": "symbia.io.collect" },
+    { "id": "errlog", "component": "symbia.sink.log",
+      "config": { "level": "warn", "message": "[energy-pipeline]" } },
+    { "id": "errsink", "component": "symbia.io.collect" }
+  ],
+  "edges": [
+    { "id": "e1", "source": { "node": "entry", "port": "out" }, "target": { "node": "valid", "port": "in" } },
+    { "id": "e2", "source": { "node": "valid", "port": "pass" }, "target": { "node": "join", "port": "in" } },
+    { "id": "e3", "source": { "node": "join", "port": "out" }, "target": { "node": "m_facility", "port": "in" } },
+    { "id": "e4", "source": { "node": "m_facility", "port": "out" }, "target": { "node": "m_it", "port": "in" } },
+    { "id": "e5", "source": { "node": "m_it", "port": "out" }, "target": { "node": "pue", "port": "in" } },
+    { "id": "e6", "source": { "node": "pue", "port": "out" }, "target": { "node": "m_pue", "port": "in" } },
+    { "id": "e7", "source": { "node": "m_pue", "port": "out" }, "target": { "node": "sink", "port": "in" } },
+    { "id": "e8", "source": { "node": "pue", "port": "error" }, "target": { "node": "errlog", "port": "in" } },
+    { "id": "e9", "source": { "node": "errlog", "port": "out" }, "target": { "node": "errsink", "port": "in" } }
+  ],
+  "metadata": { "domain": "energy", "role": "pipeline",
+                "ingress": { "node": "entry", "port": "in" } }
+}

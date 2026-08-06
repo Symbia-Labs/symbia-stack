@@ -25,6 +25,9 @@ import {
   listComponents,
   type FlowValue,
 } from './components.js';
+import { clearExecutionState } from './components-state.js';
+import { TIMER_COMPONENT } from './components-sources.js';
+import './components-sinks.js'; // sink registration happens in index.ts with deps
 
 export interface TraceEntry {
   node: string;
@@ -59,7 +62,41 @@ export interface ExecutorEvents {
 export class GraphExecutor extends EventEmitter {
   private loadedGraphs = new Map<string, LoadedGraph>();
   private executions = new Map<string, GraphExecution>();
+  private timers = new Map<string, ReturnType<typeof setInterval>[]>();
   private config: Required<GraphExecutorConfig>;
+
+  /** Start intervals for every timer-source node of a running execution. */
+  private startTimers(execution: GraphExecution, graph: LoadedGraph): void {
+    const handles: ReturnType<typeof setInterval>[] = [];
+    for (const node of graph.definition.nodes) {
+      if (node.component !== TIMER_COMPONENT) continue;
+      const cfg = (node.config ?? {}) as Record<string, unknown>;
+      const intervalMs = Math.max(100, Number(cfg.intervalMs ?? 5000));
+      let tick = 0;
+      handles.push(setInterval(() => {
+        const current = this.executions.get(execution.id);
+        if (!current || current.state !== 'running') return;
+        tick += 1;
+        const payload = {
+          tick,
+          ts: new Date().toISOString(),
+          ...((cfg.payload as Record<string, unknown>) ?? {}),
+        };
+        void this.runFlow(current, graph, node.id, 'in', {
+          value: payload,
+          lane: 'canonical',
+        }).catch((err) => {
+          console.error(`[GraphExecutor] timer flow failed (${node.id}):`, err);
+        });
+      }, intervalMs));
+    }
+    if (handles.length > 0) this.timers.set(execution.id, handles);
+  }
+
+  private clearTimers(executionId: string): void {
+    for (const h of this.timers.get(executionId) ?? []) clearInterval(h);
+    this.timers.delete(executionId);
+  }
 
   constructor(executorConfig: GraphExecutorConfig = {}) {
     super();
@@ -116,6 +153,13 @@ export class GraphExecutor extends EventEmitter {
    */
   getGraph(graphId: string): LoadedGraph | undefined {
     return this.loadedGraphs.get(graphId);
+  }
+
+  /**
+   * Get all loaded graphs
+   */
+  getAllGraphs(): LoadedGraph[] {
+    return Array.from(this.loadedGraphs.values());
   }
 
   /**
@@ -182,6 +226,7 @@ export class GraphExecutor extends EventEmitter {
           execution.metrics.componentInvocations++;
           const raw = await component.handler(msg, {
             nodeId,
+            executionId: execution.id,
             config: (node.config ?? {}) as Record<string, unknown>,
             log: (m) => trace.push({ node: nodeId, port: 'log', lane: msg.lane, ms: 0, summary: m }),
           });
@@ -296,6 +341,7 @@ export class GraphExecutor extends EventEmitter {
     };
 
     this.executions.set(executionId, execution);
+    this.startTimers(execution, graph);
     this.emit('execution:started', execution);
     console.log(`[GraphExecutor] Started execution: ${executionId} (${graph.definition.nodes.length} nodes)`);
 
@@ -396,6 +442,8 @@ export class GraphExecutor extends EventEmitter {
 
     execution.state = 'cancelled';
     execution.completedAt = new Date();
+    this.clearTimers(executionId);
+    clearExecutionState(executionId);
 
     this.emit('execution:completed', execution);
     console.log(`[GraphExecutor] Stopped execution: ${executionId}`);

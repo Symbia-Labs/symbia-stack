@@ -19,6 +19,9 @@ import { ServiceId } from '@symbia/sys';
 import { config } from './config.js';
 import { optionalAuth, requireAuth } from './auth.js';
 import { registerComponent, getComponent } from './executor/components.js';
+import { registerSinkComponents } from './executor/components-sinks.js';
+import './executor/components-state.js';
+import './executor/components-sources.js';
 import { setupDocRoutes } from './doc-routes.js';
 
 // Runtime modules
@@ -39,6 +42,13 @@ const graphExecutor = new GraphExecutor({
   defaultTimeout: config.runtime.defaultExecutionTimeout,
   maxBackpressureQueue: config.runtime.maxBackpressureQueue,
   enableMetrics: config.runtime.enableMetrics,
+});
+
+// Sink components write through the runtime's own telemetry client
+// (system-authenticated, batched, idempotent metric creation).
+registerSinkComponents({
+  metric: (name, value, labels) => telemetry.metric(name, value, labels),
+  log: (level, message, metadata) => telemetry.log(level, message, metadata),
 });
 
 async function registerRoutes(_server: HttpServer, app: Express): Promise<void> {
@@ -175,6 +185,52 @@ async function registerRoutes(_server: HttpServer, app: Express): Promise<void> 
       },
     });
     res.status(201).json({ registered: body.id });
+  });
+
+  // Push ingress: external producers deliver into a named RUNNING graph
+  // without tracking execution ids — the missing boundary that previously
+  // forced every feed through an out-of-band runner. The graph declares its
+  // entry in metadata.ingress ({node, port}); defaults to entry/in.
+  app.post('/api/ingress/:graphName', requireAuth, async (req, res) => {
+    try {
+      const name = String(req.params.graphName);
+      const graph = graphExecutor.getAllGraphs().find((g) => g.definition.name === name);
+      if (!graph) {
+        res.status(404).json({ error: `No loaded graph named: ${name}` });
+        return;
+      }
+      const exec = graphExecutor.getAllExecutions()
+        .filter((e) => e.graphId === graph.id && e.state === 'running')
+        .sort((a, b) => (b.createdAt?.getTime() ?? 0) - (a.createdAt?.getTime() ?? 0))[0];
+      if (!exec) {
+        res.status(409).json({ error: `Graph "${name}" has no running execution` });
+        return;
+      }
+      const ingress = ((graph.definition.metadata ?? {}) as Record<string, unknown>).ingress as
+        | { node?: string; port?: string } | undefined;
+      const node = ingress?.node ?? 'entry';
+      const port = ingress?.port ?? 'in';
+      // An array body is a batch: one delivery per element, one HTTP call total.
+      // (Also keeps the request-metrics volume proportional to ticks, not
+      // readings — per-reading HTTP calls flooded the telemetry queue.)
+      const values: unknown[] = Array.isArray(req.body) ? req.body : [req.body];
+      let outputs: Record<string, unknown> = {};
+      let hops = 0;
+      for (const value of values) {
+        const result = await graphExecutor.injectMessage(exec.id, node, port, value);
+        hops += result.trace.length;
+        if (Object.keys(result.outputs).length > 0) outputs = result.outputs;
+      }
+      res.json({
+        success: true,
+        executionId: exec.id,
+        delivered: values.length,
+        outputs,
+        hops,
+      });
+    } catch (error) {
+      res.status(400).json({ error: (error as Error).message });
+    }
   });
 
   // API routes

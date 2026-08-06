@@ -29,6 +29,7 @@ export interface FlowValue {
 
 export interface ComponentContext {
   nodeId: string;
+  executionId: string;
   config: Record<string, unknown>;
   log: (msg: string) => void;
 }
