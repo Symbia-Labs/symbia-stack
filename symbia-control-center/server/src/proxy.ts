@@ -70,6 +70,21 @@ export function mountServiceProxies(app: Express): void {
       // proxy entirely and dialled localhost:PORT direct (F6) — cross-origin
       // where every HTTP call beside them was not.
       ws: true,
+      // Matched HERE rather than by an Express mount path, and this is the
+      // whole point.
+      //
+      // Mounted as `app.use('/svc/{id}', handler)`, Express strips the prefix
+      // before the handler runs, so HTTP requests arrived pre-stripped and
+      // worked. An `upgrade` never goes through Express, so the handler saw
+      // the FULL url instead — two paths through one proxy, seeing different
+      // URLs. Measured in a browser 6 Aug: polling returned 200 while the
+      // upgrade returned 404, because the service was being asked for
+      // /svc/messaging/socket.io/ which does not exist on it.
+      //
+      // Filtering here means the handler sees the same URL in both cases and
+      // strips it itself. The two paths cannot disagree because there is now
+      // only one rule.
+      pathFilter: `/svc/${id}/**`,
       // Strip only the /svc/{id} prefix. Everything after it reaches the
       // service unaltered, so /svc/logging/health hits /health and
       // /svc/logging/api/logs hits /api/logs.
@@ -104,7 +119,8 @@ export function mountServiceProxies(app: Express): void {
 
     const handler = createProxyMiddleware(options);
     handlers.set(id, handler);
-    app.use(`/svc/${id}`, handler);
+    // No mount path — pathFilter above decides. See the comment there.
+    app.use(handler);
   }
 }
 
