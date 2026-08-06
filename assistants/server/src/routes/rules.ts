@@ -158,7 +158,9 @@ router.delete('/:orgId/rules/:ruleId', (req: Request, res: Response) => {
 });
 
 router.post('/execute', async (req: Request, res: Response) => {
-  const { orgId, conversationId, trigger, data, message, user } = req.body;
+  // req.body is undefined when the request carries no JSON body — destructure
+  // from a fallback so validation answers 400 instead of crashing to a 500.
+  const { orgId, conversationId, trigger, data, message, user } = req.body ?? {};
   
   if (!orgId || !conversationId || !trigger) {
     res.status(400).json({ error: 'orgId, conversationId, and trigger are required' });

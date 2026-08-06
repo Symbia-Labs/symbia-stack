@@ -108,13 +108,21 @@ export function createExecutionRoutes(executor: GraphExecutor): Router {
     }
 
     try {
-      await executor.injectMessage(getParamId(req.params, 'id'), nodeId, port, value);
+      // Return what the graph ACTUALLY produced. The previous version
+      // discarded the result and replied {success:true} regardless — the
+      // caller could not tell processing from dropping.
+      const result = await executor.injectMessage(
+        getParamId(req.params, 'id'), nodeId, port, value
+      );
 
       res.json({
         success: true,
         executionId: getParamId(req.params, 'id'),
         nodeId,
         port,
+        outputs: result.outputs,
+        trace: result.trace,
+        hops: result.trace.length,
       });
     } catch (error) {
       res.status(400).json({

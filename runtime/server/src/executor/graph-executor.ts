@@ -3,9 +3,9 @@
  *
  * Manages the execution of Symbia Script graphs.
  *
- * NOTE: This module has been simplified. The runtime service requires
- * a complete rework to implement a new execution model. Currently only
- * graph loading and validation work; execution is stubbed.
+ * Execution is IMPLEMENTED (5 Aug 2026). Components return {port: value};
+ * only emitted ports fire their edges, giving real branching. Values carry
+ * lanes that only tighten. See ./components.ts for the registry.
  */
 
 import { v4 as uuid } from 'uuid';
@@ -16,8 +16,23 @@ import type {
   GraphExecution,
   ExecutionMetrics,
   PortMessage,
+  NodeInstance,
 } from '../types/index.js';
 import { config } from '../config.js';
+import {
+  getComponent,
+  normaliseEmission,
+  listComponents,
+  type FlowValue,
+} from './components.js';
+
+export interface TraceEntry {
+  node: string;
+  port: string;
+  lane: 'canonical' | 'apocryphal';
+  ms: number;
+  summary: string;
+}
 
 export interface GraphExecutorConfig {
   maxConcurrentExecutions?: number;
@@ -39,7 +54,7 @@ export interface ExecutorEvents {
 /**
  * Graph Executor
  *
- * NOTE: Execution functionality is currently stubbed pending runtime rework.
+ * Executes graphs by message passing over the topological order.
  */
 export class GraphExecutor extends EventEmitter {
   private loadedGraphs = new Map<string, LoadedGraph>();
@@ -104,9 +119,139 @@ export class GraphExecutor extends EventEmitter {
   }
 
   /**
-   * Start executing a graph
+   * Run one message through the graph from a starting node.
    *
-   * NOTE: Currently stubbed - returns execution object but no actual processing occurs.
+   * The execution model the stub was pending. Semantics ported from the
+   * reference implementation in symbia-workbench (graph.py), which has been
+   * running this same schema against real traffic:
+   *
+   *   - a component returns {port: value}; ONLY emitted ports fire their
+   *     outgoing edges, which is what makes branching real
+   *   - nodes are visited in topological order, so a node sees every input
+   *     that can reach it before it runs
+   *   - every value carries a lane, and lanes only tighten (see components.ts)
+   *   - terminal emissions (no outgoing edge for that port) become outputs
+   *
+   * Returns the collected outputs and a per-hop trace.
+   */
+  private async runFlow(
+    execution: GraphExecution,
+    graph: LoadedGraph,
+    startNodeId: string,
+    startPort: string,
+    seed: FlowValue
+  ): Promise<{ outputs: Record<string, FlowValue>; trace: TraceEntry[] }> {
+    const def = graph.definition;
+    const nodeById = new Map(def.nodes.map((n) => [n.id, n]));
+    const edgesFrom = new Map<string, typeof def.edges>();
+    for (const e of def.edges) {
+      const key = `${e.source.node}:${e.source.port}`;
+      if (!edgesFrom.has(key)) edgesFrom.set(key, []);
+      edgesFrom.get(key)!.push(e);
+    }
+
+    const inbox = new Map<string, { port: string; msg: FlowValue }[]>();
+    inbox.set(startNodeId, [{ port: startPort, msg: seed }]);
+
+    const outputs: Record<string, FlowValue> = {};
+    const trace: TraceEntry[] = [];
+    const order = graph.topology.sorted;
+    const startIdx = Math.max(0, order.indexOf(startNodeId));
+
+    for (const nodeId of order.slice(startIdx)) {
+      const pending = inbox.get(nodeId);
+      if (!pending || pending.length === 0) continue; // branch not taken
+
+      const node = nodeById.get(nodeId)!;
+      const component = node.component ? getComponent(node.component) : undefined;
+
+      for (const { msg } of pending) {
+        const t0 = Date.now();
+        execution.metrics.messagesProcessed++;
+        execution.metrics.nodeInvocations++;
+
+        let emitted: Record<string, FlowValue>;
+        try {
+          if (!component) {
+            // An unregistered component must not silently pass data through:
+            // that would let a graph appear to work while doing nothing.
+            throw new Error(
+              `component not registered: ${node.component ?? '(none)'}`
+            );
+          }
+          execution.metrics.componentInvocations++;
+          const raw = await component.handler(msg, {
+            nodeId,
+            config: (node.config ?? {}) as Record<string, unknown>,
+            log: (m) => trace.push({ node: nodeId, port: 'log', lane: msg.lane, ms: 0, summary: m }),
+          });
+          emitted = normaliseEmission(raw, msg, component.emitsApocryphal);
+        } catch (err) {
+          execution.metrics.errorCount++;
+          emitted = {
+            error: { value: { error: (err as Error).message }, lane: 'apocryphal' },
+          };
+        }
+
+        const ms = Date.now() - t0;
+        execution.metrics.totalLatencyMs += ms;
+        execution.metrics.maxLatencyMs = Math.max(execution.metrics.maxLatencyMs, ms);
+
+        const inst = execution.instances.get(nodeId);
+        if (inst) {
+          inst.metrics.invocations++;
+          inst.metrics.totalLatencyMs += ms;
+          inst.metrics.avgLatencyMs = inst.metrics.totalLatencyMs / inst.metrics.invocations;
+        }
+
+        for (const [port, outMsg] of Object.entries(emitted)) {
+          trace.push({
+            node: nodeId,
+            port,
+            lane: outMsg.lane,
+            ms,
+            summary: JSON.stringify(outMsg.value).slice(0, 160),
+          });
+
+          const targets = edgesFrom.get(`${nodeId}:${port}`) ?? [];
+          if (targets.length === 0) {
+            outputs[`${nodeId}:${port}`] = outMsg;
+            continue;
+          }
+          for (const edge of targets) {
+            const list = inbox.get(edge.target.node) ?? [];
+            list.push({ port: edge.target.port, msg: outMsg });
+            inbox.set(edge.target.node, list);
+            execution.metrics.messagesEmitted++;
+
+            this.emit('port:emit', {
+              id: uuid(),
+              executionId: execution.id,
+              sourceNodeId: nodeId,
+              sourcePort: port,
+              targetNodeId: edge.target.node,
+              targetPort: edge.target.port,
+              value: outMsg.value,
+              timestamp: Date.now(),
+              sequence: execution.metrics.messagesEmitted,
+            } as PortMessage);
+          }
+        }
+      }
+      inbox.set(nodeId, []);
+    }
+
+    execution.metrics.avgLatencyMs =
+      execution.metrics.nodeInvocations > 0
+        ? execution.metrics.totalLatencyMs / execution.metrics.nodeInvocations
+        : 0;
+    execution.metrics.lastActivityTime = Date.now();
+
+    return { outputs, trace };
+  }
+
+  /**
+   * Start executing a graph.
    */
   async startExecution(graphId: string): Promise<GraphExecution> {
     const graph = this.loadedGraphs.get(graphId);
@@ -119,11 +264,20 @@ export class GraphExecutor extends EventEmitter {
     }
 
     const executionId = uuid();
+    const instances = new Map<string, NodeInstance>();
+    for (const n of graph.definition.nodes) {
+      instances.set(n.id, {
+        id: n.id,
+        componentId: n.component ?? '',
+        state: 'running',
+        metrics: { invocations: 0, totalLatencyMs: 0, avgLatencyMs: 0, errorCount: 0 },
+      });
+    }
     const execution: GraphExecution = {
       id: executionId,
       graphId,
       state: 'running',
-      instances: new Map(),
+      instances,
       metrics: {
         messagesProcessed: 0,
         messagesEmitted: 0,
@@ -143,32 +297,56 @@ export class GraphExecutor extends EventEmitter {
 
     this.executions.set(executionId, execution);
     this.emit('execution:started', execution);
-    console.log(`[GraphExecutor] Started execution: ${executionId} (NOTE: execution stubbed pending runtime rework)`);
+    console.log(`[GraphExecutor] Started execution: ${executionId} (${graph.definition.nodes.length} nodes)`);
 
     return execution;
   }
 
   /**
-   * Inject a message into an execution
+   * Inject a message into an execution — and actually process it.
    *
-   * NOTE: Currently stubbed - no actual message processing occurs.
+   * Previously this logged "(NOTE: processing stubbed)" and dropped the
+   * message while returning success. That shape is worse than an error:
+   * callers cannot distinguish work done from work discarded.
    */
   async injectMessage(
     executionId: string,
     nodeId: string,
     port: string,
-    _value: unknown
-  ): Promise<void> {
+    value: unknown
+  ): Promise<{ outputs: Record<string, FlowValue>; trace: TraceEntry[] }> {
     const execution = this.executions.get(executionId);
     if (!execution) {
       throw new Error(`Execution not found: ${executionId}`);
     }
-
     if (execution.state !== 'running') {
       throw new Error(`Execution not running: ${executionId} (state: ${execution.state})`);
     }
+    const graph = this.loadedGraphs.get(execution.graphId);
+    if (!graph) {
+      throw new Error(`Graph not loaded: ${execution.graphId}`);
+    }
+    if (!graph.definition.nodes.some((n) => n.id === nodeId)) {
+      throw new Error(`Node not in graph: ${nodeId}`);
+    }
 
-    console.log(`[GraphExecutor] Message injected to ${nodeId}:${port} (NOTE: processing stubbed)`);
+    const seed: FlowValue = { value, lane: 'canonical' };
+    const result = await this.runFlow(execution, graph, nodeId, port, seed);
+
+    if (this.config.enableMetrics) {
+      this.emit('metrics:update', executionId, execution.metrics);
+    }
+    console.log(
+      `[GraphExecutor] ${executionId}: ${result.trace.length} hops, ` +
+      `${execution.metrics.nodeInvocations} invocations, ` +
+      `${Object.keys(result.outputs).length} output(s)`
+    );
+    return result;
+  }
+
+  /** Components available to graphs. */
+  listComponents() {
+    return listComponents();
   }
 
   /**

@@ -102,6 +102,18 @@ export async function handleLoadModel(
     const { id } = req.params;
     const engine = getEngine();
 
+    // Unknown model is a client error (404), not a server fault.
+    const known = await engine.getModel(id);
+    if (!known) {
+      res.status(404).json({
+        error: {
+          message: `Model '${id}' not found`,
+          type: "invalid_request_error",
+        },
+      });
+      return;
+    }
+
     console.log(`[models] Loading model: ${id}`);
     await engine.loadModel(id);
 
@@ -136,6 +148,18 @@ export async function handleUnloadModel(
   try {
     const { id } = req.params;
     const engine = getEngine();
+
+    // Unknown model is a client error (404), not a server fault.
+    const known = await engine.getModel(id);
+    if (!known) {
+      res.status(404).json({
+        error: {
+          message: `Model '${id}' not found`,
+          type: "invalid_request_error",
+        },
+      });
+      return;
+    }
 
     console.log(`[models] Unloading model: ${id}`);
     await engine.unloadModel(id);

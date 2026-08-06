@@ -17,7 +17,8 @@ import { createTelemetryClient } from '@symbia/logging-client';
 import { initServiceRelay, shutdownRelay } from '@symbia/relay';
 import { ServiceId } from '@symbia/sys';
 import { config } from './config.js';
-import { optionalAuth } from './auth.js';
+import { optionalAuth, requireAuth } from './auth.js';
+import { registerComponent, getComponent } from './executor/components.js';
 import { setupDocRoutes } from './doc-routes.js';
 
 // Runtime modules
@@ -108,6 +109,72 @@ async function registerRoutes(_server: HttpServer, app: Express): Promise<void> 
         defaultExecutionTimeout: config.runtime.defaultExecutionTimeout,
       },
     });
+  });
+
+  // Alias: the OpenAPI spec advertises /health under the /api base; the real
+  // endpoint is registered at root by @symbia/http. Serve both.
+  app.get('/api/health', (_req, res) => {
+    res.json({ status: 'ok', timestamp: new Date().toISOString() });
+  });
+
+  // Components registry — advertised in the OpenAPI spec and menu, absent from
+  // v1.2.0's router. GETs expose the executor registry (reading the component
+  // list is not privileged; a graph author needs it before writing anything).
+  // POST registers a declarative custom component with passthrough semantics;
+  // its outputs are marked apocryphal — the runtime cannot verify them by
+  // recomputation.
+  app.get('/api/components', (_req, res) => {
+    const components = graphExecutor.listComponents();
+    res.json({ components, count: components.length });
+  });
+  app.get('/api/components/:id', (req, res) => {
+    const found = graphExecutor.listComponents().find((c) => c.id === req.params.id);
+    if (!found) {
+      res.status(404).json({ error: `Unknown component: ${req.params.id}` });
+      return;
+    }
+    res.json(found);
+  });
+  app.post('/api/components', requireAuth, (req, res) => {
+    const body = (req.body ?? {}) as Record<string, any>;
+    const missing = ['id', 'name', 'version', 'ports', 'execution'].filter(
+      (k) => body[k] === undefined
+    );
+    if (missing.length > 0) {
+      res.status(400).json({ error: `Invalid component definition: missing ${missing.join(', ')}` });
+      return;
+    }
+    if (typeof body.id !== 'string' || !/^[a-z0-9][a-z0-9\-_.]*$/i.test(body.id)) {
+      res.status(400).json({ error: 'Invalid component definition: id must be an identifier string' });
+      return;
+    }
+    if (getComponent(body.id)) {
+      res.status(400).json({ error: `Component already registered: ${body.id}` });
+      return;
+    }
+    const inputs: string[] = Array.isArray(body.ports?.inputs) ? body.ports.inputs.map(String) : [];
+    const outputs: string[] = Array.isArray(body.ports?.outputs) ? body.ports.outputs.map(String) : [];
+    registerComponent({
+      id: body.id,
+      name: String(body.name),
+      description: String(body.description ?? 'Custom component (registered via API)'),
+      inputs,
+      outputs,
+      emitsApocryphal: true,
+      meta: {
+        version: body.version,
+        category: body.category,
+        config: body.config,
+        execution: body.execution,
+        custom: true,
+      },
+      handler: (input) => {
+        const out: Record<string, unknown> = {};
+        for (const port of outputs.length > 0 ? outputs : ['out']) out[port] = input;
+        return out;
+      },
+    });
+    res.status(201).json({ registered: body.id });
   });
 
   // API routes

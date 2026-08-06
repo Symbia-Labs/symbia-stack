@@ -11,6 +11,7 @@ import { createTelemetryClient } from "@symbia/logging-client";
 import { initServiceRelay, shutdownRelay } from "@symbia/relay";
 import { ServiceId, resolveServicePort } from "@symbia/sys";
 import { registerRoutes } from "./routes.js";
+import { apiDocumentation } from "./openapi.js";
 import { authMiddleware } from "./auth.js";
 import { config } from "./config.js";
 import { getEngine, initializeEngine } from "./llama/engine.js";
@@ -32,6 +33,12 @@ const server = createSymbiaServer({
   },
   middleware: [authMiddleware],
   registerRoutes: async (httpServer, app) => {
+    // The spec existed since v1.2.0 but was never mounted — which is why the
+    // Service Admin console (which renders /docs/openapi.json) could not show
+    // this service at all.
+    app.get("/docs/openapi.json", (_req, res) => {
+      res.json(apiDocumentation);
+    });
     await registerRoutes(httpServer, app);
   },
   health: {

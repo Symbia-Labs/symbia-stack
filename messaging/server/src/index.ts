@@ -65,8 +65,16 @@ async function registerRoutes(_server: HttpServer, app: Express): Promise<void> 
     });
   });
 
+  // Alias: the OpenAPI spec advertises /health under the /api base; the real
+  // endpoint is registered at root by @symbia/http. Serve both.
+  app.get('/api/health', (_req, res) => {
+    res.json({ status: 'ok', timestamp: new Date().toISOString() });
+  });
+
   // Service discovery endpoint (standardized across all services)
-  app.get('/api/bootstrap/service', optionalAuth, (_req, res) => {
+  // Mounted at both /api/bootstrap and /api/bootstrap/service: the OpenAPI spec
+  // advertises GET /bootstrap (base /api), the standardized path is /bootstrap/service.
+  app.get(['/api/bootstrap', '/api/bootstrap/service'], optionalAuth, (_req, res) => {
     res.json({
       service: config.serviceId,
       version: '1.0.0',

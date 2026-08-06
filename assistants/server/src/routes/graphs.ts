@@ -68,6 +68,9 @@ router.post('/', async (req: Request, res: Response) => {
     if (!orgId || !name || !graphJson) {
       return res.status(400).json({ error: 'orgId, name, and graphJson required' });
     }
+    if (typeof graphJson !== 'object' || graphJson === null) {
+      return res.status(400).json({ error: 'graphJson must be an object' });
+    }
 
     const [newGraph] = await db.insert(promptGraphs).values({
       orgId,
@@ -80,6 +83,14 @@ router.post('/', async (req: Request, res: Response) => {
 
     res.status(201).json(newGraph);
   } catch (error) {
+    // Bad references or malformed ids are client errors, not server faults.
+    const code = (error as any)?.code ?? (error as any)?.cause?.code;
+    if (code === '23503') {
+      return res.status(400).json({ error: 'Unknown orgId (no such organization)' });
+    }
+    if (code === '22P02') {
+      return res.status(400).json({ error: 'Invalid id format' });
+    }
     console.error('Error creating graph:', error);
     res.status(500).json({ error: 'Failed to create graph' });
   }

@@ -19,7 +19,7 @@ Use /api as the base path for all endpoints.
 
 ## Quick Reference
 
-- GET /api/health - Health check
+- GET /health - Health check
 - GET /api/bootstrap/service - Service bootstrap
 - GET /api/graphs - List loaded graphs
 - POST /api/graphs - Load a graph definition

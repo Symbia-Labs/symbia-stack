@@ -85,8 +85,8 @@ const server = createSymbiaServer({
       }
     }
 
-    // Simple health check
-    app.get('/health', (_req, res) => {
+    // Simple health check (also aliased at /api/health to match the OpenAPI spec's /api base)
+    app.get(['/health', '/api/health'], (_req, res) => {
       res.json({ status: 'ok', service: 'assistants' });
     });
 

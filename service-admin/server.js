@@ -234,6 +234,7 @@ const SERVICE_MAP = {
   '5005': process.env.MESSAGING_HOST || 'messaging',
   '5006': process.env.RUNTIME_HOST || 'runtime',
   '5007': process.env.INTEGRATIONS_HOST || 'integrations',
+  '5008': process.env.MODELS_HOST || 'models',
   '5054': process.env.NETWORK_HOST || 'network',
   '5432': process.env.POSTGRES_HOST || 'postgres'
 };

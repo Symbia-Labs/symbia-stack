@@ -92,6 +92,17 @@ router.post('/', async (req: Request, res: Response) => {
 
     res.status(201).json(newAgent);
   } catch (error) {
+    // Bad references or malformed ids are client errors, not server faults.
+    const code = (error as any)?.code ?? (error as any)?.cause?.code;
+    if (code === '23503') {
+      return res.status(400).json({ error: 'Unknown orgId or defaultGraphId (no such record)' });
+    }
+    if (code === '22P02') {
+      return res.status(400).json({ error: 'Invalid id format' });
+    }
+    if (code === '23505') {
+      return res.status(400).json({ error: 'An actor with this principalId already exists' });
+    }
     console.error('Error creating agent:', error);
     res.status(500).json({ error: 'Failed to create agent' });
   }

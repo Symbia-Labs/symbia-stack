@@ -10,6 +10,24 @@ import { emitEvent } from '@symbia/relay';
 
 const router = Router();
 
+// Guard: conversation/user ids are UUIDs. Reject malformed ids up front with a
+// 404 instead of letting postgres throw a uuid-cast error that surfaces as a 500.
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+router.param('id', (_req, res, next, id) => {
+  if (!UUID_RE.test(String(id))) {
+    res.status(404).json({ error: 'Conversation not found' });
+    return;
+  }
+  next();
+});
+router.param('userId', (_req, res, next, userId) => {
+  if (!UUID_RE.test(String(userId))) {
+    res.status(404).json({ error: 'Participant not found' });
+    return;
+  }
+  next();
+});
+
 const allowedPriorities = new Set(['low', 'normal', 'high', 'critical']);
 
 function normalizePriority(priority?: string): 'low' | 'normal' | 'high' | 'critical' | undefined {
