@@ -3,7 +3,7 @@ import { createServer, type Server } from "http";
 import fs from "fs";
 import path from "path";
 import { storage } from "./storage";
-import { insertResourceSchema, resourceTypes, resourceStatuses, visibilityLevels, defaultAccessPolicy, componentManifestSchema, type AccessPolicy, type Resource } from "@shared/schema";
+import { insertResourceSchema, resourceTypes, resourceStatuses, visibilityLevels, defaultAccessPolicy, componentManifestSchema, appManifestSchema, type AccessPolicy, type Resource } from "@shared/schema";
 import { z } from "zod";
 import { openApiSpec } from "./openapi";
 import { authMiddleware, requireAuth, requireSuperAdmin, generateApiKey } from "./auth";
@@ -442,6 +442,22 @@ export async function registerRoutes(
         if (!manifest.success) {
           return res.status(400).json({
             error: "Invalid component manifest",
+            details: manifest.error.errors,
+          });
+        }
+        validatedData.metadata = { ...(raw as Record<string, unknown>), manifest: manifest.data };
+      }
+
+      // Apps carry a validated manifest for the same reason components do: an
+      // app that enters without a checkable contract cannot be installed
+      // elsewhere with any confidence about what it needs. See docs/APP-MODEL.md.
+      if (validatedData.type === "app") {
+        const raw = (validatedData.metadata as Record<string, unknown> | null | undefined) ?? {};
+        const manifestInput = (raw as any).manifest ?? raw;
+        const manifest = appManifestSchema.safeParse(manifestInput);
+        if (!manifest.success) {
+          return res.status(400).json({
+            error: "Invalid app manifest",
             details: manifest.error.errors,
           });
         }

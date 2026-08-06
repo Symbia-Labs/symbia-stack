@@ -382,7 +382,69 @@ the **catalog**, not from the file on disk. Editing `energy-pipeline.graph.json`
 changed nothing at all until `register-graph.mjs` published it. That is Phase 1
 working exactly as intended, observed by accident rather than by design.
 
-**Consequences still open:** 2 (`symbia-control-center/vite.config.ts` hand-added
+---
+
+## Update — 6 Aug 2026, the app model's first real use
+
+`app` is now a catalog resource type with a validated manifest, registered
+through the same gated, ledgered write as everything else. Three apps declared:
+`apps/control-center`, `apps/energy` (a retrofit — it predates the model),
+`apps/order-margin`.
+
+Both gates confirmed against the live stack:
+
+- unauthenticated `POST /api/resources` with `type: app` → **403**
+- a manifest requesting `privilege.crossAppRead` with no `reason` → **400
+  `privilege.reason is required when requesting crossAppRead or crossOrgRead`**
+
+The second is deliberate. An operator console legitimately needs to read across
+every app and org, which makes it the least isolated app there is. That
+exception is now declared in the registry with a written justification rather
+than assumed by virtue of being platform tooling — a privilege granted without
+a stated reason is exactly the kind of exception that is invisible six months
+later.
+
+### Consequence 2 resolved — the hand-maintained route table (D5)
+
+`symbia-control-center/vite.config.ts` held a hand-maintained map of service →
+port, duplicating `@symbia/sys`, which the control center already depends on.
+It is now derived from that registry. The duplicate had drifted in **both**
+directions, which is the argument against hand-maintained registries in one
+observation:
+
+| drift | detail |
+|---|---|
+| stale entry | `energy: 5010` survived the deletion of that service on 6 Aug, pointing at nothing. Its comment noted the cross-origin problem it was working around "has now cost this project three separate debugging sessions" |
+| missing entry | `models` (:5008) had never been added at all, so the console could not reach it |
+
+Note what the app model removes rather than routes around: **apps no longer get
+their own ports.** `energy: 5010` only existed because energy was, at that time,
+an unregistered service. An app's delivery surface is a declared ingress on the
+runtime, gated per Phase 2. So the route table is exactly the platform's
+services and nothing else — which is why D5 largely dissolves instead of needing
+a discovery mechanism built.
+
+**Also measured, and not usable:** the Network service mesh was the obvious
+candidate source for a route table. It is not one today — only **3 of 9**
+services are registered in it (network, models, integrations; the rest fail with
+`[Relay] Connection error: xhr poll error`), and the endpoints it reports are
+`http://0.0.0.0:{port}` — container-internal addresses no browser can reach.
+Logged rather than worked around.
+
+### New defect
+
+| id | finding | evidence | status |
+|---|---|---|---|
+| **D11** | **Three copies of the catalog's resource-type list, all different.** `catalog/shared/schema.ts` is the authority. `@symbia/catalog-client` kept a second copy that never learned about `component` (added 5 Aug) or `app` (6 Aug), so every consumer of that library saw a catalog with two fewer types than it has. `symbia-control-center/src/types/catalog.ts` keeps a third, which also lacked both — while its own `ResourceEditor` switches on an `executor` type the catalog has **never** defined. | `tsc` in the control center: `Type '"component"' is not comparable to type 'ResourceType'`, and the same for `"executor"`. | **Partially resolved** — both copies updated by hand. The real fix is for consumers to take the type from the client library and the library to track the catalog; the phantom `executor` branch remains. |
+
+**Also noted, not fixed:** the control center does not typecheck — 50
+pre-existing `tsc` errors, four of which were D11. `npm run build` runs
+`tsc && vite build`, so the build has been failing on type errors; `vite build`
+alone succeeds. And the control center is a **nested git repository** with one
+commit and no remote, gitignored by the parent — so it has not been under shared
+version control at all.
+
+**Consequences still open:** 2 (resolved above — was `symbia-control-center/vite.config.ts` hand-added
 `energy: 5010` route — now pointing at a service that no longer exists), 3
 (`model/site.json`: 227 points in a file, not catalog resources — D2 `point` type
 still deferred), 4 (MQTT ingress as constants), 6 (`EnergyPanel.tsx` provenance).

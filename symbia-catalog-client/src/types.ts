@@ -6,7 +6,11 @@
  */
 
 // Resource types and statuses
-export const resourceTypes = ["context", "integration", "graph", "assistant"] as const;
+// Must track catalog/shared/schema.ts, which is the authority. This copy had
+// drifted: it never learned about `component` (added 5 Aug 2026) or `app`
+// (6 Aug 2026), so every consumer of this library saw a catalog with two fewer
+// resource types than the catalog actually has. Logged as D11.
+export const resourceTypes = ["context", "integration", "graph", "assistant", "component", "app"] as const;
 export type ResourceType = (typeof resourceTypes)[number];
 
 export const resourceStatuses = ["draft", "published", "deprecated"] as const;

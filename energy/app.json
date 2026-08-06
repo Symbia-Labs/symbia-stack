@@ -1,0 +1,59 @@
+{
+  "symbia": "app/1.0",
+  "key": "apps/energy",
+  "name": "Symbia Energy",
+  "version": "2.0.0",
+  "description": "Data-centre energy monitoring: validates meter readings, joins facility and IT power, derives PUE, and persists the result. A forcing function for the platform, not a product — the defect ledger it produces (energy/API-MEASUREMENTS.md) is the deliverable.",
+
+  "requires": {
+    "platform": ">=1.1.0",
+    "components": [
+      "symbia.io.passthrough@^1.2.0",
+      "symbia.io.collect@^1.2.0",
+      "symbia.logic.filter@^1.2.0",
+      "symbia.state.join@^1.2.0",
+      "symbia.compute.arithmetic@^1.2.0",
+      "symbia.sink.metric@^1.2.0",
+      "symbia.sink.log@^1.2.0"
+    ],
+    "services": ["runtime", "logging", "catalog", "identity"]
+  },
+
+  "provides": {
+    "graphs": ["energy-pipeline", "energy-ingest", "energy-pue"],
+    "components": [],
+    "ingresses": ["energy-pipeline"]
+  },
+
+  "surfaces": {
+    "ingress": ["energy-pipeline"],
+    "metrics": ["energy.v2.facility_kw", "energy.v2.it_kw", "energy.v2.pue"],
+    "ui": null
+  },
+
+  "config": {
+    "site": {
+      "type": "string",
+      "required": true,
+      "default": "dc1",
+      "description": "Site identifier labelling derived series. The 227-point model currently hardcodes dc1; making the site real configuration is open work (see D2, the deferred `point` resource type)."
+    }
+  },
+
+  "outside": [
+    {
+      "what": "the site simulator (energy/sim)",
+      "why": "a real data centre is not a Symbia component, so its twin should not be one either. It publishes readings exactly as a field site would, and keeps a truth ledger of what was true versus what was published"
+    },
+    {
+      "what": "the device-twin feeder (energy/app/feeder.py)",
+      "why": "external producers deliver to a declared ingress; delivery is not a platform concern. It holds no state and computes nothing"
+    },
+    {
+      "what": "derive.py",
+      "why": "kept as the testable reference implementation of refusal semantics, so the rule that `incomplete` has no edge to a value stays assertable without a container rebuild"
+    }
+  ],
+
+  "principal": null
+}

@@ -1,0 +1,44 @@
+{
+  "symbia": "app/1.0",
+  "key": "apps/order-margin",
+  "name": "Order Margin",
+  "version": "1.0.0",
+  "description": "Worked example in a domain unrelated to the energy test case: joins the latest order revenue and fulfilment cost, derives gross margin ratio, and persists it. Exists so the platform is never validated against one application alone.",
+
+  "requires": {
+    "platform": ">=1.1.0",
+    "components": [
+      "symbia.io.passthrough@^1.2.0",
+      "symbia.io.collect@^1.2.0",
+      "symbia.logic.filter@^1.2.0",
+      "symbia.state.join@^1.2.0",
+      "symbia.compute.arithmetic@^1.2.0",
+      "symbia.sink.metric@^1.2.0",
+      "symbia.sink.log@^1.2.0"
+    ],
+    "services": ["runtime", "logging", "catalog", "identity"]
+  },
+
+  "provides": {
+    "graphs": ["order-margin"],
+    "components": [],
+    "ingresses": ["order-margin"]
+  },
+
+  "surfaces": {
+    "ingress": ["order-margin"],
+    "metrics": ["examples.orders.revenue", "examples.orders.margin"],
+    "ui": null
+  },
+
+  "config": {},
+
+  "outside": [
+    {
+      "what": "whatever produces order events",
+      "why": "an order system is not a Symbia component. This app consumes deliveries at its ingress and says nothing about where they come from"
+    }
+  ],
+
+  "principal": null
+}

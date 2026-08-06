@@ -8,7 +8,7 @@ export const resourceStatuses = ["draft", "published", "deprecated"] as const;
 export type ResourceStatus = (typeof resourceStatuses)[number];
 
 // Resource types
-export const resourceTypes = ["context", "integration", "graph", "assistant", "component"] as const;
+export const resourceTypes = ["context", "integration", "graph", "assistant", "component", "app"] as const;
 export type ResourceType = (typeof resourceTypes)[number];
 
 // Component manifest — for resources of type 'component'.
@@ -48,6 +48,123 @@ export const componentManifestSchema = z.object({
   outputs: z.array(componentPortSchema).default([]),
   capability: z.string().optional(),
   description: z.string().optional(),
+});
+
+// App manifest — for resources of type 'app'. See docs/APP-MODEL.md.
+//
+// An app is the delta over the bare platform: a declared, versioned bundle of
+// configuration and customization, built to solve one problem, publishable and
+// deployable onto any Symbia stack, always executing within the Symbia runtime
+// network. The platform itself is NOT an app — it is the substrate.
+//
+// The artifact/installation split matters here: this manifest describes the
+// ARTIFACT. Anything specific to one deployment — org, config values, secrets,
+// running executions, operator state, derived series — belongs to the
+// installation and must not appear in it. Baking an org id or a metric
+// namespace into the manifest is how an app stops being portable.
+export interface AppSurfaces {
+  ingress?: string[];        // graph names accepting external delivery
+  metrics?: string[];        // metric series this app derives
+  ui?: string | null;        // path the app's built UI is served from; null = none
+}
+export interface AppConfigField {
+  type: "string" | "number" | "boolean";
+  required?: boolean;
+  description?: string;
+  default?: unknown;
+}
+export interface AppManifest {
+  key: string;                    // e.g. "apps/control-center"
+  version: string;                // semver
+  description?: string;
+  // What the platform must provide for this app to install at all. Checked at
+  // install time and refused if unmet — the same idea as load-time component
+  // resolution (runtime Phase 1), applied to a whole app. Without this an app
+  // silently inherits platform defaults and breaks elsewhere: on 6 Aug 2026 the
+  // energy pipeline assumed keyField defaulted to "point" and derived null on a
+  // stack where it did not.
+  requires?: {
+    platform?: string;            // semver range
+    components?: string[];        // e.g. "symbia.state.join@^1.2.0"
+    services?: string[];          // platform services the app calls
+  };
+  // What the app carries. Definitions travel with the artifact; an app that
+  // only references resources cannot be deployed anywhere else.
+  provides?: {
+    graphs?: string[];
+    components?: string[];
+    ingresses?: string[];
+  };
+  surfaces?: AppSurfaces;
+  // Schema only. Values are supplied per installation.
+  config?: Record<string, AppConfigField>;
+  // Isolation is the default. An app that needs to read across other apps —
+  // an operator console is the honest example — must say so, and the grant is
+  // then visible and auditable in the registry rather than assumed.
+  privilege?: {
+    crossAppRead?: boolean;
+    crossOrgRead?: boolean;
+    reason?: string;
+  };
+  // Named, with reasons. An app that cannot say what it left outside the
+  // platform has not drawn a boundary, it has just stopped writing things down.
+  outside?: { what: string; why: string }[];
+  // Reserved: apps do not yet act. Ingress is gated on org membership, which
+  // cannot separate two apps in the same org.
+  principal?: string | null;
+}
+
+export const appConfigFieldSchema = z.object({
+  type: z.enum(["string", "number", "boolean"]),
+  required: z.boolean().optional(),
+  description: z.string().optional(),
+  default: z.unknown().optional(),
+});
+export const appManifestSchema = z.object({
+  key: z.string().min(1),
+  version: z.string().min(1),
+  description: z.string().optional(),
+  requires: z.object({
+    platform: z.string().optional(),
+    components: z.array(z.string()).default([]),
+    services: z.array(z.string()).default([]),
+  }).optional(),
+  provides: z.object({
+    graphs: z.array(z.string()).default([]),
+    components: z.array(z.string()).default([]),
+    ingresses: z.array(z.string()).default([]),
+  }).optional(),
+  surfaces: z.object({
+    ingress: z.array(z.string()).default([]),
+    metrics: z.array(z.string()).default([]),
+    // Nullable as well as optional, matching `principal`. An explicit null is
+    // a statement — "this app was considered for a UI and has none" — which is
+    // worth more than an absent key, and the schema should not force an author
+    // to say it by omission.
+    ui: z.string().nullable().optional(),
+  }).optional(),
+  config: z.record(appConfigFieldSchema).optional(),
+  privilege: z.object({
+    crossAppRead: z.boolean().optional(),
+    crossOrgRead: z.boolean().optional(),
+    reason: z.string().optional(),
+  }).optional(),
+  outside: z.array(z.object({
+    what: z.string().min(1),
+    why: z.string().min(1),
+  })).default([]),
+  principal: z.string().nullable().optional(),
+}).superRefine((manifest, ctx) => {
+  // A privilege granted without a stated reason is exactly the kind of
+  // exception that becomes invisible six months later.
+  const p = manifest.privilege;
+  if ((p?.crossAppRead || p?.crossOrgRead) && !p?.reason?.trim()) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["privilege", "reason"],
+      message: "privilege.reason is required when requesting crossAppRead or crossOrgRead",
+    });
+  }
 });
 
 // Assistant configuration - for resources of type 'assistant'
