@@ -1,0 +1,39 @@
+{
+  "name": "@symbia/control-center",
+  "version": "1.0.0",
+  "license": "MIT",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc && vite build",
+    "preview": "vite preview",
+    "check": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@monaco-editor/react": "^4.7.0",
+    "@symbia/catalog-client": "file:../symbia-catalog-client",
+    "@symbia/messaging-client": "file:../symbia-messaging-client",
+    "@symbia/sys": "file:../symbia-sys",
+    "@tanstack/react-virtual": "^3.13.18",
+    "@types/dagre": "^0.7.53",
+    "@xyflow/react": "^12.10.0",
+    "dagre": "^0.8.5",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "react-router-dom": "^6.28.0",
+    "recharts": "^3.7.0",
+    "socket.io-client": "^4.8.3",
+    "zustand": "^4.5.5"
+  },
+  "devDependencies": {
+    "@types/react": "^18.3.12",
+    "@types/react-dom": "^18.3.1",
+    "@vitejs/plugin-react": "^4.3.4",
+    "autoprefixer": "^10.4.20",
+    "postcss": "^8.4.49",
+    "tailwindcss": "^3.4.16",
+    "typescript": "^5.7.2",
+    "vite": "^6.0.5"
+  }
+}

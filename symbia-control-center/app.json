@@ -1,0 +1,62 @@
+{
+  "symbia": "app/1.0",
+  "key": "apps/control-center",
+  "name": "Symbia Control Center",
+  "version": "1.0.0",
+  "description": "Operator console for a Symbia stack: observe services, browse and edit the catalog, watch executions and logs, and drive assistants. The first app declared under docs/APP-MODEL.md, and deliberately the hardest case — an operator console is the least isolated app there is.",
+
+  "requires": {
+    "platform": ">=1.1.0",
+    "components": [],
+    "services": [
+      "identity",
+      "logging",
+      "catalog",
+      "assistants",
+      "messaging",
+      "runtime",
+      "integrations",
+      "models",
+      "network"
+    ]
+  },
+
+  "provides": {
+    "graphs": [],
+    "components": [],
+    "ingresses": []
+  },
+
+  "surfaces": {
+    "ingress": [],
+    "metrics": [],
+    "ui": "/"
+  },
+
+  "config": {
+    "defaultOrgId": {
+      "type": "string",
+      "required": false,
+      "description": "Org selected on first load. Omitted, the console asks. An org id must never be baked into the artifact — it belongs to the installation."
+    }
+  },
+
+  "privilege": {
+    "crossAppRead": true,
+    "crossOrgRead": true,
+    "reason": "An operator console exists to show the whole stack: every app's graphs, executions, metrics and logs, across every org the operator administers. This is the one app whose purpose is incompatible with app-level isolation, so the exception is declared here rather than assumed by virtue of being platform tooling. It is read-only across apps: the console does not deliver to another app's ingress, and does not write another app's resources except through the catalog's own gated write path, where it is subject to the same entitlement checks as any other caller."
+  },
+
+  "outside": [
+    {
+      "what": "the browser the console runs in",
+      "why": "a user agent is not a Symbia component; the app ships built assets, it does not ship a runtime"
+    },
+    {
+      "what": "the Vite dev server",
+      "why": "a development convenience. In an installation the built assets are served by the platform, not by a bundler running on a developer's machine"
+    }
+  ],
+
+  "principal": null
+}
