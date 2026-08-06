@@ -30,7 +30,7 @@ Ordered by dependency. The sequencing principle (Brian, 5 Aug): **enforcement fi
 | 0 | Registration is real and gated | D2b, D2, D1 | **Done** (6 Aug 2026) |
 | 1 | Catalog → runtime hydration + reconciliation | D3, removes external load/execute | **Done** (6 Aug 2026) |
 | 2 | Ingress as a declared, gated surface | D4 | **Done** (6 Aug 2026) |
-| 3 | Durable executions | — | Open |
+| 3 | Durable executions | — | **Done** (6 Aug 2026) |
 | 4 | Registry-derived topology / governance closure | D5 | Open |
 
 ### Phase 0 — Make registration real (critical path)
@@ -69,9 +69,27 @@ Verified live, in this order:
 2. Re-registered under the feeder's org; the reconcile pass reloaded it and delivery succeeded (225 readings, PUE 1.3453).
 3. A newly created authenticated user in a different org was refused: *"caller is not a member of the org that owns this graph"*, with a pointer to `catalog resource ingress/energy-pipeline`.
 
-### Phase 3 — Durable executions
+### Phase 3 — Durable executions — **implemented**
 
-`loadedGraphs` / `executions` are in-memory `Map`s, so a restart silently drops running pipelines. Persist execution state (or make it deterministically re-hydratable from the catalog + last-known offsets) so restarts don't lose work. Execution state and per-execution metrics already exist and the energy graph already sinks to Logging; this is about making that state survive and stay queryable.
+Implemented in `server/src/db.ts`, `server/src/memory-schema.ts` and `server/src/executor/state-store.ts`.
+
+**The bug underneath this was structural, not incidental.** Operator state lived in a process `Map` keyed by **execution id** — and an execution id is minted fresh every time a graph is stood up. State could therefore never survive a restart *even in principle*: a rehydrated pipeline would look under a key that had never existed. Persisting the old structure would have persisted rows nothing could ever read.
+
+State is now keyed by **(graphKey, nodeId)** — the graph's stable catalog key and the node inside it. Two different graphs cannot collide; the same graph across restarts deliberately does, which is the whole point. Phase 1 made the *graphs* survive a restart; this makes the *work* survive.
+
+- Runtime gets its own Postgres database (already provisioned by `db-bootstrap`; only the schema was missing) with `operator_state` and `graph_executions`, following the `@symbia/db` + pg-mem pattern the other six services use.
+- Writes are cached in memory and flushed asynchronously, so the execution path stays synchronous and a slow database cannot stall message processing. **The trade: a crash can lose up to one flush interval (`RUNTIME_STATE_FLUSH_MS`, default 2s) of operator state.** SIGTERM/SIGINT flush before exit, so a planned restart loses nothing.
+- Operator state deliberately outlives its execution. It is dropped only when the graph is removed or unpublished from the catalog — not on stop, and not when a graph is updated in place.
+- Without `DATABASE_URL` the runtime still starts, in-memory, and says so at boot rather than implying durability it does not have.
+
+Verified live, with a negative control:
+
+| | hops | result |
+|---|---|---|
+| Restart, then deliver **one** point of the two-way join | 11 | PUE **1.9997308** — exactly `5200.00 / 2600.35`, so `it_kw` came from restored state, not the delivery. Log: `restored 2 operator state entries` |
+| Wipe `operator_state`, restart, deliver the identical payload | 3 | `join:pending`, no PUE, no restore line |
+
+The roadmap's acceptance test for this phase was "restart the runtime mid-run; the pipeline resumes without re-seeding." That is what the first row shows.
 
 ### Phase 4 — Registry-derived topology & governance closure
 

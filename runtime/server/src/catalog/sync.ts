@@ -22,6 +22,7 @@ import { config } from '../config.js';
 import { CatalogUnavailableError, RuntimeCatalogClient, type CatalogResource } from './client.js';
 import { fetchManifestedComponentKeys, syncComponentManifests } from './manifests.js';
 import { INGRESS_KEY_PREFIX, readIngress, registerIngress } from './ingress.js';
+import { getStateStore } from '../executor/state-store.js';
 
 /** Roles that mean "this graph should be running", not "this graph exists". */
 const STANDING_ROLES = new Set(['pipeline', 'service']);
@@ -34,6 +35,8 @@ interface HydratedGraph {
   /** Catalog's updatedAt at the time we loaded it, for change detection. */
   revision: string;
   name: string;
+  /** Catalog key — the graph's stable identity, and its operator-state key. */
+  key: string;
   /** Org that owns the graph; governs ingress authorization and metric attribution. */
   orgId?: string;
 }
@@ -226,12 +229,18 @@ export class CatalogSync {
             `[CatalogSync] graph "${resource.key}" has no orgId — anything it derives will be attributed to the system org`
           );
         }
-        const loaded = await this.executor.loadGraph(definition, { orgId: resource.orgId ?? undefined });
+        const loaded = await this.executor.loadGraph(definition, {
+          orgId: resource.orgId ?? undefined,
+          // The catalog key is the graph's stable identity across restarts,
+          // and is what its operator state is keyed on.
+          key: resource.key,
+        });
         this.hydrated.set(resource.id, {
           resourceId: resource.id,
           graphId: loaded.id,
           revision,
           name: definition.name,
+          key: resource.key,
           orgId: resource.orgId ?? undefined,
         });
         report.graphsLoaded.push(definition.name);
@@ -283,13 +292,19 @@ export class CatalogSync {
       }
     }
 
-    // Removed from the catalog (or unpublished) => unload here.
+    // Removed from the catalog (or unpublished) => unload here, and drop the
+    // operator state with it. This is the one case where discarding state is
+    // right: the graph itself is gone. An ordinary restart, or a graph being
+    // updated in place, must keep it.
     for (const [resourceId, entry] of Array.from(this.hydrated.entries())) {
       if (seen.has(resourceId)) continue;
       await this.executor.unloadGraph(entry.graphId);
+      await getStateStore().clearGraph(entry.key);
       this.hydrated.delete(resourceId);
       report.graphsUnloaded.push(entry.name);
-      console.log(`[CatalogSync] unloaded "${entry.name}" — no longer published in the catalog`);
+      console.log(
+        `[CatalogSync] unloaded "${entry.name}" and dropped its operator state — no longer published in the catalog`
+      );
     }
   }
 }

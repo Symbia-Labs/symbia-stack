@@ -74,4 +74,9 @@ export interface LoadedGraph {
    * owning resource — those fall back to the system org.
    */
   orgId?: string;
+  /**
+   * Catalog resource key for hydrated graphs. This is the graph's stable
+   * identity across restarts, and is what operator state is keyed on.
+   */
+  key?: string;
 }

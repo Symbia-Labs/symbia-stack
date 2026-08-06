@@ -25,7 +25,7 @@ import {
   listComponents,
   type FlowValue,
 } from './components.js';
-import { clearExecutionState } from './components-state.js';
+import { getStateStore } from './state-store.js';
 import { TIMER_COMPONENT } from './components-sources.js';
 import './components-sinks.js'; // sink registration happens in index.ts with deps
 
@@ -135,7 +135,7 @@ export class GraphExecutor extends EventEmitter {
    */
   async loadGraph(
     definition: GraphDefinition,
-    opts: { orgId?: string } = {}
+    opts: { orgId?: string; key?: string } = {}
   ): Promise<LoadedGraph> {
     const graphId = uuid();
 
@@ -151,6 +151,7 @@ export class GraphExecutor extends EventEmitter {
       topology,
       loadedAt: new Date(),
       orgId: opts.orgId,
+      key: opts.key ?? definition.name,
     };
 
     this.loadedGraphs.set(graphId, loadedGraph);
@@ -254,6 +255,7 @@ export class GraphExecutor extends EventEmitter {
             nodeId,
             executionId: execution.id,
             orgId: graph.orgId,
+            graphKey: graph.key,
             config: (node.config ?? {}) as Record<string, unknown>,
             log: (m) => trace.push({ node: nodeId, port: 'log', lane: msg.lane, ms: 0, summary: m }),
           });
@@ -368,6 +370,19 @@ export class GraphExecutor extends EventEmitter {
     };
 
     this.executions.set(executionId, execution);
+
+    // Load whatever this graph's operators accumulated before, so the first
+    // message after a restart sees prior state instead of re-accumulating it.
+    // Keyed by graph identity precisely so a new execution id does not orphan
+    // it (roadmap Phase 3).
+    const store = getStateStore();
+    const restored = await store.hydrateGraph(graph.key ?? graph.definition.name, graph.orgId);
+    if (restored > 0) {
+      console.log(
+        `[GraphExecutor] restored ${restored} operator state entries for "${graph.definition.name}"`
+      );
+    }
+
     this.startTimers(execution, graph);
     this.emit('execution:started', execution);
     console.log(`[GraphExecutor] Started execution: ${executionId} (${graph.definition.nodes.length} nodes)`);
@@ -470,7 +485,11 @@ export class GraphExecutor extends EventEmitter {
     execution.state = 'cancelled';
     execution.completedAt = new Date();
     this.clearTimers(executionId);
-    clearExecutionState(executionId);
+    // Operator state deliberately survives the execution. Clearing it here was
+    // what made a restart lose accumulated joins and windows; state now
+    // belongs to the graph, and is only dropped when the graph itself is
+    // removed from the catalog (see CatalogSync).
+    void getStateStore().flush();
 
     this.emit('execution:completed', execution);
     console.log(`[GraphExecutor] Stopped execution: ${executionId}`);

@@ -23,6 +23,8 @@ import { optionalAuth, requireAuth } from './auth.js';
 import { registerComponent, getComponent } from './executor/components.js';
 import { registerSinkComponents } from './executor/components-sinks.js';
 import { MetricWriter } from './executor/metric-writer.js';
+import { StateStore, setStateStore } from './executor/state-store.js';
+import { pool, isDurable } from './db.js';
 import './executor/components-state.js';
 import './executor/components-sources.js';
 import { setupDocRoutes } from './doc-routes.js';
@@ -40,6 +42,16 @@ const docsDir = path.resolve(process.cwd(), 'docs');
 const telemetry = createTelemetryClient({
   serviceId: process.env.TELEMETRY_SERVICE_ID || config.serviceId,
 });
+
+// Operator state is durable and keyed by graph identity, so a restart resumes
+// a pipeline rather than restarting it (roadmap Phase 3). Wired before the
+// executor so the first execution can hydrate from it.
+const stateStore = new StateStore({
+  pool: pool as never,
+  durable: isDurable,
+  flushIntervalMs: parseInt(process.env.RUNTIME_STATE_FLUSH_MS || '2000', 10),
+});
+setStateStore(stateStore);
 
 // The catalog sync owns the manifest authority the executor validates against.
 // Declared before the executor so the resolver can be handed in by reference —
@@ -327,6 +339,11 @@ server.start()
           ? ' (graphs referencing unmanifested components are refused on load)'
           : '')
     );
+    console.log(
+      isDurable
+        ? '[Runtime] operator state: durable (Postgres) — restarts resume accumulated joins and windows'
+        : '[Runtime] operator state: IN-MEMORY ONLY — state is lost on restart (no DATABASE_URL)'
+    );
 
     // Catalog -> runtime edge. Publish manifests, hydrate published graphs,
     // stand up the ones declared as pipelines/services, then keep reconciling.
@@ -352,9 +369,12 @@ server.start()
 // Graceful shutdown handler for relay
 process.on('SIGTERM', async () => {
   catalogSync?.stop();
+  // Flush operator state before exit so a planned restart loses nothing.
+  await stateStore.stop();
   await shutdownRelay();
 });
 process.on('SIGINT', async () => {
   catalogSync?.stop();
+  await stateStore.stop();
   await shutdownRelay();
 });

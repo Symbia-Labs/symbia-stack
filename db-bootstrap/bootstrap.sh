@@ -128,6 +128,7 @@ apply_schema_file logging /workspace/logging/server/src/memory-schema.ts
 apply_schema_file catalog /workspace/catalog/server/src/memory-schema.ts
 apply_schema_file integrations /workspace/integrations/server/src/memory-schema.ts
 apply_schema_file assistants /workspace/assistants/server/src/lib/memory-schema.ts
+apply_schema_file runtime /workspace/runtime/server/src/memory-schema.ts
 
 # Apply Row-Level Security policies for multi-tenant isolation.
 log "Applying Row-Level Security policies..."

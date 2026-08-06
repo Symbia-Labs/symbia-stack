@@ -294,6 +294,52 @@ model is a file, not catalog resources — the `point` type decision), consequen
 are readable in a real org), and Phase 3 durability: executions are still
 in-memory, so a restart drops running pipelines even though the graphs rehydrate.
 
+---
+
+## Update — 6 Aug 2026, D8/D9 closed and Phase 3 (durable executions) landed
+
+- **D8 resolved.** `GET /api/graphs` returned `{"loadedGraphs":1, ..., "graphs":[]}`
+  — a count contradicting the payload beside it — because the handler built an
+  empty array under a comment reading *"In a real implementation, we'd have a
+  method to list graphs."* `getAllGraphs()` had existed since Phase 1; the
+  endpoint never called it. It now returns the graphs it counts, with org,
+  role and ingress.
+
+- **D9 resolved.** `energy.graph.pue` and `energy.graph.ingest` were published
+  `graph` resources with **empty metadata** — the registry asserting two graphs
+  exist that contain no graph. Both filled in place from their real definitions
+  (`energy-pue`, 6 nodes; `energy-ingest`, 4 nodes) under the owning org, ids
+  preserved. The runtime now hydrates 3 graphs instead of 1.
+
+- **Phase 3 — durable executions.** The defect here was structural rather than
+  a missing feature: operator state was held in a process `Map` keyed by
+  **execution id**, and execution ids are minted fresh on every start. State
+  could not survive a restart *even in principle* — a rehydrated pipeline would
+  look under a key that had never existed. Persisting that structure would have
+  persisted rows nothing could ever read.
+
+  State is now keyed by (graph catalog key, node id) and stored in the runtime's
+  own Postgres database. Measured, with a negative control:
+
+  | | hops | result |
+  |---|---|---|
+  | Restart, deliver **one** point of the two-way join | 11 | PUE **1.9997308** = exactly `5200.00 / 2600.35` — `it_kw` came from restored state. Log: `restored 2 operator state entries` |
+  | Wipe `operator_state`, restart, identical payload | 3 | `join:pending`, no PUE, no restore line |
+
+  The second row is what makes the first meaningful.
+
+  **Stated limits, not glossed:** writes are flushed asynchronously (default 2s),
+  so an unclean crash can lose up to one interval of operator state; SIGTERM
+  flushes, so planned restarts lose nothing. Executions themselves are still
+  re-created by catalog hydration rather than resumed by id — what survives is
+  the accumulated *work*, not the execution record's continuity.
+
+### New defect
+
+| id | finding | evidence | status |
+|---|---|---|---|
+| **D10** | **New service schemas never reach an existing dev install.** `docker-compose.override.yml` replaces the whole `db-bootstrap` step with `echo "Skipping bootstrap - tables already exist"`. The check is not "are *these* tables present" but "has bootstrap ever run", so adding a table to any service is silently a no-op locally — the service then starts and fails at first query. The runtime schema had to be applied by hand with `psql`. | `docker-compose up db-bootstrap` → `Skipping bootstrap - tables already exist`, with `runtime` DB present but empty. | **Open** — the real `bootstrap.sh` is already idempotent (`CREATE TABLE IF NOT EXISTS`), so the override could simply run it instead of stubbing it. |
+
 **Consequences still open:** 2 (`symbia-control-center/vite.config.ts` hand-added
 `energy: 5010` route — now pointing at a service that no longer exists), 3
 (`model/site.json`: 227 points in a file, not catalog resources — D2 `point` type

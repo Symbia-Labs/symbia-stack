@@ -129,16 +129,25 @@ export function createGraphRoutes(executor: GraphExecutor): Router {
    */
   router.get('/', optionalAuth, async (_req, res) => {
     const stats = executor.getStats();
-    const graphs: Array<{
-      id: string;
-      name: string;
-      version: string;
-      nodeCount: number;
-      loadedAt: string;
-    }> = [];
 
-    // Note: In a real implementation, we'd have a method to list graphs
-    // For now, return stats
+    // Defect D8: this used to return a hardcoded empty array alongside a
+    // count saying graphs were loaded — "loadedGraphs: 1, graphs: []". A
+    // summary that contradicts the payload beside it is the same defect as a
+    // dashboard reporting 8/8 healthy without checking. getAllGraphs() has
+    // existed since Phase 1; the endpoint simply never used it.
+    const graphs = executor.getAllGraphs().map((g) => ({
+      id: g.id,
+      name: g.definition.name,
+      version: g.definition.version,
+      description: g.definition.description,
+      nodeCount: g.definition.nodes.length,
+      edgeCount: g.definition.edges.length,
+      orgId: g.orgId ?? null,
+      role: ((g.definition.metadata ?? {}) as Record<string, unknown>).role ?? null,
+      ingress: ((g.definition.metadata ?? {}) as Record<string, unknown>).ingress ?? null,
+      loadedAt: g.loadedAt.toISOString(),
+    }));
+
     res.json({
       loadedGraphs: stats.loadedGraphs,
       activeExecutions: stats.activeExecutions,

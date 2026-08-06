@@ -1,35 +1,43 @@
 /**
  * Stateful stream operators.
  *
- * The base components are stateless per-flow; these hold per-execution,
- * per-node state so derivations over a stream (join-latest, windows, rollups)
- * are expressible in-graph instead of in an external runner. State lives in
- * the executor process and is cleared when the execution stops — durability
- * across restarts is explicitly out of scope here.
+ * The base components are stateless per-flow; these hold per-node state so
+ * derivations over a stream (join-latest, windows, rollups) are expressible
+ * in-graph instead of in an external runner.
+ *
+ * State is keyed by the graph's stable identity, not by execution id
+ * (roadmap Phase 3). Execution ids are minted fresh on every start, so the
+ * previous keying made state unreachable across a restart by construction —
+ * a rehydrated pipeline always began with an empty join. Keying by
+ * (graphKey, nodeId) is what allows a restarted execution to resume.
  *
  * Honesty rule carried over from the energy derive work: an aggregate that
  * has not seen every expected input is emitted on the apocryphal lane — a
  * partial "total" must not masquerade as the total.
  */
-import { registerComponent } from './components.js';
+import { registerComponent, type ComponentContext } from './components.js';
+import { getStateStore } from './state-store.js';
 
-const store = new Map<string, Map<string, unknown>>();
-
-function stateFor(executionId: string, nodeId: string): Map<string, unknown> {
-  const key = `${executionId}:${nodeId}`;
-  let m = store.get(key);
-  if (!m) {
-    m = new Map();
-    store.set(key, m);
-  }
-  return m;
+/** A node's slice of the store, with the Map-ish surface the operators use. */
+interface NodeStateView {
+  get(key: string): unknown;
+  set(key: string, value: unknown): void;
+  has(key: string): boolean;
+  entries(): [string, unknown][];
 }
 
-export function clearExecutionState(executionId: string): void {
-  const prefix = `${executionId}:`;
-  for (const key of store.keys()) {
-    if (key.startsWith(prefix)) store.delete(key);
-  }
+function stateFor(ctx: ComponentContext): NodeStateView {
+  const store = getStateStore();
+  // Ad hoc graphs (loaded by POST rather than hydrated) have no catalog key;
+  // the graph name is a stable enough identity for them.
+  const graphKey = ctx.graphKey ?? 'adhoc';
+  const nodeId = ctx.nodeId;
+  return {
+    get: (key) => store.get(graphKey, nodeId, key),
+    set: (key, value) => store.set(graphKey, nodeId, key, value),
+    has: (key) => store.get(graphKey, nodeId, key) !== undefined,
+    entries: () => store.entries(graphKey, nodeId),
+  };
 }
 
 function field(obj: unknown, name: string): unknown {
@@ -46,9 +54,9 @@ registerComponent({
   handler: (input, ctx) => {
     const keyField = String(ctx.config.keyField ?? 'point');
     const key = field(input.value, keyField);
-    const state = stateFor(ctx.executionId, ctx.nodeId);
+    const state = stateFor(ctx);
     if (key !== undefined) state.set(String(key), input.value);
-    return { out: input, snapshot: Object.fromEntries(state) };
+    return { out: input, snapshot: Object.fromEntries(state.entries()) };
   },
 });
 
@@ -63,7 +71,7 @@ registerComponent({
     const select = (ctx.config.select ?? {}) as Record<string, string>;
     const keyField = String(ctx.config.keyField ?? 'point');
     const valueField = String(ctx.config.valueField ?? 'value');
-    const state = stateFor(ctx.executionId, ctx.nodeId);
+    const state = stateFor(ctx);
 
     const key = field(input.value, keyField);
     const wantedFields = Object.entries(select)
@@ -98,7 +106,7 @@ registerComponent({
     if (!Number.isFinite(v)) {
       return { error: { error: `field "${f}" is not numeric`, got: field(input.value, f) } };
     }
-    const state = stateFor(ctx.executionId, ctx.nodeId);
+    const state = stateFor(ctx);
     const values = (state.get('values') as number[] | undefined) ?? [];
     values.push(v);
     if (values.length > size) values.splice(0, values.length - size);
@@ -129,7 +137,7 @@ registerComponent({
     const op = String(ctx.config.op ?? 'sum');
     const keyField = String(ctx.config.keyField ?? 'point');
     const valueField = String(ctx.config.valueField ?? 'value');
-    const state = stateFor(ctx.executionId, ctx.nodeId);
+    const state = stateFor(ctx);
 
     const key = field(input.value, keyField);
     if (key !== undefined && expected.includes(String(key))) {

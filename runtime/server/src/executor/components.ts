@@ -36,6 +36,13 @@ export interface ComponentContext {
    * what they persist, so a derived series lands where its owner can find it.
    */
   orgId?: string;
+  /**
+   * Stable identity of the graph (its catalog resource key). Stateful
+   * operators key their state on it so state survives a restart — the
+   * execution id cannot serve this purpose because it is regenerated on every
+   * start.
+   */
+  graphKey?: string;
   log: (msg: string) => void;
 }
 

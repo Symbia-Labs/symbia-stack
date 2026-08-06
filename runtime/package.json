@@ -13,6 +13,7 @@
   },
   "dependencies": {
     "@symbia/auth": "file:../symbia-auth",
+    "@symbia/db": "file:../symbia-db",
     "@symbia/http": "file:../symbia-http",
     "@symbia/logging-client": "file:../symbia-logging-client",
     "@symbia/relay": "file:../symbia-relay",
