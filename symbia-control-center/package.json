@@ -5,13 +5,14 @@
   "type": "module",
   "private": true,
   "scripts": {
-    "dev": "vite",
-    "build": "tsc && vite build",
-    "preview": "vite preview",
+    "dev": "tsx scripts/build.ts --watch",
+    "build": "tsx scripts/build.ts",
+    "start": "NODE_ENV=production node dist/server.mjs",
     "check": "tsc --noEmit"
   },
   "dependencies": {
     "@monaco-editor/react": "^4.7.0",
+    "monaco-editor": "^0.55.1",
     "@symbia/catalog-client": "file:../symbia-catalog-client",
     "@symbia/messaging-client": "file:../symbia-messaging-client",
     "@symbia/sys": "file:../symbia-sys",
@@ -27,13 +28,12 @@
     "zustand": "^4.5.5"
   },
   "devDependencies": {
+    "@types/node": "^22.10.2",
     "@types/react": "^18.3.12",
     "@types/react-dom": "^18.3.1",
-    "@vitejs/plugin-react": "^4.3.4",
-    "autoprefixer": "^10.4.20",
-    "postcss": "^8.4.49",
+    "esbuild": "^0.25.0",
     "tailwindcss": "^3.4.16",
-    "typescript": "^5.7.2",
-    "vite": "^6.0.5"
+    "tsx": "^4.20.5",
+    "typescript": "^5.7.2"
   }
 }
