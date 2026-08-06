@@ -3,7 +3,7 @@ import { createServer, type Server } from "http";
 import fs from "fs";
 import path from "path";
 import { storage } from "./storage";
-import { insertResourceSchema, resourceTypes, resourceStatuses, visibilityLevels, defaultAccessPolicy, type AccessPolicy, type Resource } from "@shared/schema";
+import { insertResourceSchema, resourceTypes, resourceStatuses, visibilityLevels, defaultAccessPolicy, componentManifestSchema, type AccessPolicy, type Resource } from "@shared/schema";
 import { z } from "zod";
 import { openApiSpec } from "./openapi";
 import { authMiddleware, requireAuth, requireSuperAdmin, generateApiKey } from "./auth";
@@ -83,6 +83,36 @@ const updateContextSchema = z.object({
   tags: z.array(z.string()).nullable().optional(),
   metadata: z.record(z.unknown()).nullable().optional(),
 });
+
+/**
+ * Registration ledger — records every resource that enters or is published in
+ * the catalog, so registration is an auditable event rather than a silent write.
+ * Emitted as a structured stdout line ingested by the Logging service.
+ */
+function registryLedger(
+  req: { user?: { id?: string; isSuperAdmin?: boolean }; headers?: Record<string, unknown> },
+  action: "register" | "publish",
+  resource: { id?: string; key?: string; type?: string }
+): void {
+  const principal = req.user?.id ?? "anonymous";
+  const gate = req.headers?.["x-service-auth"]
+    ? "service"
+    : req.user?.isSuperAdmin
+      ? "super-admin"
+      : "capability";
+  console.info(
+    JSON.stringify({
+      event: "registry.ledger",
+      action,
+      resourceId: resource.id,
+      resourceKey: resource.key,
+      resourceType: resource.type,
+      principal,
+      gate,
+      ts: new Date().toISOString(),
+    })
+  );
+}
 
 export async function registerRoutes(
   httpServer: Server,
@@ -399,7 +429,25 @@ export async function registerRoutes(
       }
 
       const validatedData = createResourceSchema.parse(req.body);
-      
+
+      // Component resources must carry a valid manifest (typed ports + capability)
+      // so that a graph node referencing this component can be validated against a
+      // contract at load time (runtime roadmap Phase 1). The manifest is accepted
+      // either as metadata.manifest or as the metadata object itself, and is stored
+      // back under metadata.manifest in normalized form.
+      if (validatedData.type === "component") {
+        const raw = (validatedData.metadata as Record<string, unknown> | null | undefined) ?? {};
+        const manifestInput = (raw as any).manifest ?? raw;
+        const manifest = componentManifestSchema.safeParse(manifestInput);
+        if (!manifest.success) {
+          return res.status(400).json({
+            error: "Invalid component manifest",
+            details: manifest.error.errors,
+          });
+        }
+        validatedData.metadata = { ...(raw as Record<string, unknown>), manifest: manifest.data };
+      }
+
       const existing = await storage.getResourceByKey(validatedData.key);
       if (existing) {
         return res.status(400).json({ error: "A resource with this key already exists" });
@@ -411,6 +459,7 @@ export async function registerRoutes(
       };
 
       const resource = await storage.createResource(resourceData as any);
+      registryLedger(req, "register", resource);
       res.status(201).json(resource);
     } catch (error) {
       if (error instanceof z.ZodError) {
@@ -589,6 +638,7 @@ export async function registerRoutes(
       }
 
       const version = await storage.publishVersion(getParam(req.params, 'id'));
+      registryLedger(req, "publish", resource);
       res.json(version);
     } catch (error) {
       console.error("Error publishing resource:", error);

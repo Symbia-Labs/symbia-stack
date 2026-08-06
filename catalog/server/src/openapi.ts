@@ -2,7 +2,7 @@ export const openApiSpec = {
   openapi: "3.0.3",
   info: {
     title: "Symbia Object Service API",
-    description: "Registry service for managing resources, versions, and artifacts with CRUD operations, versioning, search capabilities, and a public bootstrap endpoint for system initialization. Uses allowlist-based access control with entitlements.\n\n**Scope Headers (optional)**: X-Org-Id, X-Service-Id, X-Env, X-Data-Class, X-Policy-Ref.\n\n**CORS**: All API endpoints support CORS with methods GET, POST, PUT, PATCH, DELETE, OPTIONS and headers Content-Type, Authorization, X-API-Key, X-Org-Id, X-Service-Id, X-Env, X-Data-Class, X-Policy-Ref. Credentialed requests (cookies) only allowed from origins in CORS_ALLOWED_ORIGINS. Disallowed origins receive 403 on preflight. Identity Service origin is always allowed.\n\n**Resource Types**: context, integration, graph, assistant. All types support identical CRUD operations and versioning workflows.\n\n**Authentication**: Bearer token (JWT), API key (X-API-Key header), or session cookie (symbia_session).",
+    description: "Registry service for managing resources, versions, and artifacts with CRUD operations, versioning, search capabilities, and a public bootstrap endpoint for system initialization. Uses allowlist-based access control with entitlements.\n\n**Scope Headers (optional)**: X-Org-Id, X-Service-Id, X-Env, X-Data-Class, X-Policy-Ref.\n\n**CORS**: All API endpoints support CORS with methods GET, POST, PUT, PATCH, DELETE, OPTIONS and headers Content-Type, Authorization, X-API-Key, X-Org-Id, X-Service-Id, X-Env, X-Data-Class, X-Policy-Ref. Credentialed requests (cookies) only allowed from origins in CORS_ALLOWED_ORIGINS. Disallowed origins receive 403 on preflight. Identity Service origin is always allowed.\n\n**Resource Types**: context, integration, graph, assistant, component. All types support identical CRUD operations and versioning workflows. Resources of type 'component' must include a manifest (typed input/output ports and required capability) under metadata.manifest.\n\n**Authentication**: Bearer token (JWT), API key (X-API-Key header), or session cookie (symbia_session).",
     version: "1.0.0",
     contact: {
       name: "Symbia Object Service"
@@ -44,7 +44,7 @@ export const openApiSpec = {
             description: "Filter by resource type",
             schema: {
               type: "string",
-              enum: ["context", "integration", "graph", "assistant"]
+              enum: ["context", "integration", "graph", "assistant", "component"]
             }
           },
           {
@@ -482,7 +482,7 @@ export const openApiSpec = {
                   },
                   type: {
                     type: "string",
-                    enum: ["context", "integration", "graph", "assistant"],
+                    enum: ["context", "integration", "graph", "assistant", "component"],
                     description: "Filter by resource type"
                   },
                   status: {
@@ -833,7 +833,7 @@ export const openApiSpec = {
           description: { type: "string", nullable: true, description: "Resource description" },
           type: {
             type: "string",
-            enum: ["context", "integration", "graph", "assistant"],
+            enum: ["context", "integration", "graph", "assistant", "component"],
             description: "Resource type. Use 'graph' for workflow/pipeline definitions."
           },
           status: {
@@ -860,7 +860,7 @@ export const openApiSpec = {
           description: { type: "string", nullable: true, description: "Resource description" },
           type: {
             type: "string",
-            enum: ["context", "integration", "graph", "assistant"],
+            enum: ["context", "integration", "graph", "assistant", "component"],
             description: "Resource type. Use 'graph' for workflow/pipeline definitions."
           },
           tags: { type: "array", items: { type: "string" }, nullable: true, description: "Tags for categorization" },
@@ -878,7 +878,7 @@ export const openApiSpec = {
           description: { type: "string", nullable: true, description: "Resource description" },
           type: {
             type: "string",
-            enum: ["context", "integration", "graph", "assistant"],
+            enum: ["context", "integration", "graph", "assistant", "component"],
             description: "Resource type. Use 'graph' for workflow/pipeline definitions."
           },
           status: {
@@ -1132,4 +1132,469 @@ if (openApiSpec.paths) {
     const merged = [...scopeParameters, ...existing.filter((param: any) => !scopeRefs.has(param?.$ref))];
     pathItem.parameters = merged;
   });
+}
+
+
+// --- Auto-documented endpoints (added by the API documentation validation sweep) ---
+// These routes are implemented but were missing from the spec above. Entries are
+// thin-but-accurate (method, path, params, standard responses); field-level request/
+// response schemas are marked `x-auto-documented` and can be enriched over time.
+{
+  const __autoDocumentedPaths: Record<string, any> = {
+  "/api-keys/{id}": {
+    "delete": {
+      "tags": [
+        "Api Keys"
+      ],
+      "summary": "Delete api keys",
+      "description": "Documented from the implemented route. Request/response schema to be enriched.",
+      "x-auto-documented": true,
+      "parameters": [
+        {
+          "name": "id",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string"
+          }
+        }
+      ],
+      "responses": {
+        "204": {
+          "description": "Deleted"
+        },
+        "401": {
+          "description": "Unauthorized"
+        },
+        "404": {
+          "description": "Not found"
+        }
+      }
+    }
+  },
+  "/auth/keys/{id}": {
+    "delete": {
+      "tags": [
+        "Auth"
+      ],
+      "summary": "Delete keys",
+      "description": "Documented from the implemented route. Request/response schema to be enriched.",
+      "x-auto-documented": true,
+      "parameters": [
+        {
+          "name": "id",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string"
+          }
+        }
+      ],
+      "responses": {
+        "204": {
+          "description": "Deleted"
+        },
+        "401": {
+          "description": "Unauthorized"
+        },
+        "404": {
+          "description": "Not found"
+        }
+      }
+    }
+  },
+  "/api-keys": {
+    "get": {
+      "tags": [
+        "Api Keys"
+      ],
+      "summary": "List api keys",
+      "description": "Documented from the implemented route. Request/response schema to be enriched.",
+      "x-auto-documented": true,
+      "responses": {
+        "200": {
+          "description": "Success",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true
+              }
+            }
+          }
+        },
+        "401": {
+          "description": "Unauthorized"
+        }
+      }
+    },
+    "post": {
+      "tags": [
+        "Api Keys"
+      ],
+      "summary": "Create api keys",
+      "description": "Documented from the implemented route. Request/response schema to be enriched.",
+      "x-auto-documented": true,
+      "requestBody": {
+        "required": true,
+        "content": {
+          "application/json": {
+            "schema": {
+              "type": "object",
+              "additionalProperties": true
+            }
+          }
+        }
+      },
+      "responses": {
+        "201": {
+          "description": "Success",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true
+              }
+            }
+          }
+        },
+        "400": {
+          "description": "Invalid input"
+        },
+        "401": {
+          "description": "Unauthorized"
+        }
+      }
+    }
+  },
+  "/auth/config": {
+    "get": {
+      "tags": [
+        "Auth"
+      ],
+      "summary": "Get config",
+      "description": "Documented from the implemented route. Request/response schema to be enriched.",
+      "x-auto-documented": true,
+      "responses": {
+        "200": {
+          "description": "Success",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true
+              }
+            }
+          }
+        },
+        "401": {
+          "description": "Unauthorized"
+        }
+      }
+    }
+  },
+  "/auth/keys": {
+    "get": {
+      "tags": [
+        "Auth"
+      ],
+      "summary": "List keys",
+      "description": "Documented from the implemented route. Request/response schema to be enriched.",
+      "x-auto-documented": true,
+      "responses": {
+        "200": {
+          "description": "Success",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true
+              }
+            }
+          }
+        },
+        "401": {
+          "description": "Unauthorized"
+        }
+      }
+    },
+    "post": {
+      "tags": [
+        "Auth"
+      ],
+      "summary": "Create keys",
+      "description": "Documented from the implemented route. Request/response schema to be enriched.",
+      "x-auto-documented": true,
+      "requestBody": {
+        "required": true,
+        "content": {
+          "application/json": {
+            "schema": {
+              "type": "object",
+              "additionalProperties": true
+            }
+          }
+        }
+      },
+      "responses": {
+        "201": {
+          "description": "Success",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true
+              }
+            }
+          }
+        },
+        "400": {
+          "description": "Invalid input"
+        },
+        "401": {
+          "description": "Unauthorized"
+        }
+      }
+    }
+  },
+  "/auth/me": {
+    "get": {
+      "tags": [
+        "Auth"
+      ],
+      "summary": "Get me",
+      "description": "Documented from the implemented route. Request/response schema to be enriched.",
+      "x-auto-documented": true,
+      "responses": {
+        "200": {
+          "description": "Success",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true
+              }
+            }
+          }
+        },
+        "401": {
+          "description": "Unauthorized"
+        }
+      }
+    }
+  },
+  "/bootstrap/service": {
+    "get": {
+      "tags": [
+        "Bootstrap"
+      ],
+      "summary": "Get service",
+      "description": "Documented from the implemented route. Request/response schema to be enriched.",
+      "x-auto-documented": true,
+      "responses": {
+        "200": {
+          "description": "Success",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true
+              }
+            }
+          }
+        },
+        "401": {
+          "description": "Unauthorized"
+        }
+      }
+    }
+  },
+  "/resources/{id}/artifacts": {
+    "get": {
+      "tags": [
+        "Resources"
+      ],
+      "summary": "List artifacts",
+      "description": "Documented from the implemented route. Request/response schema to be enriched.",
+      "x-auto-documented": true,
+      "parameters": [
+        {
+          "name": "id",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string"
+          }
+        }
+      ],
+      "responses": {
+        "200": {
+          "description": "Success",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true
+              }
+            }
+          }
+        },
+        "401": {
+          "description": "Unauthorized"
+        },
+        "404": {
+          "description": "Not found"
+        }
+      }
+    }
+  },
+  "/resources/{id}/certifications": {
+    "get": {
+      "tags": [
+        "Resources"
+      ],
+      "summary": "List certifications",
+      "description": "Documented from the implemented route. Request/response schema to be enriched.",
+      "x-auto-documented": true,
+      "parameters": [
+        {
+          "name": "id",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string"
+          }
+        }
+      ],
+      "responses": {
+        "200": {
+          "description": "Success",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true
+              }
+            }
+          }
+        },
+        "401": {
+          "description": "Unauthorized"
+        },
+        "404": {
+          "description": "Not found"
+        }
+      }
+    }
+  },
+  "/resources/{id}/signatures": {
+    "get": {
+      "tags": [
+        "Resources"
+      ],
+      "summary": "List signatures",
+      "description": "Documented from the implemented route. Request/response schema to be enriched.",
+      "x-auto-documented": true,
+      "parameters": [
+        {
+          "name": "id",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string"
+          }
+        }
+      ],
+      "responses": {
+        "200": {
+          "description": "Success",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true
+              }
+            }
+          }
+        },
+        "401": {
+          "description": "Unauthorized"
+        },
+        "404": {
+          "description": "Not found"
+        }
+      }
+    }
+  },
+  "/versions": {
+    "get": {
+      "tags": [
+        "Versions"
+      ],
+      "summary": "List versions",
+      "description": "Documented from the implemented route. Request/response schema to be enriched.",
+      "x-auto-documented": true,
+      "responses": {
+        "200": {
+          "description": "Success",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true
+              }
+            }
+          }
+        },
+        "401": {
+          "description": "Unauthorized"
+        }
+      }
+    }
+  },
+  "/nl/search": {
+    "post": {
+      "tags": [
+        "Nl"
+      ],
+      "summary": "Create search",
+      "description": "Documented from the implemented route. Request/response schema to be enriched.",
+      "x-auto-documented": true,
+      "requestBody": {
+        "required": true,
+        "content": {
+          "application/json": {
+            "schema": {
+              "type": "object",
+              "additionalProperties": true
+            }
+          }
+        }
+      },
+      "responses": {
+        "201": {
+          "description": "Success",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true
+              }
+            }
+          }
+        },
+        "400": {
+          "description": "Invalid input"
+        },
+        "401": {
+          "description": "Unauthorized"
+        }
+      }
+    }
+  }
+};
+  const __paths = openApiSpec.paths as Record<string, any>;
+  for (const [key, ops] of Object.entries(__autoDocumentedPaths)) {
+    __paths[key] = { ...(__paths[key] || {}), ...(ops as Record<string, any>) };
+  }
 }

@@ -80,3 +80,71 @@ the correct side of the boundary.
 2. **D2b's 403 is the blocker.** Logins are disabled and catalog still refuses
    writes. Until that is resolved nothing can be registered by any means, so it
    is the first fix regardless of the answer to (1).
+
+---
+
+## Update — 5 Aug 2026, evening (runtime roadmap Phase 0)
+
+Work begun against the roadmap in `runtime/docs/architecture.md`. Findings and
+changes, append-only:
+
+- **D2b re-characterised (not the defect it looked like).** Catalog is **not**
+  write-refusing by design. `authMiddleware` already grants `cap:registry.write`
+  / `cap:registry.publish` to service-to-service callers via the `X-Service-Auth`
+  header and to local API keys. The 5 Aug `403` came from a plain, unauthenticated
+  `POST` — the capability gate was working, there was just no principal behind the
+  request. The real weakness was that the service gate trusted a **plaintext
+  header** (`X-Service-Auth: internal`), which any in-network caller could spoof.
+  *Change:* the header is now checked against `CATALOG_INTERNAL_SERVICE_TOKEN`
+  when that secret is set (real credential); it falls back to `internal` only for
+  local dev. The gate is now enforceable in deployment. *Partially resolved —
+  hardened; a signed service token from Identity is the eventual target.*
+
+- **D2 (missing types) — `component` added, `point` deliberately deferred.**
+  Catalog's resource-type enum was `context | integration | graph | assistant`.
+  Added **`component`** as a first-class type with a required **manifest**
+  (`ComponentManifest`: key, version, implementation kind, typed input/output
+  ports, required capability) validated on create and stored under
+  `metadata.manifest`. `graph` was already first-class. `point` (the 227-point
+  model) is **not** added yet — whether a telemetry point is a catalog resource,
+  a context, or belongs to a separate registry is an open modelling decision, not
+  a silent default. *Resolved for `component`; `point` open.*
+
+- **D1 (no component registration entry point) — entry point now exists in the
+  catalog.** A component can now *enter the system* as a registered catalog
+  resource carrying a validated contract (typed ports + capability). The runtime
+  still executes compiled implementations; resolving a graph node's `component`
+  against its catalog manifest **at load time** is Phase 1. So the gateable entry
+  point exists; runtime enforcement of the contract is the next step. *Partially
+  resolved — contract entry point landed; load-time resolution pending Phase 1.*
+
+- **Ledger (the headline "zero ledger entries" defect).** Resource creation and
+  publication now emit a structured `registry.ledger` event (principal, action,
+  resource key/type, which gate authorised it, timestamp) to stdout, ingested by
+  the Logging service. Registration is now an **auditable event**, not a silent
+  write. *Resolved for create/publish; sign/certify still to instrument.*
+
+Files touched: `catalog/shared/schema.ts`, `catalog/server/src/routes.ts`,
+`catalog/server/src/auth.ts`, `catalog/server/src/openapi.ts`, `.env.example`.
+Type-checked clean (`tsc --noEmit`). Not yet exercised against the live stack —
+the running services must be restarted to pick up the changes, and re-running the
+5 Aug probes (now with `X-Service-Auth` + a `component` payload) is the
+confirmation step.
+
+### Confirmed live — 6 Aug 2026
+
+Phase 0 changes verified against the running stack (catalog image rebuilt and
+container recreated — the services run as **production Docker images**, not
+`tsx watch`, so source edits require `docker-compose build <svc> && docker-compose
+up -d <svc>` to take effect; this was the reason an earlier "it hot-reloaded"
+assumption was wrong). Probes against `:5003`:
+
+- Register `type:component` with `X-Service-Auth` + valid manifest → **201**, manifest stored under `metadata.manifest`.
+- Same write with no auth → **403** (gate holds; refused before validation).
+- `type:component` with a broken manifest (missing `version`/`implementation`) → **400 "Invalid component manifest"** with field-level errors.
+- `GET /api/resources?type=component` → **200**, lists the registered component.
+- Catalog stdout emitted: `{"event":"registry.ledger","action":"register","resourceType":"component","principal":"service:internal","gate":"service",...}`.
+
+Test resource deleted afterward (catalog left clean). D1/D2(`component`)/D2b/ledger
+confirmed working end-to-end; `point` type and load-time manifest resolution in the
+runtime remain open (Phase 1).

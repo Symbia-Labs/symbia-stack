@@ -8,8 +8,47 @@ export const resourceStatuses = ["draft", "published", "deprecated"] as const;
 export type ResourceStatus = (typeof resourceStatuses)[number];
 
 // Resource types
-export const resourceTypes = ["context", "integration", "graph", "assistant"] as const;
+export const resourceTypes = ["context", "integration", "graph", "assistant", "component"] as const;
 export type ResourceType = (typeof resourceTypes)[number];
+
+// Component manifest — for resources of type 'component'.
+// Declares the typed input/output ports a runtime component exposes and the
+// capability required to execute it, so a graph node referencing this component
+// can be validated against a contract at load time (runtime roadmap Phase 1).
+export type ComponentImplKind =
+  | "builtin"        // compiled implementation shipped in the runtime bundle
+  | "expression"     // sandboxed JS expression
+  | "wasm"           // WebAssembly module
+  | "integration"    // delegates to an Integrations/MCP operation
+  | "remote-service";// delegates to an external service
+export interface ComponentPort {
+  name: string;
+  schema?: Record<string, unknown>; // JSON Schema for the port payload (optional)
+  required?: boolean;
+}
+export interface ComponentManifest {
+  key: string;                    // e.g. "symbia.state.join"
+  version: string;                // semver
+  implementation: ComponentImplKind;
+  inputs: ComponentPort[];
+  outputs: ComponentPort[];
+  capability?: string;            // capability/gate required to execute
+  description?: string;
+}
+export const componentPortSchema = z.object({
+  name: z.string().min(1),
+  schema: z.record(z.unknown()).optional(),
+  required: z.boolean().optional(),
+});
+export const componentManifestSchema = z.object({
+  key: z.string().min(1),
+  version: z.string().min(1),
+  implementation: z.enum(["builtin", "expression", "wasm", "integration", "remote-service"]),
+  inputs: z.array(componentPortSchema).default([]),
+  outputs: z.array(componentPortSchema).default([]),
+  capability: z.string().optional(),
+  description: z.string().optional(),
+});
 
 // Assistant configuration - for resources of type 'assistant'
 export interface AssistantConfig {

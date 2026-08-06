@@ -66,8 +66,16 @@ export async function authMiddleware(
   // Fallback: check for internal service auth (service-to-service communication)
   if (!user) {
     const serviceAuth = req.headers['x-service-auth'] as string | undefined;
-    if (serviceAuth === 'internal') {
-      // Trust internal service requests from within the Docker network
+    // Gate: when CATALOG_INTERNAL_SERVICE_TOKEN is set, the header must match that
+    // secret (a real credential). Otherwise fall back to the literal 'internal' for
+    // local development. This turns a spoofable trusted header into an enforced gate
+    // in any deployment that sets the secret, without breaking local dev.
+    const expectedServiceToken = process.env.CATALOG_INTERNAL_SERVICE_TOKEN;
+    const serviceAuthOk = expectedServiceToken
+      ? serviceAuth === expectedServiceToken
+      : serviceAuth === 'internal';
+    if (serviceAuthOk) {
+      // Trust internal service requests bearing the configured service credential
       user = {
         id: 'service:internal',
         email: 'service@internal',
