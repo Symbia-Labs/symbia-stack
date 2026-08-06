@@ -148,3 +148,42 @@ assumption was wrong). Probes against `:5003`:
 Test resource deleted afterward (catalog left clean). D1/D2(`component`)/D2b/ledger
 confirmed working end-to-end; `point` type and load-time manifest resolution in the
 runtime remain open (Phase 1).
+
+---
+
+## Update — 6 Aug 2026, repo rationalization
+
+Consequences 1 and 5 reversed by deletion rather than re-registration, now that
+the runtime can express what they were doing.
+
+- **Consequence 1 — `energy/service/server.py` on :5010 (unregistered service): removed.**
+  Its reason to exist was that the runtime had no way to hold state, derive across
+  a joined stream, or write a result anywhere. It now does: `symbia.state.join`,
+  `symbia.compute.arithmetic` and `symbia.sink.metric` run the same derivation
+  inside the graph, as registered components on typed ports. An out-of-band
+  Python service computing platform values no longer exists to drift from the
+  platform. `service/sinks.py` removed with it. *Resolved.*
+
+- **Consequence 5 — refusal semantics as deletable Python functions: partially
+  reversed.** The derivation now runs in-graph, so the claim "`incomplete` has no
+  edge to a value" is enforced by graph topology rather than by a function that
+  could be deleted. `derive.py` is deliberately **kept** as the testable reference
+  implementation — the semantics should be assertable without a container rebuild.
+  Still open: the components carry no catalog manifest, so the contract is
+  enforced by the compiled implementation and not by a registered gate (Phase 1).
+
+- **`app/pipeline.py` removed.** Superseded by `feeder.py` + `POST /api/ingress/
+  {graphName}`. `feeder.py` retains one concession — `ensure_pipeline()` loads and
+  executes the graph if nothing is running — which Phase 1 hydration deletes.
+
+- **`energy/data/` archived out of the repo** (94 MB of captured `.jsonl` streams,
+  regenerable from `sim/`). Archived to `~/symbia-stack-backups/`, not in git.
+
+**Consequences still open:** 2 (`symbia-control-center/vite.config.ts` hand-added
+`energy: 5010` route — now pointing at a service that no longer exists), 3
+(`model/site.json`: 227 points in a file, not catalog resources — D2 `point` type
+still deferred), 4 (MQTT ingress as constants), 6 (`EnergyPanel.tsx` provenance).
+Note that removing the :5010 service **breaks `EnergyPanel.tsx`**, which read from
+it. That break is left visible rather than patched: the panel should read the
+`energy.v2.*` metrics the graph now persists to Logging, and rebuilding it that
+way is the honest fix.

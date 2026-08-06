@@ -71,7 +71,6 @@ An LLM-native orchestration platform for building, deploying, and operating auto
 | [@symbia/sys](symbia-sys/) | System utilities and service registry |
 | [@symbia/id](symbia-id/) | Identity utilities |
 | [@symbia/md](symbia-md/) | Documentation generation |
-| [@symbia/cli](symbia-cli/) | Command-line interface |
 
 ## Quick Start
 

@@ -15,7 +15,7 @@ A graph is a DAG of nodes (each bound to a registered `component`) connected by 
 
 State lives in `GraphExecutor` as three in-memory `Map`s — `loadedGraphs`, `executions`, `timers`. Components (`symbia.io.*`, `symbia.logic.*`, `symbia.compute.*`, `symbia.state.*`, `symbia.sink.*`, `symbia.source.*`, `symbia.transform.*`, `symbia.routine.*`) are registered in-process at boot.
 
-**The gap in one line:** the runtime holds **no reference to the catalog**. Graphs exist only once something POSTs them, are lost on restart, and no external producer can reach a graph until an actor has first loaded *and* executed it. INTENT.md positions the Catalog as the registry (components, graphs, executors) and the Runtime as the executor — but the edge between them isn't built. That single missing edge is what forces the external `pipeline.py`/`feeder.py` scaffolding (see the energy README) and sits underneath defects D1–D4.
+**The gap in one line:** the runtime holds **no reference to the catalog**. Graphs exist only once something POSTs them, are lost on restart, and no external producer can reach a graph until an actor has first loaded *and* executed it. INTENT.md positions the Catalog as the registry (components, graphs, executors) and the Runtime as the executor — but the edge between them isn't built. That single missing edge is what forces the external `feeder.py` scaffolding (see the energy README) and sits underneath defects D1–D4.
 
 ## Target architecture
 
@@ -42,7 +42,7 @@ The blocker under everything is **D2b**: catalog refuses writes (403) even with 
 
 ### Phase 1 — Hydration & reconciliation (kills the scaffolding)
 
-- On boot, the runtime queries the catalog for published graphs; graphs tagged as pipelines/services with a declared `metadata.ingress` are auto-loaded and auto-executed. This directly removes the "someone must stand the execution up" concession — `feeder.py`'s `ensure_pipeline()` and `pipeline.py`'s load/execute steps disappear, and delivery becomes a single POST to the ingress.
+- On boot, the runtime queries the catalog for published graphs; graphs tagged as pipelines/services with a declared `metadata.ingress` are auto-loaded and auto-executed. This directly removes the "someone must stand the execution up" concession — `feeder.py`'s `ensure_pipeline()` disappears, and delivery becomes a single POST to the ingress.
 - Resolve each graph node's `component` against its catalog manifest at **load time** (implementations may stay compiled for now); a node referencing an unmanifested component is rejected on load, not at runtime. This defuses D1 without shipping a plugin loader on day one — the contract moves into the catalog even while the code stays in the bundle.
 - A reconciliation loop converges loaded graphs to catalog state (load new/updated, unload removed), ideally driven by **Network service** events rather than polling.
 

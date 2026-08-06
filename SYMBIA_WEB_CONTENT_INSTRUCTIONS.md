@@ -613,7 +613,6 @@ All libraries are scoped under `@symbia/*` and installed via npm with `file:../s
 | `@symbia/catalog-client` | Catalog client for resource lookup |
 | `@symbia/seed` | Development seed data utilities |
 | `@symbia/md` | Markdown documentation generator |
-| `@symbia/cli` | Command-line interface |
 
 ### Symbia Script
 

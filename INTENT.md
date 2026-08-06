@@ -473,7 +473,6 @@ Eleven `@symbia/*` packages provide standardized building blocks:
 | `@symbia/sys` | System utilities and service registry |
 | `@symbia/id` | Identity utilities |
 | `@symbia/md` | LLM-ready documentation generation |
-| `@symbia/cli` | Unified command-line interface |
 
 ---
 
