@@ -21,6 +21,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import sys
 import time
 import urllib.request
@@ -33,8 +34,15 @@ from site_sim import Sim, load_scenario, SITE_JSON  # noqa: E402
 
 IDENTITY = "http://localhost:5001"
 RUNTIME = "http://localhost:5006"
-EMAIL = "gap-probe@symbia.test"
-PASSWORD = "GapProbe!2026x"
+EMAIL = os.environ.get("SYMBIA_EMAIL", "gap-probe@symbia.test")
+PASSWORD = os.environ.get("SYMBIA_PASSWORD")
+if not PASSWORD:
+    sys.exit(
+        "SYMBIA_PASSWORD is not set.\n"
+        "The feeder authenticates against the local Identity service; set the\n"
+        "password for the probe account in your environment before running:\n"
+        "  export SYMBIA_PASSWORD=...\n"
+    )
 
 _token: str | None = None
 

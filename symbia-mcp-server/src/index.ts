@@ -8,7 +8,7 @@
  * linger here after being removed.
  *
  * Authenticates against the Identity service with SYMBIA_EMAIL /
- * SYMBIA_PASSWORD (defaults to the gap-probe test user).
+ * SYMBIA_PASSWORD (SYMBIA_PASSWORD is required).
  */
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
@@ -16,7 +16,14 @@ import { z } from "zod";
 import { ServicePorts, RunningServices, type ServiceId } from "@symbia/sys";
 
 const EMAIL = process.env.SYMBIA_EMAIL ?? "gap-probe@symbia.test";
-const PASSWORD = process.env.SYMBIA_PASSWORD ?? "GapProbe!2026x";
+const PASSWORD = process.env.SYMBIA_PASSWORD;
+if (!PASSWORD) {
+  console.error(
+    "SYMBIA_PASSWORD is not set. This server authenticates against the local\n" +
+      "Identity service; set the probe account password in the MCP server's env.",
+  );
+  process.exit(1);
+}
 const HOST = process.env.SYMBIA_HOST ?? "localhost";
 const CHARACTER_LIMIT = 25000;
 
