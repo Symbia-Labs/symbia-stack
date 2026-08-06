@@ -48,6 +48,3 @@ temp/
 # Python bytecode
 __pycache__/
 *.py[cod]
-
-# Operational snapshots (append-only runtime artifact, not source)
-ops/*.jsonl
