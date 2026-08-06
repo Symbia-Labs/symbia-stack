@@ -96,6 +96,31 @@ async function emitHtml() {
   await writeFile(path.join(OUT, 'index.html'), out);
 }
 
+async function buildServer() {
+  // Node bundle, same treatment the nine services give their entry point.
+  // Bundled rather than tsc-emitted so `node dist/server.mjs` needs nothing
+  // resolved at runtime beyond the externals below.
+  const pkg = JSON.parse(await readFile('package.json', 'utf8'));
+  const runtimeDeps = ['express', 'http-proxy-middleware'];
+  const external = Object.keys(pkg.dependencies ?? {}).filter(
+    (d) => !d.startsWith('@symbia/') && !runtimeDeps.includes(d)
+  );
+
+  await esbuild({
+    entryPoints: ['server/src/index.ts'],
+    bundle: true,
+    format: 'esm',
+    platform: 'node',
+    target: ['node20'],
+    outfile: path.join(OUT, 'server.mjs'),
+    banner: {
+      js: `import { createRequire } from 'module'; const require = createRequire(import.meta.url);`,
+    },
+    external,
+    logLevel: 'info',
+  });
+}
+
 async function main() {
   await rm(OUT, { recursive: true, force: true });
   await rm(TMP, { recursive: true, force: true });
@@ -142,6 +167,9 @@ async function main() {
 
   console.log('monaco...');
   await copyMonaco();
+
+  console.log('server...');
+  await buildServer();
 
   console.log(`built -> ${OUT}/`);
 }
