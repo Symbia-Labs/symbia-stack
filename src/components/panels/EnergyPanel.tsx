@@ -260,10 +260,15 @@ export function EnergyPanel() {
         <div className="scc-card p-4 border border-amber-400/50">
           <p className="text-[15px] text-amber-400">Energy service: {error}</p>
           <p className="text-[14px] text-slate-400 mt-2">
-            Start it with{' '}
-            <code className="font-mono">python3 ~/symbia-stack/energy/service/server.py</code>{' '}
-            and the simulator with{' '}
-            <code className="font-mono">python3 ~/symbia-stack/energy/sim/site_sim.py</code>.
+            The unregistered :5010 energy service was removed on 6 Aug 2026 — its
+            derivation now runs inside the runtime graph{' '}
+            <code className="font-mono">energy-pipeline</code>, which persists{' '}
+            <code className="font-mono">energy.v2.facility_kw</code>,{' '}
+            <code className="font-mono">energy.v2.it_kw</code> and{' '}
+            <code className="font-mono">energy.v2.pue</code> to the Logging service.
+            This panel has not been rebuilt against those metrics yet, so it has no
+            source to read. Feed the graph with{' '}
+            <code className="font-mono">python3 ~/symbia-stack/energy/app/feeder.py</code>.
           </p>
           <button onClick={load} className="text-[14px] text-scc-primary mt-3 hover:underline">
             retry

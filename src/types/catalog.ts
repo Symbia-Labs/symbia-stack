@@ -4,12 +4,22 @@
  * Type definitions for all catalog resources used in the Catalog Editor.
  */
 
-// Resource types supported by the catalog
+// Resource types supported by the catalog.
+//
+// This list is the third copy of the same registry — catalog/shared/schema.ts
+// is the authority, @symbia/catalog-client keeps another, and this is a third.
+// All three had drifted apart: catalog gained `component` (Phase 0, 5 Aug) and
+// `app` (6 Aug) that neither copy learned about, while this copy's consumers
+// switch on an `executor` type the catalog has never defined. Logged as D11.
+// Kept in sync by hand for now; the fix is for consumers to take the type from
+// the client library and the client library to track the catalog.
 export type ResourceType =
   | 'graph'
   | 'context'
   | 'assistant'
-  | 'integration';
+  | 'integration'
+  | 'component'
+  | 'app';
 
 export type ResourceStatus = 'draft' | 'published' | 'deprecated';
 
