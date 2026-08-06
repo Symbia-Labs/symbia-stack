@@ -24,7 +24,7 @@ import { createProxyMiddleware, type Options, type RequestHandler } from 'http-p
 import type { Express } from 'express';
 import type { Server } from 'node:http';
 import type { Socket } from 'node:net';
-import { ServicePorts, ServiceId, RunningServices } from '@symbia/sys';
+import { ServiceId, RunningServices, resolveServiceTarget } from '@symbia/sys';
 
 /**
  * Services this app proxies to.
@@ -41,11 +41,14 @@ export const PROXIED_SERVICES: ServiceId[] = RunningServices.filter(
   (id) => id !== ServiceId.CONTROL_CENTER
 );
 
-/** Where a service actually lives. Container DNS in compose, localhost otherwise. */
-export function serviceTarget(id: ServiceId): string {
-  const host = process.env[`${id.toUpperCase().replace(/-/g, '_')}_HOST`];
-  return `http://${host ?? 'localhost'}:${ServicePorts[id]}`;
-}
+/**
+ * Where a service actually lives.
+ *
+ * Delegates to @symbia/sys. This used to compute the host inline, and
+ * service-admin computed it differently — same concern, two implementations,
+ * disagreeing about the default. One function now, in the registry.
+ */
+export const serviceTarget = resolveServiceTarget;
 
 /**
  * Keyed by service so the HTTP `upgrade` listener can reuse the same handler
@@ -58,7 +61,7 @@ const handlers = new Map<ServiceId, RequestHandler>();
 
 export function mountServiceProxies(app: Express): void {
   for (const id of PROXIED_SERVICES) {
-    const target = serviceTarget(id);
+    const target = resolveServiceTarget(id);
 
     const options: Options = {
       target,

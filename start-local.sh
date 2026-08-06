@@ -40,7 +40,8 @@ RUNTIME_PORT="${RUNTIME_PORT:-5006}"
 INTEGRATIONS_PORT="${INTEGRATIONS_PORT:-5007}"
 MODELS_PORT="${MODELS_PORT:-5008}"
 NETWORK_PORT="${NETWORK_PORT:-5009}"
-SERVICE_ADMIN_PORT="${SERVICE_ADMIN_PORT:-3000}"
+API_PORT="${API_PORT:-9000}"
+CONTROL_CENTER_PORT="${CONTROL_CENTER_PORT:-8000}"
 
 # PID tracking
 PID_DIR="${SCRIPT_DIR}/.local-pids"
@@ -309,7 +310,12 @@ start_all_services() {
   start_service "models" "$MODELS_PORT" ""
 
   # Tier 5: Admin UI
-  start_service "service-admin" "$SERVICE_ADMIN_PORT" ""
+  start_service "service-admin" "$API_PORT" ""
+
+  # The control center. Until 6 Aug 2026 neither start script ran the main UI
+  # (F5) -- it existed only if a developer knew to run a bundler by hand, which
+  # DEVELOPER.md 3 described as "this catches everyone". It is a service now.
+  start_service "symbia-control-center" "$CONTROL_CENTER_PORT" ""
 
   echo ""
   log_success "All services started!"

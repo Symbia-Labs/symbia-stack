@@ -6,7 +6,10 @@
 # All ports can be customized via environment variables or .env file.
 # Default ports: postgres=5432, identity=5001, logging=5002, catalog=5003,
 # assistants=5004, messaging=5005, runtime=5006, integrations=5007,
-# network=5009, service-admin=3000
+# network=5009, control-center=8000, api=9000
+#
+# Ports are declared in @symbia/sys and restated here because compose cannot
+# import it. `npm run check:ports` asserts the two agree.
 
 services:
   # PostgreSQL database
@@ -268,7 +271,7 @@ services:
       LOGGING_SERVICE_URL: http://logging:5002
       NETWORK_SERVICE_URL: http://network:5009
       MAX_LOADED_MODELS: ${MAX_LOADED_MODELS:-2}
-      IDLE_TIMEOUT_MS: ${IDLE_TIMEOUT_MS:-300000}
+      IDLE_TIMEOUT_MS: ${IDLE_TIMEOUT_MS:-900000}
       DEFAULT_GPU_LAYERS: ${DEFAULT_GPU_LAYERS:-0}
       DEFAULT_THREADS: ${DEFAULT_THREADS:-4}
       HUGGINGFACE_TOKEN: ${HUGGINGFACE_TOKEN:-}
@@ -289,14 +292,29 @@ services:
       timeout: 10s
       retries: 3
 
-  # Service Admin - Dashboard & API Explorer
+  # API front end / admin console - ServiceId.API
+  # Was `service-admin` on 9000, registered nowhere (F1).
   service-admin:
     build:
       context: .
       dockerfile: service-admin/Dockerfile
     environment:
       NODE_ENV: production
-      PORT: 3000
+      API_PORT: 9000
+      # Where each service lives. Set explicitly rather than defaulted:
+      # resolveServiceHost() falls back to localhost, which is correct outside
+      # compose and wrong inside it. Two proxies previously disagreed about
+      # this default; now neither guesses.
+      IDENTITY_HOST: identity
+      LOGGING_HOST: logging
+      CATALOG_HOST: catalog
+      ASSISTANTS_HOST: assistants
+      MESSAGING_HOST: messaging
+      RUNTIME_HOST: runtime
+      INTEGRATIONS_HOST: integrations
+      MODELS_HOST: models
+      NETWORK_HOST: network
+      CONTROL_CENTER_HOST: control-center
       # PostgreSQL connection for database browser
       POSTGRES_HOST: postgres
       POSTGRES_PORT: 5432
@@ -304,14 +322,47 @@ services:
       POSTGRES_USER: ${POSTGRES_USER:-symbia}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-symbia_dev}
     ports:
-      - "${SERVICE_ADMIN_PORT:-3000}:3000"
+      - "${API_PORT:-9000}:9000"
     depends_on:
       identity:
         condition: service_healthy
       postgres:
         condition: service_healthy
     healthcheck:
-      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://127.0.0.1:3000/health"]
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://127.0.0.1:9000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Control Center - the operator console, service #10.
+  # Previously not started by anything: it ran only if a developer knew to run
+  # a bundler by hand (F5).
+  control-center:
+    build:
+      context: .
+      dockerfile: symbia-control-center/Dockerfile
+    environment:
+      NODE_ENV: production
+      CONTROL_CENTER_PORT: 8000
+      IDENTITY_HOST: identity
+      LOGGING_HOST: logging
+      CATALOG_HOST: catalog
+      ASSISTANTS_HOST: assistants
+      MESSAGING_HOST: messaging
+      RUNTIME_HOST: runtime
+      INTEGRATIONS_HOST: integrations
+      MODELS_HOST: models
+      NETWORK_HOST: network
+      API_HOST: service-admin
+    ports:
+      - "${CONTROL_CENTER_PORT:-8000}:8000"
+    depends_on:
+      identity:
+        condition: service_healthy
+      catalog:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://127.0.0.1:8000/health/live"]
       interval: 30s
       timeout: 10s
       retries: 3

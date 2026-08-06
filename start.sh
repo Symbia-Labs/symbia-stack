@@ -254,7 +254,8 @@ show_status() {
   docker-compose ps
   echo ""
   log_info "Service URLs:"
-  echo "  - Service Admin:  http://localhost:3000"
+  echo "  - Control Center: http://localhost:8000"
+  echo "  - API / Admin:    http://localhost:9000"
   echo "  - Identity:       http://localhost:5001"
   echo "  - Logging:        http://localhost:5002"
   echo "  - Catalog:        http://localhost:5003"

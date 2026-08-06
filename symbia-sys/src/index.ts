@@ -142,6 +142,33 @@ export function resolveServicePort(serviceId: ServiceId | string): number {
 }
 
 /**
+ * Resolve the HOST a service is reachable at.
+ *
+ * `{SERVICE_ID}_HOST` if set, else localhost. In compose the service name is
+ * the DNS name, so compose sets these explicitly rather than relying on a
+ * default that means different things in different places.
+ *
+ * This exists because two proxies had two conventions: the control center
+ * defaulted to `localhost`, service-admin defaulted to the docker service
+ * name. Same concern, two implementations, which is the defect that let
+ * identity's forked authMiddleware survive a patch to @symbia/auth. Both now
+ * call this.
+ */
+export function resolveServiceHost(serviceId: ServiceId | string): string {
+  const envVar = `${String(serviceId).toUpperCase().replace(/-/g, "_")}_HOST`;
+  return process.env[envVar] || "localhost";
+}
+
+/**
+ * Resolve the full base URL for a service: host from the environment, port
+ * from the registry. Never a hardcoded literal at the call site.
+ */
+export function resolveServiceTarget(serviceId: ServiceId | string): string {
+  const id = serviceId as ServiceId;
+  return `http://${resolveServiceHost(id)}:${resolveServicePort(id)}`;
+}
+
+/**
  * Get the local endpoint URL for a service
  *
  * @param serviceId - The service identifier

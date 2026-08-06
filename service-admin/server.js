@@ -1,11 +1,31 @@
-const http = require('http');
-const fs = require('fs');
-const path = require('path');
-const { Pool } = require('pg');
+// ESM, not CommonJS. @symbia/sys is an ESM package, and `require()` of it
+// works on Node 22.12+ but NOT on the node:20-alpine image this service ships
+// in -- so a CJS build would have passed locally and failed in the container.
+import http from 'node:http';
+import fs from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+import pg from 'pg';
+import {
+  resolveServicePort,
+  resolveServiceHost,
+  ServiceId,
+  ServicePorts,
+  RunningServices,
+} from '@symbia/sys';
 
-const PORT = process.env.PORT || 3000;
+const { Pool } = pg;
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+
+// Registered as ServiceId.API (9000). This service previously ran on 3000
+// with no entry in the platform registry at all (F1) -- a service holding
+// direct Postgres credentials to six databases, proxying to every other
+// service, and invisible to the registry that is supposed to gate exactly
+// that. Registering it does not settle whether it should exist in this
+// form; see docs/2026-08-06-control-center-rebuild.md 8.2.
+const PORT = resolveServicePort(ServiceId.API);
 const IDENTITY_HOST = process.env.IDENTITY_HOST || 'identity';
-const IDENTITY_PORT = process.env.IDENTITY_PORT || 5001;
+const IDENTITY_PORT = resolveServicePort(ServiceId.IDENTITY);
 
 // Service databases - each service has its own database
 const SERVICE_DATABASES = [
@@ -225,19 +245,35 @@ function sendJson(res, statusCode, data) {
   res.end(JSON.stringify(data));
 }
 
-// Service routing map (port -> Docker service name)
-const SERVICE_MAP = {
-  '5001': process.env.IDENTITY_HOST || 'identity',
-  '5002': process.env.LOGGING_HOST || 'logging',
-  '5003': process.env.CATALOG_HOST || 'catalog',
-  '5004': process.env.ASSISTANTS_HOST || 'assistants',
-  '5005': process.env.MESSAGING_HOST || 'messaging',
-  '5006': process.env.RUNTIME_HOST || 'runtime',
-  '5007': process.env.INTEGRATIONS_HOST || 'integrations',
-  '5008': process.env.MODELS_HOST || 'models',
-  '5054': process.env.NETWORK_HOST || 'network',
-  '5432': process.env.POSTGRES_HOST || 'postgres'
+// Service routing, derived from @symbia/sys (F2).
+//
+// This was a hand-maintained map keyed by PORT, carrying its own copy of every
+// port number, in a service that was itself absent from the platform registry
+// (F1). `network: 5054` outlived the move to 5009 in exactly the way a
+// restated constant does.
+//
+// Routes are addressed by service ID now. Ports are looked up, never written.
+
+// resolveServiceHost is the one implementation of this. It used to default to
+// the docker service name here and to localhost in the control center -- two
+// proxies disagreeing about where a service lives. Compose now sets *_HOST
+// explicitly rather than either of them guessing.
+const SERVICE_HOSTS = Object.fromEntries(
+  RunningServices.map((id) => [id, resolveServiceHost(id)])
+);
+SERVICE_HOSTS.postgres = process.env.POSTGRES_HOST || 'postgres';
+
+const SERVICE_PORTS = {
+  ...ServicePorts,
+  postgres: parseInt(process.env.POSTGRES_PORT || '5432', 10),
 };
+
+// Reverse lookup, kept ONLY so the legacy /proxy/:port/* form still resolves
+// while the console's own HTML still emits it. The port form is the defect;
+// it is accepted, not endorsed, and should go when index.html is updated.
+const PORT_TO_ID = Object.fromEntries(
+  Object.entries(SERVICE_PORTS).map(([id, port]) => [String(port), id])
+);
 
 const server = http.createServer(async (req, res) => {
   // CORS preflight - handle FIRST before anything else
@@ -263,17 +299,33 @@ const server = http.createServer(async (req, res) => {
   // Health check
   if (req.url === '/health' || req.url === '/health/live') {
     res.writeHead(200, { 'Content-Type': 'application/json' });
-    res.end(JSON.stringify({ status: 'healthy', service: 'service-admin' }));
+    res.end(JSON.stringify({ status: 'healthy', service: ServiceId.API }));
     return;
   }
 
   // Proxy API requests to services
   // Format: /proxy/:port/*path
-  const proxyMatch = req.url.match(/^\/proxy\/(\d+)(\/.*)?$/);
+  const proxyMatch = req.url.match(/^\/proxy\/([^/]+)(\/.*)?$/);
   if (proxyMatch) {
-    const targetPort = proxyMatch[1];
+    const key = decodeURIComponent(proxyMatch[1]);
+    // Accept either a service id (preferred) or a bare port (legacy).
+    const serviceId = /^\d+$/.test(key) ? PORT_TO_ID[key] : key;
+    const targetPort = SERVICE_PORTS[serviceId];
     const targetPath = proxyMatch[2] || '/';
-    const targetHost = SERVICE_MAP[targetPort] || 'localhost';
+    const targetHost = SERVICE_HOSTS[serviceId];
+
+    // An unregistered target is refused rather than silently sent to
+    // localhost, which is what the old `|| 'localhost'` fallback did -- it
+    // turned a routing mistake into a connection to whatever happened to be
+    // listening.
+    if (!targetPort || !targetHost) {
+      sendJson(res, 404, {
+        error: 'unknown_service',
+        requested: key,
+        known: Object.keys(SERVICE_HOSTS),
+      });
+      return;
+    }
 
     // Forward headers but fix host
     const forwardHeaders = { ...req.headers };
@@ -523,5 +575,5 @@ const server = http.createServer(async (req, res) => {
 });
 
 server.listen(PORT, '0.0.0.0', () => {
-  console.log(`\n  ⚡ Service Admin running on port ${PORT}\n`);
+  console.log(`\n  ⚡ Symbia API (service-admin) on port ${PORT}\n`);
 });
