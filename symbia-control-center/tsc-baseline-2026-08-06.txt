@@ -1,0 +1,49 @@
+src/App.tsx(3,1): error TS6133: 'LoginPage' is declared but its value is never read.
+src/App.tsx(4,1): error TS6133: 'RegisterPage' is declared but its value is never read.
+src/components/panels/AssistantsPanel.tsx(281,10): error TS6133: '_NewAssistantCard' is declared but its value is never read.
+src/components/panels/catalog/ResourceEditor.tsx(116,12): error TS2678: Type '"executor"' is not comparable to type 'ResourceType'.
+src/components/panels/catalog/ResourceEditor.tsx(193,12): error TS2678: Type '"executor"' is not comparable to type 'ResourceType'.
+src/components/panels/catalog/sections/CurriculumOverviewSection.tsx(301,7): error TS2322: Type 'unknown' is not assignable to type 'ReactNode'.
+src/components/panels/catalog/type-sections/AssistantConfigSection.tsx(15,51): error TS6133: 'ProviderCapability' is declared but its value is never read.
+src/components/panels/catalog/type-sections/AssistantConfigSection.tsx(29,42): error TS7006: Parameter 's' implicitly has an 'any' type.
+src/components/panels/catalog/type-sections/AssistantConfigSection.tsx(30,51): error TS7006: Parameter 's' implicitly has an 'any' type.
+src/components/panels/catalog/type-sections/AssistantConfigSection.tsx(35,39): error TS7006: Parameter 'p' implicitly has an 'any' type.
+src/components/panels/catalog/type-sections/AssistantConfigSection.tsx(52,42): error TS7006: Parameter 's' implicitly has an 'any' type.
+src/components/panels/catalog/type-sections/AssistantConfigSection.tsx(53,51): error TS7006: Parameter 's' implicitly has an 'any' type.
+src/components/panels/catalog/type-sections/AssistantConfigSection.tsx(86,19): error TS7006: Parameter 'm' implicitly has an 'any' type.
+src/components/panels/catalog/type-sections/AssistantConfigSection.tsx(300,20): error TS7006: Parameter 'p' implicitly has an 'any' type.
+src/components/panels/catalog/type-sections/AssistantConfigSection.tsx(448,30): error TS7006: Parameter 'p' implicitly has an 'any' type.
+src/components/panels/catalog/type-sections/AssistantConfigSection.tsx(478,31): error TS7006: Parameter 'm' implicitly has an 'any' type.
+src/components/panels/catalog/type-sections/AssistantConfigSection.tsx(486,34): error TS7006: Parameter 'm' implicitly has an 'any' type.
+src/components/panels/catalog/type-sections/ComponentInterfaceSection.tsx(9,32): error TS2724: '"@/types/catalog"' has no exported member named 'ComponentResource'. Did you mean 'ContextResource'?
+src/components/panels/catalog/type-sections/ExecutorRuntimeSection.tsx(9,32): error TS2305: Module '"@/types/catalog"' has no exported member 'ExecutorResource'.
+src/components/panels/LogsPanel.tsx(257,14): error TS7006: Parameter 'log' implicitly has an 'any' type.
+src/components/panels/LogsPanel.tsx(264,12): error TS7006: Parameter 'a' implicitly has an 'any' type.
+src/components/panels/LogsPanel.tsx(264,15): error TS7006: Parameter 'b' implicitly has an 'any' type.
+src/components/panels/LogsPanel.tsx(267,6): error TS7006: Parameter 'acc' implicitly has an 'any' type.
+src/components/panels/LogsPanel.tsx(267,11): error TS7006: Parameter 'log' implicitly has an 'any' type.
+src/components/panels/LogsPanel.tsx(390,32): error TS7006: Parameter 'log' implicitly has an 'any' type.
+src/components/panels/NetworkPanel.tsx(369,16): error TS7006: Parameter 'i' implicitly has an 'any' type.
+src/components/panels/NetworkPanel.tsx(370,13): error TS7006: Parameter 'integration' implicitly has an 'any' type.
+src/components/panels/NetworkPanel.tsx(374,64): error TS7006: Parameter 'op' implicitly has an 'any' type.
+src/components/panels/NetworkPanel.tsx(394,8): error TS7006: Parameter 'n' implicitly has an 'any' type.
+src/components/panels/NetworkPanel.tsx(575,59): error TS18046: 'nodes' is of type 'unknown'.
+src/components/panels/NetworkPanel.tsx(579,22): error TS18046: 'nodes' is of type 'unknown'.
+src/components/panels/NetworkPanel.tsx(579,33): error TS7006: Parameter 'node' implicitly has an 'any' type.
+src/components/panels/OverviewPanel.tsx(277,35): error TS7006: Parameter 'r' implicitly has an 'any' type.
+src/components/panels/OverviewPanel.tsx(437,30): error TS7006: Parameter 'p' implicitly has an 'any' type.
+src/components/panels/ServiceObservationPanel.tsx(267,58): error TS7006: Parameter 'e' implicitly has an 'any' type.
+src/components/panels/ServiceObservationPanel.tsx(271,42): error TS7031: Binding element 'event' implicitly has an 'any' type.
+src/components/panels/ServiceObservationPanel.tsx(325,30): error TS7031: Binding element 'event' implicitly has an 'any' type.
+src/components/panels/ServiceObservationPanel.tsx(423,33): error TS7031: Binding element 'event' implicitly has an 'any' type.
+src/components/panels/ServiceObservationPanel.tsx(423,40): error TS7031: Binding element 'trace' implicitly has an 'any' type.
+src/components/panels/ServiceObservationPanel.tsx(448,8): error TS7006: Parameter 'log' implicitly has an 'any' type.
+src/components/panels/ServiceObservationPanel.tsx(472,80): error TS7006: Parameter 'l' implicitly has an 'any' type.
+src/hooks/useMessaging.ts(10,3): error TS6133: 'updateSocketHandlers' is declared but its value is never read.
+src/services/messagingBridge.ts(221,5): error TS6133: 'currentHandlers' is declared but its value is never read.
+src/stores/authStore.ts(89,7): error TS6133: 'devUser' is declared but its value is never read.
+src/stores/servicesStore.ts(199,14): error TS7022: 'useServicesStore' implicitly has type 'any' because it does not have a type annotation and is referenced directly or indirectly in its own initializer.
+src/stores/servicesStore.ts(369,3): error TS7023: 'getProviderCapability' implicitly has return type 'any' because it does not have a return type annotation and is referenced directly or indirectly in one of its return expressions.
+src/stores/servicesStore.ts(370,11): error TS7022: 'state' implicitly has type 'any' because it does not have a type annotation and is referenced directly or indirectly in its own initializer.
+src/stores/servicesStore.ts(378,63): error TS7006: Parameter 'm' implicitly has an 'any' type.
+src/types/catalog.ts(158,14): error TS2739: Type '{ graph: { label: string; icon: string; color: string; description: string; }; context: { label: string; icon: string; color: string; description: string; }; assistant: { label: string; icon: string; color: string; description: string; }; integration: { ...; }; }' is missing the following properties from type 'Record<ResourceType, { label: string; icon: string; color: string; description: string; }>': component, app

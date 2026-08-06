@@ -14,6 +14,7 @@
     "symbia-md",
     "symbia-id",
     "symbia-messaging-client",
+    "symbia-catalog-client",
     "identity",
     "logging",
     "catalog",
@@ -23,11 +24,12 @@
     "assistants",
     "integrations",
     "models",
-    "service-admin"
+    "service-admin",
+    "symbia-control-center"
   ],
   "scripts": {
     "install:all": "npm install",
-    "build:libs": "npm run build -w symbia-sys && npm run build -w symbia-relay -w symbia-logging-client && npm run build -w symbia-auth -w symbia-db -w symbia-http -w symbia-seed -w symbia-md -w symbia-id -w symbia-messaging-client",
+    "build:libs": "npm run build -w symbia-sys && npm run build -w symbia-relay -w symbia-logging-client && npm run build -w symbia-auth -w symbia-db -w symbia-http -w symbia-seed -w symbia-md -w symbia-id -w symbia-messaging-client -w symbia-catalog-client",
     "build:services": "npm run build -w identity -w logging -w catalog -w messaging -w network -w runtime -w assistants -w integrations -w models -w service-admin",
     "build": "npm run build:libs && npm run build:services",
     "dev": "./start-local.sh",
