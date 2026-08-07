@@ -146,27 +146,63 @@ export class AnthropicProvider implements ProviderAdapter {
    * Anthropic doesn't have a models list API, so this returns a curated list
    */
   async listModels(_apiKey?: string): Promise<ModelInfo[]> {
+    // ORDER IS LOAD-BEARING. Anything selecting a model automatically takes
+    // the first entry, so a dead id at the top breaks every default caller.
+    // That is not hypothetical: the spyglass drove itself successfully all the
+    // way to the gateway and got a 502 because the first id here was rejected
+    // by the API. The list is now ordered by what has been MEASURED to answer,
+    // 7 Aug 2026, through /api/integrations/execute with a real image:
+    //
+    //   claude-sonnet-5             OK — "**Checkerboard** pattern"
+    //   claude-opus-5               OK — returned empty at maxTokens 30
+    //   claude-haiku-4-5-20251001   OK — "Checkerboard"
+    //   claude-opus-4-20250514      502 — "Anthropic API error: model:
+    //                                     claude-opus-4-20250514"
+    //
+    // The claude-3-* entries below are NOT marked deprecated, because they
+    // were not tested. Absence of a test is not evidence of a failure, and
+    // marking them would be inventing a measurement.
     return [
-      // Claude 4 series (Latest)
-      {
-        id: 'claude-opus-4-20250514',
-        name: 'Claude Opus 4',
-        description: 'Most powerful Claude model with state-of-the-art coding and reasoning',
-        contextWindow: 200000,
-        maxOutputTokens: 32000,
-        capabilities: ['chat', 'vision', 'function_calling', 'reasoning'],
-        inputPricing: 15.00,
-        outputPricing: 75.00,
-      },
       {
         id: 'claude-sonnet-5',
-        name: 'Claude Sonnet 4',
-        description: 'Balanced performance with improved reasoning and tool use',
+        name: 'Claude Sonnet 5',
+        description: 'Balanced performance with strong vision. Measured working 7 Aug 2026.',
         contextWindow: 200000,
         maxOutputTokens: 64000,
         capabilities: ['chat', 'vision', 'function_calling', 'reasoning'],
         inputPricing: 3.00,
         outputPricing: 15.00,
+      },
+      {
+        id: 'claude-opus-5',
+        name: 'Claude Opus 5',
+        description: 'Most capable Claude model. Measured reachable 7 Aug 2026.',
+        contextWindow: 200000,
+        maxOutputTokens: 64000,
+        capabilities: ['chat', 'vision', 'function_calling', 'reasoning'],
+        inputPricing: 15.00,
+        outputPricing: 75.00,
+      },
+      {
+        id: 'claude-haiku-4-5-20251001',
+        name: 'Claude Haiku 4.5',
+        description: 'Fast and inexpensive. Measured working 7 Aug 2026.',
+        contextWindow: 200000,
+        maxOutputTokens: 32000,
+        capabilities: ['chat', 'vision', 'function_calling'],
+        inputPricing: 1.00,
+        outputPricing: 5.00,
+      },
+      {
+        id: 'claude-opus-4-20250514',
+        name: 'Claude Opus 4',
+        description: 'Rejected by the API on 7 Aug 2026 with "model: claude-opus-4-20250514".',
+        contextWindow: 200000,
+        maxOutputTokens: 32000,
+        capabilities: ['chat', 'vision', 'function_calling', 'reasoning'],
+        inputPricing: 15.00,
+        outputPricing: 75.00,
+        deprecated: true,
       },
 
       // Claude 3.5 series

@@ -136,9 +136,21 @@ export function Spyglass({
       // node that cannot do its job would put a lie in the topology.
       void connectSpyglassNode(nodeId);
       return true;
-    } catch {
+    } catch (e) {
+      // Keep the reason.
+      //
+      // This was a bare `catch { setState('denied') }`, which turned every
+      // possible failure — the user cancelling, a permissions policy, an
+      // unsupported constraint, no capture source available — into the single
+      // word "declined". That is a conclusion written into a probe: it names
+      // one cause for an event with several, and it cost a full driving run to
+      // discover that the failure was not a decline at all.
+      const err = e as { name?: string; message?: string };
       setShot('denied');
-      setNote('Capture declined.');
+      setNote(
+        `Capture did not start — ${err?.name ?? 'Error'}: ${err?.message ?? String(e)}`
+      );
+      console.warn('[spyglass] getDisplayMedia failed', err?.name, err?.message);
       return false;
     }
   }, [release, nodeId]);

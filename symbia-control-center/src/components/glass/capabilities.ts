@@ -24,6 +24,8 @@ export interface CapabilityModel {
   id: string;
   name?: string;
   capabilities?: string[];
+  /** Set by a provider when an id is known not to work. */
+  deprecated?: boolean;
 }
 
 export interface CapabilityProvider {
@@ -53,6 +55,12 @@ export function visionOptions(providers: CapabilityProvider[]): {
   return providers.map((p) => ({
     provider: p.provider,
     available: p.status === 'available',
-    models: (p.models ?? []).filter((m) => (m.capabilities ?? []).includes('vision')),
+    // Deprecated ids are excluded. A model the provider has recorded as
+    // rejected is not a candidate, and offering one is how the first
+    // successful capture still came back REFUSED — the aperture worked, the
+    // gateway worked, and the default model id was dead.
+    models: (p.models ?? []).filter(
+      (m) => (m.capabilities ?? []).includes('vision') && !m.deprecated
+    ),
   }));
 }
