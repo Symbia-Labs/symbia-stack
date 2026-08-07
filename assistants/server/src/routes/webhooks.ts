@@ -1061,6 +1061,14 @@ router.post('/messaging', async (req: Request, res: Response) => {
 
     // Extract response content from rule execution
     let responseContent: string | null = null;
+    // Sealed provenance for the reply. THIS is the live path — there is a
+    // second, near-identical extraction block earlier in this file for the SDN
+    // route, and patching that one alone did nothing for two build cycles
+    // because the coordinator does not take it. Two copies of one concern,
+    // again; consolidating them is a separate change and is noted rather than
+    // done here, because doing it inside a provenance fix would hide which
+    // change caused what.
+    let provenance: unknown = null;
     let errorMessage: string | null = null;
     let suppressResponse = false;
 
@@ -1069,8 +1077,13 @@ router.post('/messaging', async (req: Request, res: Response) => {
       for (const action of ruleResult.actionsExecuted) {
         if (action.success && action.output) {
           if (action.actionType === 'message.send') {
-            const output = action.output as { content?: string };
+            const output = action.output as {
+              content?: string;
+              message?: { metadata?: { symbia?: { provenance?: unknown } } };
+            };
             if (output.content) responseContent = output.content;
+            const env = output.message?.metadata?.symbia?.provenance;
+            if (env) provenance = env;
           }
           if (action.actionType === 'llm.invoke') {
             const output = action.output as { response?: string };
@@ -1137,6 +1150,9 @@ router.post('/messaging', async (req: Request, res: Response) => {
           content: responseContent,
           contentType: 'markdown',
           metadata: {
+            // The envelope. Structured and hashed, not a sentence appended to
+            // the text.
+            ...(provenance ? { symbia: { provenance } } : {}),
             assistantKey: payload.assistant.key,
             rulesEvaluated: result.rulesEvaluated,
             rulesMatched: result.rulesMatched,
