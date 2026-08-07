@@ -10,7 +10,7 @@
  * navigation writes back to it, which makes the address bar the single source
  * of truth rather than a decoration.
  */
-import { useCallback, useRef } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { MainLayout, type PanelId } from '@/components/layout/MainLayout';
 import { OverviewPanel } from '@/components/panels/OverviewPanel';
@@ -61,36 +61,64 @@ export function DashboardPage() {
   const navigate = useNavigate();
 
   const activePanel = panelFromPath(location.pathname);
-  const chatOpen = activePanel === 'chat';
 
-  // /chat is still a real, linkable route — the C5 deep-link work stands — but
-  // it now renders the popout over a panel rather than replacing the screen.
-  // The panel underneath is whatever you were last on; overview when the URL
-  // was typed cold.
-  const underlying = chatOpen ? lastNonChatPanel.current : activePanel;
+  // Chat's open state is INDEPENDENT of the route.
+  //
+  // It used to be `activePanel === 'chat'`, which meant clicking any other nav
+  // item closed the window — you could not read logs while asking about them,
+  // which is the entire reason it is a floating window and not a panel. The
+  // route can OPEN it (so /chat stays a working deep link) but never closes it.
+  const [chatOpen, setChatOpen] = useState(() => {
+    if (typeof window === 'undefined') return false;
+    if (panelFromPath(window.location.pathname) === 'chat') return true;
+    return localStorage.getItem('symbia:chat:open') === 'true';
+  });
+
+  useEffect(() => {
+    if (activePanel === 'chat') setChatOpen(true);
+  }, [activePanel]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('symbia:chat:open', String(chatOpen));
+    } catch {
+      /* storage disabled — the window still works, it just forgets */
+    }
+  }, [chatOpen]);
+
+  // The panel underneath is simply the current one. Chat no longer replaces a
+  // screen, so there is nothing to substitute — /chat typed cold is the only
+  // case that needs a fallback, and it gets the last panel you were on.
+  const underlying: PanelId =
+    activePanel === 'chat' ? lastNonChatPanel.current : activePanel;
   const PanelComponent = PANELS[underlying as Exclude<PanelId, 'chat'>] ?? OverviewPanel;
-  if (!chatOpen) lastNonChatPanel.current = activePanel;
+  if (activePanel !== 'chat') lastNonChatPanel.current = activePanel;
 
   const handlePanelChange = useCallback(
     (panel: PanelId) => {
+      // Chat is a window, not a destination. Clicking it toggles the popout and
+      // leaves you on the screen you were reading.
+      if (panel === 'chat') {
+        setChatOpen((v) => !v);
+        return;
+      }
       // push (not replace) so browser back/forward move between panels
       navigate(`/${panel}`);
     },
     [navigate]
   );
 
-  // Closing returns to the panel underneath, so the address bar keeps matching
-  // what is on screen. Closing the window while the URL still said /chat was
-  // the first thing that felt broken.
   // What the window is floating over. Derived from the panel underneath, not
   // the /chat route itself — the route is where you are, the panel is what you
   // are looking at.
   const chatContext = useChatContext(underlying as PanelId);
 
-  const closeChat = useCallback(
-    () => navigate(`/${lastNonChatPanel.current}`),
-    [navigate]
-  );
+  // Closing just closes. It no longer navigates, because opening no longer
+  // navigated — the two have to agree or the address bar starts lying.
+  const closeChat = useCallback(() => {
+    setChatOpen(false);
+    if (activePanel === 'chat') navigate(`/${lastNonChatPanel.current}`);
+  }, [navigate, activePanel]);
 
   return (
     <MainLayout activePanel={activePanel} onPanelChange={handlePanelChange}>

@@ -11,6 +11,7 @@
  * open/closed state persist, so it comes back where you left it.
  */
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { SKINS, SKIN_ORDER, loadSkin, saveSkin, type SkinId } from './skins';
 import { useScreenPosition, type ChatContext } from './useChatContext';
 
@@ -179,13 +180,20 @@ export function ChatWindow({
     saveSkin(id);
   };
 
-  return (
+  // Rendered into <body>, not into the panel tree.
+  //
+  // A `fixed` element is still trapped by any ancestor that creates a stacking
+  // context — a transform, a filter, an opacity, a z-index on a parent — and
+  // the panels use all of those. Portalling puts the window outside every one
+  // of them, so "always on top" is a property of where it lives rather than a
+  // z-index arms race with whatever a panel does next.
+  const node = (
     <div
       role="dialog"
       aria-label="Chat"
       onPointerEnter={() => setEngaged(true)}
       onPointerLeave={() => setEngaged(false)}
-      className={`fixed z-50 flex flex-col overflow-hidden rounded-[28px] shadow-2xl ring-1 ring-white/10 transition-opacity duration-200 ${
+      className={`fixed z-[9999] flex flex-col overflow-hidden rounded-[28px] shadow-2xl ring-1 ring-white/10 transition-opacity duration-200 ${
         overCanvas && !engaged ? 'opacity-70' : 'opacity-100'
       }`}
       style={{ left: geo.x, top: geo.y, width, height: geo.h }}
@@ -265,4 +273,6 @@ export function ChatWindow({
       </div>
     </div>
   );
+
+  return typeof document === 'undefined' ? node : createPortal(node, document.body);
 }
