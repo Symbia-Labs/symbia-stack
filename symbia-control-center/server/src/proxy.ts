@@ -20,7 +20,12 @@
  * whichever they need. Rewriting away path segments here is what broke health
  * checks in the earlier /api/{service} entries.
  */
-import { createProxyMiddleware, type Options, type RequestHandler } from 'http-proxy-middleware';
+import {
+  createProxyMiddleware,
+  fixRequestBody,
+  type Options,
+  type RequestHandler,
+} from 'http-proxy-middleware';
 import type { Express } from 'express';
 import type { Server } from 'node:http';
 import type { Socket } from 'node:net';
@@ -93,10 +98,31 @@ export function mountServiceProxies(app: Express): void {
       // it filled, which presents as a log view that shows nothing and then
       // everything at once.
       on: {
-        proxyReq: (proxyReq, req) => {
+        proxyReq: (proxyReq, req, res) => {
+          // WITHOUT THIS, EVERY WRITE HANGS.
+          //
+          // createSymbiaServer registers express.json() at server.ts:125 and
+          // calls registerRoutes — where this proxy mounts — at line 293. By
+          // the time a request reaches the proxy its body has already been
+          // read off the socket and parsed, so the proxy forwarded a request
+          // with correct headers including Content-Length and an EMPTY stream.
+          // The upstream then waited for a body that would never arrive.
+          //
+          // The failure mode is the reason this went unnoticed: it does not
+          // error, it hangs. GET worked, so every health check, every panel
+          // load and every list view passed. Only writes were affected, and a
+          // write that hangs looks like a slow network rather than a broken
+          // proxy. Measured 6 Aug: POST /api/conversations returned in 12ms
+          // direct and timed out at 12s through the proxy.
+          //
+          // fixRequestBody re-serialises the parsed body onto the outbound
+          // request.
+          fixRequestBody(proxyReq, req);
+
           if (req.url?.includes('/stream') || req.url?.includes('/events')) {
             proxyReq.setHeader('X-Accel-Buffering', 'no');
           }
+          void res;
         },
         error: (err, _req, res) => {
           // Report the failure as a failure. A proxy that swallows an
