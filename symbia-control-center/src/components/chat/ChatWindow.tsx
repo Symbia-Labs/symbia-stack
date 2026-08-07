@@ -195,24 +195,50 @@ export function ChatWindow({
   // the panels use all of those. Portalling puts the window outside every one
   // of them, so "always on top" is a property of where it lives rather than a
   // z-index arms race with whatever a panel does next.
-  // The region the glass shows: immediately to the LEFT of the window, same
-  // height. Recomputed from live geometry so it keeps pointing at whatever the
-  // window is actually beside, including mid-drag.
+  // WHERE THE GLASS SITS, and — separately — WHAT IT LOOKS AT.
+  //
+  // These were the same rectangle in the first version, which meant the glass
+  // was inside the region it captured. getDisplayMedia captures the COMPOSITED
+  // tab, including the glass's own canvas, so each frame drew the previous
+  // frame: video feedback, the infinite-mirror effect. It was showing its
+  // output, not its input.
+  //
+  // I had written a comment asserting this could not happen. The comment was
+  // about the chat WINDOW not being in the region — which was true — and I
+  // never checked the glass itself, which was sitting squarely in it.
+  //
+  // The source now sits one glass-width further left, so the captured
+  // rectangle contains neither the glass nor the window. There is no way to
+  // see *behind* an opaque element with screen capture — the frame is already
+  // composited — so a looking glass has to look at something it is not
+  // covering.
+  const glassX = Math.max(0, geo.x - GLASS_GAP - GLASS_W);
   const glassRegion = {
-    x: Math.max(0, geo.x - GLASS_GAP - GLASS_W),
+    x: Math.max(0, glassX - GLASS_GAP - GLASS_W),
     y: geo.y,
     w: GLASS_W,
     h: geo.h,
   };
+  // True when the glass has been pushed against the left edge and the source
+  // rectangle can no longer stay clear of it. Reported rather than hidden:
+  // feedback is a real state and looking like a bug is better than looking
+  // like a feature.
+  const glassSelfCapture = glassX < GLASS_W + GLASS_GAP;
 
   const node = (
     <>
       {glass && (
         <div
           className="fixed z-[9999]"
-          style={{ left: glassRegion.x, top: geo.y }}
+          style={{ left: glassX, top: geo.y }}
         >
-          <LookingGlass region={glassRegion} width={GLASS_W} height={geo.h} zoom={zoom} />
+          <LookingGlass
+            region={glassRegion}
+            width={GLASS_W}
+            height={geo.h}
+            zoom={zoom}
+            selfCapture={glassSelfCapture}
+          />
           <div className="mt-1.5 flex items-center justify-center gap-1">
             {[1, 2, 4].map((z) => (
               <button
