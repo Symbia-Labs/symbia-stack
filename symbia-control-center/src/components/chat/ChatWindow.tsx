@@ -14,6 +14,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { SKINS, SKIN_ORDER, loadSkin, saveSkin, type SkinId } from './skins';
 import { useScreenPosition, type ChatContext } from './useChatContext';
+import { LookingGlass } from './LookingGlass';
 
 /** Modern phone. Width is derived from height so the frame is always a phone. */
 const ASPECT = 9 / 19.5;
@@ -105,6 +106,13 @@ export function ChatWindow({
   const overCanvas = panel === 'network';
   const [engaged, setEngaged] = useState(false);
 
+  // The looking glass. Off by default — it needs a permission prompt, so it
+  // must be something you ask for, never something that greets you.
+  const [glass, setGlass] = useState(false);
+  const [zoom, setZoom] = useState(1);
+  const GLASS_W = 260;
+  const GLASS_GAP = 12;
+
   const persist = useCallback((g: Geometry) => {
     try {
       localStorage.setItem(keyFor(panel), JSON.stringify(g));
@@ -187,7 +195,39 @@ export function ChatWindow({
   // the panels use all of those. Portalling puts the window outside every one
   // of them, so "always on top" is a property of where it lives rather than a
   // z-index arms race with whatever a panel does next.
+  // The region the glass shows: immediately to the LEFT of the window, same
+  // height. Recomputed from live geometry so it keeps pointing at whatever the
+  // window is actually beside, including mid-drag.
+  const glassRegion = {
+    x: Math.max(0, geo.x - GLASS_GAP - GLASS_W),
+    y: geo.y,
+    w: GLASS_W,
+    h: geo.h,
+  };
+
   const node = (
+    <>
+      {glass && (
+        <div
+          className="fixed z-[9999]"
+          style={{ left: glassRegion.x, top: geo.y }}
+        >
+          <LookingGlass region={glassRegion} width={GLASS_W} height={geo.h} zoom={zoom} />
+          <div className="mt-1.5 flex items-center justify-center gap-1">
+            {[1, 2, 4].map((z) => (
+              <button
+                key={z}
+                onClick={() => setZoom(z)}
+                className={`px-2 py-0.5 rounded-full text-[13px] ${
+                  z === zoom ? 'bg-white/20 text-white' : 'text-white/40 hover:text-white/75'
+                }`}
+              >
+                {z}×
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
     <div
       role="dialog"
       aria-label="Chat"
@@ -252,6 +292,17 @@ export function ChatWindow({
               {SKINS[id].label}
             </button>
           ))}
+
+          <button
+            onClick={() => setGlass((v) => !v)}
+            title="Looking glass — live pixels beside the window"
+            aria-pressed={glass}
+            className={`ml-auto px-2.5 py-1 rounded-full text-[14px] transition-colors ${
+              glass ? 'bg-white/20 text-white' : 'text-white/45 hover:text-white/80 hover:bg-white/10'
+            }`}
+          >
+            🔍
+          </button>
         </div>
       </div>
 
@@ -272,6 +323,7 @@ export function ChatWindow({
         </svg>
       </div>
     </div>
+    </>
   );
 
   return typeof document === 'undefined' ? node : createPortal(node, document.body);
