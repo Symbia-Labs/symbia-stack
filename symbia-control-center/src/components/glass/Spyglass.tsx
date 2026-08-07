@@ -25,6 +25,7 @@
  */
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
+import { connectSpyglassNode, publishFrame, classifyFrame } from './spyglassNode';
 
 type GlassState = 'idle' | 'requesting' | 'live' | 'denied' | 'unsupported';
 type Surface = 'browser' | 'window' | 'monitor' | 'unknown';
@@ -61,6 +62,7 @@ export function Spyglass({ open, onClose }: { open: boolean; onClose: () => void
   const [zoom, setZoom] = useState(2);
   /** Pan offset, used only when the source is not this tab. Normalised 0..1. */
   const [pan, setPan] = useState({ x: 0.5, y: 0.5 });
+  const [grab, setGrab] = useState<{ busy: boolean; verdict?: string; digest?: string }>({ busy: false });
   const [state, setState] = useState<GlassState>(() =>
     typeof navigator !== 'undefined' && typeof navigator.mediaDevices?.getDisplayMedia === 'function'
       ? 'idle'
@@ -101,6 +103,9 @@ export function Spyglass({ open, onClose }: { open: boolean; onClose: () => void
         await v.play();
       }
       setState('live');
+      // Join the mesh only once there is something to capture. Registering a
+      // node that cannot do its job would put a lie in the topology.
+      void connectSpyglassNode();
     } catch {
       setState('denied');
     }
@@ -193,6 +198,39 @@ export function Spyglass({ open, onClose }: { open: boolean; onClose: () => void
     };
   }, [state, open, surface, geo, zoom, pan]);
 
+  /**
+   * Grab the current lens contents, publish it on the bus, and ask the models
+   * service what it is. Whatever comes back is shown VERBATIM — including a
+   * refusal, which is the current expected answer since no vision model is
+   * loaded.
+   */
+  const grabFrame = useCallback(async () => {
+    const c = canvasRef.current;
+    if (!c || state !== 'live') return;
+    setGrab({ busy: true });
+    try {
+      const dataUrl = c.toDataURL('image/png');
+      const b64 = dataUrl.split(',')[1] ?? '';
+      const env = await publishFrame(b64, {
+        width: c.width,
+        height: c.height,
+        source: surface === 'browser' ? 'tab' : surface,
+      });
+      const r = (await classifyFrame(b64, env)) as {
+        ok?: boolean; description?: string; reason?: string; missing?: string[];
+      };
+      setGrab({
+        busy: false,
+        digest: env.digest,
+        verdict: r.ok
+          ? r.description
+          : `${r.reason ?? 'refused'}${r.missing?.length ? ` (${r.missing[0]})` : ''}`,
+      });
+    } catch (e) {
+      setGrab({ busy: false, verdict: e instanceof Error ? e.message : 'grab failed' });
+    }
+  }, [state, surface]);
+
   if (!open) return null;
   const dpr = typeof window === 'undefined' ? 1 : window.devicePixelRatio || 1;
   const isTab = surface === 'browser';
@@ -276,6 +314,16 @@ export function Spyglass({ open, onClose }: { open: boolean; onClose: () => void
             {isTab ? 'this tab' : surface === 'unknown' ? 'source' : surface}
           </span>
         )}
+        {state === 'live' && (
+          <button
+            onClick={grabFrame}
+            disabled={grab.busy}
+            title="Grab this frame, publish it on the bus, and ask the vision model"
+            className="px-2 py-1 rounded-full bg-black/60 text-white/70 text-[13px] hover:text-white backdrop-blur disabled:opacity-50"
+          >
+            {grab.busy ? '…' : '⎘'}
+          </button>
+        )}
         <button
           onClick={state === 'live' ? start : onClose}
           title={state === 'live' ? 'Change source' : 'Close'}
@@ -291,6 +339,18 @@ export function Spyglass({ open, onClose }: { open: boolean; onClose: () => void
           ✕
         </button>
       </div>
+
+      {/* What the vision model said. Shown verbatim, refusals included — a
+          refusal is the answer right now, and dressing it up as anything else
+          would be the failure this whole mechanism is against. */}
+      {grab.verdict && (
+        <div className="mt-2 max-w-[340px] rounded-[14px] border border-amber-500/30 bg-black/75 px-3 py-2 backdrop-blur">
+          <p className="text-[14px] text-white/80 leading-snug">{grab.verdict}</p>
+          {grab.digest && (
+            <p className="mt-1 text-[12px] text-white/40">frame · {grab.digest}</p>
+          )}
+        </div>
+      )}
 
       {/* Resize grip, on the rim at 45°. */}
       <div
