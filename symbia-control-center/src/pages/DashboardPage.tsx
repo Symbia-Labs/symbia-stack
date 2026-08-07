@@ -144,6 +144,24 @@ export function DashboardPage() {
       <ChatWindow open={chatOpen} onClose={closeChat} status={<ConnectionDot />} context={chatContext}>
         {(skin) => <ChatPanel skin={skin} context={chatContext} />}
       </ChatWindow>
+      {/* Visible launcher.
+          Making the spyglass independent removed the 🔍 from the chat header
+          and left only Option+G — a keyboard shortcut nobody can discover by
+          looking. A feature reachable only by a shortcut you were told about
+          is a feature most people do not have. */}
+      <button
+        onClick={() => setSpyOpen((v) => !v)}
+        title="Spyglass — live pixels from any tab, window or screen (⌥G)"
+        aria-pressed={spyOpen}
+        className={`fixed bottom-5 right-5 z-[9998] w-12 h-12 rounded-full grid place-items-center text-[20px] shadow-xl border transition-colors ${
+          spyOpen
+            ? 'bg-white/20 border-white/35 text-white'
+            : 'bg-black/70 border-white/20 text-white/70 hover:text-white hover:bg-black/85'
+        }`}
+      >
+        🔍
+      </button>
+
       <Spyglass open={spyOpen} onClose={() => setSpyOpen(false)} />
     </MainLayout>
   );
