@@ -41,6 +41,56 @@ interface Geo {
   d: number;
 }
 
+/**
+ * Where a tab-mode lens is allowed to sample from.
+ *
+ * A magnifier over its own page CANNOT show what is underneath it — what is
+ * underneath it is the magnifier. So it samples a nearby rectangle instead, and
+ * that rectangle must not intersect the lens or the canvas photographs itself
+ * and recurses.
+ *
+ * The first version always offset one diameter to the LEFT and clamped the
+ * result with Math.max(0, …). Near the left edge — or with a lens wider than
+ * its own margin — the clamp put the rectangle back at x=0, which is exactly
+ * where the lens was sitting. Straight into feedback. The clamp that was
+ * supposed to keep the sample on screen was what walked it back onto the lens.
+ *
+ * Now every side is a candidate and the first one that fits ON screen and CLEAR
+ * of the lens wins. If none fits, this returns null and the lens says so rather
+ * than drawing a recursion and letting it read as an effect.
+ */
+export function tabSampleRect(
+  geo: Geo,
+  zoom: number,
+  vw: number,
+  vh: number
+): { x: number; y: number; size: number } | null {
+  const size = geo.d / zoom;
+  const gap = 12;
+  const cx = geo.x + geo.d / 2;
+  const cy = geo.y + geo.d / 2;
+
+  const candidates = [
+    { x: geo.x - gap - size, y: cy - size / 2 }, // left
+    { x: geo.x + geo.d + gap, y: cy - size / 2 }, // right
+    { x: cx - size / 2, y: geo.y - gap - size }, // above
+    { x: cx - size / 2, y: geo.y + geo.d + gap }, // below
+  ];
+
+  for (const c of candidates) {
+    const x = Math.min(Math.max(0, c.x), vw - size);
+    const y = Math.min(Math.max(0, c.y), vh - size);
+    if (x < 0 || y < 0 || size > vw || size > vh) continue;
+    // Overlap is tested AFTER clamping, because clamping is what reintroduced
+    // the overlap last time. Testing the unclamped candidate would pass a
+    // rectangle that then gets moved onto the lens.
+    const clear =
+      x + size <= geo.x || x >= geo.x + geo.d || y + size <= geo.y || y >= geo.y + geo.d;
+    if (clear) return { x, y, size };
+  }
+  return null;
+}
+
 function load(): Geo {
   const fallback: Geo = { x: 80, y: 120, d: 320 };
   try {
@@ -68,6 +118,19 @@ export function Spyglass({ open, onClose }: { open: boolean; onClose: () => void
       ? 'idle'
       : 'unsupported'
   );
+
+  // Viewport size is an input to where the lens may sample from, so a resize
+  // has to re-render the marker, not just the canvas.
+  const [vp, setVp] = useState(() =>
+    typeof window === 'undefined'
+      ? { w: 1280, h: 800 }
+      : { w: window.innerWidth, h: window.innerHeight }
+  );
+  useEffect(() => {
+    const on = () => setVp({ w: window.innerWidth, h: window.innerHeight });
+    window.addEventListener('resize', on);
+    return () => window.removeEventListener('resize', on);
+  }, []);
 
   const drag = useRef<{ dx: number; dy: number } | null>(null);
   const resize = useRef<{ x: number; y: number; d: number } | null>(null);
@@ -168,15 +231,20 @@ export function Spyglass({ open, onClose }: { open: boolean; onClose: () => void
           let sx: number, sy: number, sw: number, sh: number;
 
           if (isTab) {
-            // Magnifier over this page. The source is the area under the lens,
-            // pushed one diameter left so the lens is never inside the
-            // rectangle it samples — otherwise it captures its own canvas and
-            // feeds back.
+            // Magnifier over this page. It samples a rectangle beside the lens,
+            // never one containing it. If there is nowhere clear, it draws
+            // NOTHING — a blank lens is honest, a recursive one is not.
+            const rect = tabSampleRect(geo, zoom, window.innerWidth, window.innerHeight);
+            if (!rect) {
+              ctx.clearRect(0, 0, c.width, c.height);
+              rafRef.current = requestAnimationFrame(draw);
+              return;
+            }
             const k = v.videoWidth / window.innerWidth;
-            sw = (geo.d / zoom) * k;
-            sh = (geo.d / zoom) * k;
-            sx = Math.max(0, (geo.x - geo.d) * k + (geo.d * k - sw) / 2);
-            sy = geo.y * k + (geo.d * k - sh) / 2;
+            sx = rect.x * k;
+            sy = rect.y * k;
+            sw = rect.size * k;
+            sh = rect.size * k;
           } else {
             // Another tab, a window, or a monitor. Pan around it.
             sw = v.videoWidth / zoom;
@@ -234,8 +302,21 @@ export function Spyglass({ open, onClose }: { open: boolean; onClose: () => void
   if (!open) return null;
   const dpr = typeof window === 'undefined' ? 1 : window.devicePixelRatio || 1;
   const isTab = surface === 'browser';
+  const sample = isTab && state === 'live' ? tabSampleRect(geo, zoom, vp.w, vp.h) : null;
 
   const node = (
+    <>
+    {/* Where the pixels are coming from.
+        Without this the lens is a magnifier showing something that is not
+        underneath it, which reads as a bug even when it is working. The outline
+        makes the offset visible instead of mysterious. */}
+    {sample && (
+      <div
+        aria-hidden
+        className="fixed z-[9999] pointer-events-none rounded-[4px] border border-dashed border-cyan-300/60"
+        style={{ left: sample.x, top: sample.y, width: sample.size, height: sample.size }}
+      />
+    )}
     <div className="fixed z-[10000]" style={{ left: geo.x, top: geo.y }}>
       <video ref={videoRef} className="hidden" muted playsInline />
 
@@ -260,6 +341,20 @@ export function Spyglass({ open, onClose }: { open: boolean; onClose: () => void
           style={{ width: geo.d, height: geo.d }}
           className={state === 'live' ? 'block' : 'hidden'}
         />
+
+        {/* Live, on this tab, and nowhere left to sample from. Say so. The
+            alternative is drawing the lens into itself, which is what shipped
+            and what made it unusable. */}
+        {state === 'live' && isTab && !sample && (
+          <div className="absolute inset-0 grid place-items-center p-6 text-center">
+            <p className="text-[14px] text-white/55 leading-snug">
+              Nowhere clear to sample.<br />
+              <span className="text-white/40">
+                Make the lens smaller, raise the zoom, or move it away from the edge.
+              </span>
+            </p>
+          </div>
+        )}
 
         {state !== 'live' && (
           <div className="absolute inset-0 grid place-items-center p-6 text-center">
@@ -366,6 +461,7 @@ export function Spyglass({ open, onClose }: { open: boolean; onClose: () => void
         }}
       />
     </div>
+    </>
   );
 
   return typeof document === 'undefined' ? node : createPortal(node, document.body);
