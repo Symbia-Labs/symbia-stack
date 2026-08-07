@@ -107,6 +107,8 @@ export function Spyglass({ open, onClose }: { open: boolean; onClose: () => void
   const [grab, setGrab] = useState<{ busy: boolean; verdict?: string; digest?: string }>({
     busy: false,
   });
+  /** Actual captured frame size. Measured from the video, never assumed. */
+  const [dims, setDims] = useState<{ vw: number; vh: number } | null>(null);
   const [state, setState] = useState<GlassState>(() =>
     typeof navigator !== 'undefined' && typeof navigator.mediaDevices?.getDisplayMedia === 'function'
       ? 'idle'
@@ -225,6 +227,15 @@ export function Spyglass({ open, onClose }: { open: boolean; onClose: () => void
       const c = canvasRef.current;
       const ctx = c?.getContext('2d');
       if (v && c && ctx && v.videoWidth) {
+        // Record the frame size rather than assume it. When the lens showed
+        // content from the wrong part of the page there was no way to tell
+        // whether the crop maths or the capture geometry was at fault, and a
+        // screenshot cannot answer it. Now the numbers are on screen.
+        setDims((d) =>
+          d && d.vw === v.videoWidth && d.vh === v.videoHeight
+            ? d
+            : { vw: v.videoWidth, vh: v.videoHeight }
+        );
         ctx.clearRect(0, 0, c.width, c.height);
 
         if (surface === 'browser') {
@@ -233,14 +244,22 @@ export function Spyglass({ open, onClose }: { open: boolean; onClose: () => void
           // is honest, a recursive one is not.
           const rect = tabSampleRect(pos, window.innerWidth, window.innerHeight);
           if (rect) {
-            const k = v.videoWidth / window.innerWidth;
+            // Separate horizontal and vertical scale.
+            //
+            // A single k derived from width assumes the captured frame has the
+            // same aspect ratio as the viewport. Chrome may constrain or pad a
+            // tab capture, and when it does, one k puts the vertical crop in
+            // the wrong place — the lens shows content from somewhere else on
+            // the page and looks like it is reading stale pixels.
+            const kx = v.videoWidth / window.innerWidth;
+            const ky = v.videoHeight / window.innerHeight;
             ctx.imageSmoothingEnabled = false;
             ctx.drawImage(
               v,
-              rect.x * k,
-              rect.y * k,
-              rect.size * k,
-              rect.size * k,
+              rect.x * kx,
+              rect.y * ky,
+              rect.size * kx,
+              rect.size * ky,
               0,
               0,
               c.width,
@@ -308,17 +327,12 @@ export function Spyglass({ open, onClose }: { open: boolean; onClose: () => void
 
   const node = (
     <>
-      {/* Where the pixels are coming from.
-          Without this the lens is a magnifier showing something that is not
-          underneath it, which reads as a bug even when it is working. The
-          outline makes the offset visible instead of mysterious. */}
-      {sample && (
-        <div
-          aria-hidden
-          className="fixed z-[9999] pointer-events-none rounded-[4px] border border-dashed border-cyan-300/50"
-          style={{ left: sample.x, top: sample.y, width: sample.size, height: sample.size }}
-        />
-      )}
+      {/* The dashed outline that used to mark the sample square is GONE.
+          It was drawn on top of the exact region the lens samples, so the lens
+          magnified the marker along with the content — a marker that changes
+          the thing it marks. It is the same mistake as the feedback loop in a
+          smaller frame. Where the sample comes from is now stated as numbers
+          under the lens, which cannot contaminate the image. */}
 
       <div className="fixed z-[10000]" style={{ left: pos.x, top: pos.y }}>
         <video ref={videoRef} className="hidden" muted playsInline />
@@ -412,6 +426,23 @@ export function Spyglass({ open, onClose }: { open: boolean; onClose: () => void
             ✕
           </button>
         </div>
+
+        {/* Measurements, not conclusions.
+            Captured frame size, viewport size, and the square being sampled.
+            If the lens ever shows the wrong part of the page again, these four
+            numbers say whether the capture geometry or the crop maths is at
+            fault — which a screenshot on its own cannot. */}
+        {state === 'live' && dims && (
+          <p className="mt-1 text-center text-[12px] leading-tight text-white/35 tabular-nums">
+            frame {dims.vw}×{dims.vh} · view {vp.w}×{vp.h}
+            {sample && (
+              <>
+                <br />
+                sample {Math.round(sample.x)},{Math.round(sample.y)} · {Math.round(sample.size)}px
+              </>
+            )}
+          </p>
+        )}
 
         {/* What the vision model said. Shown verbatim, refusals included — a
             refusal is the answer right now, and dressing it up as anything
