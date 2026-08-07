@@ -55,12 +55,21 @@ interface AnthropicTool {
 
 export class AnthropicProvider implements ProviderAdapter {
   name = "anthropic";
-  supportedOperations = ["chat.completions", "messages"];
+  // image.description was already possible here and nobody could ask for it.
+  // Every Claude model below declares `vision`, and convertMessages has
+  // translated OpenAI-style image_url parts — including base64 data URIs —
+  // into Anthropic image blocks the whole time. The capability existed; the
+  // operation name to reach it did not.
+  supportedOperations = ["chat.completions", "messages", "image.description"];
 
   async execute(options: ExecuteOptions): Promise<NormalizedLLMResponse> {
     const { operation, model, params, apiKey, timeout } = options;
 
-    if (operation !== "chat.completions" && operation !== "messages") {
+    if (
+      operation !== "chat.completions" &&
+      operation !== "messages" &&
+      operation !== "image.description"
+    ) {
       throw new Error(`Anthropic provider does not support operation: ${operation}`);
     }
 
@@ -99,6 +108,27 @@ export class AnthropicProvider implements ProviderAdapter {
     if (operation === "chat.completions" || operation === "messages") {
       if (!params.messages && !params.prompt) {
         errors.push("Either messages or prompt is required");
+      }
+    } else if (operation === "image.description") {
+      // The point of a separate operation: reject a vision request that
+      // carries no image, rather than returning a confident description of a
+      // picture the model never received. chat.completions cannot make this
+      // check, because a text-only message is legitimate there.
+      const messages = params.messages as
+        | Array<{ role: string; content: unknown }>
+        | undefined;
+      const hasImage = messages?.some(
+        (m) =>
+          Array.isArray(m.content) &&
+          (m.content as Array<{ type?: string }>).some(
+            (p) => p?.type === "image_url" || p?.type === "image"
+          )
+      );
+      if (!messages) errors.push("messages is required for image.description");
+      else if (!hasImage) {
+        errors.push(
+          "image.description requires a message containing an image part; none was present"
+        );
       }
     }
 
@@ -199,7 +229,13 @@ export class AnthropicProvider implements ProviderAdapter {
 
   private buildMessagesRequestBody(model: string, params: Record<string, unknown>): Record<string, unknown> {
     // Convert messages to Anthropic format
-    const messages = this.convertMessages(params.messages as Array<{ role: string; content: string }> || []);
+    // content may be a string OR an array of parts. The narrower cast that was
+    // here said images were impossible while convertMessages below has always
+    // handled them — the same wrong-direction type found in the HuggingFace
+    // adapter, in a file nobody re-read after writing the vision support.
+    const messages = this.convertMessages(
+      (params.messages as Array<{ role: string; content: string | unknown[] }>) || []
+    );
 
     // If only prompt provided, convert to messages format
     if (!messages.length && params.prompt) {

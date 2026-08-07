@@ -75,6 +75,29 @@ adapter, the same capability filter returned
 `Qwen/Qwen2.5-VL-7B-Instruct`, `meta-llama/Llama-3.2-11B-Vision-Instruct`,
 `HuggingFaceM4/idefics2-8b` with no change to routes.ts.
 
+## Second round — predictions registered before measuring
+
+Brian: "does anthropic offer vision? should just be a simple configuration."
+
+Read before predicting: every Claude model in `providers/anthropic.ts`
+already declares `capabilities: ['chat', 'vision', ...]`, and
+`convertMessages` (line 249) already translates OpenAI-style `image_url`
+parts — including base64 data URIs — into Anthropic `image` blocks. The
+capability was there. The operation name to reach it was not, and
+`supportedOperations` was `["chat.completions", "messages"]`.
+
+**P5.** With `image.description` added to the Anthropic adapter, a frame sent
+through `/api/integrations/execute` with `provider: anthropic` will come back
+described. Anthropic is the one provider with a stored credential, and the
+image conversion already exists, so nothing else should be in the way.
+
+**P6.** The reason my client did not already find Anthropic is ordering, not
+capability: `findVisionModel` walks `/status` providers in returned order —
+openai, anthropic, huggingface — and stops at the first that lists a vision
+model. OpenAI lists vision models and has no credential, so the walk picks a
+provider that cannot answer. Predicted symptom: a REFUSED naming **openai**,
+not huggingface.
+
 ## Findings
 
 **F1 — `configured: true` never meant a key exists.**
