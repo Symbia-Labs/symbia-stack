@@ -1,39 +1,46 @@
 /**
- * The spyglass — a small window showing another tab, another application, or
- * another screen, live, while you work in this one.
+ * The spyglass — an aperture, not a viewer.
  *
- * Deliberately independent of the chat window: its own position, its own
- * lifetime, and it knows nothing about chat. It is an instrument, and
- * instruments should be movable to whatever you want to look at.
+ * A transparent circle with a ring. You drag it over the thing you want Symbia
+ * to look at and press the shutter; the pixels under the ring become an
+ * attachment on your next chat message. It shows nothing of its own, because
+ * there is nothing to show: the interior is a hole, and what you see through it
+ * is the page itself.
  *
- * IT NO LONGER CAPTURES THIS TAB. That mode was the source of every problem it
- * had, 6–7 Aug 2026:
+ * THAT IS THE WHOLE DESIGN, and it arrives after three wrong ones. It was a
+ * rectangle bolted to the chat window, then a magnifier that fed back on
+ * itself, then a picture-in-picture panel showing some other surface. Every one
+ * of those tried to DISPLAY captured pixels, and displaying captured pixels
+ * inside the thing being captured is what produced the recursion, the offset
+ * crop, and the marker that contaminated the region it marked. An aperture has
+ * none of those problems because it draws nothing. The instrument that does not
+ * render its own subject cannot corrupt it.
  *
- *   - a magnifier over its own page cannot show what is beneath it, because
- *     what is beneath it is the magnifier. Sampling a square beside itself was
- *     the workaround, and the crop maths for that was wrong twice.
- *   - the outline marking that square was drawn ON the square, so the lens
- *     magnified its own marker.
- *   - Chrome announces a self-capture from both ends, so the page carried two
- *     "is sharing" bars and looked like it had leaked a stream. It had not,
- *     but I diagnosed it as a leak, which is its own lesson.
- *
- * None of those were bugs in the shape. They were all consequences of pointing
- * an instrument at itself. Removing the mode removes the whole class, and what
- * is left has no interesting geometry at all: whatever you picked, fitted into
- * a rectangle, at the source's own aspect ratio.
+ * The interior is pointer-transparent, so the console underneath stays fully
+ * usable with the circle parked on it — this is a sight, not a window you have
+ * to work around.
  */
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { connectSpyglassNode, publishFrame, classifyFrame } from './spyglassNode';
+import { useFrameStore } from './frameStore';
 
-type GlassState = 'idle' | 'requesting' | 'live' | 'denied' | 'unsupported' | 'self';
-type Surface = 'browser' | 'window' | 'monitor' | 'unknown';
+type Shot = 'idle' | 'requesting' | 'ready' | 'shooting' | 'denied' | 'unsupported';
 
 const STORE = 'symbia:spyglass';
-/** One width. Height follows the source, so the panel is never letterboxed. */
-const W = 360;
-const FALLBACK_H = 220;
+/** One size. Every knob this thing has had was a way to make it look broken. */
+const D = 260;
+/**
+ * How long the ring stays hidden before the shutter reads a frame.
+ *
+ * A screen capture pipeline is several frames behind the DOM. One
+ * requestAnimationFrame is not enough — the ring is still in the captured
+ * buffer — and the first version of this in the magnifier proved it by
+ * photographing itself. This is a delay, and it is a guess at a lower bound
+ * rather than a measurement, which is why the ring visibly blinks: the operator
+ * can see the frame being taken.
+ */
+const BLINK_MS = 180;
 
 interface Pos {
   x: number;
@@ -41,7 +48,7 @@ interface Pos {
 }
 
 function load(): Pos {
-  const fallback: Pos = { x: 80, y: 120 };
+  const fallback: Pos = { x: 120, y: 160 };
   try {
     const raw = localStorage.getItem(`${STORE}:pos`);
     return raw ? { ...fallback, ...JSON.parse(raw) } : fallback;
@@ -50,126 +57,90 @@ function load(): Pos {
   }
 }
 
-/**
- * Is this stream a picture of the page requesting it?
- *
- * getDisplayMedia will happily hand back the current tab if that is what was
- * picked in the chooser, and nothing about the returned stream says "this is
- * you" — displaySurface only says 'browser', which is also true of every OTHER
- * tab. The browsingContextId in getSettings is the identifying part where it
- * exists; where it does not, this returns false and the operator gets the
- * feedback rather than the explanation. Detecting it wrongly in the safe
- * direction is preferable to refusing a legitimate capture of another tab.
- */
-function isSelfCapture(track: MediaStreamTrack | undefined): boolean {
-  const s = track?.getSettings() as
-    | { displaySurface?: string; browsingContextId?: unknown }
-    | undefined;
-  if (!s || s.displaySurface !== 'browser') return false;
-  // Chromium exposes the captured context's id here. Comparing it to nothing
-  // would be a guess, so this only fires when the browser volunteers that the
-  // captured context is the one doing the capturing.
-  const self = (window as unknown as { browsingContextId?: unknown }).browsingContextId;
-  return s.browsingContextId !== undefined && self !== undefined && s.browsingContextId === self;
-}
-
 export function Spyglass({ open, onClose }: { open: boolean; onClose: () => void }) {
   const videoRef = useRef<HTMLVideoElement | null>(null);
-  const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
-  const rafRef = useRef<number | null>(null);
+  const drag = useRef<{ dx: number; dy: number } | null>(null);
 
   const [pos, setPos] = useState<Pos>(() =>
-    typeof window === 'undefined' ? { x: 80, y: 120 } : load()
+    typeof window === 'undefined' ? { x: 120, y: 160 } : load()
   );
-  const [surface, setSurface] = useState<Surface>('unknown');
-  const [grab, setGrab] = useState<{ busy: boolean; verdict?: string; digest?: string }>({
-    busy: false,
-  });
-  /** Actual captured frame size. Measured from the video, never assumed. */
-  const [dims, setDims] = useState<{ vw: number; vh: number } | null>(null);
-  const [state, setState] = useState<GlassState>(() =>
+  const [shot, setShot] = useState<Shot>(() =>
     typeof navigator !== 'undefined' && typeof navigator.mediaDevices?.getDisplayMedia === 'function'
       ? 'idle'
       : 'unsupported'
   );
+  const [note, setNote] = useState<string | null>(null);
+  const setPending = useFrameStore((s) => s.setPending);
+  const pending = useFrameStore((s) => s.pending);
 
-  const drag = useRef<{ dx: number; dy: number } | null>(null);
-
-  // The panel takes the source's shape. Fitting a 16:9 desktop into a fixed
-  // box would either letterbox it or crop it, and a cropped picture that does
-  // not say it is cropped is a small lie about what you are looking at.
-  const height = dims ? Math.round((W * dims.vh) / dims.vw) : FALLBACK_H;
-
-  const stop = useCallback(() => {
-    if (rafRef.current) cancelAnimationFrame(rafRef.current);
-    rafRef.current = null;
+  const release = useCallback(() => {
     streamRef.current?.getTracks().forEach((t) => t.stop());
     streamRef.current = null;
-    setDims(null);
   }, []);
 
-  const start = useCallback(async () => {
-    // Release the previous capture FIRST, so changing source cannot leave an
-    // orphaned stream running that this UI has no way to stop.
-    stop();
-    setState('requesting');
+  /**
+   * Get permission to read this tab's pixels.
+   *
+   * preferCurrentTab, unlike every earlier version, because the aperture is
+   * explicitly about THIS page — the operator is pointing at something in front
+   * of them. Chrome will still show its chooser, and once granted it shows two
+   * sharing bars: one saying this tab is captured, one saying this tab is
+   * capturing. Both are true and neither is a leak. There is no way to read a
+   * tab's own pixels without the browser saying so, and there should not be.
+   */
+  const arm = useCallback(async () => {
+    if (streamRef.current) return true;
+    setShot('requesting');
     try {
       const stream = await navigator.mediaDevices.getDisplayMedia({
         video: { frameRate: 30 },
+        // @ts-expect-error preferCurrentTab is Chromium-only and not in lib.dom
+        preferCurrentTab: true,
         audio: false,
       });
-      const track = stream.getVideoTracks()[0];
-
-      if (isSelfCapture(track)) {
-        stream.getTracks().forEach((t) => t.stop());
-        setState('self');
-        return;
-      }
-
       streamRef.current = stream;
-      const s = (track?.getSettings() as { displaySurface?: string } | undefined)?.displaySurface;
-      setSurface(s === 'browser' || s === 'window' || s === 'monitor' ? (s as Surface) : 'unknown');
-      // Chrome's own Stop Sharing button ends the track without telling this
-      // component. Without this the panel would sit on its last frame looking
-      // live.
-      track?.addEventListener('ended', () => {
-        stop();
-        setState('idle');
+      stream.getVideoTracks()[0]?.addEventListener('ended', () => {
+        release();
+        setShot('idle');
+        setNote('Sharing stopped.');
       });
       const v = videoRef.current;
       if (v) {
         v.srcObject = stream;
         await v.play();
       }
-      setState('live');
+      setShot('ready');
       // Join the mesh only once there is something to capture. Registering a
       // node that cannot do its job would put a lie in the topology.
       void connectSpyglassNode();
+      return true;
     } catch {
-      setState('denied');
+      setShot('denied');
+      setNote('Capture declined.');
+      return false;
     }
-  }, [stop]);
+  }, [release]);
 
-  useEffect(() => () => stop(), [stop]);
+  useEffect(() => () => release(), [release]);
 
-  // Closing releases the capture. A closed panel that is still capturing is a
-  // camera the operator believes is off.
+  // Closing releases the capture. A closed aperture that is still capturing is
+  // a camera the operator believes is off.
   useEffect(() => {
     if (!open && streamRef.current) {
-      stop();
-      setState('idle');
+      release();
+      setShot('idle');
     }
-  }, [open, stop]);
+  }, [open, release]);
 
-  // Drag.
+  // Drag. The ring is the handle; the hole is not.
   useEffect(() => {
     if (!open) return;
     const move = (e: PointerEvent) => {
       if (!drag.current) return;
       setPos({
-        x: Math.min(Math.max(-W + 80, e.clientX - drag.current.dx), window.innerWidth - 80),
-        y: Math.min(Math.max(0, e.clientY - drag.current.dy), window.innerHeight - 60),
+        x: Math.min(Math.max(0, e.clientX - drag.current.dx), window.innerWidth - D),
+        y: Math.min(Math.max(0, e.clientY - drag.current.dy), window.innerHeight - D),
       });
     };
     const up = () => {
@@ -192,167 +163,159 @@ export function Spyglass({ open, onClose }: { open: boolean; onClose: () => void
     };
   }, [open]);
 
-  // Draw loop. The whole frame, one to one into a panel of the same shape —
-  // no crop, no offset, no scale factors to get wrong.
-  useEffect(() => {
-    if (state !== 'live' || !open) return;
-    const draw = () => {
-      const v = videoRef.current;
-      const c = canvasRef.current;
-      const ctx = c?.getContext('2d');
-      if (v && c && ctx && v.videoWidth) {
-        setDims((d) =>
-          d && d.vw === v.videoWidth && d.vh === v.videoHeight
-            ? d
-            : { vw: v.videoWidth, vh: v.videoHeight }
-        );
-        ctx.drawImage(v, 0, 0, c.width, c.height);
-      }
-      rafRef.current = requestAnimationFrame(draw);
-    };
-    rafRef.current = requestAnimationFrame(draw);
-    return () => {
-      if (rafRef.current) cancelAnimationFrame(rafRef.current);
-    };
-  }, [state, open]);
-
   /**
-   * Grab the current frame, publish it on the bus, and ask the models service
-   * what it is. Whatever comes back is shown VERBATIM — including a refusal,
-   * which is the current expected answer since no vision model is loaded.
+   * The shutter.
+   *
+   * Hides the ring, waits for the capture pipeline to catch up, reads the
+   * circle's worth of pixels, publishes the envelope on the bus, asks the
+   * vision model, and parks the result on the chat composer. The image is
+   * cropped to the CIRCLE, not the bounding square, so what gets attached is
+   * exactly what the operator framed.
    */
-  const grabFrame = useCallback(async () => {
-    const c = canvasRef.current;
-    if (!c || state !== 'live') return;
-    setGrab({ busy: true });
+  const capture = useCallback(async () => {
+    if (!(await arm())) return;
+    const v = videoRef.current;
+    if (!v || !v.videoWidth) {
+      setNote('No frame available yet.');
+      return;
+    }
+
+    setShot('shooting');
+    setNote(null);
+    await new Promise((r) => setTimeout(r, BLINK_MS));
+
     try {
+      // Horizontal and vertical scale computed separately. A single factor
+      // assumes the captured frame shares the viewport's aspect ratio, and
+      // when Chrome constrains a tab capture it does not — that assumption
+      // put the crop in the wrong place once already.
+      const kx = v.videoWidth / window.innerWidth;
+      const ky = v.videoHeight / window.innerHeight;
+
+      const c = document.createElement('canvas');
+      const dpr = window.devicePixelRatio || 1;
+      c.width = Math.round(D * dpr);
+      c.height = Math.round(D * dpr);
+      const ctx = c.getContext('2d');
+      if (!ctx) throw new Error('no 2d context');
+
+      // Clip to the circle first, so the attachment is the aperture and not
+      // its bounding box.
+      ctx.beginPath();
+      ctx.arc(c.width / 2, c.height / 2, c.width / 2, 0, Math.PI * 2);
+      ctx.clip();
+      ctx.drawImage(v, pos.x * kx, pos.y * ky, D * kx, D * ky, 0, 0, c.width, c.height);
+
       const b64 = c.toDataURL('image/png').split(',')[1] ?? '';
-      const env = await publishFrame(b64, { width: c.width, height: c.height, source: surface });
-      const r = (await classifyFrame(b64, env)) as {
+      const envelope = await publishFrame(b64, {
+        width: c.width,
+        height: c.height,
+        source: 'aperture',
+      });
+
+      // Park it on the composer immediately. The model's verdict is useful but
+      // it is not what makes the attachment valid — the envelope is — so the
+      // frame must not wait on a service that is currently expected to refuse.
+      setPending({ envelope, imageBase64: b64 });
+
+      const r = (await classifyFrame(b64, envelope)) as {
         ok?: boolean;
         description?: string;
         reason?: string;
         missing?: string[];
       };
-      setGrab({
-        busy: false,
-        digest: env.digest,
-        verdict: r.ok
-          ? r.description
-          : `${r.reason ?? 'refused'}${r.missing?.length ? ` (${r.missing[0]})` : ''}`,
-      });
+      const verdict = r.ok
+        ? r.description
+        : `${r.reason ?? 'refused'}${r.missing?.length ? ` (${r.missing[0]})` : ''}`;
+      setPending({ envelope, imageBase64: b64, verdict, refused: !r.ok });
+      setShot('ready');
     } catch (e) {
-      setGrab({ busy: false, verdict: e instanceof Error ? e.message : 'grab failed' });
+      setShot('ready');
+      setNote(e instanceof Error ? e.message : 'capture failed');
     }
-  }, [state, surface]);
+  }, [arm, pos.x, pos.y, setPending]);
 
   if (!open) return null;
-  const dpr = typeof window === 'undefined' ? 1 : window.devicePixelRatio || 1;
 
-  const label =
-    surface === 'monitor' ? 'screen' : surface === 'window' ? 'window' : surface === 'browser' ? 'tab' : 'source';
+  const hidden = shot === 'shooting';
 
   const node = (
     <div
-      className="fixed z-[10000] rounded-[14px] overflow-hidden border border-white/20 bg-black/85 shadow-[0_8px_40px_rgba(0,0,0,0.6)] backdrop-blur"
-      style={{ left: pos.x, top: pos.y, width: W }}
+      className="fixed z-[10000]"
+      style={{
+        left: pos.x,
+        top: pos.y,
+        width: D,
+        height: D,
+        // The whole assembly disappears for the length of the blink. Opacity
+        // is not enough — a translucent ring still lands in the frame.
+        visibility: hidden ? 'hidden' : 'visible',
+      }}
     >
       <video ref={videoRef} className="hidden" muted playsInline />
 
-      {/* Title bar — the drag handle, and the only chrome there is. */}
+      {/* The aperture. Interior is a hole: no background, no canvas, and
+          pointer-events off so the console underneath stays clickable with the
+          circle sitting on it. */}
+      <div
+        className="absolute inset-0 rounded-full pointer-events-none ring-[3px] ring-white/70 shadow-[0_0_0_1px_rgba(0,0,0,0.5),0_0_24px_rgba(0,0,0,0.45)]"
+        style={{ boxSizing: 'border-box' }}
+      />
+
+      {/* Crosshair, so it is obvious what is being framed rather than merely
+          what is nearby. */}
+      <div className="absolute inset-0 pointer-events-none grid place-items-center">
+        <div className="w-3 h-px bg-white/50" />
+        <div className="h-3 w-px bg-white/50 -mt-[6px]" />
+      </div>
+
+      {/* Drag handle — a band on the rim. The interior has to stay pointer
+          transparent, so the grab target is the ring itself. */}
       <div
         onPointerDown={(e) => {
           drag.current = { dx: e.clientX - pos.x, dy: e.clientY - pos.y };
           (e.target as HTMLElement).setPointerCapture?.(e.pointerId);
         }}
-        className="flex items-center gap-2 px-3 py-1.5 cursor-grab active:cursor-grabbing select-none border-b border-white/10"
+        title="Drag the aperture over what you want Symbia to see"
+        className="absolute left-1/2 -translate-x-1/2 -top-3 px-3 py-1 rounded-full bg-black/80 border border-white/25 text-[13px] text-white/70 cursor-grab active:cursor-grabbing select-none backdrop-blur"
       >
-        <span className="text-[13px] text-white/70">Spyglass</span>
-        {state === 'live' && <span className="text-[12px] text-white/35">{label}</span>}
-        <div className="ml-auto flex items-center gap-1" onPointerDown={(e) => e.stopPropagation()}>
-          {state === 'live' && (
-            <button
-              onClick={start}
-              title="Change source"
-              className="px-1.5 py-0.5 rounded text-[13px] text-white/50 hover:text-white hover:bg-white/10"
-            >
-              ⇄
-            </button>
-          )}
-          {state === 'live' && (
-            <button
-              onClick={grabFrame}
-              disabled={grab.busy}
-              title="Grab this frame, publish it on the bus, and ask the vision model"
-              className="px-1.5 py-0.5 rounded text-[13px] text-white/50 hover:text-white hover:bg-white/10 disabled:opacity-40"
-            >
-              {grab.busy ? '…' : '⎘'}
-            </button>
-          )}
-          <button
-            onClick={() => {
-              stop();
-              onClose();
-            }}
-            title="Close spyglass"
-            className="px-1.5 py-0.5 rounded text-[13px] text-white/50 hover:text-white hover:bg-white/10"
-          >
-            ✕
-          </button>
-        </div>
+        ⠿
       </div>
 
-      {/* The picture */}
-      <div className="relative bg-black" style={{ height }}>
-        <canvas
-          ref={canvasRef}
-          width={Math.round(W * dpr)}
-          height={Math.round(height * dpr)}
-          style={{ width: W, height }}
-          className={state === 'live' ? 'block' : 'hidden'}
-        />
-
-        {state !== 'live' && (
-          <div className="absolute inset-0 grid place-items-center p-5 text-center">
-            {state === 'unsupported' ? (
-              <p className="text-[14px] text-white/45">This browser cannot capture.</p>
-            ) : (
-              <div>
-                <p className="text-[14px] text-white/55 leading-snug">
-                  {state === 'denied'
-                    ? 'Capture declined.'
-                    : state === 'self'
-                      ? 'That is this tab — it would only show itself. Pick a different tab, a window, or a screen.'
-                      : 'Pick another tab, a window, or a screen.'}
-                </p>
-                <button
-                  onPointerDown={(e) => e.stopPropagation()}
-                  onClick={start}
-                  disabled={state === 'requesting'}
-                  className="mt-3 px-3 py-1.5 rounded-full border border-white/25 text-[14px] text-white/85 hover:bg-white/10 disabled:opacity-50"
-                >
-                  {state === 'requesting' ? 'Asking…' : 'Choose a source'}
-                </button>
-              </div>
-            )}
-          </div>
-        )}
+      {/* Shutter and close, on the rim below. */}
+      <div className="absolute left-1/2 -translate-x-1/2 -bottom-4 flex items-center gap-1">
+        <button
+          onClick={capture}
+          disabled={shot === 'shooting' || shot === 'requesting'}
+          title="Capture what is inside the ring and attach it to your next message"
+          className="px-3 py-1 rounded-full bg-black/80 border border-white/25 text-[13px] text-white/85 hover:bg-white/15 backdrop-blur disabled:opacity-50"
+        >
+          {shot === 'requesting' ? 'Asking…' : shot === 'shooting' ? '…' : 'Capture'}
+        </button>
+        <button
+          onClick={() => {
+            release();
+            onClose();
+          }}
+          title="Close the spyglass"
+          className="px-2 py-1 rounded-full bg-black/80 border border-white/25 text-[13px] text-white/60 hover:text-white backdrop-blur"
+        >
+          ✕
+        </button>
       </div>
 
-      {/* Measurement, not conclusion: what was actually captured. */}
-      {state === 'live' && dims && (
-        <p className="px-3 py-1 text-[12px] text-white/30 tabular-nums border-t border-white/10">
-          {dims.vw}×{dims.vh}
-        </p>
-      )}
-
-      {/* What the vision model said. Shown verbatim, refusals included — a
-          refusal is the answer right now, and dressing it up as anything else
-          would be the failure this whole mechanism is against. */}
-      {grab.verdict && (
-        <div className="px-3 py-2 border-t border-amber-500/30">
-          <p className="text-[13px] text-white/80 leading-snug">{grab.verdict}</p>
-          {grab.digest && <p className="mt-1 text-[12px] text-white/40">frame · {grab.digest}</p>}
+      {/* Status. Observations only — what happened, never what it means. */}
+      {(note || pending || shot === 'unsupported') && (
+        <div className="absolute left-1/2 -translate-x-1/2 top-full mt-9 w-[280px] rounded-[12px] border border-white/15 bg-black/85 px-3 py-2 backdrop-blur">
+          {shot === 'unsupported' ? (
+            <p className="text-[13px] text-white/50">This browser cannot capture.</p>
+          ) : note ? (
+            <p className="text-[13px] text-white/60">{note}</p>
+          ) : pending ? (
+            <p className="text-[13px] text-white/60">
+              Attached to your next message · {pending.envelope.digest}
+            </p>
+          ) : null}
         </div>
       )}
     </div>

@@ -71,6 +71,8 @@ export function ChatWindow({
   title = 'Chat',
   status,
   context,
+  glassOpen,
+  onToggleGlass,
 }: {
   open: boolean;
   onClose: () => void;
@@ -79,6 +81,13 @@ export function ChatWindow({
   status?: React.ReactNode;
   /** What the window is floating over. See useChatContext. */
   context?: ChatContext;
+  /**
+   * The spyglass belongs to chat but does not live inside it — an undocked
+   * extension. The window owns the switch because capturing a region is only
+   * ever a preamble to asking about it; the circle itself floats free.
+   */
+  glassOpen?: boolean;
+  onToggleGlass?: () => void;
 }) {
   const panel = context?.panel ?? 'overview';
   const [geo, setGeo] = useState<Geometry>(() =>
@@ -214,6 +223,19 @@ export function ChatWindow({
             <span className={`truncate ${skin.headerTitle}`}>{title}</span>
             {status}
           </div>
+          <div className="ml-auto flex items-center gap-1" onPointerDown={(e) => e.stopPropagation()}>
+          {onToggleGlass && (
+            <button
+              onClick={onToggleGlass}
+              aria-pressed={glassOpen}
+              title="Spyglass — drag a circle over anything on screen and attach it to your next message (⌥G)"
+              className={`shrink-0 w-8 h-8 grid place-items-center rounded-full text-[16px] ${
+                glassOpen ? 'bg-white/20 text-white' : 'text-white/50 hover:text-white hover:bg-white/10'
+              }`}
+            >
+              ◎
+            </button>
+          )}
           <button
             onClick={onClose}
             aria-label="Close chat"
@@ -223,6 +245,7 @@ export function ChatWindow({
               <path d="M6 6l12 12M18 6L6 18" strokeLinecap="round" />
             </svg>
           </button>
+          </div>
         </div>
 
         {/* What the window is floating over. Not decoration: the same context

@@ -20,6 +20,7 @@ import {
 } from '@/services/messagingBridge';
 import { assistantsClient } from '@/services/assistantsClient';
 import { getRefSuggestions, SymbiaNamespace } from '@symbia/sys';
+import { useFrameStore } from '@/components/glass/frameStore';
 
 // Symbia Script reference suggestion
 interface RefSuggestion {
@@ -224,6 +225,9 @@ function RefSuggestionDropdown({
  * panel was dropped into the window.
  */
 export function ChatPanel({ skin, context }: { skin: Skin; context?: { situation: string; panel: string } }) {
+  // What the spyglass has parked on the composer, if anything.
+  const pendingFrame = useFrameStore((s) => s.pending);
+  const clearFrame = useFrameStore((s) => s.clear);
   const { user } = useAuth();
   const {
     conversations,
@@ -485,14 +489,40 @@ export function ChatPanel({ skin, context }: { skin: Skin; context?: { situation
       // Where the operator was standing when they asked. Sent as metadata,
       // NOT prepended to their words — the message they typed stays the
       // message they typed, and the situation travels alongside it.
-      const result = await sendMessage(conversationId, inputValue.trim(), {
-        metadata: context
-          ? { symbiaContext: { panel: context.panel, situation: context.situation } }
-          : undefined,
-      });
+      // A spyglass frame travels as its ENVELOPE, not as a picture.
+      //
+      // The digest, dimensions, source and run id are what make the frame
+      // checkable — they identify the exact bytes that were published on the
+      // bus and shown to the vision service. A message carrying only an image
+      // would be an assertion about what the operator saw with nothing behind
+      // it. The verdict rides along verbatim, refusals included.
+      const frame = useFrameStore.getState().pending;
+      const metadata =
+        context || frame
+          ? {
+              ...(context
+                ? { symbiaContext: { panel: context.panel, situation: context.situation } }
+                : {}),
+              ...(frame
+                ? {
+                    symbiaFrame: {
+                      ...frame.envelope,
+                      verdict: frame.verdict ?? null,
+                      refused: frame.refused ?? null,
+                    },
+                  }
+                : {}),
+            }
+          : undefined;
+
+      const result = await sendMessage(conversationId, inputValue.trim(), { metadata });
 
       if (result) {
         console.log('[Chat] Message sent successfully:', result.id);
+        // Cleared only on a CONFIRMED send. Clearing optimistically would lose
+        // the frame on a failed send and leave the operator with no way to know
+        // it had ever been attached.
+        clearFrame();
         setInputValue('');
         inputRef.current?.focus();
 
@@ -845,6 +875,45 @@ export function ChatPanel({ skin, context }: { skin: Skin; context?: { situation
               onSelect={handleRefSelect}
               position={{ top: 60, left: 16 }}
             />
+          )}
+
+          {/* A captured frame waiting to go with the next message.
+              Shown as a thumbnail because an attachment the operator cannot
+              see is one they cannot verify they framed correctly — and the
+              digest beside it is what makes the same frame findable later. */}
+          {pendingFrame && (
+            <div className="mb-2 flex items-center gap-2 rounded-[12px] border border-white/15 bg-black/30 p-2">
+              <img
+                src={`data:image/png;base64,${pendingFrame.imageBase64}`}
+                alt="Captured region"
+                className="w-10 h-10 rounded-full object-cover shrink-0 border border-white/20"
+              />
+              <div className="min-w-0 flex-1">
+                <p className="text-[13px] text-white/70 truncate">
+                  Spyglass frame · {pendingFrame.envelope.digest}
+                </p>
+                {/* The model's answer, verbatim. A refusal is displayed as a
+                    refusal; it is the correct answer while no vision model is
+                    loaded, and disguising it would be the exact defect this
+                    platform exists to prevent. */}
+                {pendingFrame.verdict && (
+                  <p
+                    className={`text-[12px] truncate ${
+                      pendingFrame.refused ? 'text-amber-300/70' : 'text-white/45'
+                    }`}
+                  >
+                    {pendingFrame.verdict}
+                  </p>
+                )}
+              </div>
+              <button
+                onClick={clearFrame}
+                title="Remove the attachment"
+                className="shrink-0 w-7 h-7 grid place-items-center rounded-full text-white/45 hover:text-white hover:bg-white/10"
+              >
+                ✕
+              </button>
+            </div>
           )}
 
           <div className="flex gap-2 items-end">
