@@ -57,11 +57,35 @@ export class ServiceCallHandler extends BaseActionHandler {
 
       const url = `${baseUrl}${resolvedPath}`;
 
+      // Forward the caller's token.
+      //
+      // This action sent no Authorization header at all, so every service.call
+      // from a rule came back "401 authentication_required" and surfaced that
+      // string to the end user in the chat window. A rule could therefore
+      // never read platform state -- which is most of what an assistant on
+      // this platform is for.
+      //
+      // Same defect, same week, as integrations/auth.ts: an action that is
+      // supposed to act on a user's behalf, not passing the thing that says
+      // whose behalf it is. The token is on the execution context; llm.invoke
+      // already reads it from exactly here.
+      const token = (context.metadata as Record<string, unknown> | undefined)?.token as
+        | string
+        | undefined;
+
+      // rawOrgId is the real org. context.orgId is a composite
+      // "{assistantKey}:{orgId}" used for rule scoping, and sending it as
+      // X-Org-Id makes services reject or mis-scope the request.
+      const rawOrgId =
+        ((context.metadata as Record<string, unknown> | undefined)?.rawOrgId as string) ??
+        context.orgId;
+
       const response = await fetch(url, {
         method: params.method || 'GET',
         headers: {
           'Content-Type': 'application/json',
-          'X-Org-Id': context.orgId,
+          'X-Org-Id': rawOrgId,
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
           ...params.headers,
         },
         body: resolvedBody ? JSON.stringify(resolvedBody) : undefined,

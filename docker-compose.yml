@@ -217,6 +217,13 @@ services:
       LOGGING_SERVICE_URL: http://logging:5002
       INTEGRATIONS_SERVICE_URL: http://integrations:5007
       MESSAGING_SERVICE_URL: http://messaging:5005
+      # Added 7 Aug 2026. Without these, service.call from a rule resolved
+      # runtime and network to localhost INSIDE the assistants container and
+      # failed with a bare "fetch failed" surfaced to the end user in chat.
+      # resolveServiceUrl falls back to localhost, which is right outside
+      # compose and wrong inside it.
+      RUNTIME_SERVICE_URL: http://runtime:5006
+      NETWORK_SERVICE_URL: http://network:5009
       MESSAGING_ENDPOINT: http://messaging:5005
       CATALOG_BASE_URL: http://catalog:5003
     ports:
