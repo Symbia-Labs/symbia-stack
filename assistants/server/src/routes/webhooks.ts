@@ -279,6 +279,18 @@ async function processMessageForAssistant(
           senderId: payload.message.sender_id,
           timestamp: payload.message.created_at,
           originalContent: payload.message.content,
+          // Where the operator was standing when they asked. The console sends
+          // this alongside the message rather than prepending it to their
+          // words, so "what am I looking at" is answerable without the person
+          // restating what is already on their screen.
+          //
+          // It says which PANEL they are on. It does NOT contain the panel's
+          // data — if the assistant needs the numbers it must fetch them
+          // through the platform, with a receipt. Scraping the screen would
+          // produce answers with no provenance, which is the one thing this
+          // codebase must not start doing.
+          symbiaContext: (payload.message as { metadata?: { symbiaContext?: unknown } })
+            .metadata?.symbiaContext,
         },
       },
       user: {

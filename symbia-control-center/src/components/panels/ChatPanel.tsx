@@ -6,6 +6,7 @@
  */
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { Bubble, GroupTimestamp } from '@/components/chat/Bubble';
+import { Receipt, type Provenance } from '@/components/chat/Receipt';
 import type { Skin } from '@/components/chat/skins';
 import { useMessaging } from '@/hooks/useMessaging';
 import { useAuth } from '@/hooks/useAuth';
@@ -222,7 +223,7 @@ function RefSuggestionDropdown({
  * its own header — two headers was the first thing that looked wrong when the
  * panel was dropped into the window.
  */
-export function ChatPanel({ skin }: { skin: Skin }) {
+export function ChatPanel({ skin, context }: { skin: Skin; context?: { situation: string; panel: string } }) {
   const { user } = useAuth();
   const {
     conversations,
@@ -481,7 +482,14 @@ export function ChatPanel({ skin }: { skin: Skin }) {
         setRespondingAssistants(new Set(['assistant:coordinator']));
       }
 
-      const result = await sendMessage(conversationId, inputValue.trim());
+      // Where the operator was standing when they asked. Sent as metadata,
+      // NOT prepended to their words — the message they typed stays the
+      // message they typed, and the situation travels alongside it.
+      const result = await sendMessage(conversationId, inputValue.trim(), {
+        metadata: context
+          ? { symbiaContext: { panel: context.panel, situation: context.situation } }
+          : undefined,
+      });
 
       if (result) {
         console.log('[Chat] Message sent successfully:', result.id);
@@ -765,6 +773,18 @@ export function ChatPanel({ skin }: { skin: Skin }) {
                       skin={skin}
                       startsGroup={startsGroup}
                     />
+                    {/* The receipt. Every assistant reply carries a sealed
+                        envelope; until now none of it was visible and "42"
+                        looked exactly like a guess. */}
+                    {(() => {
+                      const prov = (msg as { metadata?: { symbia?: { provenance?: Provenance } } })
+                        .metadata?.symbia?.provenance;
+                      return prov ? (
+                        <div className="pl-1">
+                          <Receipt provenance={prov} />
+                        </div>
+                      ) : null;
+                    })()}
                   </div>
                 );
               })}

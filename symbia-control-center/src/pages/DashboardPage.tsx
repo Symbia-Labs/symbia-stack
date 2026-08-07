@@ -21,6 +21,7 @@ import { LogSearchPanel } from '@/components/panels/LogSearchPanel';
 import { ChatPanel } from '@/components/panels/ChatPanel';
 import { ChatWindow } from '@/components/chat/ChatWindow';
 import { ConnectionDot } from '@/components/chat/ConnectionDot';
+import { useChatContext } from '@/components/chat/useChatContext';
 
 /**
  * Chat is NOT in here. It stopped being a panel on 6 Aug 2026 and became a
@@ -81,6 +82,11 @@ export function DashboardPage() {
   // Closing returns to the panel underneath, so the address bar keeps matching
   // what is on screen. Closing the window while the URL still said /chat was
   // the first thing that felt broken.
+  // What the window is floating over. Derived from the panel underneath, not
+  // the /chat route itself — the route is where you are, the panel is what you
+  // are looking at.
+  const chatContext = useChatContext(underlying as PanelId);
+
   const closeChat = useCallback(
     () => navigate(`/${lastNonChatPanel.current}`),
     [navigate]
@@ -89,8 +95,8 @@ export function DashboardPage() {
   return (
     <MainLayout activePanel={activePanel} onPanelChange={handlePanelChange}>
       <PanelComponent />
-      <ChatWindow open={chatOpen} onClose={closeChat} status={<ConnectionDot />}>
-        {(skin) => <ChatPanel skin={skin} />}
+      <ChatWindow open={chatOpen} onClose={closeChat} status={<ConnectionDot />} context={chatContext}>
+        {(skin) => <ChatPanel skin={skin} context={chatContext} />}
       </ChatWindow>
     </MainLayout>
   );

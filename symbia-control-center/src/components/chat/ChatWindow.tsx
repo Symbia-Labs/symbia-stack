@@ -12,12 +12,24 @@
  */
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { SKINS, SKIN_ORDER, loadSkin, saveSkin, type SkinId } from './skins';
+import { useScreenPosition, type ChatContext } from './useChatContext';
 
 /** Modern phone. Width is derived from height so the frame is always a phone. */
 const ASPECT = 9 / 19.5;
 const MIN_H = 480;
 const MAX_H = 1100;
 const STORAGE = 'symbia:chat:window';
+
+/**
+ * Geometry is remembered PER PANEL.
+ *
+ * Where you want the window while reading logs is not where you want it while
+ * looking at the network graph — on logs it should sit clear of the field
+ * sidebar, on the graph it should sit clear of the canvas. One remembered
+ * position for the whole console means it is in the way on some screen no
+ * matter where you put it.
+ */
+const keyFor = (panel: string) => `${STORAGE}:${panel}`;
 
 interface Geometry {
   x: number;
@@ -37,14 +49,14 @@ function clampToViewport(g: Geometry): Geometry {
   };
 }
 
-function loadGeometry(): Geometry {
+function loadGeometry(panel: string): Geometry {
   const fallback: Geometry = {
     h: Math.min(760, window.innerHeight - 80),
     x: window.innerWidth - 460,
     y: 60,
   };
   try {
-    const raw = localStorage.getItem(STORAGE);
+    const raw = localStorage.getItem(keyFor(panel)) ?? localStorage.getItem(STORAGE);
     return clampToViewport(raw ? { ...fallback, ...JSON.parse(raw) } : fallback);
   } catch {
     return clampToViewport(fallback);
@@ -57,16 +69,25 @@ export function ChatWindow({
   children,
   title = 'Chat',
   status,
+  context,
 }: {
   open: boolean;
   onClose: () => void;
   children: (skin: (typeof SKINS)[SkinId]) => React.ReactNode;
   title?: string;
   status?: React.ReactNode;
+  /** What the window is floating over. See useChatContext. */
+  context?: ChatContext;
 }) {
+  const panel = context?.panel ?? 'overview';
   const [geo, setGeo] = useState<Geometry>(() =>
-    typeof window === 'undefined' ? { x: 0, y: 0, h: 760 } : loadGeometry()
+    typeof window === 'undefined' ? { x: 0, y: 0, h: 760 } : loadGeometry(panel)
   );
+
+  // Moving to another panel restores that panel's remembered position.
+  useEffect(() => {
+    if (typeof window !== 'undefined') setGeo(loadGeometry(panel));
+  }, [panel]);
   const [skinId, setSkinId] = useState<SkinId>(loadSkin);
   const drag = useRef<{ dx: number; dy: number } | null>(null);
   const resize = useRef<{ startY: number; startH: number } | null>(null);
@@ -74,13 +95,22 @@ export function ChatWindow({
   const skin = SKINS[skinId];
   const width = geo.h * ASPECT;
 
+  // Where the window sits relative to the screen edges.
+  const { edge } = useScreenPosition({ x: geo.x, y: geo.y, w: width, h: geo.h });
+
+  // Panels with a large canvas are the ones the window most gets in the way of.
+  // Over those it goes translucent until you interact with it, so you can read
+  // what is underneath without moving anything.
+  const overCanvas = panel === 'network';
+  const [engaged, setEngaged] = useState(false);
+
   const persist = useCallback((g: Geometry) => {
     try {
-      localStorage.setItem(STORAGE, JSON.stringify(g));
+      localStorage.setItem(keyFor(panel), JSON.stringify(g));
     } catch {
       /* storage disabled — the window still works, it just forgets */
     }
-  }, []);
+  }, [panel]);
 
   // Pointer handlers live on window, not on the header, so a fast drag that
   // outruns the cursor does not drop the window mid-move.
@@ -97,11 +127,23 @@ export function ChatWindow({
     };
     const up = () => {
       if (drag.current || resize.current) {
+        const wasDragging = !!drag.current;
         drag.current = null;
         resize.current = null;
         setGeo((g) => {
-          persist(g);
-          return g;
+          // Snap to an edge on RELEASE, never during the drag. A window that
+          // repositions itself under a moving cursor feels broken even when
+          // the destination is the one you wanted.
+          let next = g;
+          if (wasDragging) {
+            const w = g.h * ASPECT;
+            const distLeft = g.x;
+            const distRight = window.innerWidth - (g.x + w);
+            if (distLeft <= 48 && distLeft <= distRight) next = { ...g, x: 12 };
+            else if (distRight <= 48) next = { ...g, x: window.innerWidth - w - 12 };
+          }
+          persist(next);
+          return next;
         });
       }
     };
@@ -141,7 +183,11 @@ export function ChatWindow({
     <div
       role="dialog"
       aria-label="Chat"
-      className="fixed z-50 flex flex-col overflow-hidden rounded-[28px] shadow-2xl ring-1 ring-white/10"
+      onPointerEnter={() => setEngaged(true)}
+      onPointerLeave={() => setEngaged(false)}
+      className={`fixed z-50 flex flex-col overflow-hidden rounded-[28px] shadow-2xl ring-1 ring-white/10 transition-opacity duration-200 ${
+        overCanvas && !engaged ? 'opacity-70' : 'opacity-100'
+      }`}
       style={{ left: geo.x, top: geo.y, width, height: geo.h }}
     >
       {/* Header — drag handle, skin switcher, close */}
@@ -167,6 +213,22 @@ export function ChatWindow({
             </svg>
           </button>
         </div>
+
+        {/* What the window is floating over. Not decoration: the same context
+            is handed to the assistant, so "what am I looking at" is answerable
+            without the operator restating it. */}
+        {context && (
+          <div className="mt-1 flex items-center gap-1.5 text-[13px] text-white/45">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="shrink-0 opacity-70">
+              <circle cx="12" cy="10" r="3" />
+              <path d="M12 2a8 8 0 0 0-8 8c0 5.5 8 12 8 12s8-6.5 8-12a8 8 0 0 0-8-8z" strokeLinejoin="round" />
+            </svg>
+            <span className="truncate">{context.title}</span>
+            {edge !== 'none' && (
+              <span className="ml-auto opacity-50 shrink-0">snapped {edge}</span>
+            )}
+          </div>
+        )}
 
         <div className="mt-2 flex gap-1" onPointerDown={(e) => e.stopPropagation()}>
           {SKIN_ORDER.map((id) => (
