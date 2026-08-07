@@ -161,6 +161,19 @@ export function mountServiceProxies(app: Express): void {
  * function, slowly, and nothing would say why.
  */
 export function mountSocketUpgrades(httpServer: Server): void {
+  // Node warns at 10 listeners. There are 11 here and it is NOT a leak, so the
+  // count is set deliberately rather than left to look like one.
+  //
+  // Each of the 10 proxy handlers attaches its own `upgrade` listener because
+  // ws:true is what makes handler.upgrade() available, and this function adds
+  // the dispatcher below. MEASURED 7 Aug: with the dispatcher disabled, an
+  // upgrade to /svc/messaging/socket.io TIMES OUT -- the library's own
+  // listeners do not match. So the dispatcher does the work and the other ten
+  // are inert. Removing ws:true to shed them would also remove .upgrade().
+  //
+  // Logged rather than worked around: this is a library shape, not a choice.
+  httpServer.setMaxListeners(PROXIED_SERVICES.length + 5);
+
   httpServer.on('upgrade', (req, socket, head) => {
     const url = req.url ?? '';
     const id = PROXIED_SERVICES.find((s) => url.startsWith(`/svc/${s}/`));

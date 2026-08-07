@@ -262,6 +262,10 @@ export function ChatPanel({ skin }: { skin: Skin }) {
 
   // Track assistants that are currently responding
   const [respondingAssistants, setRespondingAssistants] = useState<Set<string>>(new Set());
+  // Set when the wait elapses with no reply. NOT the same as "not responding":
+  // this records that we asked, waited, and got nothing -- which is a fact
+  // worth showing, and the thing an endless typing indicator hides.
+  const [stalled, setStalled] = useState<string | null>(null);
 
   const conversationMessages = selectedConversationId ? getConversationMessages(selectedConversationId) : [];
   const typingUsers = selectedConversationId ? getTypingUsersFromHook(selectedConversationId) : [];
@@ -351,6 +355,7 @@ export function ChatPanel({ skin }: { skin: Skin }) {
     }
 
     if (respondedAssistants.size > 0) {
+      setStalled(null);
       setRespondingAssistants(prev => {
         const next = new Set(prev);
         respondedAssistants.forEach(id => next.delete(id));
@@ -483,19 +488,26 @@ export function ChatPanel({ skin }: { skin: Skin }) {
         setInputValue('');
         inputRef.current?.focus();
 
-        // Auto-clear responding state after 60 seconds (increased from 30s)
-        // This is a fallback - normally cleared when assistant message arrives
+        // If nothing comes back, SAY SO.
+        //
+        // This used to spin the typing indicator for 60s and then silently
+        // clear it, so a failed assistant looked first like one that was
+        // thinking and then like one that had never been asked. Both are
+        // untrue. Measured 7 Aug: the assistants service logged
+        // "No openai API key configured" within a second of delivery while
+        // the window showed three animated dots indefinitely.
         setTimeout(() => {
           setRespondingAssistants(prev => {
             if (prev.size > 0) {
-              console.log('[Chat] Clearing responding state after timeout');
+              setStalled('No reply. The message was delivered and the assistant was reached, but it did not respond.');
               return new Set();
             }
             return prev;
           });
-        }, 60000);
+        }, 30000);
       } else {
         console.error('[Chat] Message send returned null - both WebSocket and REST failed');
+        setStalled('Message not sent. Both the socket and the REST fallback failed.');
         // Don't clear responding immediately - the user might want to retry
         // Set a shorter timeout instead
         setTimeout(() => {
@@ -504,6 +516,7 @@ export function ChatPanel({ skin }: { skin: Skin }) {
       }
     } catch (error) {
       console.error('[Chat] Failed to send message:', error);
+      setStalled(`Message not sent. ${error instanceof Error ? error.message : String(error)}`);
       // Don't clear responding immediately - give some time for user to see the error
       setTimeout(() => {
         setRespondingAssistants(new Set());
@@ -777,6 +790,13 @@ export function ChatPanel({ skin }: { skin: Skin }) {
                   );
                 });
               })()}
+              {stalled && (
+                <div className="flex justify-center px-4 py-3">
+                  <div className="max-w-[90%] rounded-[14px] border border-amber-500/35 bg-amber-500/10 px-4 py-2.5">
+                    <p className="text-[15px] text-amber-200/90">{stalled}</p>
+                  </div>
+                </div>
+              )}
               <div ref={messagesEndRef} />
             </>
           )}
