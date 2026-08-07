@@ -98,6 +98,50 @@ model. OpenAI lists vision models and has no credential, so the walk picks a
 provider that cannot answer. Predicted symptom: a REFUSED naming **openai**,
 not huggingface.
 
+### Second round — measured
+
+**P5 — CONFIRMED, and it works.** `POST /api/integrations/execute` with
+`provider: anthropic`, `operation: image.description`, `model: claude-sonnet-5`
+and a 64×64 PNG returned in 1574ms:
+
+> "This is a simple black and white checkerboard pattern arranged in a 4x4 grid
+> of alternating squares."
+
+The test image is a 64×64 checkerboard of 16px squares — a 4×4 grid. The
+description is correct, which makes this the first end-to-end evidence that a
+model has actually looked at anything.
+
+**P6 — CONFIRMED, and worse than predicted.** The client walked `/status`,
+where all four providers report `configured`. `/api/integrations/capabilities`
+is the only credential-aware endpoint, and measured on this stack:
+
+| provider | status | models declaring vision |
+|---|---|---|
+| openai | unavailable | 10 |
+| anthropic | **available** | 7 |
+| huggingface | unavailable | 3 |
+| symbia-labs | unavailable | 0 |
+
+So the first-match walk picked **openai** — first in the list, ten vision
+models, no credential — and the whole feature would have failed with an error
+naming a provider nobody chose and nobody configured. Now selects on
+`status === 'available'`.
+
+**F6 — the client could not read a successful answer.** `/execute` returns
+`{ success, data: { provider, model, content, usage }, requestId, durationMs }`.
+The client read `body.result ?? body` and looked for `.content`, which finds
+nothing in that envelope. **Every successful vision call would have been
+reported as "the provider returned a response containing no text" — a refusal
+manufactured by the client misreading a correct answer.** Nothing in the code
+would have shown this; the one probe against the running endpoint caught it.
+This is what "probe before you build" is for, and I had already written the
+parser before probing.
+
+**F7 — Anthropic could do this the whole time.** Every Claude model declared
+`vision`, and `convertMessages` already translated OpenAI-style `image_url`
+parts into Anthropic image blocks. `supportedOperations` was the only thing in
+the way. The capability existed and there was no name to ask for it by.
+
 ## Findings
 
 **F1 — `configured: true` never meant a key exists.**

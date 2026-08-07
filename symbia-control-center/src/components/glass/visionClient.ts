@@ -22,6 +22,8 @@
  * plausible is returned on the basis of nothing.
  */
 import { useAuthStore } from '@/stores/authStore';
+import { fetchCapabilities, visionOptions } from './capabilities';
+import { currentSelection } from './visionConfig';
 
 const INTEGRATIONS = '/svc/integrations/api/integrations';
 
@@ -45,49 +47,33 @@ function authHeaders(): Record<string, string> {
   };
 }
 
-interface ProviderModel {
-  id: string;
-  name?: string;
-  capabilities?: string[];
-}
-
 /**
- * Find a provider/model pair that claims to do vision.
+ * Find a provider/model pair that can actually do vision.
  *
- * Two calls, both measured against the running service: `/status` lists
- * registered providers, `/providers/:p/models?capability=vision` filters by
- * declared capability and returns `{ models: [...] }`.
+ * An explicit choice from the Integrations panel wins. Otherwise: the first
+ * provider reporting `available` — meaning a credential resolved — that offers
+ * a model declaring `vision`.
  *
- * NOTE what this does NOT establish: that the model is actually served, or
- * that a credential exists for it. Both only become knowable by making the
- * call, and both surface as a REFUSED with the upstream's own message rather
- * than being guessed at here.
+ * AVAILABILITY, NOT REGISTRATION. The first version of this walked
+ * `/status`, which reports every provider with a registered config as
+ * `configured`. Measured on the running stack, that picks **openai**: first in
+ * the list, ten models declaring vision, and no credential. The whole feature
+ * would have failed with an error naming a provider nobody had chosen and
+ * nobody had configured. `/capabilities` is the only endpoint that knows.
+ *
+ * What this still does NOT establish: that the model is actually served by the
+ * provider. That only becomes knowable by making the call, and it surfaces as
+ * a REFUSED carrying the upstream's own message rather than being guessed at.
  */
 async function findVisionModel(): Promise<{ provider: string; model: string } | null> {
-  const statusRes = await fetch(`${INTEGRATIONS}/status`, { headers: authHeaders() });
-  if (!statusRes.ok) return null;
-  const status = (await statusRes.json()) as {
-    providers?: { name: string; registered?: boolean; configured?: boolean }[];
-  };
+  const chosen = currentSelection();
+  if (chosen) return chosen;
 
-  for (const p of status.providers ?? []) {
-    // `registered` is the honest field; `configured` is its deprecated alias
-    // and never meant a key exists. Neither tells us there is a credential —
-    // that is why a failure here is reported, not prevented.
-    if (!(p.registered ?? p.configured)) continue;
-    try {
-      const res = await fetch(
-        `${INTEGRATIONS}/providers/${encodeURIComponent(p.name)}/models?capability=vision`,
-        { headers: authHeaders() }
-      );
-      if (!res.ok) continue;
-      const body = (await res.json()) as { models?: ProviderModel[] };
-      const model = body.models?.[0];
-      if (model?.id) return { provider: p.name, model: model.id };
-    } catch {
-      // A provider that cannot be asked is not a provider that said no. Move
-      // on; the absence shows up as "no vision-capable model" below.
-    }
+  const providers = await fetchCapabilities();
+  for (const p of visionOptions(providers)) {
+    if (!p.available) continue;
+    const model = p.models[0];
+    if (model?.id) return { provider: p.provider, model: model.id };
   }
   return null;
 }
@@ -119,7 +105,9 @@ export async function describeFrame(
   if (!target) {
     return {
       arena: 'REFUSED',
-      reason: 'No registered provider offers a model declaring the vision capability.',
+      reason:
+        'No provider with a working credential offers a vision model. ' +
+        'Configure one on the Integrations panel.',
       path: 'none',
     };
   }
@@ -166,12 +154,16 @@ export async function describeFrame(
       };
     }
 
-    // The success envelope is normalised by the provider adapter to
-    // { provider, model, content, usage, finishReason }. It may or may not be
-    // nested under `result` depending on the route; both are read rather than
-    // assumed, and an unreadable body is a REFUSED, not an empty description
-    // presented as an answer.
-    const inner = (body.result ?? body) as Record<string, unknown>;
+    // MEASURED, not assumed. A successful /execute returns
+    //   { success: true, data: { provider, model, content, usage, ... },
+    //     requestId, durationMs }
+    // This code originally read `body.result ?? body` and looked for
+    // `.content`, which finds nothing in that envelope — every successful
+    // vision call would have come back as "response containing no text", a
+    // refusal caused entirely by the client misreading a correct answer.
+    // Probing the endpoint once was what caught it. `result` is kept as a
+    // fallback rather than removed, because it was never verified absent.
+    const inner = (body.data ?? body.result ?? body) as Record<string, unknown>;
     const content = typeof inner.content === 'string' ? inner.content.trim() : '';
 
     if (!content) {
