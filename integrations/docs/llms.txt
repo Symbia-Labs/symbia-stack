@@ -38,6 +38,34 @@ Use http://localhost:5007 as the base path for all endpoints.
 - POST /api/api/integrations/circuit-breaker/reset/{provider} - Reset circuit breaker for a provider
 - POST /api/api/integrations/db/export - Export in-memory database to file
 - GET /api/api/integrations/db/status - Get database status
+- DELETE /api/api/oauth/connections/{id} - Delete connections
+- GET /api/admin/users - List users
+- GET /api/api/integrations/channels/benchmarks - List benchmarks
+- GET /api/api/integrations/channels/benchmarks/{id} - Get benchmarks
+- GET /api/api/integrations/channels/catalog/export - Export api integrations channels catalog export
+- GET /api/api/integrations/channels/catalog/preview - Preview api integrations channels catalog preview
+- GET /api/api/integrations/channels/evaluations - List evaluations
+- GET /api/api/integrations/channels/evaluations/{id} - Get evaluations
+- GET /api/api/integrations/channels/models - List models
+- GET /api/api/integrations/channels/scores - List scores
+- GET /api/api/integrations/models - List models
+- GET /api/api/integrations/namespace - Get namespace
+- GET /api/api/integrations/operations/search - Get search
+- GET /api/api/integrations/registry/{key} - Get registry
+- GET /api/api/integrations/usage/by-user - Get by user
+- GET /api/api/integrations/usage/logs - List logs
+- GET /api/api/oauth/callback - Callback api oauth callback
+- GET /api/api/oauth/connections - List connections
+- GET /api/api/oauth/providers - List providers
+- GET /api/api/stats - List stats
+- POST /api/api/integrations/channels/benchmarks/run - Run api integrations channels benchmarks run
+- POST /api/api/integrations/channels/catalog/sync - Sync api integrations channels catalog sync
+- POST /api/api/integrations/channels/recommendations - Recommendations api integrations channels recommendations
+- POST /api/api/integrations/channels/scores/aggregate - Aggregate api integrations channels scores aggregate
+- POST /api/api/integrations/parse/mcp - Create mcp
+- POST /api/api/integrations/parse/openapi - Create openapi
+- POST /api/api/integrations/registry/{key}/refresh - Refresh api integrations registry refresh
+- POST /api/api/oauth/authorize - Authorize api oauth authorize
 
 ## Authentication
 

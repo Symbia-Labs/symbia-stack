@@ -129,7 +129,7 @@ export class AnthropicProvider implements ProviderAdapter {
         outputPricing: 75.00,
       },
       {
-        id: 'claude-sonnet-4-20250514',
+        id: 'claude-sonnet-5',
         name: 'Claude Sonnet 4',
         description: 'Balanced performance with improved reasoning and tool use',
         contextWindow: 200000,

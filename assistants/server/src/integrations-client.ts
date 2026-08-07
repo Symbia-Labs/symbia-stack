@@ -50,7 +50,7 @@ export async function invokeLLM(
     provider = "openai",
     model = "gpt-4o-mini",
     messages,
-    temperature = 0.7,
+    temperature,
     maxTokens = 1024,
     orgId,
   } = options;
@@ -78,7 +78,17 @@ export async function invokeLLM(
         params: {
           model,
           messages,
-          temperature,
+          // Only sent when a caller actually chose one.
+          //
+          // This defaulted to 0.7 and was injected into every request. Newer
+          // Anthropic models REJECT it: "`temperature` is deprecated for this
+          // model" -- measured 7 Aug 2026, after the model name itself was
+          // fixed. A default nobody asked for turned into a hard failure at
+          // the provider, and the third distinct symptom of the same habit
+          // today: openai as a provider default, a stale model list, and this.
+          //
+          // Absent means absent. Let the provider apply its own default.
+          ...(temperature !== undefined ? { temperature } : {}),
           maxTokens,
         },
       }),
@@ -160,6 +170,94 @@ export async function getAvailableProviders(): Promise<Array<{ name: string; sup
     return data.providers || [];
   } catch {
     return [];
+  }
+}
+
+/** A provider that actually has a usable credential, and a model to use with it. */
+export interface UsableProvider {
+  provider: string;
+  model: string;
+}
+
+/**
+ * Default model per provider, used only when nothing more specific is configured.
+ * Kept beside the resolver so the two cannot disagree.
+ */
+const DEFAULT_MODEL: Record<string, string> = {
+  openai: 'gpt-4o-mini',
+  // Verified against the live /v1/models list on 7 Aug 2026. The two values
+  // this replaced -- claude-sonnet-4-20250514 (from the provider adapter) and
+  // claude-3-5-sonnet-20241022 (from the catalog resource) -- were BOTH
+  // rejected by the API as nonexistent. Static model lists go stale silently
+  // and present as "your key does not work"; asking the provider is the only
+  // thing that does not rot. This map is a fallback, not a source of truth.
+  anthropic: 'claude-sonnet-5',
+  huggingface: 'meta-llama/Llama-3.2-3B-Instruct',
+  'symbia-labs': 'llama-3-2-1b-instruct-q4-k-m',
+};
+
+/**
+ * Ask which provider can actually be used, instead of assuming one.
+ *
+ * This replaces a hardcoded `'openai'` default that appeared in three separate
+ * places in this service. The effect of that default, measured 7 Aug 2026:
+ * an operator added an Anthropic key, the Coordinator was configured for
+ * anthropic in the catalog, and every chat message still resolved to openai,
+ * looked up a key that did not exist, and failed. The console showed a typing
+ * indicator and then nothing. Adding the correct key changed nothing visible,
+ * because the wrong provider was being asked for.
+ *
+ * A default that is silently wrong is worse than no default. This one asks the
+ * Integrations service which providers report a credential and takes the first,
+ * so the stack works with whichever key is present — including the local
+ * keyless model — and says so plainly when none is.
+ *
+ * `status: 'available'` here means Integrations resolved a credential (or the
+ * provider is local and needs none). It is not a claim that the provider will
+ * answer correctly.
+ */
+export async function resolveUsableProvider(
+  token: string,
+  orgId?: string
+): Promise<UsableProvider | null> {
+  try {
+    const headers: Record<string, string> = { Authorization: `Bearer ${token}` };
+    if (orgId) headers['X-Org-Id'] = orgId;
+
+    const response = await fetch(
+      `${INTEGRATIONS_SERVICE_URL}/api/integrations/capabilities`,
+      { headers }
+    );
+    if (!response.ok) return null;
+
+    const data = (await response.json()) as {
+      providers?: Array<{ provider: string; status?: string; defaultModel?: string }>;
+    };
+
+    const usable = (data.providers ?? []).find((p) => p.status === 'available');
+    if (!usable) return null;
+
+    // DEFAULT_MODEL first, provider config second.
+    //
+    // Measured 7 Aug: taking the provider's advertised defaultModel gave
+    // anthropic `claude-sonnet-4-20250514`, which the Anthropic API rejects —
+    // "Anthropic API error: model: claude-sonnet-4-20250514". The advertised
+    // list in integrations/server/src/providers/anthropic.ts is static config
+    // and is not checked against what a given key can actually call.
+    //
+    // So the local map wins, and the advertised value is the fallback rather
+    // than the source. This does not make the map correct forever; it makes
+    // the failure recoverable, and the error above is now surfaced verbatim in
+    // the chat window rather than swallowed.
+    return {
+      provider: usable.provider,
+      model: DEFAULT_MODEL[usable.provider] || usable.defaultModel || 'gpt-4o-mini',
+    };
+  } catch {
+    // Returning null rather than a guess. The caller reports "no usable
+    // provider", which is true, instead of failing later against a provider
+    // nobody chose.
+    return null;
   }
 }
 

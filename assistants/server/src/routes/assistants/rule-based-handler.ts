@@ -13,7 +13,7 @@
 import { Router, Request, Response } from 'express';
 import { setRuleSet } from '../../engine/run-coordinator.js';
 import type { RuleSet } from '../../engine/types.js';
-import { invokeLLM, TokenAuthError } from '../../integrations-client.js';
+import { resolveUsableProvider, invokeLLM, TokenAuthError } from '../../integrations-client.js';
 import { resolveServiceUrl, ServiceId } from '@symbia/sys';
 import { createIdentityClient } from '@symbia/id';
 
@@ -176,9 +176,16 @@ export function createRuleBasedAssistantRouter(config: AssistantRuleConfig): Rou
 
       // Helper to invoke LLM with a token
       const callLLM = async (authToken: string) => {
+        // Same resolution as llm.invoke: ask which provider holds a credential
+        // rather than assuming openai. This is the third place that hardcoded
+        // it; naming a conversation should not require a specific vendor.
+        const usable = await resolveUsableProvider(authToken);
+        if (!usable) {
+          throw new Error('No LLM provider has a usable credential for topic naming');
+        }
         return invokeLLM(authToken, {
-          provider: 'openai',
-          model: 'gpt-4o-mini',
+          provider: usable.provider,
+          model: usable.model,
           messages: [
             {
               role: 'system',

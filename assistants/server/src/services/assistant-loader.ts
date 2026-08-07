@@ -308,8 +308,12 @@ function extractLlmConfig(ruleSet: RuleSet): {
           systemPrompt?: string;
         };
         return {
-          provider: params.provider || 'openai',
-          model: params.model || 'gpt-4o-mini',
+          // Deliberately NOT defaulted to openai here. An unset provider means
+          // "nobody chose", and llm-invoke resolves it against providers that
+          // actually hold a credential. Baking a default in at this layer is
+          // what made an Anthropic key look like it had no effect.
+          provider: params.provider,
+          model: params.model,
           temperature: params.temperature,
           maxTokens: params.maxTokens,
           systemPrompt: params.systemPrompt,

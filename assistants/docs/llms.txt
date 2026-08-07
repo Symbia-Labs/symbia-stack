@@ -50,6 +50,14 @@ Use /api as the base path for all endpoints.
 - GET /api/assistants-admin/{key} - Get custom assistant
 - PUT /api/assistants-admin/{key} - Update custom assistant
 - DELETE /api/assistants-admin/{key} - Delete custom assistant
+- DELETE /api/rules/runs - Delete runs
+- GET /api/rules/runs - List runs
+- DELETE /api/rules/{orgId}/rules/{ruleId} - Delete rules
+- GET /api/assistants - List assistants
+- GET /api/assistants/mentionable - Get mentionable
+- GET /api/bootstrap/service - Get service
+- GET /api/stats - List stats
+- POST /api/webhook/messaging - Messaging webhook messaging
 
 ## Authentication
 

@@ -1,6 +1,6 @@
 import { BaseActionHandler } from './base.js';
 import type { ActionConfig, ActionResult, ExecutionContext } from '../types.js';
-import { invokeLLM, isIntegrationsAvailable, TokenAuthError } from '../../integrations-client.js';
+import { invokeLLM, isIntegrationsAvailable, resolveUsableProvider, TokenAuthError } from '../../integrations-client.js';
 import { interpolate } from '../template.js';
 
 // Re-export for consumers
@@ -83,8 +83,6 @@ export class LLMInvokeHandler extends BaseActionHandler {
     prompt: string,
     context: ExecutionContext
   ): Promise<{ content: string; model: string; usage: { promptTokens: number; completionTokens: number } }> {
-    const provider = params.provider || 'openai';
-    const model = params.model || 'gpt-4o-mini';
     const systemPrompt = params.systemPrompt || 'You are a helpful assistant.';
 
     // Verify Integrations service is available
@@ -101,6 +99,24 @@ export class LLMInvokeHandler extends BaseActionHandler {
 
     // Get rawOrgId for credential lookup (not the composite key)
     const rawOrgId = (context.metadata as Record<string, unknown>)?.rawOrgId as string | undefined;
+
+    // Explicit configuration wins. Otherwise ASK which provider has a
+    // credential rather than assuming openai — see resolveUsableProvider.
+    let provider = params.provider;
+    let model = params.model;
+
+    if (!provider) {
+      const usable = await resolveUsableProvider(token, rawOrgId);
+      if (!usable) {
+        throw new Error(
+          'No LLM provider has a usable credential. Add an API key in Settings, ' +
+            'or configure this assistant to use a local provider.'
+        );
+      }
+      provider = usable.provider;
+      model = model || usable.model;
+      console.log(`[llm.invoke] no provider configured; resolved to ${provider} (${model})`);
+    }
 
     const response = await invokeLLM(token, {
       provider,
