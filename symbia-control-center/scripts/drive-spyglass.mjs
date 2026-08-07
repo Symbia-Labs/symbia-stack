@@ -134,6 +134,50 @@ say(`note:    ${state.apertureNote ?? '(none)'}`);
 say('');
 say('composer chip:');
 say(state.chipText ? state.chipText.split('\n').map((l) => `  | ${l}`).join('\n') : '  (none)');
+// 4. Send a message with the frame attached, and read what comes back.
+//
+// This is the part that matters and the part that was never driven: the
+// capture succeeded for a day while the assistant answered "I'm not sure what
+// context you're referring to", because the attachment reached the message and
+// never reached the prompt.
+const QUESTION = 'what am I looking at in the capture?';
+const typed = await page.evaluate((q) => {
+  const ta = [...document.querySelectorAll('textarea')].find(
+    (t) => (t.placeholder || '').toLowerCase().includes('message')
+  );
+  if (!ta) return false;
+  const setter = Object.getOwnPropertyDescriptor(
+    window.HTMLTextAreaElement.prototype,
+    'value'
+  ).set;
+  setter.call(ta, q);
+  ta.dispatchEvent(new Event('input', { bubbles: true }));
+  return true;
+}, QUESTION);
+say(`typed question: ${typed}`);
+
+if (typed) {
+  await new Promise((r) => setTimeout(r, 500));
+  await page.evaluate(() => {
+    const ta = [...document.querySelectorAll('textarea')].find(
+      (t) => (t.placeholder || '').toLowerCase().includes('message')
+    );
+    ta?.focus();
+  });
+  await page.keyboard.press('Enter');
+  say('sent, waiting for a reply...');
+  await new Promise((r) => setTimeout(r, 45000));
+
+  const reply = await page.evaluate((q) => {
+    const text = document.body.innerText || '';
+    const at = text.indexOf(q);
+    return at === -1 ? null : text.slice(at + q.length, at + q.length + 900).trim();
+  }, QUESTION);
+  say('');
+  say('assistant reply after the question:');
+  say(reply ? reply.split('\n').filter(Boolean).slice(0, 12).map((l) => `  > ${l}`).join('\n') : '  (none)');
+}
+
 say('');
 say('service calls:');
 for (const c of [...new Set(calls)]) say(`  ${c}`);

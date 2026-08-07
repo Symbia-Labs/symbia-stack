@@ -2,6 +2,7 @@ import { BaseActionHandler } from './base.js';
 import type { ActionConfig, ActionResult, ExecutionContext } from '../types.js';
 import { invokeLLM, isIntegrationsAvailable, resolveUsableProvider, TokenAuthError } from '../../integrations-client.js';
 import { interpolate } from '../template.js';
+import { buildAttachmentBlock } from './attachments.js';
 
 // Re-export for consumers
 export { TokenAuthError };
@@ -75,7 +76,9 @@ export class LLMInvokeHandler extends BaseActionHandler {
 
     // Use unified Symbia Script interpolation
     // Supports both {{@user.name}} and legacy {{message.content}} syntax
-    return interpolate(template, context);
+    const prompt = interpolate(template, context);
+
+    return prompt + buildAttachmentBlock(context, template);
   }
 
   private async callLLM(

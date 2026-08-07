@@ -1006,6 +1006,21 @@ router.post('/messaging', async (req: Request, res: Response) => {
         role: 'user' as const,
         content: payload.message.content,
         metadata: {
+          // Carry the INBOUND metadata through.
+          //
+          // This object was built from scratch, which silently dropped
+          // everything the sender attached — symbiaContext (which panel the
+          // operator is on) and symbiaFrame (a captured region and what a
+          // vision model said about it). The console has been sending both;
+          // nothing on this side has ever read them, so the assistant answered
+          // "I'm not sure what context you're referring to" to a message that
+          // arrived with its context attached.
+          //
+          // symbiaContext WAS read — at line ~292, in the SDN block, which is
+          // not the path the coordinator takes. Two near-identical extraction
+          // blocks, and the wrong one was wired. That is the third time in this
+          // file.
+          ...(payload.message.metadata ?? {}),
           contentType: payload.message.content_type || 'text',
           senderId: payload.message.sender_id,
           timestamp: payload.message.created_at,
@@ -1050,6 +1065,10 @@ router.post('/messaging', async (req: Request, res: Response) => {
         role: 'user',
         content: transpiled, // ← Use transpiled content instead of raw
         metadata: {
+          // Same carry-through as the execution context above. Both objects
+          // are built here and both dropped the sender's metadata; patching
+          // one would have reached neither the prompt nor the rules.
+          ...(payload.message.metadata ?? {}),
           contentType: payload.message.content_type || 'text',
           senderId: payload.message.sender_id,
           timestamp: payload.message.created_at,
