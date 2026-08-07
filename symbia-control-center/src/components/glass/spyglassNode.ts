@@ -56,7 +56,20 @@ export async function connectSpyglassNode(nodeId: string): Promise<boolean> {
       path: socketPath('network'),
       auth: token ? { token } : undefined,
       reconnection: true,
-      transports: ['websocket', 'polling'],
+      // NO explicit `transports`.
+      //
+      // This was ['websocket', 'polling'], copied from networkClient.ts, whose
+      // comment reads "Force websocket transport to avoid polling issues" — a
+      // conclusion with no measurement behind it. Measured 7 Aug 2026 through
+      // the control center proxy: the socket reports
+      // `connect_error: websocket error` and never registers. Naming websocket
+      // first does not mean "prefer"; it means the handshake starts there, and
+      // when the upgrade path through the proxy fails, the connection fails
+      // with it rather than quietly downgrading.
+      //
+      // messagingBridge.ts omits the option entirely and its socket works.
+      // Default order is polling first, then upgrade — which survives a proxy
+      // that cannot carry the upgrade, and uses websockets when it can.
     });
 
   return new Promise((resolve) => {
@@ -76,17 +89,49 @@ export async function connectSpyglassNode(nodeId: string): Promise<boolean> {
           endpoint: window.location.origin,
           metadata: { surface: 'browser', tool: 'spyglass', pixelsOnBus: false },
         },
-        (r: { ok?: boolean }) => {
-          if (r?.ok) registered.add(nodeId);
+        (r: { ok?: boolean; error?: string }) => {
+          if (r?.ok) {
+            registered.add(nodeId);
+            console.log(`[spyglass] registered on the mesh as ${nodeId}`);
+          } else {
+            console.warn(`[spyglass] mesh refused registration:`, r?.error ?? r);
+          }
           done(Boolean(r?.ok));
         }
       );
     };
 
-    if (socket!.connected) register();
-    else socket!.once('connect', register);
-    socket!.once('connect_error', () => done(false));
-    setTimeout(() => done(registered.has(nodeId)), 6000);
+    // Emit unconditionally, and re-emit on every future connect.
+    //
+    // This was `if (connected) register(); else once('connect', register)`,
+    // which loses the race whenever the socket finishes connecting between the
+    // `connected` check and the listener being attached: the branch takes the
+    // `else`, the connect event has already fired, and `once` waits for a
+    // second one that never comes. Measured 7 Aug 2026 — the socket reported
+    // connected=true, capture.frame events from the SAME socket reached the
+    // service, and node:register never arrived at all. The service logged
+    // nothing because nothing was sent.
+    //
+    // Socket.IO buffers emits until the transport is up, so calling it
+    // unconditionally is simply correct. `on`, not `once`, so the node
+    // re-registers after a reconnect — which matters here, because the
+    // network service has been crash-looping and a node that registers only
+    // once disappears from the topology the first time it restarts.
+    register();
+    socket!.on('connect', register);
+    socket!.once('connect_error', (err) => {
+      console.warn('[spyglass] mesh connect_error', (err as Error)?.message ?? err);
+      done(false);
+    });
+    setTimeout(() => {
+      if (!registered.has(nodeId)) {
+        console.warn(
+          `[spyglass] not registered on the mesh after 6s (connected=${socket?.connected}). ` +
+            'Frames will still capture and classify; they will not appear in the topology.'
+        );
+      }
+      done(registered.has(nodeId));
+    }, 6000);
   });
 }
 
@@ -140,13 +185,46 @@ export async function publishEnvelope(
   };
 
   if (socket?.connected) {
-    socket.emit('event:emit', {
-      type: 'capture.frame',
-      data: envelope,
-      source: meta.nodeId,
-      boundary: 'intra',
-      runId: envelope.runId,
-    });
+    // 'event:send'. NOT 'event:emit'.
+    //
+    // 'event:emit' is a name I invented. The network service listens for
+    // 'event:send' (socket.ts:359) and nothing else, so every frame published
+    // for a day went into a socket that had no listener for it — emitted
+    // successfully, delivered nowhere, zero errors. Measured: 0 capture.frame
+    // events on the bus while the code said it was publishing them.
+    //
+    // Socket.IO will happily emit any string. That is the whole failure: an
+    // event name is an API, and I wrote a client against one I had assumed
+    // instead of one I had read.
+    socket.emit(
+      'event:send',
+      {
+        // The `payload` WRAPPER is required. Sending { type, data } flat is
+        // what crashed the network service — it dereferenced data.payload.type
+        // outside its try block and the process exited. Shape read from
+        // network/server/src/socket.ts:359, not guessed at this time.
+        payload: { type: 'capture.frame', data: envelope },
+        source: meta.nodeId,
+        boundary: 'intra',
+        runId: envelope.runId,
+      },
+      (ack: { ok?: boolean; error?: string } | undefined) => {
+        // The service acks. Reading it is the difference between "published"
+        // and "handed to a socket".
+        if (ack?.ok) console.log(`[spyglass] capture.frame ${envelope.digest} accepted by the mesh`);
+        else console.warn(`[spyglass] capture.frame ${envelope.digest} not accepted:`, ack?.error ?? ack);
+      }
+    );
+  } else {
+    // Say so. Measured 7 Aug 2026: zero capture.frame events were on the bus
+    // and no spyglass node was in the topology, while every commit message
+    // said frames travel the mesh. A silent `if (connected)` turns "the mesh
+    // is not connected" into "the mesh has nothing to show", which are the
+    // same picture and completely different problems.
+    console.warn(
+      `[spyglass] capture.frame ${envelope.digest} NOT published — no mesh socket. ` +
+        'The frame is still captured and still classified; it is simply not on the bus.'
+    );
   }
 
   return envelope;

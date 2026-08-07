@@ -211,3 +211,74 @@ enter API keys.
 - The success-response shape from `/execute`. The client reads both `body` and
   `body.result` and treats an unreadable one as REFUSED rather than as an empty
   description.
+
+---
+
+## Test drive, 7 Aug 2026 — the mesh half was never working
+
+The vision path worked for hours while every commit message claimed frames
+travelled the mesh. They did not. Measured: **0 `capture.frame` events on the
+bus and no spyglass node in the topology.** Four separate causes, each of which
+made the next one invisible.
+
+**F8 — I invented an event name.** The client emitted `event:emit`. The network
+service listens for `event:send` and nothing else (socket.ts:359). Socket.IO
+emits any string happily, so a day of frames went into a socket with no
+listener: no error, no warning, nothing delivered. An event name is an API and
+I wrote a client against one I assumed instead of one I read.
+
+**F9 — the wrong payload shape CRASHED THE WHOLE NETWORK SERVICE.** The handler
+reads `data.payload.type` on its first line — *outside* the try block four
+lines below. My flat `{type, data}` made `data.payload` undefined, the
+TypeError escaped an async socket handler, and the process exited. Repeatedly.
+
+Every symptom pointed somewhere else: the browser reported
+`connect_error: xhr poll error`, the proxy returned `502 upstream_unreachable`,
+and it read as a proxy or transport problem for several rounds. The service had
+simply died. **A mesh any connected client can kill with one malformed message
+is a larger finding than the client that killed it**, and it is now validated
+before dereference, with a rejection that names the expected shape.
+
+**F10 — `transports: ['websocket', 'polling']`, copied from networkClient.ts,
+whose comment reads "Force websocket transport to avoid polling issues".** That
+is a conclusion with no measurement attached. Through the control center proxy
+the socket fails outright rather than downgrading. `messagingBridge.ts` omits
+the option and its socket works. Removed. **networkClient.ts still has it** —
+not touched here because its behaviour was not measured, and changing it on the
+strength of this would be the same unmeasured reasoning in the other direction.
+
+**F11 — a connect race meant `node:register` was never sent.** The code was
+`if (connected) register(); else once('connect', register)`. When the socket
+finishes connecting between the check and the listener, the branch takes the
+`else`, the connect event has already fired, and `once` waits for a second one
+that never comes. Symptom: socket reports `connected=true`, `capture.frame`
+from the *same socket* reaches the service, and `node:register` never arrives —
+the service logged nothing because nothing was sent. Now emitted
+unconditionally (Socket.IO buffers) and re-emitted on every `connect`, so the
+node comes back after a service restart.
+
+### Confirmed server-side
+
+```
+Node registered: client:spyglass:6fb84135
+Event type: capture.frame
+```
+
+Both in the network service's own log, from a browser-driven capture.
+
+### F12 — the event ring is drowned
+
+`GET /api/events` returns `router.getRecentEvents(limit)`, an in-memory ring.
+`obs.http.request`/`obs.http.response` run at roughly 24/s, so 3000 events is
+about two minutes: a `capture.frame` is evicted before anyone can look for it.
+Acknowledged by the service, visible in its log, and unfindable through the API
+minutes later. Not fixed — filtering or a separate retention policy is a design
+decision, not a patch.
+
+## Still not checked
+
+- Any HuggingFace vision model id (no credential stored).
+- The `claude-3-*` model ids.
+- `networkClient.ts`'s forced websocket transport.
+- Whether the network service has other unguarded socket handlers with the same
+  crash shape as F9. Only `event:send` was examined.

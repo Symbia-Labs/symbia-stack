@@ -181,9 +181,22 @@ if (typed) {
 say('');
 say('service calls:');
 for (const c of [...new Set(calls)]) say(`  ${c}`);
+// Spyglass lines FIRST and unabridged.
+//
+// The tail-25 below was flooded by repeated "Joined conversation room" and
+// swallowed every [spyglass] line, so a run that failed to reach the mesh
+// looked identical to one that reached it. A log that drops the subject of
+// the investigation is not a log of the investigation.
 say('');
-say('console:');
-for (const c of consoleLines.slice(-25)) say(`  ${c}`);
+say('spyglass console:');
+const spy = consoleLines.filter((c) => c.includes('[spyglass]') || c.includes('pixelVault'));
+say(spy.length ? spy.map((c) => `  ${c}`).join('\n') : '  (none — nothing was logged at all)');
+
+say('');
+say('other console (deduped tail):');
+for (const c of [...new Set(consoleLines.filter((c) => !c.includes('[spyglass]')))].slice(-12)) {
+  say(`  ${c}`);
+}
 
 await page.screenshot({ path: '/tmp/spyglass-drive.png' });
 say('');
