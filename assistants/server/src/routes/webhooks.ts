@@ -398,6 +398,7 @@ async function processMessageForAssistant(
 
   // Extract response content
   let responseContent: string | null = null;
+  let provenance: unknown = null;
   let errorMessage: string | null = null;
   let suppressResponse = false;
 
@@ -406,8 +407,16 @@ async function processMessageForAssistant(
     for (const action of ruleResult.actionsExecuted) {
       if (action.success && action.output) {
         if (action.actionType === 'message.send') {
-          const output = action.output as { content?: string };
+          const output = action.output as {
+            content?: string;
+            message?: { metadata?: { symbia?: { provenance?: unknown } } };
+          };
           if (output.content) responseContent = output.content;
+          // The sealed envelope travels with the reply. Dropping it here was
+          // the difference between a platform that can show where an answer
+          // came from and one that merely asserts it can.
+          const env = output.message?.metadata?.symbia?.provenance;
+          if (env) provenance = env;
         }
         if (action.actionType === 'llm.invoke') {
           const output = action.output as { response?: string };
@@ -437,6 +446,16 @@ async function processMessageForAssistant(
   // Format error as response if no response generated
   if (!responseContent && errorMessage) {
     responseContent = `⚠️ I encountered an error while processing your request:\n\n\`${errorMessage}\`\n\nPlease check my configuration or try again.`;
+    // A failure is a REFUSED answer, not an absence of one. It carries an
+    // envelope like any other reply, so the console can show that the system
+    // declined and why, rather than rendering an unattributed apology.
+    provenance = {
+      arena: 'REFUSED',
+      basis: errorMessage,
+      steps: [],
+      timestamp: new Date().toISOString(),
+      hash: null,
+    };
   }
 
   // Send response via SDN
@@ -448,7 +467,8 @@ async function processMessageForAssistant(
       assistantEntityId,
       responseContent,
       result,
-      runId
+      runId,
+      provenance
     );
   } else {
     console.log(`[SDN] No response generated for assistant: ${assistantKey}`);
@@ -481,7 +501,9 @@ async function sendResponseViaSDN(
       }>;
     }>;
   },
-  runId: string
+  runId: string,
+  /** Sealed provenance for this reply. Null only if no rule produced one. */
+  provenance?: unknown
 ): Promise<boolean> {
   // Build justification for observability
   const justification = {
@@ -506,6 +528,7 @@ async function sendResponseViaSDN(
       content,
       content_type: 'markdown',
       metadata: {
+        symbia: provenance ? { provenance } : undefined,
         assistantKey,
         rulesEvaluated: ruleResult.rulesEvaluated,
         rulesMatched: ruleResult.rulesMatched,

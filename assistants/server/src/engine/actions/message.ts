@@ -1,5 +1,6 @@
 import { BaseActionHandler } from './base.js';
 import type { ActionConfig, ActionResult, ExecutionContext } from '../types.js';
+import { seal, type ProvenanceStep } from '../provenance.js';
 import { interpolate } from '../template.js';
 
 export interface MessageSendParams {
@@ -28,6 +29,29 @@ export class MessageSendHandler extends BaseActionHandler {
       // Supports both {{@user.name}} and legacy {{message.content}} syntax
       content = interpolate(template, context);
 
+      // Seal the envelope over the content actually being sent.
+      //
+      // The template decides the arena as much as the actions do: a reply
+      // whose text is {{steps.step-calc.result}} carries a computed value
+      // verbatim, while one whose text is {{steps.step-answer.response}} is
+      // whatever a model wrote. Detecting that here — from the template, at
+      // the moment of sending — is the only place both facts are available.
+      const steps = (context.provenance as ProvenanceStep[] | undefined) ?? [];
+      const modelStepIds = steps
+        .filter((st) => st.action === 'llm.invoke')
+        .map((st) => st.id);
+      const contentFromModel = modelStepIds.some((id) => template.includes(id));
+
+      const envelope = seal({
+        content,
+        steps,
+        contentFromModel,
+        rule: context.provenanceRule as string | undefined,
+        assistant: (context.metadata as Record<string, unknown> | undefined)?.assistantKey as string | undefined,
+        runId: (context.metadata as Record<string, unknown> | undefined)?.runId as string | undefined,
+        causedBy: context.message?.id,
+      });
+
       const message = {
         id: crypto.randomUUID(),
         conversationId: context.conversationId,
@@ -35,7 +59,13 @@ export class MessageSendHandler extends BaseActionHandler {
         role: params.role || 'assistant',
         content,
         channel: params.channel,
-        metadata: params.metadata || {},
+        metadata: {
+          ...(params.metadata || {}),
+          // Structured, hashed, and verifiable — not a sentence appended to
+          // the text. The chat window renders from this; nothing renders from
+          // a string an author remembered to write.
+          symbia: { provenance: envelope },
+        },
         createdAt: new Date().toISOString(),
       };
 
