@@ -18,7 +18,7 @@
  *   node scripts/verify-browser.mjs [baseUrl]
  */
 import { createRequire } from 'node:module';
-const puppeteer = createRequire('/tmp/x.js')('puppeteer');
+const puppeteer = createRequire(import.meta.url)('puppeteer');
 import { writeFileSync, mkdirSync } from 'node:fs';
 
 const BASE = process.argv[2] || 'http://localhost:8000';
