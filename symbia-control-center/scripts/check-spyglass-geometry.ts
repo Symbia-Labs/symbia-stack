@@ -16,41 +16,42 @@
  */
 import { tabSampleRect } from '../src/components/glass/Spyglass';
 
+/** Must match D in Spyglass.tsx. The lens is one fixed size now. */
+const D = 280;
+
 interface Case {
   name: string;
-  geo: { x: number; y: number; d: number };
-  zoom: number;
+  pos: { x: number; y: number };
   vw: number;
   vh: number;
 }
 
 const cases: Case[] = [
-  // The one in the screenshot, 7 Aug 2026: large lens parked at the left edge.
-  // The old code offset one diameter left, clamped to 0, and landed on itself.
-  { name: 'screenshot: big lens, left edge', geo: { x: 85, y: 130, d: 670 }, zoom: 2, vw: 2000, vh: 1150 },
-  { name: 'default position', geo: { x: 80, y: 120, d: 320 }, zoom: 2, vw: 1600, vh: 1000 },
-  { name: 'hard left, y=0', geo: { x: 0, y: 0, d: 400 }, zoom: 2, vw: 1600, vh: 1000 },
-  { name: 'hard right', geo: { x: 1180, y: 300, d: 400 }, zoom: 2, vw: 1600, vh: 1000 },
-  { name: 'centred', geo: { x: 600, y: 300, d: 400 }, zoom: 4, vw: 1600, vh: 1000 },
-  { name: 'max lens in a small window', geo: { x: 20, y: 20, d: 900 }, zoom: 2, vw: 1000, vh: 700 },
-  { name: 'bottom right corner', geo: { x: 1400, y: 800, d: 160 }, zoom: 8, vw: 1600, vh: 1000 },
+  { name: 'default position', pos: { x: 80, y: 120 }, vw: 1600, vh: 1000 },
+  { name: 'hard left, y=0', pos: { x: 0, y: 0 }, vw: 1600, vh: 1000 },
+  { name: 'hard right', pos: { x: 1320, y: 300 }, vw: 1600, vh: 1000 },
+  { name: 'centred', pos: { x: 600, y: 300 }, vw: 1600, vh: 1000 },
+  { name: 'bottom right corner', pos: { x: 1300, y: 700 }, vw: 1600, vh: 1000 },
+  { name: 'dragged half off the left edge', pos: { x: -140, y: 400 }, vw: 1600, vh: 1000 },
+  { name: 'window narrower than the sample', pos: { x: 10, y: 10 }, vw: 120, vh: 700 },
 ];
 
 let failures = 0;
 let refusals = 0;
 
 for (const c of cases) {
-  const r = tabSampleRect(c.geo, c.zoom, c.vw, c.vh);
+  const geo = { x: c.pos.x, y: c.pos.y, d: D };
+  const r = tabSampleRect(c.pos, c.vw, c.vh);
   if (!r) {
     refusals++;
-    console.log(`  REFUSED  ${c.name}  (lens ${c.geo.d}px in ${c.vw}x${c.vh})`);
+    console.log(`  REFUSED  ${c.name}  (lens ${D}px in ${c.vw}x${c.vh})`);
     continue;
   }
   const overlaps = !(
-    r.x + r.size <= c.geo.x ||
-    r.x >= c.geo.x + c.geo.d ||
-    r.y + r.size <= c.geo.y ||
-    r.y >= c.geo.y + c.geo.d
+    r.x + r.size <= geo.x ||
+    r.x >= geo.x + geo.d ||
+    r.y + r.size <= geo.y ||
+    r.y >= geo.y + geo.d
   );
   const onScreen = r.x >= 0 && r.y >= 0 && r.x + r.size <= c.vw && r.y + r.size <= c.vh;
   const bad = overlaps || !onScreen;
