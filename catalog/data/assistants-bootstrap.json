@@ -7,12 +7,26 @@
     "type": "assistant",
     "status": "published",
     "isBootstrap": true,
-    "tags": ["assistant", "bootstrap", "tutorial", "level-1", "deterministic"],
+    "tags": [
+      "assistant",
+      "bootstrap",
+      "tutorial",
+      "level-1",
+      "deterministic"
+    ],
     "accessPolicy": {
       "visibility": "public",
       "actions": {
-        "read": { "anyOf": ["public"] },
-        "write": { "anyOf": ["role:admin"] }
+        "read": {
+          "anyOf": [
+            "public"
+          ]
+        },
+        "write": {
+          "anyOf": [
+            "role:admin"
+          ]
+        }
       }
     },
     "metadata": {
@@ -24,7 +38,9 @@
       "assistantConfig": {
         "principalId": "assistant:echo",
         "principalType": "assistant",
-        "capabilities": ["messaging"]
+        "capabilities": [
+          "messaging"
+        ]
       },
       "ruleSet": {
         "id": "ruleset-echo",
@@ -43,8 +59,16 @@
             "conditions": {
               "logic": "or",
               "conditions": [
-                { "field": "message.content", "operator": "matches", "value": "^/help$" },
-                { "field": "message.content", "operator": "matches", "value": "^help$" }
+                {
+                  "field": "message.content",
+                  "operator": "matches",
+                  "value": "^/help$"
+                },
+                {
+                  "field": "message.content",
+                  "operator": "matches",
+                  "value": "^help$"
+                }
               ]
             },
             "actions": [
@@ -66,8 +90,16 @@
             "conditions": {
               "logic": "or",
               "conditions": [
-                { "field": "message.content", "operator": "equals", "value": "" },
-                { "field": "message.content", "operator": "matches", "value": "^\\s*$" }
+                {
+                  "field": "message.content",
+                  "operator": "equals",
+                  "value": ""
+                },
+                {
+                  "field": "message.content",
+                  "operator": "matches",
+                  "value": "^\\s*$"
+                }
               ]
             },
             "actions": [
@@ -89,7 +121,11 @@
             "conditions": {
               "logic": "and",
               "conditions": [
-                { "field": "message.content", "operator": "exists", "value": true }
+                {
+                  "field": "message.content",
+                  "operator": "exists",
+                  "value": true
+                }
               ]
             },
             "actions": [
@@ -113,12 +149,27 @@
     "type": "assistant",
     "status": "published",
     "isBootstrap": true,
-    "tags": ["assistant", "bootstrap", "tutorial", "level-2", "deterministic", "math"],
+    "tags": [
+      "assistant",
+      "bootstrap",
+      "tutorial",
+      "level-2",
+      "deterministic",
+      "math"
+    ],
     "accessPolicy": {
       "visibility": "public",
       "actions": {
-        "read": { "anyOf": ["public"] },
-        "write": { "anyOf": ["role:admin"] }
+        "read": {
+          "anyOf": [
+            "public"
+          ]
+        },
+        "write": {
+          "anyOf": [
+            "role:admin"
+          ]
+        }
       }
     },
     "metadata": {
@@ -130,7 +181,10 @@
       "assistantConfig": {
         "principalId": "assistant:calculator",
         "principalType": "assistant",
-        "capabilities": ["messaging", "tools.math"]
+        "capabilities": [
+          "messaging",
+          "tools.math"
+        ]
       },
       "ruleSet": {
         "id": "ruleset-calculator",
@@ -149,15 +203,23 @@
             "conditions": {
               "logic": "or",
               "conditions": [
-                { "field": "message.content", "operator": "matches", "value": "^/help$" },
-                { "field": "message.content", "operator": "matches", "value": "^help$" }
+                {
+                  "field": "message.content",
+                  "operator": "matches",
+                  "value": "^/help$"
+                },
+                {
+                  "field": "message.content",
+                  "operator": "matches",
+                  "value": "^help$"
+                }
               ]
             },
             "actions": [
               {
                 "type": "message.send",
                 "params": {
-                  "content": "**Calculator** (Level 2)\n\nI evaluate mathematical expressions with precision.\n\n**Supported operations:**\n- Basic: `+` `-` `*` `/`\n- Powers: `^` or `**`\n- Parentheses: `(` `)`\n- Functions: `sqrt()`, `sin()`, `cos()`, `log()`\n- Constants: `pi`, `e`\n\n**Examples:**\n- `2 + 2` → 4\n- `(10 + 5) * 2` → 30\n- `sqrt(16)` → 4\n- `pi * 2` → 6.283...\n\n**Why this matters:**\nThis shows deterministic tool execution - the math engine always returns exact results, unlike LLM approximations."
+                  "content": "**Calculator** (Level 2)\n\nI evaluate mathematical expressions with precision.\n\n**Supported operations:**\n- Basic: `+` `-` `*` `/`\n- Powers: `^` or `**`\n- Parentheses: `(` `)`\n- Functions: `sqrt()`, `sin()`, `cos()`, `log()`\n- Constants: `pi`, `e`\n\n**Examples:**\n- `2 + 2` \u2192 4\n- `(10 + 5) * 2` \u2192 30\n- `sqrt(16)` \u2192 4\n- `pi * 2` \u2192 6.283...\n\n**Why this matters:**\nThis shows deterministic tool execution - the math engine always returns exact results, unlike LLM approximations."
                 }
               }
             ]
@@ -172,8 +234,16 @@
             "conditions": {
               "logic": "and",
               "conditions": [
-                { "field": "message.content", "operator": "exists", "value": true },
-                { "field": "message.content", "operator": "matches", "value": "[0-9+\\-*/^().%]" }
+                {
+                  "field": "message.content",
+                  "operator": "exists",
+                  "value": true
+                },
+                {
+                  "field": "message.content",
+                  "operator": "matches",
+                  "value": "[0-9+\\-*/^().%]"
+                }
               ]
             },
             "actions": [
@@ -209,8 +279,16 @@
             "conditions": {
               "logic": "and",
               "conditions": [
-                { "field": "message.content", "operator": "exists", "value": true },
-                { "field": "message.content", "operator": "not_matches", "value": "[0-9]" }
+                {
+                  "field": "message.content",
+                  "operator": "exists",
+                  "value": true
+                },
+                {
+                  "field": "message.content",
+                  "operator": "not_matches",
+                  "value": "[0-9]"
+                }
               ]
             },
             "actions": [
@@ -234,12 +312,27 @@
     "type": "assistant",
     "status": "published",
     "isBootstrap": true,
-    "tags": ["assistant", "bootstrap", "tutorial", "level-2", "deterministic", "conversion"],
+    "tags": [
+      "assistant",
+      "bootstrap",
+      "tutorial",
+      "level-2",
+      "deterministic",
+      "conversion"
+    ],
     "accessPolicy": {
       "visibility": "public",
       "actions": {
-        "read": { "anyOf": ["public"] },
-        "write": { "anyOf": ["role:admin"] }
+        "read": {
+          "anyOf": [
+            "public"
+          ]
+        },
+        "write": {
+          "anyOf": [
+            "role:admin"
+          ]
+        }
       }
     },
     "metadata": {
@@ -251,7 +344,10 @@
       "assistantConfig": {
         "principalId": "assistant:converter",
         "principalType": "assistant",
-        "capabilities": ["messaging", "tools.convert"]
+        "capabilities": [
+          "messaging",
+          "tools.convert"
+        ]
       },
       "ruleSet": {
         "id": "ruleset-converter",
@@ -270,8 +366,16 @@
             "conditions": {
               "logic": "or",
               "conditions": [
-                { "field": "message.content", "operator": "matches", "value": "^/help$" },
-                { "field": "message.content", "operator": "matches", "value": "^help$" }
+                {
+                  "field": "message.content",
+                  "operator": "matches",
+                  "value": "^/help$"
+                },
+                {
+                  "field": "message.content",
+                  "operator": "matches",
+                  "value": "^help$"
+                }
               ]
             },
             "actions": [
@@ -293,8 +397,16 @@
             "conditions": {
               "logic": "and",
               "conditions": [
-                { "field": "message.content", "operator": "exists", "value": true },
-                { "field": "message.content", "operator": "matches", "value": "\\d+\\.?\\d*\\s*\\w+\\s+(to|in|as)\\s+\\w+" }
+                {
+                  "field": "message.content",
+                  "operator": "exists",
+                  "value": true
+                },
+                {
+                  "field": "message.content",
+                  "operator": "matches",
+                  "value": "\\d+\\.?\\d*\\s*\\w+\\s+(to|in|as)\\s+\\w+"
+                }
               ]
             },
             "actions": [
@@ -330,8 +442,16 @@
             "conditions": {
               "logic": "and",
               "conditions": [
-                { "field": "message.content", "operator": "exists", "value": true },
-                { "field": "message.content", "operator": "not_matches", "value": "\\d+.*to\\s+\\w+" }
+                {
+                  "field": "message.content",
+                  "operator": "exists",
+                  "value": true
+                },
+                {
+                  "field": "message.content",
+                  "operator": "not_matches",
+                  "value": "\\d+.*to\\s+\\w+"
+                }
               ]
             },
             "actions": [
@@ -355,12 +475,27 @@
     "type": "assistant",
     "status": "published",
     "isBootstrap": true,
-    "tags": ["assistant", "bootstrap", "tutorial", "level-3", "hybrid", "deterministic-to-llm"],
+    "tags": [
+      "assistant",
+      "bootstrap",
+      "tutorial",
+      "level-3",
+      "hybrid",
+      "deterministic-to-llm"
+    ],
     "accessPolicy": {
       "visibility": "public",
       "actions": {
-        "read": { "anyOf": ["public"] },
-        "write": { "anyOf": ["role:admin"] }
+        "read": {
+          "anyOf": [
+            "public"
+          ]
+        },
+        "write": {
+          "anyOf": [
+            "role:admin"
+          ]
+        }
       }
     },
     "metadata": {
@@ -377,7 +512,11 @@
       "assistantConfig": {
         "principalId": "assistant:data-explainer",
         "principalType": "assistant",
-        "capabilities": ["messaging", "tools.stats", "llm.chat"]
+        "capabilities": [
+          "messaging",
+          "tools.stats",
+          "llm.chat"
+        ]
       },
       "ruleSet": {
         "id": "ruleset-data-explainer",
@@ -396,8 +535,16 @@
             "conditions": {
               "logic": "or",
               "conditions": [
-                { "field": "message.content", "operator": "matches", "value": "^/help$" },
-                { "field": "message.content", "operator": "matches", "value": "^help$" }
+                {
+                  "field": "message.content",
+                  "operator": "matches",
+                  "value": "^/help$"
+                },
+                {
+                  "field": "message.content",
+                  "operator": "matches",
+                  "value": "^help$"
+                }
               ]
             },
             "actions": [
@@ -419,8 +566,16 @@
             "conditions": {
               "logic": "and",
               "conditions": [
-                { "field": "message.content", "operator": "exists", "value": true },
-                { "field": "message.content", "operator": "matches", "value": "-?\\d+\\.?\\d*" }
+                {
+                  "field": "message.content",
+                  "operator": "exists",
+                  "value": true
+                },
+                {
+                  "field": "message.content",
+                  "operator": "matches",
+                  "value": "-?\\d+\\.?\\d*"
+                }
               ]
             },
             "actions": [
@@ -466,12 +621,28 @@
     "type": "assistant",
     "status": "published",
     "isBootstrap": true,
-    "tags": ["assistant", "bootstrap", "tutorial", "level-3", "hybrid", "deterministic-to-llm", "code"],
+    "tags": [
+      "assistant",
+      "bootstrap",
+      "tutorial",
+      "level-3",
+      "hybrid",
+      "deterministic-to-llm",
+      "code"
+    ],
     "accessPolicy": {
       "visibility": "public",
       "actions": {
-        "read": { "anyOf": ["public"] },
-        "write": { "anyOf": ["role:admin"] }
+        "read": {
+          "anyOf": [
+            "public"
+          ]
+        },
+        "write": {
+          "anyOf": [
+            "role:admin"
+          ]
+        }
       }
     },
     "metadata": {
@@ -488,7 +659,11 @@
       "assistantConfig": {
         "principalId": "assistant:code-runner",
         "principalType": "assistant",
-        "capabilities": ["messaging", "tools.code", "llm.chat"]
+        "capabilities": [
+          "messaging",
+          "tools.code",
+          "llm.chat"
+        ]
       },
       "ruleSet": {
         "id": "ruleset-code-runner",
@@ -507,8 +682,16 @@
             "conditions": {
               "logic": "or",
               "conditions": [
-                { "field": "message.content", "operator": "matches", "value": "^/help$" },
-                { "field": "message.content", "operator": "matches", "value": "^help$" }
+                {
+                  "field": "message.content",
+                  "operator": "matches",
+                  "value": "^/help$"
+                },
+                {
+                  "field": "message.content",
+                  "operator": "matches",
+                  "value": "^help$"
+                }
               ]
             },
             "actions": [
@@ -530,8 +713,16 @@
             "conditions": {
               "logic": "and",
               "conditions": [
-                { "field": "message.content", "operator": "exists", "value": true },
-                { "field": "message.content", "operator": "length_gte", "value": 5 }
+                {
+                  "field": "message.content",
+                  "operator": "exists",
+                  "value": true
+                },
+                {
+                  "field": "message.content",
+                  "operator": "length_gte",
+                  "value": 5
+                }
               ]
             },
             "actions": [
@@ -579,12 +770,28 @@
     "type": "assistant",
     "status": "published",
     "isBootstrap": true,
-    "tags": ["assistant", "bootstrap", "tutorial", "level-4", "hybrid", "llm-to-deterministic", "math"],
+    "tags": [
+      "assistant",
+      "bootstrap",
+      "tutorial",
+      "level-4",
+      "hybrid",
+      "llm-to-deterministic",
+      "math"
+    ],
     "accessPolicy": {
       "visibility": "public",
       "actions": {
-        "read": { "anyOf": ["public"] },
-        "write": { "anyOf": ["role:admin"] }
+        "read": {
+          "anyOf": [
+            "public"
+          ]
+        },
+        "write": {
+          "anyOf": [
+            "role:admin"
+          ]
+        }
       }
     },
     "metadata": {
@@ -601,7 +808,11 @@
       "assistantConfig": {
         "principalId": "assistant:smart-calc",
         "principalType": "assistant",
-        "capabilities": ["messaging", "llm.chat", "tools.math"]
+        "capabilities": [
+          "messaging",
+          "llm.chat",
+          "tools.math"
+        ]
       },
       "ruleSet": {
         "id": "ruleset-smart-calc",
@@ -620,8 +831,16 @@
             "conditions": {
               "logic": "or",
               "conditions": [
-                { "field": "message.content", "operator": "matches", "value": "^/help$" },
-                { "field": "message.content", "operator": "matches", "value": "^help$" }
+                {
+                  "field": "message.content",
+                  "operator": "matches",
+                  "value": "^/help$"
+                },
+                {
+                  "field": "message.content",
+                  "operator": "matches",
+                  "value": "^help$"
+                }
               ]
             },
             "actions": [
@@ -643,8 +862,16 @@
             "conditions": {
               "logic": "and",
               "conditions": [
-                { "field": "message.content", "operator": "exists", "value": true },
-                { "field": "message.content", "operator": "length_gte", "value": 3 }
+                {
+                  "field": "message.content",
+                  "operator": "exists",
+                  "value": true
+                },
+                {
+                  "field": "message.content",
+                  "operator": "length_gte",
+                  "value": 3
+                }
               ]
             },
             "actions": [
@@ -690,12 +917,28 @@
     "type": "assistant",
     "status": "published",
     "isBootstrap": true,
-    "tags": ["assistant", "bootstrap", "tutorial", "level-4", "hybrid", "llm-to-deterministic", "routing"],
+    "tags": [
+      "assistant",
+      "bootstrap",
+      "tutorial",
+      "level-4",
+      "hybrid",
+      "llm-to-deterministic",
+      "routing"
+    ],
     "accessPolicy": {
       "visibility": "public",
       "actions": {
-        "read": { "anyOf": ["public"] },
-        "write": { "anyOf": ["role:admin"] }
+        "read": {
+          "anyOf": [
+            "public"
+          ]
+        },
+        "write": {
+          "anyOf": [
+            "role:admin"
+          ]
+        }
       }
     },
     "metadata": {
@@ -712,7 +955,11 @@
       "assistantConfig": {
         "principalId": "assistant:intent-router",
         "principalType": "assistant",
-        "capabilities": ["messaging", "llm.chat", "routing"]
+        "capabilities": [
+          "messaging",
+          "llm.chat",
+          "routing"
+        ]
       },
       "ruleSet": {
         "id": "ruleset-intent-router",
@@ -731,15 +978,23 @@
             "conditions": {
               "logic": "or",
               "conditions": [
-                { "field": "message.content", "operator": "matches", "value": "^/help$" },
-                { "field": "message.content", "operator": "matches", "value": "^help$" }
+                {
+                  "field": "message.content",
+                  "operator": "matches",
+                  "value": "^/help$"
+                },
+                {
+                  "field": "message.content",
+                  "operator": "matches",
+                  "value": "^help$"
+                }
               ]
             },
             "actions": [
               {
                 "type": "message.send",
                 "params": {
-                  "content": "**Intent Router** (Level 4 - Hybrid)\n\nI figure out what you need and route you to the right assistant.\n\n**How it works:**\n1. You send any message\n2. AI classifies your intent (LLM)\n3. I route to the correct specialist (deterministic)\n\n**Detected intents:**\n- `CALCULATE` → @calc\n- `CONVERT` → @convert\n- `ANALYZE` → @explain\n- `CODE` → @run\n- `BUILD` → @builder\n- `HELP` → shows guidance\n\n**Examples:**\n- \"What's 25 times 4?\" → routes to calculator\n- \"Convert 100km to miles\" → routes to converter\n- \"Run this Python code\" → routes to code runner\n\n**Why this matters:**\nAI handles fuzzy intent detection, but routing is deterministic and predictable."
+                  "content": "**Intent Router** (Level 4 - Hybrid)\n\nI figure out what you need and route you to the right assistant.\n\n**How it works:**\n1. You send any message\n2. AI classifies your intent (LLM)\n3. I route to the correct specialist (deterministic)\n\n**Detected intents:**\n- `CALCULATE` \u2192 @calc\n- `CONVERT` \u2192 @convert\n- `ANALYZE` \u2192 @explain\n- `CODE` \u2192 @run\n- `BUILD` \u2192 @builder\n- `HELP` \u2192 shows guidance\n\n**Examples:**\n- \"What's 25 times 4?\" \u2192 routes to calculator\n- \"Convert 100km to miles\" \u2192 routes to converter\n- \"Run this Python code\" \u2192 routes to code runner\n\n**Why this matters:**\nAI handles fuzzy intent detection, but routing is deterministic and predictable."
                 }
               }
             ]
@@ -754,8 +1009,16 @@
             "conditions": {
               "logic": "and",
               "conditions": [
-                { "field": "message.content", "operator": "exists", "value": true },
-                { "field": "message.content", "operator": "length_gte", "value": 2 }
+                {
+                  "field": "message.content",
+                  "operator": "exists",
+                  "value": true
+                },
+                {
+                  "field": "message.content",
+                  "operator": "length_gte",
+                  "value": 2
+                }
               ]
             },
             "actions": [
@@ -773,12 +1036,30 @@
                 "params": {
                   "value": "{{steps.step-classify.response}}",
                   "routes": {
-                    "CALCULATE": { "target": "assistant:calculator", "message": "{{message.content}}" },
-                    "CONVERT": { "target": "assistant:converter", "message": "{{message.content}}" },
-                    "ANALYZE": { "target": "assistant:data-explainer", "message": "{{message.content}}" },
-                    "CODE": { "target": "assistant:code-runner", "message": "{{message.content}}" },
-                    "BUILD": { "target": "assistant:builder", "message": "{{message.content}}" },
-                    "HELP": { "target": "self", "action": "showHelp" }
+                    "CALCULATE": {
+                      "target": "assistant:calculator",
+                      "message": "{{message.content}}"
+                    },
+                    "CONVERT": {
+                      "target": "assistant:converter",
+                      "message": "{{message.content}}"
+                    },
+                    "ANALYZE": {
+                      "target": "assistant:data-explainer",
+                      "message": "{{message.content}}"
+                    },
+                    "CODE": {
+                      "target": "assistant:code-runner",
+                      "message": "{{message.content}}"
+                    },
+                    "BUILD": {
+                      "target": "assistant:builder",
+                      "message": "{{message.content}}"
+                    },
+                    "HELP": {
+                      "target": "self",
+                      "action": "showHelp"
+                    }
                   },
                   "fallback": {
                     "target": "assistant:coordinator",
@@ -806,12 +1087,27 @@
     "type": "assistant",
     "status": "published",
     "isBootstrap": true,
-    "tags": ["assistant", "bootstrap", "tutorial", "level-5", "multi-agent", "orchestration"],
+    "tags": [
+      "assistant",
+      "bootstrap",
+      "tutorial",
+      "level-5",
+      "multi-agent",
+      "orchestration"
+    ],
     "accessPolicy": {
       "visibility": "public",
       "actions": {
-        "read": { "anyOf": ["public"] },
-        "write": { "anyOf": ["role:admin"] }
+        "read": {
+          "anyOf": [
+            "public"
+          ]
+        },
+        "write": {
+          "anyOf": [
+            "role:admin"
+          ]
+        }
       }
     },
     "metadata": {
@@ -828,29 +1124,56 @@
       "assistantConfig": {
         "principalId": "assistant:coordinator",
         "principalType": "assistant",
-        "capabilities": ["messaging", "llm.chat", "routing", "orchestration", "delegation"]
+        "capabilities": [
+          "messaging",
+          "llm.chat",
+          "routing",
+          "orchestration",
+          "delegation"
+        ]
       },
       "ruleSet": {
         "id": "ruleset-coordinator",
         "name": "Coordinator Rules",
-        "description": "Orchestrate team of specialists to solve complex problems",
-        "version": 1,
-        "isActive": true,
         "rules": [
+          {
+            "id": "rule-compute-first",
+            "name": "Compute First",
+            "actions": [
+              {
+                "id": "step-calc",
+                "type": "tool.invoke",
+                "params": {
+                  "tool": "math.evaluate",
+                  "input": "{{message.content}}",
+                  "resultKey": "calc"
+                }
+              },
+              {
+                "id": "step-say",
+                "type": "message.send",
+                "params": {
+                  "content": "{{steps.step-calc.result}}\n\n_computed by math.evaluate \u2014 no model call_"
+                }
+              }
+            ],
+            "enabled": true,
+            "trigger": "message.received",
+            "priority": 220,
+            "conditions": {
+              "logic": "and",
+              "conditions": [
+                {
+                  "field": "message.content",
+                  "value": "^\\s*(?:what(?:'s| is)\\s+)?[-+(]*\\s*\\d[\\d\\s.,()+\\-*/^%x\u00d7\u00f7]*\\d\\s*[)?]*\\s*$",
+                  "operator": "matches"
+                }
+              ]
+            }
+          },
           {
             "id": "coord-help",
             "name": "Help Command",
-            "description": "Show coordinator help and team roster",
-            "priority": 200,
-            "enabled": true,
-            "trigger": "message.received",
-            "conditions": {
-              "logic": "or",
-              "conditions": [
-                { "field": "message.content", "operator": "matches", "value": "^/help$" },
-                { "field": "message.content", "operator": "matches", "value": "^help$" }
-              ]
-            },
             "actions": [
               {
                 "type": "message.send",
@@ -858,30 +1181,40 @@
                   "content": "**Coordinator (Symbia)** (Level 5 - Multi-Agent)\n\nI'm your team lead. I orchestrate specialists to solve complex problems.\n\n**My team:**\n\n*Level 1 - Basics:*\n- `@echo` - Message mirroring (testing)\n\n*Level 2 - Deterministic:*\n- `@calc` - Precise math\n- `@convert` - Unit conversion\n\n*Level 3 - Logic then AI:*\n- `@explain` - Data analysis + explanation\n- `@run` - Code execution + explanation\n\n*Level 4 - AI then Logic:*\n- `@smartcalc` - Natural language math\n- `@router` - Intent classification\n\n*Level 5 - Collaboration:*\n- `@analyst` - Research specialist\n- `@builder` - Creates new assistants\n\n**How to use me:**\n- Simple questions: I'll answer directly\n- Complex tasks: I'll coordinate the team\n- Mention specialists: I'll bring them in\n\n**Example:** \"I need to analyze sales data and create a report\""
                 }
               }
-            ]
+            ],
+            "enabled": true,
+            "trigger": "message.received",
+            "priority": 200,
+            "conditions": {
+              "logic": "or",
+              "conditions": [
+                {
+                  "field": "message.content",
+                  "value": "^/help$",
+                  "operator": "matches"
+                },
+                {
+                  "field": "message.content",
+                  "value": "^help$",
+                  "operator": "matches"
+                }
+              ]
+            },
+            "description": "Show coordinator help and team roster"
           },
           {
             "id": "coord-team",
             "name": "Team Roster",
-            "description": "Show available team members",
-            "priority": 180,
-            "enabled": true,
-            "trigger": "message.received",
-            "conditions": {
-              "logic": "or",
-              "conditions": [
-                { "field": "message.content", "operator": "matches", "value": "(?i)who.*team" },
-                { "field": "message.content", "operator": "matches", "value": "(?i)list.*assistant" },
-                { "field": "message.content", "operator": "matches", "value": "(?i)available.*specialist" }
-              ]
-            },
             "actions": [
               {
-                "type": "tool.invoke",
                 "id": "step-roster",
+                "type": "tool.invoke",
                 "params": {
                   "tool": "assistants.list",
-                  "input": { "status": "published", "isBootstrap": true }
+                  "input": {
+                    "status": "published",
+                    "isBootstrap": true
+                  }
                 }
               },
               {
@@ -890,28 +1223,108 @@
                   "template": "**Available Team Members:**\n\n{{#each steps.step-roster.result}}\n- **@{{this.alias}}** - {{this.description}}\n{{/each}}"
                 }
               }
-            ]
+            ],
+            "enabled": true,
+            "trigger": "message.received",
+            "priority": 180,
+            "conditions": {
+              "logic": "or",
+              "conditions": [
+                {
+                  "field": "message.content",
+                  "value": "(?i)who.*team",
+                  "operator": "matches"
+                },
+                {
+                  "field": "message.content",
+                  "value": "(?i)list.*assistant",
+                  "operator": "matches"
+                },
+                {
+                  "field": "message.content",
+                  "value": "(?i)available.*specialist",
+                  "operator": "matches"
+                }
+              ]
+            },
+            "description": "Show available team members"
+          },
+          {
+            "id": "rule-platform-status",
+            "name": "Platform Status",
+            "actions": [
+              {
+                "id": "step-catalog",
+                "type": "service.call",
+                "params": {
+                  "path": "/stats",
+                  "method": "GET",
+                  "service": "catalog",
+                  "resultKey": "catalogStats"
+                }
+              },
+              {
+                "id": "step-runtime",
+                "type": "service.call",
+                "params": {
+                  "path": "/stats",
+                  "method": "GET",
+                  "service": "runtime",
+                  "resultKey": "runtimeStats"
+                }
+              },
+              {
+                "id": "step-network",
+                "type": "service.call",
+                "params": {
+                  "path": "/sdn/topology",
+                  "method": "GET",
+                  "service": "network",
+                  "resultKey": "topology"
+                }
+              },
+              {
+                "id": "step-answer",
+                "type": "llm.invoke",
+                "params": {
+                  "maxTokens": 500,
+                  "resultKey": "platformAnswer",
+                  "userPrompt": "PLATFORM DATA (live):\ncatalog /stats: {{catalogStats}}\nruntime /stats: {{runtimeStats}}\nnetwork /sdn/topology: {{topology}}\n\nUSER ASKED: {{message.content}}",
+                  "systemPrompt": "You are Symbia's coordinator, answering from the live platform.\n\nSymbia is a platform for provable provenance: every answer shows where it came from -- computed with a receipt, retrieved verbatim from a source, composed over cited material, or honestly refused.\n\nRULES YOU MUST FOLLOW:\n1. Answer ONLY from the PLATFORM DATA below. It was fetched from the running stack moments ago.\n2. If the data does not contain the answer, say exactly what is missing. Do NOT fill the gap from memory -- an invented answer is the failure this platform exists to prevent.\n3. Cite the service each number came from, e.g. '(catalog)'.\n4. Be brief."
+                }
+              },
+              {
+                "id": "step-send",
+                "type": "message.send",
+                "params": {
+                  "content": "{{steps.step-answer.response}}"
+                }
+              }
+            ],
+            "enabled": true,
+            "trigger": "message.received",
+            "priority": 150,
+            "conditions": {
+              "logic": "or",
+              "conditions": [
+                {
+                  "field": "message.content",
+                  "value": ".*(?i:health|status|services|topology|how many|what is symbia).*",
+                  "operator": "matches"
+                }
+              ]
+            }
           },
           {
             "id": "coord-orchestrate",
             "name": "Orchestrate Response",
-            "description": "Analyze request and coordinate team response",
-            "priority": 100,
-            "enabled": true,
-            "trigger": "message.received",
-            "conditions": {
-              "logic": "and",
-              "conditions": [
-                { "field": "message.content", "operator": "exists", "value": true }
-              ]
-            },
             "actions": [
               {
-                "type": "llm.invoke",
                 "id": "step-respond",
+                "type": "llm.invoke",
                 "params": {
-                  "systemPrompt": "You are Symbia, the coordinator of a team of AI specialists. You help users accomplish tasks by either answering directly or coordinating your team.\n\n**Your team (use @alias to mention):**\n- @echo - Simple echo (Level 1, testing)\n- @calc - Math calculations (Level 2)\n- @convert - Unit conversion (Level 2)\n- @explain - Data analysis + plain English explanation (Level 3)\n- @run - Code execution + explanation (Level 3)\n- @smartcalc - Natural language math (Level 4)\n- @router - Intent classification and routing (Level 4)\n- @analyst - Research and analysis specialist (Level 5)\n- @builder - Creates new assistants (Level 5)\n\n**Guidelines:**\n1. For simple questions, answer directly\n2. For tasks matching a specialist, mention them with @ and explain why\n3. For complex tasks, describe how you'd coordinate multiple specialists\n4. Be concise but helpful\n5. Show the collaborative nature of the platform\n\n**Response format:**\nKeep responses focused. Use @mentions naturally when delegating.",
-                  "userPrompt": "{{message.content}}"
+                  "userPrompt": "{{message.content}}",
+                  "systemPrompt": "You are Symbia, the coordinator of a team of AI specialists. You help users accomplish tasks by either answering directly or coordinating your team.\n\n**Your team (use @alias to mention):**\n- @echo - Simple echo (Level 1, testing)\n- @calc - Math calculations (Level 2)\n- @convert - Unit conversion (Level 2)\n- @explain - Data analysis + plain English explanation (Level 3)\n- @run - Code execution + explanation (Level 3)\n- @smartcalc - Natural language math (Level 4)\n- @router - Intent classification and routing (Level 4)\n- @analyst - Research and analysis specialist (Level 5)\n- @builder - Creates new assistants (Level 5)\n\n**Guidelines:**\n1. For simple questions, answer directly\n2. For tasks matching a specialist, mention them with @ and explain why\n3. For complex tasks, describe how you'd coordinate multiple specialists\n4. Be concise but helpful\n5. Show the collaborative nature of the platform\n\n**Response format:**\nKeep responses focused. Use @mentions naturally when delegating."
                 }
               },
               {
@@ -920,9 +1333,26 @@
                   "template": "{{steps.step-respond.response}}"
                 }
               }
-            ]
+            ],
+            "enabled": true,
+            "trigger": "message.received",
+            "priority": 100,
+            "conditions": {
+              "logic": "and",
+              "conditions": [
+                {
+                  "field": "message.content",
+                  "value": true,
+                  "operator": "exists"
+                }
+              ]
+            },
+            "description": "Analyze request and coordinate team response"
           }
-        ]
+        ],
+        "version": 1,
+        "isActive": true,
+        "description": "Orchestrate team of specialists to solve complex problems"
       }
     }
   },
@@ -934,12 +1364,28 @@
     "type": "assistant",
     "status": "published",
     "isBootstrap": true,
-    "tags": ["assistant", "bootstrap", "tutorial", "level-5", "multi-agent", "specialist", "research"],
+    "tags": [
+      "assistant",
+      "bootstrap",
+      "tutorial",
+      "level-5",
+      "multi-agent",
+      "specialist",
+      "research"
+    ],
     "accessPolicy": {
       "visibility": "public",
       "actions": {
-        "read": { "anyOf": ["public"] },
-        "write": { "anyOf": ["role:admin"] }
+        "read": {
+          "anyOf": [
+            "public"
+          ]
+        },
+        "write": {
+          "anyOf": [
+            "role:admin"
+          ]
+        }
       }
     },
     "metadata": {
@@ -956,7 +1402,12 @@
       "assistantConfig": {
         "principalId": "assistant:analyst",
         "principalType": "assistant",
-        "capabilities": ["messaging", "llm.chat", "tools.search", "tools.stats"]
+        "capabilities": [
+          "messaging",
+          "llm.chat",
+          "tools.search",
+          "tools.stats"
+        ]
       },
       "ruleSet": {
         "id": "ruleset-analyst",
@@ -975,8 +1426,16 @@
             "conditions": {
               "logic": "or",
               "conditions": [
-                { "field": "message.content", "operator": "matches", "value": "^/help$" },
-                { "field": "message.content", "operator": "matches", "value": "^help$" }
+                {
+                  "field": "message.content",
+                  "operator": "matches",
+                  "value": "^/help$"
+                },
+                {
+                  "field": "message.content",
+                  "operator": "matches",
+                  "value": "^help$"
+                }
               ]
             },
             "actions": [
@@ -998,7 +1457,11 @@
             "conditions": {
               "logic": "and",
               "conditions": [
-                { "field": "message.content", "operator": "exists", "value": true }
+                {
+                  "field": "message.content",
+                  "operator": "exists",
+                  "value": true
+                }
               ]
             },
             "actions": [
@@ -1030,12 +1493,29 @@
     "type": "assistant",
     "status": "published",
     "isBootstrap": true,
-    "tags": ["assistant", "bootstrap", "tutorial", "level-5", "multi-agent", "specialist", "meta", "creation"],
+    "tags": [
+      "assistant",
+      "bootstrap",
+      "tutorial",
+      "level-5",
+      "multi-agent",
+      "specialist",
+      "meta",
+      "creation"
+    ],
     "accessPolicy": {
       "visibility": "public",
       "actions": {
-        "read": { "anyOf": ["public"] },
-        "write": { "anyOf": ["role:admin"] }
+        "read": {
+          "anyOf": [
+            "public"
+          ]
+        },
+        "write": {
+          "anyOf": [
+            "role:admin"
+          ]
+        }
       }
     },
     "metadata": {
@@ -1052,7 +1532,12 @@
       "assistantConfig": {
         "principalId": "assistant:builder",
         "principalType": "assistant",
-        "capabilities": ["messaging", "llm.chat", "catalog.write", "assistant.create"]
+        "capabilities": [
+          "messaging",
+          "llm.chat",
+          "catalog.write",
+          "assistant.create"
+        ]
       },
       "ruleSet": {
         "id": "ruleset-builder",
@@ -1071,8 +1556,16 @@
             "conditions": {
               "logic": "or",
               "conditions": [
-                { "field": "message.content", "operator": "matches", "value": "^/help$" },
-                { "field": "message.content", "operator": "matches", "value": "^help$" }
+                {
+                  "field": "message.content",
+                  "operator": "matches",
+                  "value": "^/help$"
+                },
+                {
+                  "field": "message.content",
+                  "operator": "matches",
+                  "value": "^help$"
+                }
               ]
             },
             "actions": [
@@ -1094,7 +1587,11 @@
             "conditions": {
               "logic": "and",
               "conditions": [
-                { "field": "message.content", "operator": "exists", "value": true }
+                {
+                  "field": "message.content",
+                  "operator": "exists",
+                  "value": true
+                }
               ]
             },
             "actions": [
@@ -1102,7 +1599,7 @@
                 "type": "llm.invoke",
                 "id": "step-design",
                 "params": {
-                  "systemPrompt": "You are the Builder, a meta-assistant that helps users create new assistants on the Symbia platform.\n\n**Your process:**\n1. **Understand the goal** - What should this assistant do?\n2. **Determine complexity** - Which level fits best?\n3. **Design the rules** - What triggers, conditions, and actions?\n4. **Choose capabilities** - What tools and integrations?\n5. **Generate spec** - Produce the complete configuration\n\n**Assistant Levels (use as reference):**\n\n*Level 1 (Pure Deterministic):*\n- No LLM, just rules\n- Example: Echo (mirrors input)\n- Use when: Simple, predictable responses\n\n*Level 2 (Deterministic + Tools):*\n- Rules + tool calls\n- Example: Calculator, Converter\n- Use when: Precise computation needed\n\n*Level 3 (Tools → AI):*\n- Run tool, then LLM explains\n- Example: Data Explainer, Code Runner\n- Use when: Need human-friendly explanations of tool output\n\n*Level 4 (AI → Tools):*\n- LLM understands intent, tool executes\n- Example: Smart Calculator, Intent Router\n- Use when: Natural language input needs precise execution\n\n*Level 5 (Multi-Agent):*\n- Coordinates with other assistants\n- Example: Coordinator, Analyst\n- Use when: Complex tasks need multiple specialists\n\n**Guidelines:**\n- Start simple - suggest lowest complexity that works\n- Ask clarifying questions if requirements are vague\n- When ready, generate a complete assistant spec in JSON\n- Explain your design choices\n\n**Response format:**\nFor initial discussions, use plain text. When generating the final spec, wrap it in ```json blocks.",
+                  "systemPrompt": "You are the Builder, a meta-assistant that helps users create new assistants on the Symbia platform.\n\n**Your process:**\n1. **Understand the goal** - What should this assistant do?\n2. **Determine complexity** - Which level fits best?\n3. **Design the rules** - What triggers, conditions, and actions?\n4. **Choose capabilities** - What tools and integrations?\n5. **Generate spec** - Produce the complete configuration\n\n**Assistant Levels (use as reference):**\n\n*Level 1 (Pure Deterministic):*\n- No LLM, just rules\n- Example: Echo (mirrors input)\n- Use when: Simple, predictable responses\n\n*Level 2 (Deterministic + Tools):*\n- Rules + tool calls\n- Example: Calculator, Converter\n- Use when: Precise computation needed\n\n*Level 3 (Tools \u2192 AI):*\n- Run tool, then LLM explains\n- Example: Data Explainer, Code Runner\n- Use when: Need human-friendly explanations of tool output\n\n*Level 4 (AI \u2192 Tools):*\n- LLM understands intent, tool executes\n- Example: Smart Calculator, Intent Router\n- Use when: Natural language input needs precise execution\n\n*Level 5 (Multi-Agent):*\n- Coordinates with other assistants\n- Example: Coordinator, Analyst\n- Use when: Complex tasks need multiple specialists\n\n**Guidelines:**\n- Start simple - suggest lowest complexity that works\n- Ask clarifying questions if requirements are vague\n- When ready, generate a complete assistant spec in JSON\n- Explain your design choices\n\n**Response format:**\nFor initial discussions, use plain text. When generating the final spec, wrap it in ```json blocks.",
                   "userPrompt": "User wants to create an assistant: {{message.content}}\n\nHelp them design it. Ask questions if needed, or if you have enough info, generate the specification."
                 }
               },
