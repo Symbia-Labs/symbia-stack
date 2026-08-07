@@ -509,8 +509,15 @@ export function ChatPanel({ skin, context }: { skin: Skin; context?: { situation
                 ? {
                     symbiaFrame: {
                       ...frame.envelope,
+                      // The arena is the load-bearing field. An assistant that
+                      // reads a REFUSED and answers anyway is doing the thing
+                      // this platform exists to make visible.
+                      arena: frame.arena ?? 'REFUSED',
                       verdict: frame.verdict ?? null,
                       refused: frame.refused ?? null,
+                      provider: frame.provider ?? null,
+                      model: frame.model ?? null,
+                      path: frame.path ?? 'none',
                     },
                   }
                 : {}),
@@ -901,8 +908,11 @@ export function ChatPanel({ skin, context }: { skin: Skin; context?: { situation
                   {pendingFrame.envelope.height}
                 </p>
                 <p className="text-[12px] text-white/35 truncate">
-                  {pendingFrame.nodeId}
-                  {pendingFrame.pixelsDropped ? ' · pixels released' : ' · pixels held'}
+                  {pendingFrame.arena ?? 'not checked'}
+                  {pendingFrame.model ? ` · ${pendingFrame.model}` : ''}
+                  {pendingFrame.path && pendingFrame.path !== 'none'
+                    ? ` · via ${pendingFrame.path}`
+                    : ''}
                 </p>
                 {/* The service's answer, verbatim. A refusal is displayed as a
                     refusal; it is the correct answer while no vision model is

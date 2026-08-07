@@ -19,6 +19,18 @@ export const operationSchema = z.enum([
   "responses",       // OpenAI Responses API (stateful)
   "messages",        // Anthropic native
   "text.generation",
+  // Vision. A distinct operation so a provider can reject a request that
+  // carries no image, rather than returning a confident description of a
+  // picture it never received — chat.completions cannot detect that, because
+  // a text-only message is perfectly legal there.
+  //
+  // NOTE: this enum and each adapter's `supportedOperations` are two
+  // independent lists of the same thing, and this one wins — it rejects the
+  // request before any adapter is consulted. Measured 7 Aug 2026: adding
+  // image.description to HuggingFaceProvider.supportedOperations had no
+  // effect at all until it was added here as well. Anything added to one must
+  // be added to the other.
+  "image.description",
   "embeddings",
 ]);
 export type Operation = z.infer<typeof operationSchema>;

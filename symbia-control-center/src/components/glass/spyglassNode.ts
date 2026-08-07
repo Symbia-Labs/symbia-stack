@@ -29,6 +29,9 @@ import { io, type Socket } from 'socket.io-client';
 import { socketPath } from '@/config/endpoints';
 import { useAuthStore } from '@/stores/authStore';
 import { requestGrant, withdraw, forget } from './pixelVault';
+import { describeFrame, type VisionOutcome } from './visionClient';
+
+export type { VisionOutcome };
 
 /** Mint an id for a new aperture. Called by whatever spawns it. */
 export function mintSpyglassId(): string {
@@ -153,23 +156,48 @@ export async function publishEnvelope(
 export const frameDigest = sha256Hex;
 
 /**
- * Send a frame to the vision service.
+ * Send a frame to be looked at.
  *
  * The bytes are withdrawn from the vault against a grant issued to
  * `service:models`, used once, and forgotten. Nothing returns the image to the
- * caller — this function's return type is the verdict, so a caller that wanted
+ * caller — this function's return type is the outcome, so a caller that wanted
  * the pixels back would have to go to the vault itself and be refused there.
+ *
+ * TWO DOORS, TRIED IN ORDER, and which one answered is recorded rather than
+ * inferred:
+ *
+ *   integrations  the LLM gateway, the same door assistants use. Credential
+ *                 from identity, circuit breaker in front, usage logged.
+ *   models        the local GGUF service. Currently refuses — no vision model
+ *                 is on disk — and that refusal is a real answer.
+ *
+ * The local service is tried only after the gateway declines, and its refusal
+ * is returned as the refusal. There is no arrangement in which both decline
+ * and something plausible comes back anyway.
  */
 export async function classifyHeldFrame(
   envelope: FrameEnvelope,
   prompt?: string
-): Promise<{ ok?: boolean; description?: string; reason?: string; missing?: string[] } | null> {
+): Promise<VisionOutcome> {
   const grant = requestGrant('service:models', envelope.digest);
   const bytes = withdraw(grant);
-  if (!bytes) return null;
+  if (!bytes) {
+    return {
+      arena: 'REFUSED',
+      reason: 'Pixels were not released from the vault.',
+      path: 'none',
+    };
+  }
 
-  const token = useAuthStore.getState().token;
   try {
+    const viaGateway = await describeFrame(bytes, prompt);
+    if (viaGateway.arena === 'COMPOSED') return viaGateway;
+
+    // The gateway declined. Ask the local service, and if it also declines,
+    // report BOTH refusals — "no vision model locally" and "no vision-capable
+    // provider" are different problems with different fixes, and collapsing
+    // them into one message would send the reader to the wrong one.
+    const token = useAuthStore.getState().token;
     const res = await fetch('/svc/models/api/vision/classify', {
       method: 'POST',
       headers: {
@@ -182,7 +210,26 @@ export async function classifyHeldFrame(
         source: `${envelope.source}#${envelope.digest}`,
       }),
     });
-    return await res.json();
+    const local = (await res.json()) as {
+      ok?: boolean;
+      description?: string;
+      reason?: string;
+      missing?: string[];
+    };
+
+    if (local.ok && local.description) {
+      return { arena: 'COMPOSED', description: local.description, path: 'models' };
+    }
+
+    return {
+      arena: 'REFUSED',
+      reason: `Gateway: ${viaGateway.reason ?? 'declined'} · Local: ${
+        local.reason ?? 'declined'
+      }${local.missing?.length ? ` (${local.missing[0]})` : ''}`,
+      provider: viaGateway.provider,
+      model: viaGateway.model,
+      path: viaGateway.path,
+    };
   } finally {
     // The pixels have been where they were going. Holding them longer would
     // widen the window in which something could reach for them, for no gain.

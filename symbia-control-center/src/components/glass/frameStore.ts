@@ -29,6 +29,18 @@ export interface FrameMetadata {
   verdict?: string;
   /** True when the service refused. Recorded, never inferred from an empty verdict. */
   refused?: boolean;
+  /**
+   * The platform's own vocabulary for what kind of answer this is. COMPOSED
+   * means a model looked at the frame; REFUSED means nothing did. Carried
+   * rather than derived so the receipt says what happened, not what the shape
+   * of the string suggests.
+   */
+  arena?: 'COMPOSED' | 'REFUSED';
+  /** Which provider and model answered, when one did. */
+  provider?: string;
+  model?: string;
+  /** Which door it came through: the integrations gateway, or the local models service. */
+  path?: 'integrations' | 'models' | 'none';
   /** Set once the pixels have been released from the vault. */
   pixelsDropped?: boolean;
 }

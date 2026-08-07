@@ -255,23 +255,19 @@ export function Spyglass({
       setPending({ envelope, nodeId });
 
       const r = await classifyHeldFrame(envelope);
-      if (!r) {
-        setPending({
-          envelope,
-          nodeId,
-          verdict: 'Pixels were not released to the vision service.',
-          refused: true,
-          pixelsDropped: true,
-        });
-        setShot('ready');
-        return;
-      }
-      const verdict = r.ok
-        ? r.description
-        : `${r.reason ?? 'refused'}${r.missing?.length ? ` (${r.missing[0]})` : ''}`;
       // classifyHeldFrame forgets the frame on its way out, so by the time this
       // runs the pixels are already gone. Recorded as a fact, not assumed.
-      setPending({ envelope, nodeId, verdict, refused: !r.ok, pixelsDropped: true });
+      setPending({
+        envelope,
+        nodeId,
+        verdict: r.arena === 'COMPOSED' ? r.description : r.reason,
+        refused: r.arena === 'REFUSED',
+        arena: r.arena,
+        provider: r.provider,
+        model: r.model,
+        path: r.path,
+        pixelsDropped: true,
+      });
       setShot('ready');
     } catch (e) {
       setShot('ready');

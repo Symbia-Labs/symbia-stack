@@ -1482,12 +1482,32 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     const providers = getRegisteredProviders();
     const configs = getAllProviderConfigs();
 
+    // `configured` meant "a provider config object is registered in this
+    // service". It did NOT mean a usable key exists, and it was read as if it
+    // did — huggingface reported configured: true while every call to
+    // /execute returned 401 "No huggingface API key configured", because the
+    // key that matters is a per-user credential in identity and this route is
+    // unauthenticated and cannot see one.
+    //
+    // This endpoint has no user, so the honest answer about credentials is
+    // "not checked", not false. Blank beats green: a flag that reads as a
+    // pass because nobody asked the question is the exact defect this platform
+    // exists to prevent. `configured` is kept, with its real meaning stated,
+    // so existing readers do not silently change behaviour.
     res.json({
       status: "healthy",
       providers: providers.map(p => ({
         name: p,
+        registered: configs.some(c => c.provider === p),
+        credential: "not_checked",
+        // Deprecated: same value as `registered`. Never meant a key exists.
         configured: configs.some(c => c.provider === p),
       })),
+      note:
+        "registered = an adapter and config exist in this service. Credentials " +
+        "are per-user and live in identity; this route is unauthenticated and " +
+        "does not check them. Use GET /api/integrations/capabilities with a " +
+        "token for a credential-aware answer.",
       circuitBreaker: circuitBreaker.getStatus(),
     });
   });

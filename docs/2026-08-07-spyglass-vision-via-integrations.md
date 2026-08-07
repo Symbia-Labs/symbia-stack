@@ -58,9 +58,89 @@ reads `ModelInfo.capabilities` generically.
 
 ## Measured
 
-*(filled in after each prediction is tested — broken predictions reported as
-broken)*
+**P1 — CONFIRMED.** `GET /providers/huggingface/models?capability=vision`
+returned `{"models":[]}` against 20 total models.
+
+**P2 — NOT MEASURABLE, and the reason is the finding.** The request never
+reached the router, twice, for two different reasons that had nothing to do
+with the body shape. See F1 and F2. The prediction may still be true; nothing
+here established it, and it is not being counted as confirmed.
+
+**P3 — CONFIRMED.** `GET models:5008/api/vision/status` →
+`{"ready":false,"missing":["VISION_MODEL not set","VISION_MMPROJ not set
+(multimodal projector)"]}`.
+
+**P4 — CONFIRMED.** After adding three vision models to the HuggingFace
+adapter, the same capability filter returned
+`Qwen/Qwen2.5-VL-7B-Instruct`, `meta-llama/Llama-3.2-11B-Vision-Instruct`,
+`HuggingFaceM4/idefics2-8b` with no change to routes.ts.
+
+## Findings
+
+**F1 — `configured: true` never meant a key exists.**
+`GET /api/integrations/status` reported huggingface `configured: true` while
+every `/execute` returned 401 `No huggingface API key configured`. The flag was
+`configs.some(c => c.provider === p)` — an adapter config registered in the
+service. The credential that actually gates a call is per-user, lives in
+identity at `/api/internal/credentials/{userId}/{provider}`, and this route is
+unauthenticated and cannot see one.
+
+Measured: identity holds exactly **one** credential for this user, `anthropic`.
+None for huggingface or openai, both of which reported `configured: true`.
+
+This is the same defect as the Overview panel's green provider dots, and it is
+discipline 5 exactly — a flag that reads as a pass because nobody asked the
+question. Fixed by reporting `registered: true` and `credential: "not_checked"`,
+keeping `configured` as a deprecated alias so existing readers do not silently
+change behaviour. "Not checked" is the honest answer from an unauthenticated
+route; `false` would have been a second lie in the other direction.
+
+**F2 — the operation list exists twice, and the copy that wins is the one
+nobody edits.** Adding `image.description` to
+`HuggingFaceProvider.supportedOperations` had **no effect**. Requests were
+rejected with `Invalid enum value. Expected 'chat.completions' | 'responses' |
+'messages' | 'text.generation' | 'embeddings'` by `operationSchema` in
+`integrations/shared/schema.ts`, which validates before any adapter is
+consulted. Discipline 7: a shared concern with two independent implementations
+is not shared. Both lists now carry a comment naming the other.
+
+**F3 — `temperature: 0.7` was injected into every HuggingFace request.**
+Same shape as the defect already fixed for Anthropic, in a provider nobody
+re-read afterwards. Now sent only when explicitly supplied.
+
+**F4 — the content type said images were impossible while the wire allowed
+them.** `buildChatBody` cast messages to `content: string`. The cast is erased
+at runtime, so an image array would have passed through untouched; the type was
+simply wrong, and wrong in the direction that discourages anyone from trying.
+Replaced with `string | ContentPart[]`.
+
+## Where it stands
+
+The chain is complete and exercised end to end except for one link:
+
+| step | state |
+|---|---|
+| aperture captures, pixels to vault | built, not exercised live |
+| envelope on the mesh, pixels off the bus | built |
+| client asks which provider declares `vision` | **measured working** |
+| gateway accepts `image.description` | **measured working** |
+| gateway rejects it without an image | **measured working** |
+| gateway resolves a huggingface credential | **fails — none stored** |
+| model describes the frame | unreachable until the above |
+
+**The one thing left is Brian's to do**: store a HuggingFace API key as a
+credential for his user, the same way the Anthropic one is stored. I do not
+enter API keys.
 
 ## Not checked
 
-*(kept honest as the work proceeds)*
+- Whether any of the three vision model ids is actually **served** by the
+  HuggingFace router. Curation is a claim about the world; nobody here has
+  tested it, and the list says so in a comment.
+- Whether the multimodal body is accepted by the router (P2, above).
+- The whole browser-side capture path. `getDisplayMedia` needs a gesture and a
+  picker; nothing automated has driven the shutter, the crop, the 180ms blink,
+  or the attach.
+- The success-response shape from `/execute`. The client reads both `body` and
+  `body.result` and treats an unreadable one as REFUSED rather than as an empty
+  description.
