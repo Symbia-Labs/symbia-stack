@@ -23,6 +23,7 @@ import { ChatWindow } from '@/components/chat/ChatWindow';
 import { ConnectionDot } from '@/components/chat/ConnectionDot';
 import { useChatContext } from '@/components/chat/useChatContext';
 import { Spyglass } from '@/components/glass/Spyglass';
+import { mintSpyglassId } from '@/components/glass/spyglassNode';
 
 /**
  * Chat is NOT in here. It stopped being a panel on 6 Aug 2026 and became a
@@ -71,7 +72,21 @@ export function DashboardPage() {
   // route can OPEN it (so /chat stays a working deep link) but never closes it.
   // The spyglass is its own instrument: own state, own lifetime, no
   // relationship to chat. Toggled with ⌥G.
+  // Spawning mints the id.
+  //
+  // The aperture is a capability, and the record of it should name the thing
+  // that brought it into existence rather than a constant baked into the
+  // component. Each spawn is a distinct node on the mesh, and that id is what
+  // a chat message carries to refer to a frame it is not permitted to look at.
   const [spyOpen, setSpyOpen] = useState(false);
+  const [spyNodeId, setSpyNodeId] = useState<string | null>(null);
+  const toggleGlass = useCallback(() => {
+    setSpyOpen((wasOpen) => {
+      if (!wasOpen) setSpyNodeId(mintSpyglassId());
+      return !wasOpen;
+    });
+  }, []);
+
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       // e.code, not e.key. On macOS Option+G emits '©' — the key property
@@ -79,12 +94,12 @@ export function DashboardPage() {
       // never fires on a Mac, which is the machine this runs on.
       if (e.altKey && e.code === 'KeyG') {
         e.preventDefault();
-        setSpyOpen((v) => !v);
+        toggleGlass();
       }
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, []);
+  }, [toggleGlass]);
 
   const [chatOpen, setChatOpen] = useState(() => {
     if (typeof window === 'undefined') return false;
@@ -153,12 +168,17 @@ export function DashboardPage() {
         status={<ConnectionDot />}
         context={chatContext}
         glassOpen={spyOpen}
-        onToggleGlass={() => setSpyOpen((v) => !v)}
+        onToggleGlass={toggleGlass}
       >
         {(skin) => <ChatPanel skin={skin} context={chatContext} />}
       </ChatWindow>
 
-      <Spyglass open={spyOpen} onClose={() => setSpyOpen(false)} />
+      {/* Rendered as a SIBLING of the chat window, not a child of it. Chat
+          spawns it and owns the switch; it does not own the component, and no
+          pixel it captures passes through chat's tree on the way anywhere. */}
+      {spyNodeId && (
+        <Spyglass open={spyOpen} onClose={() => setSpyOpen(false)} nodeId={spyNodeId} />
+      )}
     </MainLayout>
   );
 }

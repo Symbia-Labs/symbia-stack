@@ -1,32 +1,41 @@
 /**
- * The frame the operator has parked the spyglass over and captured, waiting to
- * be sent with their next message.
+ * What chat is allowed to know about a captured frame.
  *
- * This is a one-slot store, not a queue. A queue would let attachments pile up
- * unseen and travel with a message the operator was no longer thinking about
- * when they grabbed them. One slot, visible in the composer, cleared on send.
+ * METADATA ONLY. There is no image in this type and there must never be one.
+ * The previous version carried `imageBase64` here and the composer rendered it
+ * as a thumbnail, which demonstrated precisely the opposite of the claim being
+ * made: that chat had the pixels in hand and was one line away from doing
+ * anything with them. The bytes now live behind pixelVault and chat is not on
+ * its allowlist.
  *
- * The IMAGE lives here only long enough to be sent. What survives in the
- * message is the envelope — digest, size, source, run id — because that is what
- * makes the frame checkable later. A picture with no digest is a picture nobody
- * can prove was the one that was looked at.
+ * What survives is the envelope plus whatever the vision service concluded —
+ * digest, dimensions, source, run id, the node that captured it, and the
+ * verdict verbatim. That is enough to ask a question about the frame, to find
+ * the same frame again in the traces, and to check that the thing the assistant
+ * answered about is the thing that was photographed. It is not enough to look
+ * at it, which is the point.
+ *
+ * One slot, not a queue. A queue lets attachments pile up unseen and travel
+ * with a message the operator was no longer thinking about when they took them.
  */
 import { create } from 'zustand';
 import type { FrameEnvelope } from './spyglassNode';
 
-export interface PendingFrame {
+export interface FrameMetadata {
   envelope: FrameEnvelope;
-  /** PNG bytes, base64. Dropped as soon as the message is sent. */
-  imageBase64: string;
-  /** Whatever the vision model said, verbatim. A refusal is a legitimate value. */
+  /** The spyglass instance that captured it. Minted at spawn, registered on the mesh. */
+  nodeId: string;
+  /** Whatever the vision service said, verbatim. A refusal is a legitimate value. */
   verdict?: string;
-  /** True when the model refused. Not inferred from an empty verdict. */
+  /** True when the service refused. Recorded, never inferred from an empty verdict. */
   refused?: boolean;
+  /** Set once the pixels have been released from the vault. */
+  pixelsDropped?: boolean;
 }
 
 interface FrameState {
-  pending: PendingFrame | null;
-  setPending: (f: PendingFrame | null) => void;
+  pending: FrameMetadata | null;
+  setPending: (f: FrameMetadata | null) => void;
   clear: () => void;
 }
 

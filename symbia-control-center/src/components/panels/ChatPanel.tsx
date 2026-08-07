@@ -489,13 +489,15 @@ export function ChatPanel({ skin, context }: { skin: Skin; context?: { situation
       // Where the operator was standing when they asked. Sent as metadata,
       // NOT prepended to their words — the message they typed stays the
       // message they typed, and the situation travels alongside it.
-      // A spyglass frame travels as its ENVELOPE, not as a picture.
+      // A spyglass frame travels as a REFERENCE, never as a picture.
       //
-      // The digest, dimensions, source and run id are what make the frame
-      // checkable — they identify the exact bytes that were published on the
-      // bus and shown to the vision service. A message carrying only an image
-      // would be an assertion about what the operator saw with nothing behind
-      // it. The verdict rides along verbatim, refusals included.
+      // Chat cannot put the image here even by mistake: the store it reads has
+      // no image field, and the bytes are behind pixelVault, which does not
+      // have chat on its allowlist. What goes out is the node that captured
+      // the frame, the digest of the exact bytes shown to the vision service,
+      // and that service's conclusion verbatim. An assistant can ask about the
+      // frame and can find it again in the traces. It cannot see it, and
+      // neither can anyone else in the conversation.
       const frame = useFrameStore.getState().pending;
       const metadata =
         context || frame
@@ -877,22 +879,32 @@ export function ChatPanel({ skin, context }: { skin: Skin; context?: { situation
             />
           )}
 
-          {/* A captured frame waiting to go with the next message.
-              Shown as a thumbnail because an attachment the operator cannot
-              see is one they cannot verify they framed correctly — and the
-              digest beside it is what makes the same frame findable later. */}
+          {/* A captured frame referenced by the next message.
+              THERE IS NO THUMBNAIL, and there was one until 7 Aug 2026. It was
+              rendered from base64 held in chat state, which demonstrated the
+              opposite of the property being claimed: that chat had the pixels.
+              What is shown now is the reference — the capturing node, the
+              digest, and what the vision service concluded. Chat can cite the
+              frame and cannot see it. */}
           {pendingFrame && (
             <div className="mb-2 flex items-center gap-2 rounded-[12px] border border-white/15 bg-black/30 p-2">
-              <img
-                src={`data:image/png;base64,${pendingFrame.imageBase64}`}
-                alt="Captured region"
-                className="w-10 h-10 rounded-full object-cover shrink-0 border border-white/20"
-              />
+              <div
+                className="w-10 h-10 shrink-0 rounded-full border border-dashed border-white/25 grid place-items-center text-[15px] text-white/35"
+                title="Pixels are held on the private path. Chat has no grant to read them."
+                aria-label="Frame contents not visible to chat"
+              >
+                ◎
+              </div>
               <div className="min-w-0 flex-1">
                 <p className="text-[13px] text-white/70 truncate">
-                  Spyglass frame · {pendingFrame.envelope.digest}
+                  Frame {pendingFrame.envelope.digest} · {pendingFrame.envelope.width}×
+                  {pendingFrame.envelope.height}
                 </p>
-                {/* The model's answer, verbatim. A refusal is displayed as a
+                <p className="text-[12px] text-white/35 truncate">
+                  {pendingFrame.nodeId}
+                  {pendingFrame.pixelsDropped ? ' · pixels released' : ' · pixels held'}
+                </p>
+                {/* The service's answer, verbatim. A refusal is displayed as a
                     refusal; it is the correct answer while no vision model is
                     loaded, and disguising it would be the exact defect this
                     platform exists to prevent. */}
@@ -908,7 +920,7 @@ export function ChatPanel({ skin, context }: { skin: Skin; context?: { situation
               </div>
               <button
                 onClick={clearFrame}
-                title="Remove the attachment"
+                title="Remove the reference"
                 className="shrink-0 w-7 h-7 grid place-items-center rounded-full text-white/45 hover:text-white hover:bg-white/10"
               >
                 ✕

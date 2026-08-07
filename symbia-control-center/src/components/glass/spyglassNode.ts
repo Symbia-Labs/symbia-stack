@@ -1,28 +1,50 @@
 /**
- * The spyglass as a first-class network node.
+ * A spyglass instance as a first-class network node.
  *
- * It registers itself on the mesh like any other participant, and the frames
- * it captures travel the messaging bus rather than being POSTed straight at
- * whatever wants them. That is the platform's own rule applied to a feature
- * that could easily have skipped it: a capability that enters without a
- * recorded gate is the thing this codebase exists to refuse, and "it's just a
- * screenshot" is exactly the argument that would have let it through.
+ * Each spawn mints its OWN id and registers separately. The instance id is what
+ * ties a chat message to the frame it is asking about: the message carries the
+ * node id and the digest, the mesh carries the capture event under that same
+ * node id, and the vision request is keyed by the same digest. Three records,
+ * one identity, and none of them is the picture.
  *
- * So a frame grab is an EVENT with a source, a run id and a digest, visible in
- * the topology and the traces alongside everything else.
+ * That is also why the id is created by the SPAWN rather than by this module —
+ * whoever opens the aperture is the thing that brought the capability into
+ * existence, and the record should say so.
+ *
+ * TWO PATHS, DELIBERATELY SEPARATE:
+ *
+ *   METADATA  goes on the messaging bus as a `capture.frame` event — digest,
+ *             dimensions, source, run id, node id. Visible in the topology and
+ *             the traces like any other event.
+ *   PIXELS    go over HTTP to the models service and nowhere else. They do not
+ *             touch the messaging service, they are not in any socket frame,
+ *             and they are keyed by the same digest so the two halves refer to
+ *             the same frame and either one alone is checkable.
+ *
+ * The separation is not an optimisation. Putting the bytes on the bus would put
+ * them in reach of every participant in a conversation, which is the thing this
+ * design exists to prevent.
  */
 import { io, type Socket } from 'socket.io-client';
 import { socketPath } from '@/config/endpoints';
 import { useAuthStore } from '@/stores/authStore';
+import { requestGrant, withdraw, forget } from './pixelVault';
 
-export const SPYGLASS_NODE_ID = 'client:spyglass';
+/** Mint an id for a new aperture. Called by whatever spawns it. */
+export function mintSpyglassId(): string {
+  const rand =
+    typeof crypto !== 'undefined' && 'randomUUID' in crypto
+      ? crypto.randomUUID().slice(0, 8)
+      : Math.random().toString(36).slice(2, 10);
+  return `client:spyglass:${rand}`;
+}
 
 let socket: Socket | null = null;
-let registered = false;
+const registered = new Set<string>();
 
-/** Connect and register. Idempotent. */
-export async function connectSpyglassNode(): Promise<boolean> {
-  if (registered && socket?.connected) return true;
+/** Connect and register this instance. Idempotent per id. */
+export async function connectSpyglassNode(nodeId: string): Promise<boolean> {
+  if (registered.has(nodeId) && socket?.connected) return true;
 
   const token = useAuthStore.getState().token;
   socket =
@@ -41,18 +63,19 @@ export async function connectSpyglassNode(): Promise<boolean> {
       socket!.emit(
         'node:register',
         {
-          id: SPYGLASS_NODE_ID,
+          id: nodeId,
           name: 'Spyglass',
           type: 'client',
           // Declared, not assumed. The mesh can see what this node claims to
-          // do before it does any of it.
+          // do before it does any of it. Note what is NOT claimed: this node
+          // does not offer pixels to anyone.
           capabilities: ['capture.frame', 'vision.request'],
           endpoint: window.location.origin,
-          metadata: { surface: 'browser', tool: 'spyglass' },
+          metadata: { surface: 'browser', tool: 'spyglass', pixelsOnBus: false },
         },
         (r: { ok?: boolean }) => {
-          registered = Boolean(r?.ok);
-          done(registered);
+          if (r?.ok) registered.add(nodeId);
+          done(Boolean(r?.ok));
         }
       );
     };
@@ -60,8 +83,16 @@ export async function connectSpyglassNode(): Promise<boolean> {
     if (socket!.connected) register();
     else socket!.once('connect', register);
     socket!.once('connect_error', () => done(false));
-    setTimeout(() => done(registered), 6000);
+    setTimeout(() => done(registered.has(nodeId)), 6000);
   });
+}
+
+export function disconnectSpyglassNode(nodeId: string): void {
+  registered.delete(nodeId);
+  if (registered.size === 0) {
+    socket?.disconnect();
+    socket = null;
+  }
 }
 
 export interface FrameEnvelope {
@@ -71,36 +102,37 @@ export interface FrameEnvelope {
   width: number;
   height: number;
   source: string;
+  nodeId: string;
   capturedAt: string;
 }
 
 async function sha256Hex(input: string): Promise<string> {
   const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(input));
-  return [...new Uint8Array(buf)].map((b) => b.toString(16).padStart(2, '0')).join('').slice(0, 16);
+  return [...new Uint8Array(buf)]
+    .map((b) => b.toString(16).padStart(2, '0'))
+    .join('')
+    .slice(0, 16);
 }
 
 /**
- * Publish a captured frame on the bus and return its envelope.
+ * Publish a frame's ENVELOPE on the bus and return it.
  *
- * The PNG itself is NOT put on the socket. Socket.IO's default payload cap is
- * 1MB and a full-resolution frame regularly exceeds it — a frame that silently
- * fails to send would look exactly like a frame nobody asked about. The event
- * carries the envelope (digest, size, source, run id); the bytes go to the
- * vision endpoint over HTTP, keyed by that digest, so both halves refer to the
- * same frame and either one alone is checkable.
+ * The PNG is not a parameter here by design — this function could not put the
+ * bytes on the socket if it wanted to. It takes a digest that has already been
+ * computed and deposited in the vault.
  */
-export async function publishFrame(
-  pngBase64: string,
-  meta: { width: number; height: number; source: string }
+export async function publishEnvelope(
+  digest: string,
+  meta: { width: number; height: number; source: string; nodeId: string; bytes: number }
 ): Promise<FrameEnvelope> {
-  const digest = await sha256Hex(pngBase64);
   const envelope: FrameEnvelope = {
     runId: `spyglass_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
     digest,
-    bytes: Math.round((pngBase64.length * 3) / 4),
+    bytes: meta.bytes,
     width: meta.width,
     height: meta.height,
     source: meta.source,
+    nodeId: meta.nodeId,
     capturedAt: new Date().toISOString(),
   };
 
@@ -108,7 +140,7 @@ export async function publishFrame(
     socket.emit('event:emit', {
       type: 'capture.frame',
       data: envelope,
-      source: SPYGLASS_NODE_ID,
+      source: meta.nodeId,
       boundary: 'intra',
       runId: envelope.runId,
     });
@@ -117,30 +149,43 @@ export async function publishFrame(
   return envelope;
 }
 
-/** Ask the models service to look at a frame. Returns its verdict verbatim. */
-export async function classifyFrame(
-  pngBase64: string,
+/** Compute a frame's digest. Exported so the caller can deposit before publishing. */
+export const frameDigest = sha256Hex;
+
+/**
+ * Send a frame to the vision service.
+ *
+ * The bytes are withdrawn from the vault against a grant issued to
+ * `service:models`, used once, and forgotten. Nothing returns the image to the
+ * caller — this function's return type is the verdict, so a caller that wanted
+ * the pixels back would have to go to the vault itself and be refused there.
+ */
+export async function classifyHeldFrame(
   envelope: FrameEnvelope,
   prompt?: string
-): Promise<unknown> {
-  const token = useAuthStore.getState().token;
-  const res = await fetch('/svc/models/api/vision/classify', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-    },
-    body: JSON.stringify({
-      imageBase64: pngBase64,
-      prompt,
-      source: `${envelope.source}#${envelope.digest}`,
-    }),
-  });
-  return res.json();
-}
+): Promise<{ ok?: boolean; description?: string; reason?: string; missing?: string[] } | null> {
+  const grant = requestGrant('service:models', envelope.digest);
+  const bytes = withdraw(grant);
+  if (!bytes) return null;
 
-export function disconnectSpyglassNode(): void {
-  socket?.disconnect();
-  socket = null;
-  registered = false;
+  const token = useAuthStore.getState().token;
+  try {
+    const res = await fetch('/svc/models/api/vision/classify', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+      body: JSON.stringify({
+        imageBase64: bytes,
+        prompt,
+        source: `${envelope.source}#${envelope.digest}`,
+      }),
+    });
+    return await res.json();
+  } finally {
+    // The pixels have been where they were going. Holding them longer would
+    // widen the window in which something could reach for them, for no gain.
+    forget(envelope.digest);
+  }
 }

@@ -22,7 +22,14 @@
  */
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { connectSpyglassNode, publishFrame, classifyFrame } from './spyglassNode';
+import {
+  connectSpyglassNode,
+  disconnectSpyglassNode,
+  publishEnvelope,
+  classifyHeldFrame,
+  frameDigest,
+} from './spyglassNode';
+import { deposit, forget } from './pixelVault';
 import { useFrameStore } from './frameStore';
 
 type Shot = 'idle' | 'requesting' | 'ready' | 'shooting' | 'denied' | 'unsupported';
@@ -57,7 +64,21 @@ function load(): Pos {
   }
 }
 
-export function Spyglass({ open, onClose }: { open: boolean; onClose: () => void }) {
+export function Spyglass({
+  open,
+  onClose,
+  nodeId,
+}: {
+  open: boolean;
+  onClose: () => void;
+  /**
+   * Minted by whatever spawned this aperture, not by the aperture itself.
+   * Whoever opened it is the thing that brought the capability into existence,
+   * and the mesh record should say so. It is also the id chat carries to refer
+   * to a frame it is not allowed to look at.
+   */
+  nodeId: string;
+}) {
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const drag = useRef<{ dx: number; dy: number } | null>(null);
@@ -113,16 +134,22 @@ export function Spyglass({ open, onClose }: { open: boolean; onClose: () => void
       setShot('ready');
       // Join the mesh only once there is something to capture. Registering a
       // node that cannot do its job would put a lie in the topology.
-      void connectSpyglassNode();
+      void connectSpyglassNode(nodeId);
       return true;
     } catch {
       setShot('denied');
       setNote('Capture declined.');
       return false;
     }
-  }, [release]);
+  }, [release, nodeId]);
 
-  useEffect(() => () => release(), [release]);
+  useEffect(
+    () => () => {
+      release();
+      disconnectSpyglassNode(nodeId);
+    },
+    [release, nodeId]
+  );
 
   // Closing releases the capture. A closed aperture that is still capturing is
   // a camera the operator believes is off.
@@ -206,34 +233,59 @@ export function Spyglass({ open, onClose }: { open: boolean; onClose: () => void
       ctx.clip();
       ctx.drawImage(v, pos.x * kx, pos.y * ky, D * kx, D * ky, 0, 0, c.width, c.height);
 
+      // The bytes go straight into the vault and are referred to by digest
+      // from here on. They are never held in component state, never put in a
+      // store, and never handed to a caller — the only local variable holding
+      // them goes out of scope at the end of this function.
       const b64 = c.toDataURL('image/png').split(',')[1] ?? '';
-      const envelope = await publishFrame(b64, {
+      const digest = await frameDigest(b64);
+      deposit(digest, b64);
+
+      const envelope = await publishEnvelope(digest, {
         width: c.width,
         height: c.height,
         source: 'aperture',
+        nodeId,
+        bytes: Math.round((b64.length * 3) / 4),
       });
 
-      // Park it on the composer immediately. The model's verdict is useful but
-      // it is not what makes the attachment valid — the envelope is — so the
-      // frame must not wait on a service that is currently expected to refuse.
-      setPending({ envelope, imageBase64: b64 });
+      // Park the METADATA on the composer immediately. The verdict is useful
+      // but it is not what makes the reference valid — the envelope is — so
+      // this must not wait on a service currently expected to refuse.
+      setPending({ envelope, nodeId });
 
-      const r = (await classifyFrame(b64, envelope)) as {
-        ok?: boolean;
-        description?: string;
-        reason?: string;
-        missing?: string[];
-      };
+      const r = await classifyHeldFrame(envelope);
+      if (!r) {
+        setPending({
+          envelope,
+          nodeId,
+          verdict: 'Pixels were not released to the vision service.',
+          refused: true,
+          pixelsDropped: true,
+        });
+        setShot('ready');
+        return;
+      }
       const verdict = r.ok
         ? r.description
         : `${r.reason ?? 'refused'}${r.missing?.length ? ` (${r.missing[0]})` : ''}`;
-      setPending({ envelope, imageBase64: b64, verdict, refused: !r.ok });
+      // classifyHeldFrame forgets the frame on its way out, so by the time this
+      // runs the pixels are already gone. Recorded as a fact, not assumed.
+      setPending({ envelope, nodeId, verdict, refused: !r.ok, pixelsDropped: true });
       setShot('ready');
     } catch (e) {
       setShot('ready');
       setNote(e instanceof Error ? e.message : 'capture failed');
     }
-  }, [arm, pos.x, pos.y, setPending]);
+  }, [arm, pos.x, pos.y, setPending, nodeId]);
+
+  // A frame the operator abandoned must not sit in the vault waiting for
+  // something to reach for it. Dropping the attachment drops the bytes.
+  const pendingDigest = pending?.envelope.digest;
+  useEffect(() => {
+    if (!pendingDigest) return;
+    return () => forget(pendingDigest);
+  }, [pendingDigest]);
 
   if (!open) return null;
 
