@@ -184,7 +184,7 @@ const assistants = [
       'Reports the security posture of THIS Symbia install from live data: stored credentials, provider exposure, mesh contracts and policies. Refuses to speculate.',
     capabilities: ['messaging', 'llm.chat', 'security.audit'],
     role: 'cybersecurity',
-    sources: 'identity (credentials, users, orgs), integrations (providers), network (contracts, policies)',
+    sources: 'identity (credentials, orgs), integrations (providers), network (contracts, policies)',
     help: `**Cybersecurity** — scoped to this install\n\nI answer from live data only:\n- "what credentials are stored?" — identity\n- "which providers are configured?" — integrations\n- "what contracts exist on the mesh?" — network\n- "is anything unauthenticated?"\n\nI will not guess. If the data does not say, I say what is missing.`,
     rules: [
       {
@@ -195,7 +195,10 @@ const assistants = [
         priority: 200,
         calls: [
           { id: 'c1', service: 'identity', path: '/credentials', resultKey: 'credentials' },
-          { id: 'c2', service: 'identity', path: '/users', resultKey: 'users' },
+          // /orgs, not /users — identity has no /api/users route. Measured:
+          // 404 "Cannot GET /api/users". Endpoints get probed before they get
+          // written into a rule now.
+          { id: 'c2', service: 'identity', path: '/orgs', resultKey: 'orgs' },
           { id: 'c3', service: 'integrations', path: '/integrations/status', resultKey: 'providers' },
           { id: 'c4', service: 'network', path: '/sdn/topology', resultKey: 'topology' },
         ],

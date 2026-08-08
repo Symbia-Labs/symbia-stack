@@ -217,8 +217,19 @@ async function processMessageForAssistant(
 
   const orgId = payload.orgId || DEFAULT_ORG_ID;
 
-  // Get auth token for LLM actions
-  let token = authToken;
+  // Get auth token for LLM actions.
+  //
+  // STRIP "Bearer ". messaging puts req.headers.authorization into
+  // payload._auth.token verbatim, prefix included, and service.call then builds
+  // `Authorization: Bearer ${token}` — producing "Bearer Bearer eyJ..." and a
+  // 401 invalid_token on every service call an assistant made.
+  //
+  // The HTTP webhook path has always stripped it
+  // (authHeader.startsWith('Bearer ') ? slice(7) : undefined). The SDN path,
+  // which is the one actually in use, never did. Measured 8 Aug 2026: the
+  // identical request with the same token, correctly formatted, returns 200
+  // from inside the same container.
+  let token = authToken?.startsWith('Bearer ') ? authToken.slice(7) : authToken;
   if (!token) {
     token = await getAssistantToken(assistantUserId, assistantKey);
   }

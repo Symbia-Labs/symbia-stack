@@ -141,6 +141,14 @@ export class ServiceCallHandler extends BaseActionHandler {
         data,
       }, Date.now() - start);
     } catch (error) {
+      // Let a rejected token OUT.
+      //
+      // The throw above lands here, in this handler's own catch, which turned
+      // it straight back into an ordinary failure — so the TokenAuthError
+      // never reached the SDN retry, and the fix that was supposed to trigger
+      // a refresh did nothing at all. rule-executor.ts:157 already rethrows
+      // this type specifically; it just never received one.
+      if (error instanceof TokenAuthError) throw error;
       const message = error instanceof Error ? error.message : 'Service call failed';
       return this.failure(message, Date.now() - start);
     }
