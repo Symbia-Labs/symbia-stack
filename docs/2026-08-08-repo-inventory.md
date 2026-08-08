@@ -119,4 +119,78 @@ before it was run.
 
 ## 5. Results
 
-*Filled in after the deletion. See §6.*
+### Predictions, measured
+
+| | prediction | outcome |
+|---|---|---|
+| **P1** | `check:ports` passes unchanged | **Held, then deliberately voided.** It passed — but see §6, because passing was not evidence of anything. |
+| **P2** | working tree keeps its 4 modified + 3 untracked, sweep touches nothing already dirty | **Broken once, caught, repaired.** A `git add -A` staged all seven alongside the sweep. Unstaged before commit; final tree is the original 4 + 2 (`.claude/` is now ignored, which is the third). |
+| **P3** | 954 → 943 tracked files | **Superseded.** Scope grew mid-pass. Measured 954 → 922: −11 dead artifacts, −21 energy net of the ledger move, −1 `.mcp.json`, +1 this document. |
+| **P4** | *"the one I expect to get wrong"* — nothing breaks on a missing `integrations/data/` | **Held, for a reason I had not read.** The four backups were that directory's only tracked contents, so deleting them removed the directory. `routes.ts:1682` writes `join(process.cwd(), "data", …)` on DB export, which looked like a break — but `exportMemoryDatabase` in `symbia-db/src/memory.ts:34` does `mkdirSync(dir, { recursive: true })`. The prediction was right; my confidence in it was still misplaced, because it survived on a line two packages away that I only read afterwards. |
+
+### Scope, as executed
+
+The sweep was interrupted by a larger goal — a clean clone that an end user can
+download and start — and grew to match:
+
+1. **11 dead artifacts** removed; `*.backup` ignored.
+2. **The energy app removed** (22 files); its ledger preserved as
+   `docs/API-MEASUREMENTS.md` with all inbound citations repaired.
+3. **Published ports cut from 11 to 1.** Default surface is 9000. Developer
+   ports moved to `docker-compose.dev.yml`, explicitly not an auto-loading
+   override.
+4. **`.mcp.json` untracked**, `.mcp.json.example` shipped.
+5. **Two broken doc links repaired**, found by walking every relative markdown
+   link in a fresh clone.
+
+---
+
+## 6. What the pass got wrong
+
+Four errors, all the same shape: a conclusion reached before the cheap check
+that would have settled it.
+
+**The token.** Reported as a live credential requiring rotation. It is a JWT
+with `exp` 2026-02-08 — expired six months. Decoding it takes one command and
+came after the alarm rather than before. The real finding was the opposite and
+more interesting: the integrations MCP endpoint has been returning 401 since
+February.
+
+**The lock.** `.git/index.lock` plus a failing `rm` was read as a live process
+holding it. `rm` was failing because the sandbox had no delete permission on
+that mount — a fact never checked. Two different causes, identical evidence,
+and the wrong one was inferred. Discipline 5, in a costume it had not worn
+before.
+
+**The orphan detector.** It reported 140 unreferenced source files. 115 are
+content-addressed blobs referenced by database row and 19 are hand-invoked
+scripts; the method structurally cannot see either. Had the number been
+reported before being decomposed, it would have become a citable fact meaning
+nothing. Written up in §1 rather than quoted.
+
+**`check:ports` passing.** After the exposure change the check still passed —
+matching each port *number* anywhere in `docker-compose.yml`, which the header
+comment and `IDENTITY_SERVICE_URL: http://identity:5001` satisfy on their own.
+It would have gone on passing with nothing published at all. Rewritten to match
+published mappings only, then **verified to fail** by adding a second port to
+the base file and watching it break. A green check nobody has seen fail is
+`0` meaning "never asked".
+
+---
+
+## 7. Logged, not fixed
+
+- **21 nested `package-lock.json`.** npm workspaces resolves from the root lock;
+  these are ignored by the installer and drift silently. F2/F4 class.
+- **10 duplicate blobs in `catalog/artifacts/`** — 115 files, 105 hashes.
+  `catalog/scripts/remove-duplicate-executors.ts` exists and appears never to
+  have run against the checked-in copy.
+- **`symbia-control-center/archive/`** — 9 dead panels including
+  `archive/energy/EnergyPanel.tsx`, which now references an app that no longer
+  exists.
+- **`website/`** — three unreferenced mockups, all containing retired port 5054,
+  and the last Vite build in the repo. Not the console, so no ruling violated.
+- **6 dangling relative links** in `models/TESTING-REPORT.md` and
+  `catalog/INTENT.md`, pre-existing and unrelated to this pass.
+- **`README.md` has no quickstart.** For a repo whose next test is "clone it and
+  start it", that is the gap most likely to be hit first.
