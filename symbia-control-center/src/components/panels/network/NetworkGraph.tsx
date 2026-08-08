@@ -198,6 +198,21 @@ export function NetworkGraph({
           showInteractive={false}
           className="network-graph-controls"
         />
+
+        {/* Say what the edges are.
+            They are DECLARED CONTRACTS, not observed calls. Measured 8 Aug
+            2026: three contracts exist on a stack serving thousands of
+            requests a minute, obs.http.* records no callee, and 1011 distinct
+            trace ids appeared with ZERO shared between two services — so
+            trace context does not propagate and a real call graph cannot be
+            derived yet. A diagram that looks like a service map while showing
+            intentions is worse than one that admits which it is. */}
+        <div className="absolute bottom-3 right-3 z-10 max-w-[300px] rounded-md border border-border bg-surface-sunken/90 px-2.5 py-1.5 backdrop-blur">
+          <p className="text-[11px] text-text-secondary leading-snug">
+            Edges are <span className="text-text-primary">declared contracts</span>, not observed
+            calls. Per-node figures are measured from obs.http over the last 60s.
+          </p>
+        </div>
       </ReactFlow>
 
       {/* Dynamic Legend - shows only node types present in the graph */}

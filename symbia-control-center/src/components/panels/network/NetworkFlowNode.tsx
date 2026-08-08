@@ -25,7 +25,7 @@ const TYPE_LABELS: Record<string, string> = {
 };
 
 function NetworkFlowNodeComponent({ data, selected }: NetworkFlowNodeProps) {
-  const { networkNode, color, icon, label, isStale, isConnected, capabilityCount, isActive, activityLevel } = data;
+  const { networkNode, color, icon, label, isStale, isConnected, capabilityCount, isActive, activityLevel, traffic } = data;
 
   // Activity level affects glow intensity (0-1 scale)
   const glowIntensity = activityLevel || 0;
@@ -80,6 +80,40 @@ function NetworkFlowNodeComponent({ data, selected }: NetworkFlowNodeProps) {
             {TYPE_LABELS[networkNode.type] || networkNode.type}
           </span>
         </div>
+      </div>
+
+      {/* Observed traffic, last 60s.
+          This is the only part of this graph that is a MEASUREMENT. The edges
+          are declared contracts — three of them on a stack serving thousands
+          of requests — so without this the picture shows an intended topology
+          and nothing about what is happening in it.
+
+          "Not checked" is rendered as such rather than as zeros: a service
+          that received no requests and a service whose relay is down look
+          identical from here, and printing 0 req would state the first when
+          only the second is known. */}
+      <div className="px-3 py-1.5 border-b" style={{ borderColor: `${color}20` }}>
+        {traffic ? (
+          <div className="flex items-center gap-2 text-[10px] tabular-nums">
+            <span className="text-text-secondary">{traffic.requests} req/{traffic.windowSec}s</span>
+            <span
+              className={
+                traffic.errorRate > 0.05
+                  ? 'text-red-400'
+                  : traffic.errorRate > 0
+                    ? 'text-amber-400'
+                    : 'text-emerald-400/70'
+              }
+            >
+              {(traffic.errorRate * 100).toFixed(traffic.errorRate ? 1 : 0)}% err
+            </span>
+            <span className="ml-auto text-text-muted">
+              {traffic.p95Ms === null ? 'p95 —' : `p95 ${traffic.p95Ms}ms`}
+            </span>
+          </div>
+        ) : (
+          <div className="text-[10px] text-text-muted italic">no traffic observed</div>
+        )}
       </div>
 
       {/* Body */}
