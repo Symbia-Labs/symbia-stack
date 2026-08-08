@@ -219,3 +219,74 @@ within a minute of the filter existing.
   a global claim derived from local state. Not caused by this work: the socket
   is untouched, and the network service logs show it delivering to watchers
   throughout.
+
+---
+
+## Was the SSE fix a capability fix or a bandaid?
+
+Brian asked. Tested rather than asserted, because the answer was not obvious
+and the flattering one was available.
+
+### Where today's five fixes actually landed
+
+| fix | landed in | verdict |
+|---|---|---|
+| Anthropic dropped system prompts | `integrations/server/.../anthropic.ts` | platform — every caller on the stack |
+| Overview said 8/8 | **`symbia-sys`** (`ProxiedServices`, +24) | platform — one list, both consumers derive |
+| `api` had no `/api/stats` | `service-admin/server.js` (+21) | platform — that service now answers what every other service answers |
+| `origin` | **`symbia-relay`** (trace-context, middleware, integration) | platform — every service inherits it |
+| **log stream 401** | `symbia-control-center` **only** | **app** |
+
+Four of five went into shared packages. The fifth did not.
+
+### The verdict: a real fix, misplaced
+
+**Not a bandaid**, on three counts that matter:
+
+1. **Nothing was bypassed.** It uses the platform's own auth, against the
+   platform's own endpoint, through the platform's own proxy. No unregistered
+   service, no hand-edited route, no hardcoded ingress.
+2. **The capability already existed.** The logging service was *correct* to
+   require auth — measured, header → 200. The console simply could not reach a
+   capability that was already there. Restoring reach is not the same as
+   working around an absence.
+3. **It refused the bandaid that was available.** A query-string token would
+   have worked, taken five minutes, and written a credential into every log
+   this platform produces. Rejecting the shortcut that the platform would not
+   have resisted is the whole test, and it is the strongest evidence here.
+
+**But it is in the wrong place.** `authedEventSource.ts` sits in the control
+center. Browser-safe shared packages already exist and are already consumed by
+this app — `@symbia/sys`, `@symbia/http`, `@symbia/catalog-client`,
+`@symbia/messaging-client` — so there is a home and it was not used.
+`@symbia/logging-client` exists but is **write-side only** (ingest, stream
+creation); the platform has no consumption client at all. That gap is the
+actual platform defect, and this fix papered over it locally rather than
+closing it.
+
+Not yet a discipline-7 violation, because N=1. But it is the shape that
+becomes one.
+
+### A claim I was about to make, and checked instead
+
+I was going to write that the `models` service exposes SSE and therefore hits
+the identical wall. Measured first:
+
+```
+POST /svc/models/v1/chat/completions  (stream:true, no auth)  ->  200
+```
+
+**It does not hit the wall, because it requires no authentication at all.**
+The prediction would have been wrong, and wrong in the direction that made my
+fix look more important than it is.
+
+Recorded separately and NOT chased: an inference endpoint answering
+unauthenticated requests is its own finding, and a worse one than the defect
+this section is about.
+
+### What closing it properly looks like
+
+Move `AuthedEventSource` into a browser-safe shared package so authenticated
+stream consumption is a platform capability rather than a control-center
+private. Logged here rather than done, because choosing its home is an
+architecture decision and not mine to make quietly.
