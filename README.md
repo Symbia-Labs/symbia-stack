@@ -57,6 +57,17 @@ An LLM-native orchestration platform for building, deploying, and operating auto
 | [Models](models/) | 5008 | Local LLM inference with node-llama-cpp (GGUF models) |
 | [Network](network/) | 5009 | Software-defined network for event routing and service mesh |
 
+And the two front ends:
+
+| Service | Port | Description |
+|---------|------|-------------|
+| [API / admin](service-admin/) | 9000 | The front door. **The only port published to your host by default.** |
+| [Control center](symbia-control-center/) | 8000 | Operator console. Internal by default; see the dev overlay below. |
+
+The nine services above listen on their own ports and reach each other over the
+Compose network by name. They are **not** published to your host unless you ask
+for them — see [Reaching the other services](#reaching-the-other-services).
+
 ## Shared Libraries
 
 | Package | Description |
@@ -76,9 +87,43 @@ An LLM-native orchestration platform for building, deploying, and operating auto
 
 ### Prerequisites
 
-- Node.js 20+
-- PostgreSQL 15+ (or use in-memory mode for development)
 - Docker and Docker Compose
+- Node.js 20+ and PostgreSQL 15+ — only for the no-Docker path below
+
+### From nothing to a running stack
+
+```bash
+git clone https://github.com/Symbia-Labs/symbia-stack.git
+cd symbia-stack
+./start.sh
+```
+
+First run builds images, bootstraps the database, and prompts you to create a
+super-admin account. There are no default credentials. Later runs skip all of
+that and restart fast.
+
+Then open **<http://localhost:9000>**.
+
+That is the whole surface: one port. Nothing else reaches your host, because
+nothing else needs to — the services address each other over the Compose
+network by name.
+
+### Reaching the other services
+
+`start.sh` is the developer path and already opts into the overlay that
+publishes the rest: Postgres on 5432, the nine services on 5001–5009, and the
+operator console on **<http://localhost:8000>**.
+
+A bare `docker-compose up -d` does not, and gives you 9000 alone. To opt in
+explicitly:
+
+```bash
+docker-compose -f docker-compose.yml -f docker-compose.dev.yml up -d
+```
+
+The overlay is deliberately **not** named `docker-compose.override.yml`, which
+Compose would load automatically for everyone — that would make the default
+above a claim rather than a fact. `npm run check:ports` asserts it stays true.
 
 ### Using the Startup Script (Recommended)
 
@@ -139,8 +184,11 @@ On first run, you will be prompted to create the super admin account:
 For manual control:
 
 ```bash
-# Start all services
+# Start all services — publishes 9000 only
 docker-compose up -d
+
+# Start all services and publish the dev ports too (5432, 5001-5009, 8000)
+docker-compose -f docker-compose.yml -f docker-compose.dev.yml up -d
 
 # View logs
 docker-compose logs -f
@@ -151,6 +199,9 @@ docker-compose down
 # Full reset (removes data)
 docker-compose down -v
 ```
+
+Note that `docker-compose down` must see the same file set that brought the
+stack up, so pass both `-f` flags if you started with both.
 
 ### Manual Development Setup
 

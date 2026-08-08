@@ -23,7 +23,12 @@ Nine services, each self-contained with its own OpenAPI spec at `/<service>/docs
 | integrations | 5007 | LLM providers, external integrations, MCP surface |
 | models | 5008 | Local LLM inference |
 | network | 5009 | Event routing, policies, SoftSDN observability |
-| service-admin | 3000 | Admin UI |
+| control-center | 8000 | Operator console |
+| api | 9000 | API / admin front end — **the only port published by default** |
+
+Those ports are what each service *listens on*. Only 9000 reaches your host
+unless you opt into the dev overlay; everything else talks over the Compose
+network by name.
 
 ## Option A — Docker (recommended for a full, production-like run)
 
@@ -38,13 +43,18 @@ Nine services, each self-contained with its own OpenAPI spec at `/<service>/docs
 
 On first run you'll be prompted to create the super-admin account (name, email, password, org). There are no default credentials — the first user created becomes super admin.
 
-Prefer raw Compose?
+`start.sh` sets `COMPOSE_FILE` so it includes `docker-compose.dev.yml`, which
+publishes Postgres, the nine service ports and the console on 8000. Raw Compose
+does not:
 
 ```bash
-docker-compose up -d       # start all services
+docker-compose up -d       # start all services — publishes 9000 only
 docker-compose logs -f     # tail logs
 docker-compose down        # stop
 docker-compose down -v     # stop and wipe data
+
+# opt into the developer ports explicitly
+docker-compose -f docker-compose.yml -f docker-compose.dev.yml up -d
 ```
 
 ## Option B — Local (no Docker), for fast iteration
@@ -74,13 +84,27 @@ For a database-free dev loop on a single service, in-memory mode is available, e
 
 ## Verify it's up
 
-Each service exposes `/health` (plus k8s-style `/health/live` and `/health/ready`):
+Each service exposes `/health` (plus k8s-style `/health/live` and `/health/ready`).
+
+If you started with a bare `docker-compose up -d`, only 9000 is on your host,
+so ask the front door:
+
+```bash
+curl -s http://localhost:9000/health
+```
+
+If you started via `start.sh` or with the dev overlay, the service ports are
+published and you can ask each one directly:
 
 ```bash
 for p in 5001 5002 5003 5004 5005 5006 5007 5008 5009; do
   printf "%s " "$p"; curl -s "http://localhost:$p/health" | head -c 80; echo
 done
 ```
+
+A connection refused on 5001–5009 after a bare `docker-compose up` means the
+port is not published — not that the service is down. Those two produce
+identical evidence from the outside; `docker-compose ps` tells them apart.
 
 If you have the Symbia MCP connected in Claude, the fastest check is one call to `symbia_stack_health`, which returns per-service status, port, latency, and the OpenAPI title/version each service reports. A healthy stack returns `"healthy": 9, "total": 9`.
 
