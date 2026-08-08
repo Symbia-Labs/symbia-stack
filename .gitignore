@@ -45,3 +45,13 @@ temp/
 # Python bytecode
 __pycache__/
 *.py[cod]
+
+# Local MCP client config — carries a bearer token for the integrations
+# gateway. Ship .mcp.json.example instead. The copy tracked until 8 Aug 2026
+# held a real token that had been expired since 2026-02-08, so it authorized
+# nothing; it still published an org id, a name and an email in a decodable
+# payload, and a stale credential in a repo teaches the wrong habit.
+.mcp.json
+
+# Claude Code local settings
+.claude/settings.local.json

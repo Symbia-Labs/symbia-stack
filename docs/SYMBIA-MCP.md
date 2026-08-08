@@ -26,7 +26,9 @@ There are two distinct MCP surfaces in play — don't confuse them:
 }
 ```
 
-> Security: the committed `.mcp.json` contains a real bearer token and org id. Treat it as a secret — rotate it if it has been shared, and prefer injecting it from the environment rather than committing it. Never paste the token into docs, issues, or chat.
+> Security: `.mcp.json` carries a bearer token and org id and is **no longer tracked** — it is gitignored as of 8 Aug 2026, and `.mcp.json.example` ships in its place. Copy the example, fill in a token from your Identity service, and keep the result local. Never paste the token into docs, issues, or chat.
+>
+> The copy that was tracked until 8 Aug 2026 held a token that had been expired since 2026-02-08, which means the endpoint it configures had been returning 401 for six months. If MCP tools appeared to work in that window, something other than this config was serving them — worth knowing which, since the point of the gateway is that access goes through it.
 
 ## The Symbia stack tools
 

@@ -456,7 +456,8 @@ failure as a Save button reporting success without persisting.
 GreptimeDB, InfluxDB, and Elastic come later, behind an interface. Do not reach
 for one now.
 
-**`.mcp.json` contains a real bearer token and org id.** Treat it as a secret.
+**`.mcp.json` carries a bearer token and org id, and is gitignored.** Copy
+`.mcp.json.example`, fill it in from your Identity service, keep it local.
 Rotate it if it has been shared; prefer injecting from the environment. Do not
 paste it into docs, issues, or chat.
 
