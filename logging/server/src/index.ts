@@ -51,7 +51,6 @@ async function start(): Promise<void> {
   // Connect to network service after server starts
   await initServiceRelay({
     serviceId: ServiceId.LOGGING,
-    serviceName: 'Logging Service',
     capabilities: [
       'logging.log.ingest',
       'logging.log.query',
