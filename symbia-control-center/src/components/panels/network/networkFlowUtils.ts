@@ -66,6 +66,34 @@ export interface NetworkFlowNodeData extends Record<string, unknown> {
   activityLevel: number;       // 0-1 intensity based on event volume
   lastActivityAt?: number;     // Timestamp of last activity
   recentEventCount: number;    // Events in last 5 seconds
+  /**
+   * Observed traffic, from obs.http.response events.
+   *
+   * The graph's edges are DECLARED CONTRACTS, not observed calls, and there
+   * are three of them against thousands of real requests. Measured 8 Aug 2026:
+   * obs.http.* records only `source`, `method`, `path`, `statusCode` and
+   * `durationMs` — no callee — and 1011 distinct trace ids appeared, ZERO of
+   * them shared between two services, so trace context does not propagate and
+   * no call graph can be derived today.
+   *
+   * Until it can, the honest thing the graph can show is what each node is
+   * doing on its own: how much, how fast, how often it fails. That is real
+   * measured data rather than a picture of a topology nobody is using.
+   */
+  traffic?: NodeTraffic;
+}
+
+export interface NodeTraffic {
+  /** Requests observed in the window. */
+  requests: number;
+  /** Responses with status >= 400. */
+  errors: number;
+  /** 0-1. */
+  errorRate: number;
+  /** 95th percentile duration, ms. Null when there is nothing to sort. */
+  p95Ms: number | null;
+  /** Seconds of history this covers. */
+  windowSec: number;
 }
 
 export interface NetworkFlowConversionResult {
@@ -86,12 +114,22 @@ function getDagreLayout(
   dagreGraph.setDefaultEdgeLabel(() => ({}));
 
   // Optimized layout settings for cleaner visualization
+  // Layout, tuned after the graph rendered as a tiny cluster in one corner with
+  // a long vertical column hanging off it.
+  //
+  // `align: 'UL'` was the main culprit: pinning every rank to the upper-left
+  // stacks same-rank nodes downward instead of centring them, which turns one
+  // service with eleven dependents into a column taller than the canvas. Left
+  // unset, dagre balances ranks around the centre line.
+  //
+  // ranksep drops because the observed edges now carry labels and need room
+  // between ranks, not a corridor; nodesep rises so sibling nodes stop
+  // touching. These are chosen by looking at the result, not derived.
   dagreGraph.setGraph({
     rankdir: 'LR',           // Left-to-right flow
-    nodesep: 100,            // Vertical spacing between nodes in same rank
-    ranksep: 200,            // Horizontal spacing between ranks
-    align: 'UL',             // Align nodes to upper-left for consistency
-    ranker: 'network-simplex', // Better ranking algorithm for complex graphs
+    nodesep: 70,             // Between nodes in the same rank
+    ranksep: 150,            // Between ranks
+    ranker: 'network-simplex',
   });
 
   // Add nodes to dagre
@@ -106,6 +144,43 @@ function getDagreLayout(
     .forEach((edge) => {
       dagreGraph.setEdge(edge.source, edge.target);
     });
+
+  // A MESH IS NOT A HIERARCHY.
+  //
+  // dagre ranks nodes by dependency depth, which is right for a DAG and wrong
+  // here: most services have no observed inbound edge, so they all land in
+  // rank 0 and stack into a single vertical column — measured after the first
+  // layout attempt, ten nodes spanning 271px wide by 668px tall, with one
+  // node stranded to the side. Tuning nodesep and ranksep moved that column
+  // around without making it not a column.
+  //
+  // When the graph is flat — fewer layout edges than nodes, i.e. no real
+  // hierarchy to show — a ring is used instead. Every node is equidistant and
+  // visible, and the observed edges become chords across it, which is the
+  // shape of the thing being described: peers calling peers.
+  const layoutEdgeCount = edges.filter(
+    (e) => !e.data?.isMesh && !e.data?.isClientConnection
+  ).length;
+  const isFlat = layoutEdgeCount < nodes.length;
+
+  if (isFlat) {
+    const radius = Math.max(260, nodes.length * 48);
+    const cx = radius + NODE_WIDTH;
+    const cy = radius + NODE_HEIGHT;
+    const layoutedNodes = nodes.map((node, i) => {
+      // Start at the top and go clockwise, so the order is stable between
+      // renders rather than jumping when a node joins.
+      const angle = (i / nodes.length) * Math.PI * 2 - Math.PI / 2;
+      return {
+        ...node,
+        position: {
+          x: cx + radius * Math.cos(angle) - NODE_WIDTH / 2,
+          y: cy + radius * Math.sin(angle) - NODE_HEIGHT / 2,
+        },
+      };
+    });
+    return { nodes: layoutedNodes, edges };
+  }
 
   // Run the layout algorithm
   dagre.layout(dagreGraph);
@@ -313,6 +388,157 @@ function createMeshEdges(
 /**
  * Calculate activity stats for each node from recent events
  */
+/**
+ * Per-node request volume, error rate and p95 latency from obs.http.response.
+ *
+ * A SIXTY SECOND window, not the five used for the blink animation. Five
+ * seconds is right for "is this thing alive" and useless for "is this thing
+ * healthy" — a service handling one request every few seconds would show a p95
+ * computed from one sample, which is a number with the shape of a statistic
+ * and none of the meaning.
+ *
+ * Only `obs.http.response` is counted. The matching request event carries no
+ * status or duration, so counting both would double every total and halve
+ * every error rate.
+ */
+/**
+ * Edges the platform OBSERVED, from `caller` on obs.http.* events.
+ *
+ * This is the point of trace propagation. Until 8 Aug 2026 the only edges the
+ * graph could draw were declared contracts — three of them, all
+ * assistant/messaging — while every real call between services was invisible,
+ * because obs.http recorded who HANDLED a request and nothing about who made
+ * it. With x-symbia-caller travelling on every call, `caller -> source` IS the
+ * edge. No correlation, no inference, no reconstruction.
+ *
+ * These are drawn differently from contract edges on purpose. A declaration
+ * and an observation are different kinds of claim, and a diagram that renders
+ * them identically is asserting that they are the same.
+ *
+ * Self-calls are kept. `logging -> logging` looked like a bug and is not: the
+ * logging service calls itself. Dropping it because it looks odd would be
+ * editing the measurement to match an expectation.
+ */
+function createObservedEdges(
+  nodes: Node<NetworkFlowNodeData>[],
+  events: Array<{ event: SandboxEvent; trace: EventTrace }>,
+  existingEdges: Edge[]
+): Edge[] {
+  const WINDOW_MS = 60_000;
+  const now = Date.now();
+  const pairs = new Map<string, { count: number; durations: number[]; errors: number }>();
+  const nodeIds = new Set(nodes.map((n) => n.id));
+
+  for (const { event } of events) {
+    if (event.payload?.type !== 'obs.http.response' && event.payload?.type !== 'obs.http.request') continue;
+    const handler = event.wrapper.source;
+    const data = (event.payload.data ?? {}) as {
+      caller?: string;
+      durationMs?: number;
+      statusCode?: number;
+    };
+    const caller = data.caller;
+    // No caller means a browser-originated request OR a call made outside a
+    // request context. Neither is an edge between two known nodes, and
+    // inventing one would be the graph asserting something nobody measured.
+    if (!caller || !handler) continue;
+    if (!nodeIds.has(caller) || !nodeIds.has(handler)) continue;
+
+    const at = new Date(event.wrapper.timestamp).getTime();
+    if (!Number.isFinite(at) || now - at > WINDOW_MS) continue;
+
+    const key = `${caller} ${handler}`;
+    const p = pairs.get(key) ?? { count: 0, durations: [], errors: 0 };
+    // Count the response only, so a request/response pair is one call.
+    if (event.payload.type === 'obs.http.response') {
+      p.count += 1;
+      if (typeof data.durationMs === 'number') p.durations.push(data.durationMs);
+      if (typeof data.statusCode === 'number' && data.statusCode >= 400) p.errors += 1;
+    }
+    pairs.set(key, p);
+  }
+
+  const out = [...existingEdges];
+  for (const [key, p] of pairs) {
+    if (p.count === 0) continue;
+    const [caller, handler] = key.split(' ');
+    const sorted = p.durations.slice().sort((a, b) => a - b);
+    const p95 = sorted.length
+      ? sorted[Math.min(sorted.length - 1, Math.ceil(sorted.length * 0.95) - 1)]
+      : null;
+    const hasErrors = p.errors > 0;
+
+    out.push({
+      id: `observed:${caller}->${handler}`,
+      source: caller,
+      target: handler,
+      type: 'animated',
+      animated: true,
+      label: p95 === null ? `${p.count}` : `${p.count} · ${p95}ms`,
+      labelStyle: { fill: '#94a3b8', fontSize: 10 },
+      labelBgStyle: { fill: '#0f172a', fillOpacity: 0.8 },
+      style: {
+        stroke: hasErrors ? '#f87171' : '#22d3ee',
+        // Volume is legible as thickness, capped so one chatty pair does not
+        // turn into a slab that hides everything else.
+        strokeWidth: Math.min(4, 1 + Math.log2(p.count + 1)),
+      },
+      data: {
+        isObserved: true,
+        callCount: p.count,
+        errorCount: p.errors,
+        p95Ms: p95,
+      },
+    });
+  }
+  return out;
+}
+
+function calculateNodeTraffic(
+  events: Array<{ event: SandboxEvent; trace: EventTrace }>
+): Map<string, NodeTraffic> {
+  const WINDOW_MS = 60_000;
+  const now = Date.now();
+  const durations = new Map<string, number[]>();
+  const counts = new Map<string, { requests: number; errors: number }>();
+
+  for (const { event } of events) {
+    if (event.payload?.type !== 'obs.http.response') continue;
+    const source = event.wrapper.source;
+    if (!source) continue;
+    const at = new Date(event.wrapper.timestamp).getTime();
+    if (!Number.isFinite(at) || now - at > WINDOW_MS) continue;
+
+    const data = (event.payload.data ?? {}) as { statusCode?: number; durationMs?: number };
+    const c = counts.get(source) ?? { requests: 0, errors: 0 };
+    c.requests += 1;
+    if (typeof data.statusCode === 'number' && data.statusCode >= 400) c.errors += 1;
+    counts.set(source, c);
+
+    if (typeof data.durationMs === 'number' && Number.isFinite(data.durationMs)) {
+      const arr = durations.get(source) ?? [];
+      arr.push(data.durationMs);
+      durations.set(source, arr);
+    }
+  }
+
+  const out = new Map<string, NodeTraffic>();
+  for (const [source, c] of counts) {
+    const d = (durations.get(source) ?? []).slice().sort((a, b) => a - b);
+    // Nearest-rank p95. Null rather than 0 when there is nothing to compute
+    // from — a latency of zero and an unmeasured latency are different claims.
+    const p95Ms = d.length ? d[Math.min(d.length - 1, Math.ceil(d.length * 0.95) - 1)] : null;
+    out.set(source, {
+      requests: c.requests,
+      errors: c.errors,
+      errorRate: c.requests ? c.errors / c.requests : 0,
+      p95Ms,
+      windowSec: WINDOW_MS / 1000,
+    });
+  }
+  return out;
+}
+
 function calculateNodeActivity(
   networkNodes: NetworkNode[],
   events: Array<{ event: SandboxEvent; trace: EventTrace }>
@@ -393,6 +619,7 @@ export function networkToFlow(
 
   // Calculate activity levels for each node
   const nodeActivity = calculateNodeActivity(networkNodes, events);
+  const nodeTraffic = calculateNodeTraffic(events);
 
   // Create a node for each network node
   networkNodes.forEach((networkNode) => {
@@ -419,6 +646,7 @@ export function networkToFlow(
         isActive: activity.isActive,
         activityLevel: activity.activityLevel,
         recentEventCount: activity.recentEventCount,
+        traffic: nodeTraffic.get(networkNode.id),
         lastActivityAt: activity.lastActivityAt,
       },
     });
@@ -454,6 +682,10 @@ export function networkToFlow(
   // Add edges from observed event traffic
   if (events.length > 0) {
     edges = createEventEdges(nodes, events, edges);
+    // Edges derived from `caller` on obs.http.*. These are OBSERVATIONS —
+    // this call actually happened — as distinct from the dashed contract
+    // edges above, which are declarations of what is permitted.
+    edges = createObservedEdges(nodes, events, edges);
   }
 
   // Add mesh edges if enabled (shows potential communication paths)

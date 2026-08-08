@@ -1,4 +1,5 @@
 import { endpoints } from '@/config/endpoints';
+import { ORIGIN_HEADER, CLIENT_ORIGIN } from './origin';
 
 // Types for logging data
 export interface LogEntry {
@@ -75,6 +76,9 @@ export interface MetricQueryParams {
 class LoggingClient {
   private getHeaders(): Record<string, string> {
     const headers: Record<string, string> = {
+      // Declared, not inferred. See services/origin.ts for why this
+      // client's traffic carries the origin it does.
+      [ORIGIN_HEADER]: CLIENT_ORIGIN.logging,
       'Content-Type': 'application/json',
     };
     // Note: In dev mode, don't send Bearer token to logging service.

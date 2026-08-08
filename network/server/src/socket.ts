@@ -366,6 +366,38 @@ export function setupSocketHandlers(io: SocketServer): void {
     }, callback?: (response: any) => void) => {
       telemetry.metric(NetworkMetrics.SOCKET_MESSAGE_RECEIVED, 1, { messageType: 'event:send', socketId: socket.id });
 
+      // Validate BEFORE dereferencing, and before the try block that used to
+      // start four lines below this.
+      //
+      // `data.payload.type` on line 1 of this handler was outside the try, so
+      // any client sending an event without a `payload` wrapper threw
+      // "TypeError: Cannot read properties of undefined (reading 'type')" out
+      // of an async socket handler and KILLED THE PROCESS. Measured 7 Aug
+      // 2026: a browser component emitting the wrong shape took the whole
+      // network service down repeatedly, and every symptom pointed elsewhere —
+      // the console showed "xhr poll error", the proxy showed 502
+      // upstream_unreachable, and the service looked like a networking problem
+      // rather than a service that had exited.
+      //
+      // A mesh that any connected client can crash with one malformed message
+      // is a bigger finding than the client that did it.
+      if (!data || typeof data !== 'object' || !data.payload || typeof data.payload.type !== 'string') {
+        console.warn(
+          `[Network] event:send REJECTED from socket ${socket.id}: expected ` +
+            `{ payload: { type, data }, source, runId }, received keys ` +
+            `[${data && typeof data === 'object' ? Object.keys(data).join(', ') : typeof data}]`
+        );
+        if (callback) {
+          callback({
+            ok: false,
+            error:
+              'event:send requires { payload: { type, data }, source, runId }. ' +
+              'The payload wrapper was missing or had no string `type`.',
+          });
+        }
+        return;
+      }
+
       console.log(`[Network] ====== EVENT:SEND RECEIVED ======`);
       console.log(`[Network] Event type: ${data.payload.type}`);
       console.log(`[Network] Source: ${data.source}`);

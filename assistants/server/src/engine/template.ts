@@ -45,6 +45,25 @@ export function toResolutionContext(ctx: ExecutionContext): ResolutionContext {
       id: ctx.orgId,
     },
 
+    // HOIST THE CONTEXT KEYS TO THE TOP LEVEL.
+    //
+    // service.call writes its result to context.context[resultKey], and every
+    // rule in this codebase then references it as `{{resultKey}}`. Nothing
+    // hoisted it, so the resolver looked for a top-level `catalogStats` that
+    // did not exist, formatValue turned undefined into '', and the model was
+    // handed a prompt with every label present and every value blank.
+    //
+    // That is the "Platform Status rule's fetched data reaches the prompt
+    // empty" defect, and it was never a fetch problem — the calls succeeded
+    // and the data was stored. One lookup did not know where to find it.
+    //
+    // `steps` was already hoisted two lines below for exactly this reason,
+    // which is the tell: the same need was met once, for one key, and not
+    // generalised. Spread FIRST so the named fields below always win a
+    // collision — a rule that stores a result called "message" must not be
+    // able to shadow the actual message.
+    ...(ctx.context as Record<string, unknown> | undefined),
+
     context: ctx.context,
     metadata: ctx.metadata,
 
@@ -112,18 +131,41 @@ export function getContextValue(path: string, ctx: ExecutionContext): unknown {
 
   // Legacy: bare path (e.g., "message.content")
   const parts = path.split('.');
-  let current: unknown = ctx;
 
-  for (const part of parts) {
-    if (current === null || current === undefined) return undefined;
-    if (typeof current === 'object') {
-      current = (current as Record<string, unknown>)[part];
-    } else {
-      return undefined;
+  const walk = (root: unknown): unknown => {
+    let current: unknown = root;
+    for (const part of parts) {
+      if (current === null || current === undefined) return undefined;
+      if (typeof current === 'object') {
+        current = (current as Record<string, unknown>)[part];
+      } else {
+        return undefined;
+      }
     }
-  }
+    return current;
+  };
 
-  return current;
+  const direct = walk(ctx);
+  if (direct !== undefined) return direct;
+
+  // FALL BACK TO ctx.context, WHICH IS WHERE service.call PUTS ITS RESULTS.
+  //
+  // service-call.ts does `context.context[params.resultKey] = data`, but this
+  // resolver only ever walked `ctx`, so `{{catalogStats}}` looked for
+  // ctx.catalogStats — undefined — and formatValue turned undefined into an
+  // empty string. Every rule that fetched data and then referenced it by
+  // resultKey sent the model a prompt with the labels present and the values
+  // blank.
+  //
+  // This is the long-standing "Platform Status rule's fetched data reaches the
+  // prompt empty" defect. It was never a fetch problem: the calls succeeded,
+  // the data was stored, and one lookup did not know where to find it.
+  //
+  // Measured 8 Aug 2026 — the Observability assistant, handed four successful
+  // service calls, replied "I don't actually have any live data to work with —
+  // each of your four sources came back empty". Which was true, and exactly
+  // what it was built to say rather than invent an answer.
+  return walk((ctx as { context?: unknown }).context);
 }
 
 /**

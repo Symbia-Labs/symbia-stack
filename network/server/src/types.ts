@@ -160,7 +160,29 @@ export interface EventTrace {
   /** Total time from start to completion */
   totalDurationMs: number;
   /** Final status */
-  status: 'delivered' | 'dropped' | 'pending' | 'error';
+  /**
+   * What became of the event.
+   *
+   *   delivered  reached at least one node.
+   *   unrouted   nobody subscribes. No contract covers this event type from
+   *              this source and no explicit target was given. NOTHING WENT
+   *              WRONG — the event was created, hashed and recorded, and no
+   *              node had asked for it.
+   *   dropped    a delivery that was supposed to happen did not: the target
+   *              was not connected, or a policy denied it.
+   *   pending / error  in flight, or failed.
+   *
+   * `unrouted` exists because every obs.http.* event on this stack read
+   * "dropped" — measured 8 Aug 2026: three contracts exist, all for
+   * assistant/messaging flows, none mentioning obs.http.*, because the control
+   * center reads telemetry through the events API rather than by contract. So
+   * the entire observability stream was labelled with a word that means
+   * failure, in a UI whose whole job is to tell you when something failed.
+   *
+   * "Zero targets" is the observation. "Dropped" was an inference, and the
+   * wrong one.
+   */
+  status: 'delivered' | 'unrouted' | 'dropped' | 'pending' | 'error';
   /** Error message if status is error */
   error?: string;
 }

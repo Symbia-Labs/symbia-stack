@@ -50,9 +50,24 @@ export class RelayClient {
       this.socket = io(this.config.networkUrl, {
         autoConnect: true,
         reconnection: this.config.autoReconnect,
-        reconnectionAttempts: 10,
+        // Never stop trying.
+        //
+        // This was 10 attempts at 1-5s — under a minute of tolerance. Measured
+        // 7 Aug 2026: the network service was down longer than that, and
+        // integrations, models and assistants each exhausted their attempts and
+        // stopped for good. Their logs show two registrations and two
+        // disconnects, and they have emitted nothing since; the observability
+        // dashboard for every one of them has been empty ever since, with no
+        // error anywhere to say why.
+        //
+        // A service that gives up on the mesh permanently because the mesh
+        // restarted is a service that silently stops being observable. The
+        // backoff below caps at 30s, so an unreachable network costs one
+        // connection attempt every half minute and nothing else.
+        reconnectionAttempts: Infinity,
         reconnectionDelay: 1000,
-        reconnectionDelayMax: 5000,
+        reconnectionDelayMax: 30000,
+        randomizationFactor: 0.5,
         // Pass auth token in handshake for agent authentication
         auth: this.config.authToken ? { token: this.config.authToken } : undefined,
       });

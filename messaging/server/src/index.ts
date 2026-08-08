@@ -390,7 +390,6 @@ server.start()
     // Connect to network service after server starts
     await initServiceRelay({
       serviceId: ServiceId.MESSAGING,
-      serviceName: 'Messaging Service',
       capabilities: [
         'messaging.conversation.create',
         'messaging.conversation.read',

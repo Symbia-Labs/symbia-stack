@@ -44,6 +44,30 @@ export async function authMiddleware(
 
   req.user = user;
 
+  // Attach the RAW bearer token.
+  //
+  // Credential lookup is a service-to-service call that forwards the caller's
+  // own token — see credential-client.ts, "requires the calling service to
+  // pass along the user's auth token". Five call sites in routes.ts read
+  // `(req as any).token` to do that, and NOTHING SET IT. The only assignment
+  // in the service lived in channels/routes.ts:106, so the channels router
+  // worked and every other route sent `Authorization: Bearer undefined`.
+  //
+  // Measured 7 Aug: identity returned 401 in 0ms for every provider —
+  // anthropic, openai, huggingface, symbia-labs — while the credential was
+  // present and decryptable. Presenting a valid token by hand to the same
+  // endpoint returned the key immediately. So this never was a missing key,
+  // and every provider rendered "No API key configured" because of it.
+  //
+  // Set here, in the shared middleware, rather than per-router: a concern with
+  // one implementation in one router and none in the others is the forked
+  // pattern this codebase keeps producing.
+  const rawToken =
+    (req.headers.authorization?.startsWith('Bearer ')
+      ? req.headers.authorization.slice(7)
+      : undefined) ?? (req as { cookies?: Record<string, string> }).cookies?.token;
+  (req as unknown as { token?: string }).token = rawToken;
+
   // Resolve orgId: header > user's primary org > fallback
   const headerOrgId = req.headers['x-org-id'] as string | undefined;
   let orgId = headerOrgId || user.orgId || user.organizations[0]?.id;

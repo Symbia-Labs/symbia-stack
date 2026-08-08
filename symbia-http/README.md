@@ -505,7 +505,7 @@ All Symbia microservices use this package:
 | Catalog | 5003 | Server, CORS, Health |
 | Assistants | 5004 | Server, Socket.IO, Health |
 | Messaging | 5005 | Server, Socket.IO, Health |
-| Network | 5054 | Server, CORS, Health |
+| Network | 5009 | Server, CORS, Health |
 | Server | 5000 | Server, CORS, Health |
 | Runtime | 5006 | Server, Socket.IO, Health |
 

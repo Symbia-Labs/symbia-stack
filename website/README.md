@@ -106,7 +106,7 @@ API routes are proxied to local Symbia services:
 | `/api/messaging/*` | Messaging | 5005 |
 | `/api/runtime/*` | Runtime | 5006 |
 | `/api/integrations/*` | Integrations | 5007 |
-| `/api/network/*` | Network | 5054 |
+| `/api/network/*` | Network | 5009 |
 
 ## Theme System
 

@@ -26,7 +26,9 @@ There are two distinct MCP surfaces in play — don't confuse them:
 }
 ```
 
-> Security: the committed `.mcp.json` contains a real bearer token and org id. Treat it as a secret — rotate it if it has been shared, and prefer injecting it from the environment rather than committing it. Never paste the token into docs, issues, or chat.
+> Security: `.mcp.json` carries a bearer token and org id and is **no longer tracked** — it is gitignored as of 8 Aug 2026, and `.mcp.json.example` ships in its place. Copy the example, fill in a token from your Identity service, and keep the result local. Never paste the token into docs, issues, or chat.
+>
+> The copy that was tracked until 8 Aug 2026 held a token that had been expired since 2026-02-08, which means the endpoint it configures had been returning 401 for six months. If MCP tools appeared to work in that window, something other than this config was serving them — worth knowing which, since the point of the gateway is that access goes through it.
 
 ## The Symbia stack tools
 
@@ -69,7 +71,7 @@ messaging     :5005  healthy  15ms  v1.0.0
 runtime       :5006  healthy  16ms  v1.0.0
 integrations  :5007  healthy   8ms  v2.0.0
 models        :5008  healthy  16ms  v1.0.0
-network       :5054  healthy  19ms  v1.0.0
+network       :5009  healthy  19ms  v1.0.0
 → healthy: 9, total: 9
 ```
 
@@ -88,7 +90,7 @@ assistant    assistants/coordinator        published   [multi-agent, level-5, or
 
 - **Health first.** Run `symbia_stack_health` before anything else; most confusing tool errors are just a service that isn't up.
 - **Narrow your reads.** `symbia_list_resources` and `symbia_query_logs` support `type`/`tag`/`query`/`limit`/`offset` — use them. Broad, unfiltered reads return large payloads (the Integrations MCP registry in particular is very large).
-- **Read-only by design.** These tools observe; they don't create or change resources. To *build* on the platform you go through the service REST APIs (see each service's OpenAPI at `/<service>/docs/openapi.json`, or the collected specs in `docs/api/`). See also `energy/API-MEASUREMENTS.md` for where the write/registration APIs currently fall short.
+- **Read-only by design.** These tools observe; they don't create or change resources. To *build* on the platform you go through the service REST APIs (see each service's OpenAPI at `/<service>/docs/openapi.json`, or the collected specs in `docs/api/`). See also `docs/API-MEASUREMENTS.md` for where the write/registration APIs currently fall short.
 - **Two different `localhost`s.** The MCP servers run against the stack on your machine. If you also use a sandboxed shell, note it's a separate host and can't reach these ports — the MCP tools are the bridge.
 
 ## Related

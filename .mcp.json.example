@@ -1,0 +1,12 @@
+{
+  "mcpServers": {
+    "symbia-integrations": {
+      "type": "http",
+      "url": "http://localhost:5007/api/integrations/mcp",
+      "headers": {
+        "Authorization": "Bearer REPLACE_WITH_A_TOKEN_FROM_YOUR_IDENTITY_SERVICE",
+        "X-Org-Id": "REPLACE_WITH_YOUR_ORG_UUID"
+      }
+    }
+  }
+}

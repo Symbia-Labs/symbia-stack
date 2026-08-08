@@ -40,6 +40,33 @@ export function registerSinkComponents(deps: SinkDeps): void {
       'Writes a numeric data point to the Logging metrics service, attributed to the org that owns the graph. config.name is the metric name (a gauge series is resolved or created on first use); config.valueField (default "value") locates the number in the message — dotted paths supported (e.g. "out.result"); config.labels attaches labels. Passes the input through on "out"; non-numeric values and failed writes exit on "error".',
     inputs: ['in'],
     outputs: ['out', 'error'],
+    config: {
+      name: {
+        type: 'string',
+        required: true,
+        description:
+          'Metric name. A gauge series is resolved or created on first use.',
+      },
+      valueField: {
+        type: 'string',
+        required: false,
+        default: 'value',
+        description: 'Locates the number in the message. Dotted paths supported, e.g. "out.result".',
+      },
+      labels: {
+        type: 'object',
+        required: false,
+        default: {},
+        description: 'Labels attached to the data point.',
+      },
+    },
+    lanes: {
+      out: { lane: 'inherit' },
+      error: {
+        lane: 'apocryphal',
+        note: 'a write that failed, or a value that was not numeric — in neither case did the series receive what the graph computed',
+      },
+    },
     handler: (input, ctx) => {
       const name = String(ctx.config.name ?? '');
       if (!name) return { error: { error: 'config.name is required' } };
@@ -75,6 +102,26 @@ export function registerSinkComponents(deps: SinkDeps): void {
       'Writes the message to the Logging service log stream (config.level, default "info"; config.message template prefix optional) and passes the input through on "out". Unlike symbia.io.log, which only writes to the execution trace, this persists to the platform log store.',
     inputs: ['in'],
     outputs: ['out'],
+    config: {
+      level: {
+        type: 'string',
+        required: false,
+        default: 'info',
+        description: 'Log level written to the platform log store.',
+      },
+      message: {
+        type: 'string',
+        required: false,
+        description: 'Optional prefix placed before the serialised message value.',
+      },
+    },
+    lanes: {
+      out: {
+        lane: 'inherit',
+        // Note this sink has no error port: unlike symbia.sink.metric it cannot
+        // report a failed write. Recorded here rather than left to be noticed.
+      },
+    },
     handler: (input, ctx) => {
       const level = String(ctx.config.level ?? 'info');
       const prefix = ctx.config.message ? String(ctx.config.message) + ' ' : '';

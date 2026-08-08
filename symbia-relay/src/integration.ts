@@ -7,7 +7,8 @@
 
 import { createRelayClient, RelayClient } from './client.js';
 import type { RelayConfig, SandboxEvent, EventTrace, AgentEventType, AgentMessagePayload, AgentPrincipal } from './types.js';
-import { ServiceId, resolveServiceUrl } from '@symbia/sys';
+import { ServiceId, resolveServiceUrl, serviceDisplayName } from '@symbia/sys';
+import type { TrafficOrigin } from './trace-context.js';
 
 let globalRelay: RelayClient | null = null;
 
@@ -15,7 +16,14 @@ export interface ServiceRelayConfig {
   /** Service ID (e.g., 'symbia-messaging-service') */
   serviceId: string;
   /** Human-readable service name */
-  serviceName: string;
+  /**
+   * Display name. Optional: defaults to serviceDisplayName(serviceId), which
+   * is the single source of truth. Pass one only if a service genuinely needs
+   * to be called something other than its id — and note that three services
+   * doing that independently is how the topology ended up listing nodes in
+   * three different letter cases at once.
+   */
+  serviceName?: string;
   /** Capabilities this service provides */
   capabilities?: string[];
   /** Network service URL (default: from env or @symbia/sys resolution) */
@@ -71,7 +79,7 @@ export async function initServiceRelay(config: ServiceRelayConfig): Promise<Rela
     globalRelay = createRelayClient({
       networkUrl,
       nodeId: config.serviceId,
-      nodeName: config.serviceName,
+      nodeName: config.serviceName || serviceDisplayName(config.serviceId),
       nodeType: 'service',
       capabilities: config.capabilities || [],
       endpoint: `http://${host}:${port}/api/network/receive`,
@@ -97,11 +105,28 @@ export async function initServiceRelay(config: ServiceRelayConfig): Promise<Rela
 
     return globalRelay;
   } catch (error) {
-    // Network service may not be running - this is OK for now
-    console.log(`[Relay] Could not connect to network service: ${error instanceof Error ? error.message : error}`);
-    console.log('[Relay] Service will operate without network relay');
-    globalRelay = null;
-    return null;
+    // KEEP THE CLIENT.
+    //
+    // This used to set globalRelay = null, which made a transient startup race
+    // permanent. Services that came up before the network service — measured 7
+    // Aug 2026: identity, catalog and messaging — logged "xhr poll error" once
+    // and never emitted an observability event again, for the entire life of
+    // the process. Their Service Observation dashboards were empty and nothing
+    // anywhere said why.
+    //
+    // The socket underneath is still retrying: connect() rejects on the FIRST
+    // connect_error, but Socket.IO's own reconnection keeps going and the
+    // client re-registers on every 'connect'. Throwing away the reference was
+    // the only thing stopping recovery. emitEvent already gates on isReady(),
+    // so holding a not-yet-connected client is safe — it no-ops until the
+    // socket is actually up, then starts working on its own.
+    console.log(
+      `[Relay] Not connected yet: ${error instanceof Error ? error.message : error}`
+    );
+    console.log(
+      '[Relay] Events will not be emitted until the network service is reachable. Retrying in the background.'
+    );
+    return globalRelay;
   }
 }
 
@@ -659,6 +684,28 @@ export type ObservabilityEventType =
 export interface HttpRequestEvent {
   method: string;
   path: string;
+  /**
+   * The service that made this call, from x-symbia-caller.
+   *
+   * This is what makes a graph EDGE — caller -> handler, directly, with no
+   * correlation step. Absent means one of two things and they must not be
+   * collapsed: a browser-originated request (browsers do not send it), or a
+   * call made outside any request's async context, such as from a timer or a
+   * socket handler.
+   */
+  caller?: string;
+  /**
+   * Why this request happened, from x-symbia-origin.
+   *
+   * Orthogonal to `caller` and to the wrapper's `boundary`: those say which
+   * service and where, this says on whose behalf. A dashboard poll and a
+   * person pressing Send were previously identical by every recorded field —
+   * both `intra`, both called by `control-center`.
+   *
+   * Always present, because `unknown` is a value. Absence of a label is not
+   * evidence of a human.
+   */
+  origin?: TrafficOrigin;
   query?: Record<string, string>;
   headers?: Record<string, string>;
   ip?: string;
@@ -671,6 +718,23 @@ export interface HttpResponseEvent {
   path: string;
   statusCode: number;
   durationMs: number;
+  /**
+   * The service that made this call. Same value as on the matching request.
+   *
+   * It is on BOTH events on purpose. Anything counting calls must count one of
+   * the pair, not both, and the response is the one carrying status and
+   * duration — so the response is the one worth counting. Putting caller only
+   * on the request made every consumer that counts responses see no caller at
+   * all, which is precisely how the topology graph drew zero observed edges
+   * while 147 of 300 events carried one.
+   */
+  caller?: string;
+  /**
+   * Why this request happened. On BOTH events for the same reason `caller` is:
+   * consumers count responses, and a field that lives only on the request is
+   * invisible to every one of them.
+   */
+  origin?: TrafficOrigin;
   size?: number;
   traceId?: string;
 }

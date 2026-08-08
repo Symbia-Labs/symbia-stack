@@ -53,7 +53,7 @@ Microservices communicating via HTTP create invisible dependencies. When service
 │  Application Layer                                                           │
 │  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐        │
 │  │  Assistants │  │   Runtime   │  │ Integrations│  │   Network   │        │
-│  │    :5004    │  │    :5006    │  │    :5007    │  │    :5054    │        │
+│  │    :5004    │  │    :5006    │  │    :5007    │  │    :5009    │        │
 │  │             │  │             │  │             │  │             │        │
 │  │ AI Workflow │  │  Dataflow   │  │ LLM Gateway │  │ Service Mesh│        │
 │  │   Engine    │  │  Executor   │  │  & Routing  │  │  & SDN      │        │
@@ -375,7 +375,7 @@ Key capabilities:
 - Catalog registration for model discovery
 - HuggingFace integration for model downloads
 
-### Network (Port 5054) — The Mesh
+### Network (Port 5009) — The Mesh
 
 Software-defined networking for service coordination:
 - **Nodes**: service, assistant, sandbox, bridge, client types

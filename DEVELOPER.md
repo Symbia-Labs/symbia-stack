@@ -27,7 +27,7 @@ than by importing each other's code.
 | runtime | 5006 | graph execution, component registry, ingress |
 | integrations | 5007 | LLM gateway, external integrations, MCP surface |
 | models | 5008 | local GGUF inference |
-| network | 5054 | event routing, service mesh, topology |
+| network | 5009 | event routing, service mesh, topology |
 | service-admin | 3000 | minimal admin UI (plain Node, no build step) |
 | control center | 5173 | the main UI — Vite dev server, **started separately** |
 
@@ -45,7 +45,7 @@ else is a bug worth reporting.
 Standing up an unregistered service, hand-editing a route map, or hardcoding an
 ingress will produce something that works and quietly destroys the platform's
 central claim: that no capability enters without a recorded gate. When you hit
-that wall, write the defect down. `energy/API-MEASUREMENTS.md` is the running
+that wall, write the defect down. `docs/API-MEASUREMENTS.md` is the running
 ledger of exactly this, and it is the most useful document in the repo for
 understanding what the platform actually does versus what it says it does.
 
@@ -82,11 +82,28 @@ There are **no default credentials**. On first run you are prompted for name,
 email, password, and organization name; that first user becomes super admin
 with visibility across all orgs.
 
-Raw Compose works too (`docker-compose up -d`, `logs -f`, `down`, `down -v`).
-`docker-compose.override.yml` is loaded automatically and removes the
+Raw Compose works too (`docker-compose up -d`, `logs -f`, `down`, `down -v`),
+but note what it publishes. **`docker-compose.yml` alone exposes exactly one
+port to the host: 9000.** Everything else talks over the compose network by
+service name. That is what someone who just cloned the repo gets.
+
+For the console on 8000, psql on 5432, or a service port to curl, add the dev
+overlay:
+
+```bash
+docker-compose -f docker-compose.yml -f docker-compose.dev.yml up -d
+```
+
+`start.sh` sets `COMPOSE_FILE` to do this for you. The overlay also removes the
 `depends_on: db-bootstrap` conditions so restarts are fast. Read the comment at
 the top of that file before you touch it — an earlier version replaced
 bootstrap with an `echo`, and any new table silently never got created.
+
+It is called `docker-compose.dev.yml`, not `docker-compose.override.yml`, and
+the rename is the whole point: compose loads an override file automatically, so
+under the old name every clone silently ran with the developer's exposure
+surface and the documented default was a fiction. `npm run check:ports` now
+asserts the default surface is 9000 and nothing else.
 
 ### Path B — local, no Docker
 
@@ -146,7 +163,7 @@ Everything has a working local default. The knobs you will actually touch:
 Every service serves `/health`, plus `/health/live` and `/health/ready`.
 
 ```bash
-for p in 5001 5002 5003 5004 5005 5006 5007 5008 5054; do
+for p in 5001 5002 5003 5004 5005 5006 5007 5008 5009; do
   printf "%s " "$p"; curl -s "http://localhost:$p/health" | head -c 80; echo
 done
 ```
@@ -183,8 +200,7 @@ symbia-stack/
 ├── symbia-id/  symbia-md/    # id utils, doc generation
 ├── symbia-mcp-server/        # read-only MCP window onto a running stack
 │
-├── energy/                   # the forcing-function app (see §7)
-├── examples/                 # a second worked app, deliberately unrelated
+├── examples/                 # worked apps that exercise the platform (see §7)
 ├── tests/                    # ITT framework (see §6)
 ├── scripts/                  # registration + workflow scripts
 ├── docs/                     # QUICKSTART, APP-MODEL, SYMBIA-MCP, api/
@@ -373,17 +389,21 @@ The catalog is for **reusable items only** — types, graphs, components,
 integrations, apps. Real-time point instances are primitives with a proxy
 representation on graphs. They are never catalog resources.
 
-### The two example apps
+### The example apps
 
-`energy/` is a data-centre energy monitoring app built through the platform API
-alone. It is a **test case, not the product** — the load applied to the
-platform, and its defect ledger (`energy/API-MEASUREMENTS.md`) is the real
-output. `examples/order-margin/` exists so the platform is never validated
-against a single application; it walks the same
+`energy/` was a data-centre energy monitoring app built through the platform API
+alone — a **test case, not the product**: the load applied to the platform in
+order to find out what it could not do. The app was removed on 8 Aug 2026, its
+job done. Its defect ledger survives as `docs/API-MEASUREMENTS.md` and is the
+real output; the app itself is recoverable from git history if it is ever
+needed again.
+
+`examples/order-margin/` exists so the platform is never validated against a
+single application; it walks the same
 register → hydrate → gated ingress → durable state → metric sink path in a
 domain with no energy vocabulary anywhere.
 
-If you find yourself shaping a platform contract around energy's needs, that is
+If you find yourself shaping a platform contract around one app's needs, that is
 the defect, not the feature.
 
 ---
@@ -436,7 +456,8 @@ failure as a Save button reporting success without persisting.
 GreptimeDB, InfluxDB, and Elastic come later, behind an interface. Do not reach
 for one now.
 
-**`.mcp.json` contains a real bearer token and org id.** Treat it as a secret.
+**`.mcp.json` carries a bearer token and org id, and is gitignored.** Copy
+`.mcp.json.example`, fill it in from your Identity service, keep it local.
 Rotate it if it has been shared; prefer injecting from the environment. Do not
 paste it into docs, issues, or chat.
 
@@ -482,6 +503,6 @@ failures, not as style preferences.
 | `docs/RLS-IMPLEMENTATION.md` | row-level security and tenant isolation |
 | `docs/SYMBIA-SCRIPT-QUICKSTART.md` | the scripting surface |
 | `docs/api/` | generated OpenAPI + `llms.txt` per service |
-| `energy/API-MEASUREMENTS.md` | the defect ledger — what the API could not do |
+| `docs/API-MEASUREMENTS.md` | the defect ledger — what the API could not do |
 | `CONTRIBUTING.md` | PR, branch, and release mechanics |
 | `SECURITY.md` | reporting security issues |

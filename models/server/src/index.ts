@@ -82,7 +82,6 @@ server.start().then(async () => {
   try {
     await initServiceRelay({
       serviceId,
-      serviceName: "Models Service",
       capabilities: [
         "models.list",
         "models.load",

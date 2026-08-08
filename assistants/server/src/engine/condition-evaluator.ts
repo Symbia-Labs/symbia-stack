@@ -85,7 +85,26 @@ function evaluateOperator(fieldValue: unknown, operator: ConditionOperator, cond
         try {
           const regex = new RegExp(conditionValue, 'i');
           return regex.test(fieldValue);
-        } catch {
+        } catch (err) {
+          // A PATTERN THAT DOES NOT COMPILE IS NOT A PATTERN THAT DID NOT MATCH.
+          //
+          // This used to `catch { return false }`. An author who wrote an
+          // invalid regex got exactly the same result as one whose rule simply
+          // did not apply: silence, and a rule that never fires. Measured
+          // 7 Aug 2026 — the pattern `(?i)health|status` throws in V8
+          // ("Invalid group"), and the rule using it appeared to work, was
+          // evaluated on every message, and matched nothing, with no
+          // indication anywhere that the condition was broken rather than
+          // unmet.
+          //
+          // Still returns false, because a rule with a broken condition must
+          // not fire. But it says so, loudly, every time.
+          console.error(
+            `[ConditionEval] INVALID REGEX in condition — this rule can never match. ` +
+              `pattern=${JSON.stringify(conditionValue)} error=${
+                err instanceof Error ? err.message : String(err)
+              }`
+          );
           return false;
         }
       }

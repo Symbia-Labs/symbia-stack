@@ -47,6 +47,9 @@ interface NetworkGraphProps {
   events?: Array<{ event: SandboxEvent; trace: EventTrace }>;
   className?: string;
   onNodeClick?: (node: NetworkNode) => void;
+  showIntegrations?: boolean;
+  integrationCount?: number;
+  onToggleIntegrations?: () => void;
 }
 
 export function NetworkGraph({
@@ -55,6 +58,9 @@ export function NetworkGraph({
   events = [],
   className = '',
   onNodeClick,
+  showIntegrations = false,
+  integrationCount = 0,
+  onToggleIntegrations,
 }: NetworkGraphProps) {
   // Track if we've done initial layout
   const hasInitialLayout = useRef(false);
@@ -173,7 +179,7 @@ export function NetworkGraph({
         edgeTypes={edgeTypes}
         defaultEdgeOptions={defaultEdgeOptions}
         fitView
-        fitViewOptions={{ padding: 0.3 }}
+        fitViewOptions={{ padding: 0.15, maxZoom: 1.1 }}
         nodesDraggable={true}
         nodesConnectable={false}
         elementsSelectable={true}
@@ -198,6 +204,49 @@ export function NetworkGraph({
           showInteractive={false}
           className="network-graph-controls"
         />
+
+        {/* External integrations, off by default. See NetworkPanel for why. */}
+        {integrationCount > 0 && onToggleIntegrations && (
+          <div className="absolute top-3 right-3 z-10">
+            <button
+              onClick={onToggleIntegrations}
+              className={`rounded-md border px-2.5 py-1.5 text-[11px] backdrop-blur transition-colors ${
+                showIntegrations
+                  ? 'border-pink-400/40 bg-pink-500/10 text-pink-200'
+                  : 'border-border bg-surface-sunken/90 text-text-secondary hover:text-text-primary'
+              }`}
+            >
+              {showIntegrations ? 'Hide' : 'Show'} {integrationCount} external integrations
+            </button>
+          </div>
+        )}
+
+        {/* Say what the edges are.
+            They are DECLARED CONTRACTS, not observed calls. Measured 8 Aug
+            2026: three contracts exist on a stack serving thousands of
+            requests a minute, obs.http.* records no callee, and 1011 distinct
+            trace ids appeared with ZERO shared between two services — so
+            trace context does not propagate and a real call graph cannot be
+            derived yet. A diagram that looks like a service map while showing
+            intentions is worse than one that admits which it is. */}
+        <div className="absolute bottom-3 right-3 z-10 max-w-[300px] rounded-md border border-border bg-surface-sunken/90 px-2.5 py-1.5 backdrop-blur">
+          <div className="space-y-1 text-[11px] text-text-secondary leading-snug">
+            <div className="flex items-center gap-2">
+              <span className="inline-block w-6 h-0 border-t-2 border-cyan-400 shrink-0" />
+              <span>
+                <span className="text-text-primary">observed call</span> — count · p95, last 60s
+              </span>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="inline-block w-6 h-0 border-t border-dashed border-slate-500 shrink-0" />
+              <span>declared contract — permitted, not necessarily used</span>
+            </div>
+            <p className="text-text-muted pt-0.5">
+              A call with no <code>caller</code> draws no edge: it came from a browser, or from
+              outside a request.
+            </p>
+          </div>
+        </div>
       </ReactFlow>
 
       {/* Dynamic Legend - shows only node types present in the graph */}

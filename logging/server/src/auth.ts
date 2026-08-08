@@ -168,7 +168,7 @@ const INGEST_PATHS = new Set([
 /**
  * Telemetry read paths the system bootstrap credential may use.
  *
- * Defect D6 (energy/API-MEASUREMENTS.md): the system credential was accepted
+ * Defect D6 (docs/API-MEASUREMENTS.md): the system credential was accepted
  * on INGEST_PATHS but refused everywhere else, so a service could write a
  * metric series and then be told "Invalid or expired token" when it tried to
  * read the same series back. Values were persisted that the writer itself

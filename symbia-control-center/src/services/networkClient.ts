@@ -10,6 +10,7 @@
  * - Permission errors are thrown as NetworkPermissionError
  */
 import { io, Socket } from 'socket.io-client';
+import { ORIGIN_HEADER, CLIENT_ORIGIN } from './origin';
 import { useAuthStore } from '@/stores/authStore';
 import { getServiceUrl } from '@/config/services';
 import { socketPath } from '@/config/endpoints';
@@ -514,6 +515,9 @@ class NetworkRESTClient {
   private getHeaders(): Record<string, string> {
     const token = useAuthStore.getState().token;
     const headers: Record<string, string> = {
+      // Declared, not inferred. See services/origin.ts for why this
+      // client's traffic carries the origin it does.
+      [ORIGIN_HEADER]: CLIENT_ORIGIN.network,
       'Content-Type': 'application/json',
     };
     if (token) {

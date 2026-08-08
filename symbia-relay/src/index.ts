@@ -104,3 +104,22 @@ export {
   timingMiddleware,
   type ObservabilityMiddlewareOptions,
 } from './middleware.js';
+
+// Trace context. One id carried across a request's whole journey, so the
+// topology graph can draw edges it OBSERVED rather than edges someone declared.
+export {
+  installFetchTracePropagation,
+  currentTrace,
+  withTrace,
+  mintTraceId,
+  traceIdFromHeaders,
+  callerFromHeaders,
+  originFromHeaders,
+  isTrafficOrigin,
+  TRACE_HEADER,
+  CALLER_HEADER,
+  ORIGIN_HEADER,
+  TRAFFIC_ORIGINS,
+  type TraceContext,
+  type TrafficOrigin,
+} from './trace-context.js';

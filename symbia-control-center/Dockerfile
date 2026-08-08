@@ -22,6 +22,7 @@ COPY symbia-catalog-client/package.json  symbia-catalog-client/
 COPY symbia-seed/package.json         symbia-seed/
 COPY symbia-md/package.json           symbia-md/
 COPY symbia-id/package.json           symbia-id/
+COPY symbia-stream-client/package.json symbia-stream-client/
 COPY symbia-control-center/package.json symbia-control-center/
 
 # NODE_ENV is set to development for the install ON PURPOSE. With
@@ -43,6 +44,7 @@ COPY symbia-catalog-client/ symbia-catalog-client/
 COPY symbia-seed/           symbia-seed/
 COPY symbia-md/             symbia-md/
 COPY symbia-id/             symbia-id/
+COPY symbia-stream-client/   symbia-stream-client/
 COPY website/design-system/ website/design-system/
 COPY symbia-control-center/ symbia-control-center/
 

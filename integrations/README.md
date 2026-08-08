@@ -391,7 +391,7 @@ curl -X POST http://localhost:5001/api/credentials \
 | `IDENTITY_SERVICE_URL` | http://localhost:5001 | Identity service endpoint |
 | `CATALOG_SERVICE_URL` | http://localhost:5003 | Catalog service endpoint |
 | `DATABASE_URL` | (memory) | PostgreSQL connection string |
-| `NETWORK_SERVICE_URL` | http://localhost:5054 | Network mesh endpoint |
+| `NETWORK_SERVICE_URL` | http://localhost:5009 | Network mesh endpoint |
 
 ### Provider Configuration
 

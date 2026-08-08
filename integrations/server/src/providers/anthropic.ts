@@ -55,12 +55,21 @@ interface AnthropicTool {
 
 export class AnthropicProvider implements ProviderAdapter {
   name = "anthropic";
-  supportedOperations = ["chat.completions", "messages"];
+  // image.description was already possible here and nobody could ask for it.
+  // Every Claude model below declares `vision`, and convertMessages has
+  // translated OpenAI-style image_url parts — including base64 data URIs —
+  // into Anthropic image blocks the whole time. The capability existed; the
+  // operation name to reach it did not.
+  supportedOperations = ["chat.completions", "messages", "image.description"];
 
   async execute(options: ExecuteOptions): Promise<NormalizedLLMResponse> {
     const { operation, model, params, apiKey, timeout } = options;
 
-    if (operation !== "chat.completions" && operation !== "messages") {
+    if (
+      operation !== "chat.completions" &&
+      operation !== "messages" &&
+      operation !== "image.description"
+    ) {
       throw new Error(`Anthropic provider does not support operation: ${operation}`);
     }
 
@@ -100,6 +109,27 @@ export class AnthropicProvider implements ProviderAdapter {
       if (!params.messages && !params.prompt) {
         errors.push("Either messages or prompt is required");
       }
+    } else if (operation === "image.description") {
+      // The point of a separate operation: reject a vision request that
+      // carries no image, rather than returning a confident description of a
+      // picture the model never received. chat.completions cannot make this
+      // check, because a text-only message is legitimate there.
+      const messages = params.messages as
+        | Array<{ role: string; content: unknown }>
+        | undefined;
+      const hasImage = messages?.some(
+        (m) =>
+          Array.isArray(m.content) &&
+          (m.content as Array<{ type?: string }>).some(
+            (p) => p?.type === "image_url" || p?.type === "image"
+          )
+      );
+      if (!messages) errors.push("messages is required for image.description");
+      else if (!hasImage) {
+        errors.push(
+          "image.description requires a message containing an image part; none was present"
+        );
+      }
     }
 
     return { valid: errors.length === 0, errors };
@@ -116,27 +146,63 @@ export class AnthropicProvider implements ProviderAdapter {
    * Anthropic doesn't have a models list API, so this returns a curated list
    */
   async listModels(_apiKey?: string): Promise<ModelInfo[]> {
+    // ORDER IS LOAD-BEARING. Anything selecting a model automatically takes
+    // the first entry, so a dead id at the top breaks every default caller.
+    // That is not hypothetical: the spyglass drove itself successfully all the
+    // way to the gateway and got a 502 because the first id here was rejected
+    // by the API. The list is now ordered by what has been MEASURED to answer,
+    // 7 Aug 2026, through /api/integrations/execute with a real image:
+    //
+    //   claude-sonnet-5             OK — "**Checkerboard** pattern"
+    //   claude-opus-5               OK — returned empty at maxTokens 30
+    //   claude-haiku-4-5-20251001   OK — "Checkerboard"
+    //   claude-opus-4-20250514      502 — "Anthropic API error: model:
+    //                                     claude-opus-4-20250514"
+    //
+    // The claude-3-* entries below are NOT marked deprecated, because they
+    // were not tested. Absence of a test is not evidence of a failure, and
+    // marking them would be inventing a measurement.
     return [
-      // Claude 4 series (Latest)
       {
-        id: 'claude-opus-4-20250514',
-        name: 'Claude Opus 4',
-        description: 'Most powerful Claude model with state-of-the-art coding and reasoning',
-        contextWindow: 200000,
-        maxOutputTokens: 32000,
-        capabilities: ['chat', 'vision', 'function_calling', 'reasoning'],
-        inputPricing: 15.00,
-        outputPricing: 75.00,
-      },
-      {
-        id: 'claude-sonnet-4-20250514',
-        name: 'Claude Sonnet 4',
-        description: 'Balanced performance with improved reasoning and tool use',
+        id: 'claude-sonnet-5',
+        name: 'Claude Sonnet 5',
+        description: 'Balanced performance with strong vision. Measured working 7 Aug 2026.',
         contextWindow: 200000,
         maxOutputTokens: 64000,
         capabilities: ['chat', 'vision', 'function_calling', 'reasoning'],
         inputPricing: 3.00,
         outputPricing: 15.00,
+      },
+      {
+        id: 'claude-opus-5',
+        name: 'Claude Opus 5',
+        description: 'Most capable Claude model. Measured reachable 7 Aug 2026.',
+        contextWindow: 200000,
+        maxOutputTokens: 64000,
+        capabilities: ['chat', 'vision', 'function_calling', 'reasoning'],
+        inputPricing: 15.00,
+        outputPricing: 75.00,
+      },
+      {
+        id: 'claude-haiku-4-5-20251001',
+        name: 'Claude Haiku 4.5',
+        description: 'Fast and inexpensive. Measured working 7 Aug 2026.',
+        contextWindow: 200000,
+        maxOutputTokens: 32000,
+        capabilities: ['chat', 'vision', 'function_calling'],
+        inputPricing: 1.00,
+        outputPricing: 5.00,
+      },
+      {
+        id: 'claude-opus-4-20250514',
+        name: 'Claude Opus 4',
+        description: 'Rejected by the API on 7 Aug 2026 with "model: claude-opus-4-20250514".',
+        contextWindow: 200000,
+        maxOutputTokens: 32000,
+        capabilities: ['chat', 'vision', 'function_calling', 'reasoning'],
+        inputPricing: 15.00,
+        outputPricing: 75.00,
+        deprecated: true,
       },
 
       // Claude 3.5 series
@@ -199,7 +265,13 @@ export class AnthropicProvider implements ProviderAdapter {
 
   private buildMessagesRequestBody(model: string, params: Record<string, unknown>): Record<string, unknown> {
     // Convert messages to Anthropic format
-    const messages = this.convertMessages(params.messages as Array<{ role: string; content: string }> || []);
+    // content may be a string OR an array of parts. The narrower cast that was
+    // here said images were impossible while convertMessages below has always
+    // handled them — the same wrong-direction type found in the HuggingFace
+    // adapter, in a file nobody re-read after writing the vision support.
+    const messages = this.convertMessages(
+      (params.messages as Array<{ role: string; content: string | unknown[] }>) || []
+    );
 
     // If only prompt provided, convert to messages format
     if (!messages.length && params.prompt) {
@@ -212,9 +284,42 @@ export class AnthropicProvider implements ProviderAdapter {
       max_tokens: params.maxTokens ?? params.max_tokens ?? 1024,
     };
 
-    // Add system prompt if provided
-    if (params.system || params.systemPrompt) {
-      body.system = params.system || params.systemPrompt;
+    // THE SYSTEM PROMPT.
+    //
+    // Anthropic takes it as a top-level field, not a message, so
+    // convertMessages() drops `role: "system"` — correctly. Nothing put it
+    // back. A caller that follows the OpenAI convention and passes the system
+    // prompt as messages[0] therefore had it deleted in transit, and the model
+    // answered as if it had never been given a role at all.
+    //
+    // MEASURED 8 Aug 2026, scripts/probe-anthropic-adapter.mts. A system
+    // message carrying a secret code, asked for in the user turn:
+    //   in messages[]          -> "I don't have a secret code."
+    //   as params.systemPrompt -> "HALIBUT-7391"
+    //
+    // Every assistant on this stack sends it in messages[] — see
+    // assistants/server/src/integrations-client.ts, which builds params from
+    // `messages` alone. So no assistant has ever had a system prompt on the
+    // Anthropic path. That is why the coordinator said it had "no access to
+    // your screen, dashboard, or any live system data" while sitting on four
+    // successful fetches: the instruction forbidding exactly that sentence was
+    // removed before the model saw it.
+    //
+    // I wrote that instruction and checked it by re-reading the prompt I had
+    // written. The prompt was never the thing being tested.
+    //
+    // Explicit params win; messages are the fallback, joined in order because
+    // Anthropic accepts one system field and dropping the second would repeat
+    // this defect at smaller scale.
+    const systemFromMessages = ((params.messages as Array<{ role?: string; content?: unknown }>) || [])
+      .filter((m) => m?.role === "system")
+      .map((m) => (typeof m.content === "string" ? m.content : JSON.stringify(m.content)))
+      .filter((s) => s && s.trim() !== "")
+      .join("\n\n");
+
+    const system = params.system || params.systemPrompt || (systemFromMessages || undefined);
+    if (system) {
+      body.system = system;
     }
 
     // Add temperature if provided

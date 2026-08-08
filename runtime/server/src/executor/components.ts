@@ -52,6 +52,43 @@ export type ComponentHandler = (
   ctx: ComponentContext
 ) => Promise<Record<string, FlowValue | unknown>> | Record<string, FlowValue | unknown>;
 
+/**
+ * One configuration key, declared so it can be CHECKED rather than read.
+ *
+ * Every component's config was documented in its `description` string —
+ * `config.keyField (default "key")`, `config.op: sum|mean|min|max`, and twelve
+ * more. Prose is not a contract: nothing could validate a graph's node config
+ * before running it, and a typo in `keyField` surfaced as a join that silently
+ * never joined. The app manifest already had a typed `config` block; the
+ * component manifest did not, and there was no reason for the asymmetry.
+ */
+export interface ConfigField {
+  type: 'string' | 'number' | 'boolean' | 'object' | 'array';
+  required?: boolean;
+  default?: unknown;
+  /** Allowed values, when the field is closed. */
+  enum?: string[];
+  description: string;
+}
+
+/**
+ * Which lane a port emits on.
+ *
+ *   inherit     the value carries whatever lane arrived. Lanes only tighten,
+ *               so this is the honest default for a pass-through.
+ *   canonical   recomputable from the graph and its inputs.
+ *   apocryphal  cannot be verified by recomputation.
+ *   conditional decided by the data. `note` must say by what — an unexplained
+ *               "it depends" is the thing this field exists to stop.
+ */
+export type PortLane = 'inherit' | 'canonical' | 'apocryphal' | 'conditional';
+
+export interface PortLaneDeclaration {
+  lane: PortLane;
+  /** Required when lane is 'conditional'. */
+  note?: string;
+}
+
 export interface ComponentDefinition {
   id: string;
   name: string;
@@ -60,6 +97,24 @@ export interface ComponentDefinition {
   outputs: string[];
   /** Marks a component whose output cannot be verified by recomputation. */
   emitsApocryphal?: boolean;
+  /**
+   * Typed configuration contract, keyed by config key. Published in the
+   * manifest, so a graph node can be validated against it at load time.
+   */
+  config?: Record<string, ConfigField>;
+  /**
+   * Lane emitted per output port, keyed by port name. Ports omitted here are
+   * `inherit`.
+   *
+   * The runtime already knew this — `emitsApocryphal` is read by
+   * `normaliseEmission` — but the catalog manifest, which is the PUBLIC
+   * contract, carried the provenance lane only as a sentence in the
+   * description. A consumer reading the contract could not tell a canonical
+   * component from an apocryphal one without parsing English, which for a
+   * platform whose central claim is provable provenance is the wrong thing to
+   * leave in prose.
+   */
+  lanes?: Record<string, PortLaneDeclaration>;
   /** Declarative metadata for components registered via POST /api/components. */
   meta?: Record<string, unknown>;
   handler: ComponentHandler;
@@ -110,6 +165,8 @@ registerComponent({
   description: 'Emits its input unchanged. Graph entry point.',
   inputs: ['in'],
   outputs: ['out'],
+  config: {},
+  lanes: { out: { lane: 'inherit' } },
   handler: (input) => ({ out: input }),
 });
 
@@ -119,6 +176,8 @@ registerComponent({
   description: 'Terminal node. Collects results for the execution output.',
   inputs: ['in'],
   outputs: ['out'],
+  config: {},
+  lanes: { out: { lane: 'inherit' } },
   handler: (input) => ({ out: input }),
 });
 
@@ -128,6 +187,8 @@ registerComponent({
   description: 'Writes the value to the execution log and passes it through.',
   inputs: ['in'],
   outputs: ['out'],
+  config: {},
+  lanes: { out: { lane: 'inherit' } },
   handler: (input, ctx) => {
     ctx.log(`[${ctx.nodeId}] ${JSON.stringify(input.value).slice(0, 200)}`);
     return { out: input };
@@ -141,6 +202,19 @@ registerComponent({
     'Reshapes an object using config.mapping — {newKey: "sourceKey"}. Deterministic.',
   inputs: ['in'],
   outputs: ['out', 'error'],
+  config: {
+    mapping: {
+      type: 'object',
+      required: false,
+      default: {},
+      description:
+        'Output field to source field, {newKey: "sourceKey"}. Empty mapping passes the object through unchanged.',
+    },
+  },
+  lanes: {
+    out: { lane: 'inherit' },
+    error: { lane: 'apocryphal', note: 'a refusal is not a recomputable value' },
+  },
   handler: (input, ctx) => {
     const mapping = (ctx.config.mapping ?? {}) as Record<string, string>;
     const src = input.value as Record<string, unknown>;
@@ -160,6 +234,26 @@ registerComponent({
     'Routes on a predicate: config.field / config.op (eq,neq,gt,lt,contains,exists) / config.value.',
   inputs: ['in'],
   outputs: ['pass', 'fail'],
+  config: {
+    field: {
+      type: 'string',
+      required: false,
+      description: 'Field to test. Omitted, the whole message value is tested.',
+    },
+    op: {
+      type: 'string',
+      required: false,
+      default: 'exists',
+      enum: ['eq', 'neq', 'gt', 'lt', 'contains', 'exists'],
+      description: 'Comparison. Any unrecognised value falls through to "exists".',
+    },
+    value: {
+      type: 'string',
+      required: false,
+      description: 'Value compared against. Unused by "exists".',
+    },
+  },
+  lanes: { pass: { lane: 'inherit' }, fail: { lane: 'inherit' } },
   handler: (input, ctx) => {
     const { field, op = 'exists', value } = ctx.config as {
       field?: string; op?: string; value?: unknown;
@@ -186,6 +280,22 @@ registerComponent({
     'Emits on the port named by config.field\'s value, if that port is listed in config.ports; otherwise "default".',
   inputs: ['in'],
   outputs: ['default'],
+  config: {
+    field: {
+      type: 'string',
+      required: false,
+      default: 'type',
+      description: 'Field whose value names the output port.',
+    },
+    ports: {
+      type: 'array',
+      required: false,
+      default: [],
+      description:
+        'Port names this switch may emit on. A value not listed here goes to "default" — the allowlist is what stops a message inventing a port.',
+    },
+  },
+  lanes: { default: { lane: 'inherit' } },
   handler: (input, ctx) => {
     const { field = 'type', ports = [] } = ctx.config as { field?: string; ports?: string[] };
     const src = input.value as Record<string, unknown>;
@@ -201,10 +311,62 @@ registerComponent({
     'Exact arithmetic over config.expression with {placeholders} from the message. Canonical: recomputable.',
   inputs: ['in'],
   outputs: ['out', 'error'],
+  config: {
+    expression: {
+      type: 'string',
+      required: true,
+      description:
+        // No domain vocabulary in a public contract. The first version of this
+        // read `e.g. "{facility}/{it}"`, which is a data centre's language in
+        // the manifest of a component that does arithmetic — the exact defect
+        // the 6 Aug audit removed from symbia.state.join, reintroduced here on
+        // 8 Aug and published to the catalog before anyone read it.
+        'Arithmetic over {placeholders} resolved from fields of the incoming message, e.g. "({a} - {b}) / {a}". Only digits, whitespace and + - * / ( ) survive the guard.',
+    },
+  },
+  lanes: {
+    out: { lane: 'canonical', note: 'recomputable from the expression and its inputs' },
+    error: { lane: 'apocryphal', note: 'a refusal is not a recomputable value' },
+  },
   handler: (input, ctx) => {
     const expr = String(ctx.config.expression ?? '');
     const src = (input.value ?? {}) as Record<string, unknown>;
-    const filled = expr.replace(/\{(\w+)\}/g, (_m, k) => String(Number(src[k] ?? 0)));
+
+    // AN ABSENT INPUT IS NOT A ZERO.
+    //
+    // This read `Number(src[k] ?? 0)`, so a placeholder with no value became 0
+    // BEFORE anything could object, and the result went out on the canonical
+    // lane stamped `exact: true`. Measured 8 Aug 2026:
+    //
+    //   {facility}/{it}   numerator absent    -> 0/150  = 0         canonical
+    //                     denominator absent  -> 210/0  = Infinity  canonical
+    //   {a}+{b}+{c}       c absent            -> 5+5+0  = 10        canonical
+    //
+    // The last is a partial sum passing as the total, which is the rule
+    // `symbia.state.rollup` exists to enforce and enforces correctly on the
+    // apocryphal lane. Two components, one concern, opposite behaviour.
+    //
+    // A non-numeric STRING was already refused, because String(NaN) fails the
+    // character guard below. Only absent and null slipped through, because
+    // `undefined ?? 0` and `null ?? 0` are both 0 before the guard ever runs.
+    // Absence is now detected first, and named.
+    const referenced = [...expr.matchAll(/\{(\w+)\}/g)].map((m) => m[1]);
+    const missing = referenced.filter((k) => src[k] === undefined || src[k] === null);
+    if (missing.length > 0) {
+      return {
+        error: {
+          value: {
+            error: 'expression refused: inputs absent',
+            missing,
+            present: referenced.filter((k) => !missing.includes(k)),
+            expression: expr,
+          },
+          lane: 'apocryphal' as Lane,
+        },
+      };
+    }
+
+    const filled = expr.replace(/\{(\w+)\}/g, (_m, k) => String(Number(src[k])));
     if (!/^[\d\s+\-*/().]+$/.test(filled)) {
       return {
         error: {
@@ -216,6 +378,30 @@ registerComponent({
     try {
       // eslint-disable-next-line no-new-func
       const result = Function(`"use strict";return (${filled})`)();
+
+      // INFINITY IS NOT A MEASUREMENT.
+      //
+      // Division by zero returned Infinity, and NaN returned NaN, both on the
+      // canonical lane with `exact: true`. JSON.stringify then rendered either
+      // as `null`, so a downstream reader saw a null it had no way to tell from
+      // an absent field — a canonical, exact null.
+      //
+      // energy-pue's own description already claimed "division errors (e.g.
+      // it_kw = 0) exit on the arithmetic error port". They did not. The graph
+      // was right about what should happen and the component disagreed.
+      if (!Number.isFinite(result)) {
+        return {
+          error: {
+            value: {
+              error: 'expression refused: result is not finite',
+              result: String(result),
+              expression: filled,
+            },
+            lane: 'apocryphal' as Lane,
+          },
+        };
+      }
+
       return {
         out: {
           value: { result, method: 'arithmetic', expression: filled, exact: true },
@@ -238,6 +424,19 @@ registerComponent({
   inputs: ['in'],
   outputs: ['out', 'error'],
   emitsApocryphal: true,
+  config: {
+    url: { type: 'string', required: true, description: 'Absolute URL to fetch.' },
+    method: {
+      type: 'string',
+      required: false,
+      default: 'GET',
+      description: 'HTTP method.',
+    },
+  },
+  lanes: {
+    out: { lane: 'apocryphal', note: 'a remote body cannot be recomputed from the graph' },
+    error: { lane: 'apocryphal' },
+  },
   handler: async (_input, ctx) => {
     const url = String(ctx.config.url ?? '');
     const method = String(ctx.config.method ?? 'GET');
@@ -262,6 +461,15 @@ registerComponent({
   description: 'Waits config.ms milliseconds, then passes through.',
   inputs: ['in'],
   outputs: ['out'],
+  config: {
+    ms: {
+      type: 'number',
+      required: false,
+      default: 100,
+      description: 'Milliseconds to wait. Capped at 5000 by the handler.',
+    },
+  },
+  lanes: { out: { lane: 'inherit' } },
   handler: async (input, ctx) => {
     const ms = Math.min(Number(ctx.config.ms ?? 100), 5000);
     await new Promise((r) => setTimeout(r, ms));

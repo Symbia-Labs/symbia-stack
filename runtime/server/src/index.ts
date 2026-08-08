@@ -323,7 +323,6 @@ server.start()
     // Connect to network service after server starts
     await initServiceRelay({
       serviceId: ServiceId.RUNTIME,
-      serviceName: 'Runtime Service',
       capabilities: [
         'runtime.graph.load',
         'runtime.routine.compile',

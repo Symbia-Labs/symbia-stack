@@ -51,6 +51,22 @@ registerComponent({
     'Remembers the most recent message per config.keyField (default "key") and passes the message through. The current snapshot {key: message} is available downstream via the "snapshot" port.',
   inputs: ['in'],
   outputs: ['out', 'snapshot'],
+  config: {
+    keyField: {
+      type: 'string',
+      required: false,
+      default: 'key',
+      description:
+        'Field locating the key in each message. A message without it is passed through and remembered under nothing.',
+    },
+  },
+  lanes: {
+    out: { lane: 'inherit' },
+    snapshot: {
+      lane: 'conditional',
+      note: 'the snapshot is as canonical as the messages that built it; it carries no freshness guarantee and a key may be arbitrarily stale',
+    },
+  },
   handler: (input, ctx) => {
     const keyField = String(ctx.config.keyField ?? 'key');
     const key = field(input.value, keyField);
@@ -64,9 +80,41 @@ registerComponent({
   id: 'symbia.state.join',
   name: 'Join Latest',
   description:
-    'Joins the latest values of selected keys from a keyed stream. config.select maps output fields to key values, e.g. {"price": "ticker.acme", "volume": "volume.acme"}; config.keyField (default "key") and config.valueField (default "value") locate key and value in each message. Emits the joined object on "out" once every selected key has been seen (then on every update); until then emits {have, need} on "pending".',
+    // D10 removed a data centre's electrical point names from this contract and
+    // put a stock ticker in their place (9f6afcc). That satisfies "remove
+    // energy's vocabulary" and not the rule it was serving, which is that a
+    // platform contract carries no domain's vocabulary at all. Swapping one
+    // domain for another is the same defect wearing different words.
+    'Joins the latest values of selected keys from a keyed stream. config.select maps output fields to key values, e.g. {"x": "key.one", "y": "key.two"}; config.keyField (default "key") and config.valueField (default "value") locate key and value in each message. Emits the joined object on "out" once every selected key has been seen (then on every update); until then emits {have, need} on "pending".',
   inputs: ['in'],
   outputs: ['out', 'pending'],
+  config: {
+    select: {
+      type: 'object',
+      required: true,
+      description:
+        'Output field to key value, e.g. {"x": "key.one"}. Keys of this object become the fields of the joined result; an empty select can never complete.',
+    },
+    keyField: {
+      type: 'string',
+      required: false,
+      default: 'key',
+      description: 'Field locating the key in each message.',
+    },
+    valueField: {
+      type: 'string',
+      required: false,
+      default: 'value',
+      description: 'Field locating the value in each message.',
+    },
+  },
+  lanes: {
+    out: { lane: 'inherit' },
+    pending: {
+      lane: 'apocryphal',
+      note: '{have, need} is a statement about coverage, not a joined value — it must never be mistaken for the join',
+    },
+  },
   handler: (input, ctx) => {
     const select = (ctx.config.select ?? {}) as Record<string, string>;
     const keyField = String(ctx.config.keyField ?? 'key');
@@ -99,6 +147,27 @@ registerComponent({
     'Keeps the last config.size (default 60) numeric values of config.field (default "value") and emits {count, sum, mean, min, max, last} on every input.',
   inputs: ['in'],
   outputs: ['out', 'error'],
+  config: {
+    size: {
+      type: 'number',
+      required: false,
+      default: 60,
+      description: 'How many values the window keeps. Floored at 1.',
+    },
+    field: {
+      type: 'string',
+      required: false,
+      default: 'value',
+      description: 'Field holding the numeric value. Non-numeric exits on "error".',
+    },
+  },
+  lanes: {
+    out: {
+      lane: 'conditional',
+      note: 'the aggregate is only as canonical as the values that entered the window, and a window that has not filled reports over fewer values without saying so — read "count" against "size"',
+    },
+    error: { lane: 'apocryphal' },
+  },
   handler: (input, ctx) => {
     const size = Math.max(1, Number(ctx.config.size ?? 60));
     const f = String(ctx.config.field ?? 'value');
@@ -132,6 +201,39 @@ registerComponent({
     'Aggregates the latest values of an expected key set (config.expected: [keys], config.op: sum|mean|min|max, keyField (default "key") / valueField as in join). Emits {value, op, coverage, present, missing} on "out". A rollup with missing inputs is emitted on the apocryphal lane: a partial total must not pass as the total.',
   inputs: ['in'],
   outputs: ['out'],
+  config: {
+    expected: {
+      type: 'array',
+      required: true,
+      description:
+        'The key set that constitutes a complete rollup. This is what makes "missing" meaningful — without it, coverage is 1 by vacuous default and every partial total looks complete.',
+    },
+    op: {
+      type: 'string',
+      required: false,
+      default: 'sum',
+      enum: ['sum', 'mean', 'min', 'max'],
+      description: 'Aggregation applied to the present values.',
+    },
+    keyField: {
+      type: 'string',
+      required: false,
+      default: 'key',
+      description: 'Field locating the key in each message.',
+    },
+    valueField: {
+      type: 'string',
+      required: false,
+      default: 'value',
+      description: 'Field locating the numeric value in each message.',
+    },
+  },
+  lanes: {
+    out: {
+      lane: 'conditional',
+      note: 'canonical only when missing is empty; a rollup with any expected key absent is emitted apocryphal, because a partial total must not pass as the total',
+    },
+  },
   handler: (input, ctx) => {
     const expected = ((ctx.config.expected ?? []) as unknown[]).map(String);
     const op = String(ctx.config.op ?? 'sum');

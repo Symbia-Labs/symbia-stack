@@ -93,6 +93,13 @@ function ServiceHealthCard({
   const isHealthy = health?.status === 'healthy';
   const latency = health?.latencyMs;
 
+  // Drop keys the service sent as null/undefined before taking the first
+  // three, so a service that reports a field it has no value for does not
+  // spend one of three slots rendering a blank.
+  const statEntries = Object.entries(health?.stats ?? {})
+    .filter(([, value]) => value !== null && value !== undefined)
+    .slice(0, 3);
+
   return (
     <div
       onClick={onClick}
@@ -131,10 +138,19 @@ function ServiceHealthCard({
         )}
       </div>
       <p className="text-xs text-text-muted">{service.description}</p>
-      {health?.stats && (
+      {/*
+        Three outcomes, three appearances. This block used to render only the
+        first, so a service whose metrics call was rejected looked exactly like
+        a service with nothing to report — and every tile that had ever failed
+        read as quiet rather than unanswered.
+
+        Blank beats green: "not reported" is shown as its own state, with the
+        observation that produced it, and never inferred to be zero.
+      */}
+      {statEntries.length > 0 ? (
         <div className="mt-2 pt-2 border-t border-scc-border">
           <div className="grid grid-cols-3 gap-2 text-xs">
-            {Object.entries(health.stats).slice(0, 3).map(([key, value]) => (
+            {statEntries.map(([key, value]) => (
               <div key={key}>
                 <p className="text-text-muted truncate">{formatStatKey(key)}</p>
                 <p className="text-text-secondary font-medium">{formatStatValue(value)}</p>
@@ -142,7 +158,15 @@ function ServiceHealthCard({
             ))}
           </div>
         </div>
-      )}
+      ) : isHealthy ? (
+        <div className="mt-2 pt-2 border-t border-scc-border">
+          <p className="text-xs text-text-muted">
+            {health?.statsError
+              ? `metrics not reported · ${health.statsError}`
+              : 'metrics not reported'}
+          </p>
+        </div>
+      ) : null}
     </div>
   );
 }

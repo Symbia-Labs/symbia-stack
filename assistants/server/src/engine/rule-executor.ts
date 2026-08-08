@@ -7,6 +7,7 @@ import type {
   ActionResult,
   ConversationState,
 } from './types.js';
+import { digest, type ProvenanceStep } from './provenance.js';
 import { evaluateConditions } from './condition-evaluator.js';
 import { getActionHandler } from './actions/index.js';
 import { TokenAuthError } from './actions/llm-invoke.js';
@@ -102,6 +103,14 @@ export class RuleExecutor {
       console.log(`[RuleExecutor] Conditions matched! Executing ${rule.actions.length} action(s)...`);
       const actionResults: ActionResult[] = [];
 
+      // Provenance is recorded AS THE WORK HAPPENS, not reconstructed after.
+      // A record assembled at the end can only describe what someone believed
+      // occurred; this one accumulates from each step's actual result, and a
+      // failed step stays in it.
+      const provenance: ProvenanceStep[] = [];
+      context.provenance = provenance;
+      context.provenanceRule = rule.name;
+
       for (const actionConfig of rule.actions) {
         console.log(`[RuleExecutor] Executing action: ${actionConfig.type}`);
         const handler = getActionHandler(actionConfig.type);
@@ -118,7 +127,17 @@ export class RuleExecutor {
         
         const result = await handler.execute(actionConfig, context);
         actionResults.push(result);
-        
+
+        provenance.push({
+          id: (actionConfig as { id?: string }).id || actionConfig.type,
+          action: actionConfig.type,
+          source: describeSource(actionConfig),
+          ok: result.success,
+          ms: result.durationMs,
+          outputDigest: result.success ? digest(result.output) : undefined,
+          error: result.success ? undefined : result.error,
+        });
+
         if (!result.success) {
           break;
         }
@@ -153,3 +172,32 @@ export class RuleExecutor {
 }
 
 export const ruleExecutor = new RuleExecutor();
+
+
+/**
+ * What a step consulted, in terms a person reading a receipt can check.
+ *
+ * Names the actual tool, service path or provider — not the action type. A
+ * receipt that says "llm.invoke" tells you nothing you could go and verify;
+ * "anthropic/claude-sonnet-5" tells you where to look.
+ */
+function describeSource(action: { type: string; params?: Record<string, unknown> }): string {
+  const p = (action.params || {}) as Record<string, unknown>;
+  switch (action.type) {
+    case 'tool.invoke':
+      return String(p.tool ?? 'tool');
+    case 'service.call':
+      return `${p.service ?? 'service'} ${String(p.method ?? 'GET')} ${p.path ?? ''}`.trim();
+    case 'integration.invoke':
+      return String(p.operation ?? 'integration');
+    case 'llm.invoke':
+      // Provider/model are often resolved at call time rather than configured,
+      // so this is the CONFIGURED value. The resolved one is recorded by
+      // llm-invoke itself when it differs.
+      return p.provider ? `${p.provider}/${p.model ?? 'default'}` : 'llm (provider resolved at call time)';
+    case 'message.send':
+      return 'message.send';
+    default:
+      return action.type;
+  }
+}

@@ -10,26 +10,50 @@
  * navigation writes back to it, which makes the address bar the single source
  * of truth rather than a decoration.
  */
-import { useCallback } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { MainLayout, type PanelId } from '@/components/layout/MainLayout';
 import { OverviewPanel } from '@/components/panels/OverviewPanel';
 import { NetworkPanel } from '@/components/panels/NetworkPanel';
+import { CatalogPanel } from '@/components/panels/CatalogPanel';
 import { AssistantsPanel } from '@/components/panels/AssistantsPanel';
 import { IntegrationsPanel } from '@/components/panels/IntegrationsPanel';
 import { LogSearchPanel } from '@/components/panels/LogSearchPanel';
 import { ChatPanel } from '@/components/panels/ChatPanel';
+import { ChatWindow } from '@/components/chat/ChatWindow';
+import { ConnectionDot } from '@/components/chat/ConnectionDot';
+import { useChatContext } from '@/components/chat/useChatContext';
+import { Spyglass } from '@/components/glass/Spyglass';
+import { mintSpyglassId } from '@/components/glass/spyglassNode';
 
-const PANELS: Record<PanelId, React.ComponentType> = {
+/**
+ * Chat is NOT in here. It stopped being a panel on 6 Aug 2026 and became a
+ * phone-shaped popout that floats over whatever panel you are on — an operator
+ * reading logs should not have to leave them to ask a question.
+ */
+const PANELS: Record<Exclude<PanelId, 'chat'>, React.ComponentType> = {
   overview: OverviewPanel,
   network: NetworkPanel,
+  catalog: CatalogPanel,
   assistants: AssistantsPanel,
   integrations: IntegrationsPanel,
   logs: LogSearchPanel,
-  chat: ChatPanel,
 };
 
-const PANEL_IDS = Object.keys(PANELS) as PanelId[];
+/**
+ * Every panel that has a route, derived from PANELS rather than restated.
+ *
+ * EXPORTED because App.tsx used to keep its own hardcoded literal of the same
+ * list, which made it the fourth independent copy — after the `PanelId` union,
+ * this map, and `navItems` in MainLayout. Adding `catalog` to the first three
+ * and not the fourth produced a nav item that highlighted on click while the
+ * URL never moved and the panel never changed: the button did something, and
+ * nothing happened. Measured in a browser on 8 Aug 2026; no API check could
+ * have seen it.
+ *
+ * A shared concern with N independent implementations is not shared. One list.
+ */
+export const PANEL_IDS = [...(Object.keys(PANELS) as PanelId[]), 'chat' as PanelId];
 
 /**
  * Read the panel out of the path. Accepts both `/integrations` and
@@ -46,23 +70,130 @@ export function panelFromPath(pathname: string): PanelId {
 }
 
 export function DashboardPage() {
+  // Which panel the popout floats over. A ref, not state: it must not trigger a
+  // re-render, and it is read during render only to answer "what was I looking
+  // at before I opened chat".
+  const lastNonChatPanel = useRef<PanelId>('overview');
   const location = useLocation();
   const navigate = useNavigate();
 
   const activePanel = panelFromPath(location.pathname);
-  const PanelComponent = PANELS[activePanel];
+
+  // Chat's open state is INDEPENDENT of the route.
+  //
+  // It used to be `activePanel === 'chat'`, which meant clicking any other nav
+  // item closed the window — you could not read logs while asking about them,
+  // which is the entire reason it is a floating window and not a panel. The
+  // route can OPEN it (so /chat stays a working deep link) but never closes it.
+  // The spyglass is its own instrument: own state, own lifetime, no
+  // relationship to chat. Toggled with ⌥G.
+  // Spawning mints the id.
+  //
+  // The aperture is a capability, and the record of it should name the thing
+  // that brought it into existence rather than a constant baked into the
+  // component. Each spawn is a distinct node on the mesh, and that id is what
+  // a chat message carries to refer to a frame it is not permitted to look at.
+  const [spyOpen, setSpyOpen] = useState(false);
+  const [spyNodeId, setSpyNodeId] = useState<string | null>(null);
+  const toggleGlass = useCallback(() => {
+    setSpyOpen((wasOpen) => {
+      if (!wasOpen) setSpyNodeId(mintSpyglassId());
+      return !wasOpen;
+    });
+  }, []);
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      // e.code, not e.key. On macOS Option+G emits '©' — the key property
+      // carries the COMPOSED character, so an Alt shortcut matched on e.key
+      // never fires on a Mac, which is the machine this runs on.
+      if (e.altKey && e.code === 'KeyG') {
+        e.preventDefault();
+        toggleGlass();
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [toggleGlass]);
+
+  const [chatOpen, setChatOpen] = useState(() => {
+    if (typeof window === 'undefined') return false;
+    if (panelFromPath(window.location.pathname) === 'chat') return true;
+    return localStorage.getItem('symbia:chat:open') === 'true';
+  });
+
+  useEffect(() => {
+    if (activePanel === 'chat') setChatOpen(true);
+  }, [activePanel]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('symbia:chat:open', String(chatOpen));
+    } catch {
+      /* storage disabled — the window still works, it just forgets */
+    }
+  }, [chatOpen]);
+
+  // The panel underneath is simply the current one. Chat no longer replaces a
+  // screen, so there is nothing to substitute — /chat typed cold is the only
+  // case that needs a fallback, and it gets the last panel you were on.
+  const underlying: PanelId =
+    activePanel === 'chat' ? lastNonChatPanel.current : activePanel;
+  const PanelComponent = PANELS[underlying as Exclude<PanelId, 'chat'>] ?? OverviewPanel;
+  if (activePanel !== 'chat') lastNonChatPanel.current = activePanel;
 
   const handlePanelChange = useCallback(
     (panel: PanelId) => {
+      // Chat is a window, not a destination. Clicking it toggles the popout and
+      // leaves you on the screen you were reading.
+      if (panel === 'chat') {
+        setChatOpen((v) => !v);
+        return;
+      }
       // push (not replace) so browser back/forward move between panels
       navigate(`/${panel}`);
     },
     [navigate]
   );
 
+  // What the window is floating over. Derived from the panel underneath, not
+  // the /chat route itself — the route is where you are, the panel is what you
+  // are looking at.
+  const chatContext = useChatContext(underlying as PanelId);
+
+  // Closing just closes. It no longer navigates, because opening no longer
+  // navigated — the two have to agree or the address bar starts lying.
+  const closeChat = useCallback(() => {
+    setChatOpen(false);
+    if (activePanel === 'chat') navigate(`/${lastNonChatPanel.current}`);
+  }, [navigate, activePanel]);
+
   return (
     <MainLayout activePanel={activePanel} onPanelChange={handlePanelChange}>
       <PanelComponent />
+      {/* The spyglass switch lives in the chat header, because capturing a
+          region is only ever a preamble to asking about it — the frame lands
+          on the chat composer, so the control belongs where the question gets
+          typed. The circle itself is undocked and floats anywhere on screen.
+          It was briefly a standalone launcher in the corner, which put a
+          camera control next to nothing that used it. */}
+      <ChatWindow
+        open={chatOpen}
+        onClose={closeChat}
+        status={<ConnectionDot />}
+        context={chatContext}
+        glassOpen={spyOpen}
+        onToggleGlass={toggleGlass}
+      >
+        {(skin) => <ChatPanel skin={skin} context={chatContext} />}
+      </ChatWindow>
+
+      {/* Rendered as a SIBLING of the chat window, not a child of it. Chat
+          spawns it and owns the switch; it does not own the component, and no
+          pixel it captures passes through chat's tree on the way anywhere. */}
+      {spyNodeId && (
+        <Spyglass open={spyOpen} onClose={() => setSpyOpen(false)} nodeId={spyNodeId} />
+      )}
     </MainLayout>
   );
 }

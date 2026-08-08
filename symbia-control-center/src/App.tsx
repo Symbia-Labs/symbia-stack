@@ -2,7 +2,7 @@ import { useEffect } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { LoginPage } from '@/pages/LoginPage';
 import { RegisterPage } from '@/pages/RegisterPage';
-import { DashboardPage } from '@/pages/DashboardPage';
+import { DashboardPage, PANEL_IDS } from '@/pages/DashboardPage';
 import { AuthGuard } from '@/components/auth/AuthGuard';
 import { CommandPalette } from '@/components/command/CommandPalette';
 import { useAuthStore } from '@/stores/authStore';
@@ -62,10 +62,21 @@ function AuthInitializer({ children }: { children: React.ReactNode }) {
                 entitlements: data.user.entitlements || [],
                 roles: data.user.roles || [],
               },
-              '',
+              // Use the token identity issued, if it issued one.
+              //
+              // This used to be hardcoded to ''. The console therefore knew who
+              // it was and held nothing to prove it, so identity answered while
+              // messaging, catalog and runtime all returned 401 — measured
+              // 6 Aug 2026. A console that renders logged-in with empty panels
+              // is the confident-zero failure exactly.
+              data.token || '',
               data.user.organizations || data.organizations || []
             );
-            console.warn('[Auth] login disabled by the identity service — running as', data.user.email);
+            console.warn(
+              '[Auth] login disabled by the identity service — running as',
+              data.user.email,
+              data.token ? '(token issued by DEV_NO_AUTH)' : '(NO TOKEN — other services will reject)'
+            );
             return;
           }
         }
@@ -120,7 +131,7 @@ export function App() {
             /integrations, /chat, /assistants … into a redirect, so no view
             was linkable and the address bar never tracked navigation.
           */}
-          {['overview', 'network', 'assistants', 'integrations', 'logs', 'chat'].map(
+          {PANEL_IDS.map(
             (panel) => (
               <Route
                 key={panel}

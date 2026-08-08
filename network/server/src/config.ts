@@ -2,7 +2,7 @@
  * Network Service Configuration
  */
 
-import { ServiceId, resolveServiceUrl, resolveServicePort } from '@symbia/sys';
+import { ServiceId, ServicePorts, resolveServiceUrl, resolveServicePort } from '@symbia/sys';
 
 function getEnvArray(key: string, defaultValue: string[]): string[] {
   const value = process.env[key];
@@ -19,12 +19,24 @@ export const config = {
 
   // CORS origins.
   //
-  // The control center is served from its own service on 8000 and calls
-  // services through its own /svc/{id} proxy, so it is same-origin and needs
-  // no entry here. The 5173 Vite entry is retained only until step 6 of
-  // docs/2026-08-06-control-center-rebuild.md removes the dev server.
+  // I got this wrong on 6 Aug and a browser caught it. I trimmed this list to
+  // only the Vite dev server on 5173 — a port that no longer exists — and did
+  // not add 8000, where the console now actually lives. Measured:
+  //
+  //   Origin: http://localhost:5173  ->  101 Switching Protocols
+  //   Origin: http://localhost:8000  ->  400 Bad Request
+  //
+  // HTTP calls were fine because they are genuinely same-origin through the
+  // /svc proxy. But Socket.IO checks Origin on the handshake regardless of who
+  // proxied it, so the network graph's socket was the one thing the proxy
+  // could not make same-origin. Every HTTP-level check passed while the
+  // network panel retried forever — the exact "API call works, button does
+  // nothing" failure this project hunts.
+  //
+  // Derived from the registry, so moving the console's port cannot orphan this
+  // the way hardcoding 5173 did.
   corsOrigins: getEnvArray('CORS_ORIGINS', [
-    'http://localhost:5173', // Vite dev server (control center) — removed at step 6
+    `http://localhost:${ServicePorts[ServiceId.CONTROL_CENTER]}`,
   ]),
 
   // Service endpoints - resolved via @symbia/sys (supports env overrides)

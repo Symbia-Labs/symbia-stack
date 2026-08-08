@@ -1,4 +1,5 @@
 import { BaseActionHandler } from './base.js';
+import { TokenAuthError } from '../../integrations-client.js';
 import type { ActionConfig, ActionResult, ExecutionContext } from '../types.js';
 import { ServiceId, resolveServiceUrl } from '@symbia/sys';
 import { interpolate, interpolateObject } from '../template.js';
@@ -7,6 +8,17 @@ export interface ServiceCallParams {
   service: string;  // 'logging', 'catalog', 'identity', etc.
   method: string;   // HTTP method
   path: string;     // API path
+  /**
+   * Path prefix on the service. Defaults to "/api".
+   *
+   * Set to "" to reach a service's ROOT endpoints. Every Symbia service
+   * publishes its own documentation there — /openapi.json, /docs/openapi.json,
+   * /llms.txt — and none of it is under /api, so before this existed no rule
+   * could read what a service says about itself. Measured 8 Aug 2026: the Docs
+   * assistant asked for /openapi.json, service.call turned it into
+   * /api/openapi.json, and every one of its sources 404'd.
+   */
+  basePath?: string;
   body?: Record<string, unknown>;
   headers?: Record<string, string>;
   resultKey?: string; // Key to store result in context
@@ -34,8 +46,9 @@ function getServiceEndpoint(service: string): string | null {
   const envOverride = process.env[`${service.toUpperCase()}_ENDPOINT`];
   if (envOverride) return envOverride;
 
-  // Use @symbia/sys service resolution
-  return `${resolveServiceUrl(serviceId)}/api`;
+  // Use @symbia/sys service resolution. The /api prefix is applied by the
+  // caller so it can be overridden per call — see ServiceCallParams.basePath.
+  return resolveServiceUrl(serviceId);
 }
 
 export class ServiceCallHandler extends BaseActionHandler {
@@ -55,13 +68,41 @@ export class ServiceCallHandler extends BaseActionHandler {
       const resolvedPath = interpolate(params.path, context);
       const resolvedBody = params.body ? interpolateObject(params.body, context) : undefined;
 
-      const url = `${baseUrl}${resolvedPath}`;
+      // "/api" unless the rule says otherwise. `?? '/api'` rather than
+      // `|| '/api'` on purpose: an empty string is a deliberate choice to
+      // address the service root, and || would silently overrule it.
+      const basePath = params.basePath ?? '/api';
+      const url = `${baseUrl}${basePath}${resolvedPath}`;
+
+      // Forward the caller's token.
+      //
+      // This action sent no Authorization header at all, so every service.call
+      // from a rule came back "401 authentication_required" and surfaced that
+      // string to the end user in the chat window. A rule could therefore
+      // never read platform state -- which is most of what an assistant on
+      // this platform is for.
+      //
+      // Same defect, same week, as integrations/auth.ts: an action that is
+      // supposed to act on a user's behalf, not passing the thing that says
+      // whose behalf it is. The token is on the execution context; llm.invoke
+      // already reads it from exactly here.
+      const token = (context.metadata as Record<string, unknown> | undefined)?.token as
+        | string
+        | undefined;
+
+      // rawOrgId is the real org. context.orgId is a composite
+      // "{assistantKey}:{orgId}" used for rule scoping, and sending it as
+      // X-Org-Id makes services reject or mis-scope the request.
+      const rawOrgId =
+        ((context.metadata as Record<string, unknown> | undefined)?.rawOrgId as string) ??
+        context.orgId;
 
       const response = await fetch(url, {
         method: params.method || 'GET',
         headers: {
           'Content-Type': 'application/json',
-          'X-Org-Id': context.orgId,
+          'X-Org-Id': rawOrgId,
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
           ...params.headers,
         },
         body: resolvedBody ? JSON.stringify(resolvedBody) : undefined,
@@ -69,7 +110,37 @@ export class ServiceCallHandler extends BaseActionHandler {
 
       if (!response.ok) {
         const errorText = await response.text();
-        return this.failure(`Service call failed: ${response.status} - ${errorText}`, Date.now() - start);
+
+        // A REJECTED TOKEN MUST THROW, not return a failure.
+        //
+        // The SDN webhook path already refreshes the assistant's token and
+        // retries when it catches TokenAuthError — that machinery has been
+        // there the whole time. But only llm.invoke ever threw it. service.call
+        // returned an ordinary failure on 401, so the retry it was written for
+        // never fired, and a stale token turned into an error message in the
+        // user's chat instead of a refresh nobody would have noticed.
+        //
+        // Measured 8 Aug 2026: `network GET /events?limit=300 -> 401 (auth:
+        // bearer sent)`, while the identical request with a FRESH token from
+        // inside the same container returned 200.
+        if (response.status === 401 || response.status === 403) {
+          throw new TokenAuthError(
+            `${params.service} ${params.method || 'GET'} ${resolvedPath} rejected the token (${response.status})`
+          );
+        }
+        // SAY WHICH CALL FAILED.
+        //
+        // This read "Service call failed: 401 - {...}" with no service, no
+        // path and no indication of whether a token was even sent. A rule with
+        // four service.call steps produced an error that could have come from
+        // any of them, and the operator's only move was to guess. Naming the
+        // call, and whether an Authorization header went with it, turns one
+        // message into the whole diagnosis.
+        return this.failure(
+          `Service call failed: ${params.service} ${params.method || 'GET'} ${resolvedPath} ` +
+            `-> ${response.status} (auth: ${token ? 'bearer sent' : 'NO TOKEN'}) - ${errorText.slice(0, 200)}`,
+          Date.now() - start
+        );
       }
 
       const data = await response.json();
@@ -86,6 +157,14 @@ export class ServiceCallHandler extends BaseActionHandler {
         data,
       }, Date.now() - start);
     } catch (error) {
+      // Let a rejected token OUT.
+      //
+      // The throw above lands here, in this handler's own catch, which turned
+      // it straight back into an ordinary failure — so the TokenAuthError
+      // never reached the SDN retry, and the fix that was supposed to trigger
+      // a refresh did nothing at all. rule-executor.ts:157 already rethrows
+      // this type specifically; it just never received one.
+      if (error instanceof TokenAuthError) throw error;
       const message = error instanceof Error ? error.message : 'Service call failed';
       return this.failure(message, Date.now() - start);
     }

@@ -15,6 +15,7 @@
     "symbia-id",
     "symbia-messaging-client",
     "symbia-catalog-client",
+    "symbia-stream-client",
     "identity",
     "logging",
     "catalog",

@@ -14,6 +14,7 @@ import {
 } from '@/services/integrationsClient';
 import { OperationPathInput } from '@/components/inputs/OperationPathInput';
 import { JsonInput } from '@/components/inputs/JsonInput';
+import { VisionSettings } from '@/components/panels/VisionSettings';
 
 type TabId = 'integrations' | 'llm' | 'playground';
 
@@ -1835,6 +1836,14 @@ export function IntegrationsPanel() {
             {loadError && (
               <IntegrationsErrorBanner message={loadError} onRetry={loadIntegrations} />
             )}
+
+            {/* Which model looks at spyglass frames. It sits with the providers
+                because that is what it selects between, and deliberately NOT in
+                the spyglass or the chat window — an instrument should not carry
+                its own settings screen. */}
+            <div className="mb-6">
+              <VisionSettings />
+            </div>
 
             {/* Add / manage LLM provider API keys. Credentials go through the
                 identity service, so this works even when the integrations

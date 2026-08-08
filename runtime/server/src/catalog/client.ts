@@ -3,7 +3,7 @@
  *
  * The runtime holds no reference to the catalog today — that missing edge is
  * what forced graphs to exist only once something POSTed them, and is the root
- * of defects D1–D4 (see energy/API-MEASUREMENTS.md). This is that edge.
+ * of defects D1–D4 (see docs/API-MEASUREMENTS.md). This is that edge.
  *
  * Deliberately a thin fetch wrapper rather than @symbia/catalog-client: the
  * runtime needs four calls, and adding a workspace dependency to get them

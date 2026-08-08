@@ -5,6 +5,9 @@
  * Supports @mentions to invite assistants into conversations.
  */
 import { useState, useEffect, useRef, useCallback } from 'react';
+import { Bubble, GroupTimestamp } from '@/components/chat/Bubble';
+import { Receipt, type Provenance } from '@/components/chat/Receipt';
+import type { Skin } from '@/components/chat/skins';
 import { useMessaging } from '@/hooks/useMessaging';
 import { useAuth } from '@/hooks/useAuth';
 import type { Message } from '@/stores/messagingStore';
@@ -17,6 +20,7 @@ import {
 } from '@/services/messagingBridge';
 import { assistantsClient } from '@/services/assistantsClient';
 import { getRefSuggestions, SymbiaNamespace } from '@symbia/sys';
+import { useFrameStore } from '@/components/glass/frameStore';
 
 // Symbia Script reference suggestion
 interface RefSuggestion {
@@ -32,63 +36,11 @@ interface MentionableAssistant {
   key: string;
 }
 
-function MessageBubble({
-  message,
-  isOwn,
-  userName,
-}: {
-  message: Message;
-  isOwn: boolean;
-  userName?: string;
-}) {
-  const timestamp = new Date(message.created_at);
-
-  // Extract assistant name from sender_id like "assistant:log-analyst"
-  const getAssistantName = (senderId: string) => {
-    if (senderId.startsWith('assistant:')) {
-      const key = senderId.replace('assistant:', '');
-      // Convert key to display name (e.g., "log-analyst" -> "Log Analyst")
-      return key.split('-').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
-    }
-    return 'AI Assistant';
-  };
-
-  return (
-    <div className={`flex ${isOwn ? 'justify-end' : 'justify-start'}`}>
-      <div
-        className={`
-          max-w-[75%] rounded-lg px-4 py-2
-          ${isOwn
-            ? 'bg-emerald-600/20 border border-emerald-500/30'
-            : message.sender_type === 'agent'
-            ? 'bg-scc-secondary/20 border border-scc-secondary/30'
-            : 'bg-slate-700/50 border border-slate-600/30'
-          }
-        `}
-      >
-        {/* Show name for own messages (green) and others */}
-        <p className={`text-xs font-medium mb-1 ${
-          isOwn
-            ? 'text-emerald-400'
-            : message.sender_type === 'agent'
-            ? 'text-scc-secondary'
-            : 'text-slate-400'
-        }`}>
-          {isOwn
-            ? (userName || 'You')
-            : message.sender_type === 'agent'
-            ? getAssistantName(message.sender_id)
-            : message.sender_id.slice(0, 8)
-          }
-        </p>
-        <p className="text-sm text-slate-200 whitespace-pre-wrap">{message.content}</p>
-        <p className="text-xs text-slate-500 mt-1 text-right">
-          {timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-        </p>
-      </div>
-    </div>
-  );
-}
+// The local MessageBubble that lived here was removed 6 Aug 2026. It was one
+// of THREE implementations of a message bubble in this app -- this one,
+// components/messaging/MessageBubble.tsx, and whatever the popout would have
+// grown. All rendering now goes through components/chat/Bubble.tsx, which is
+// skin-aware. A shared concern with N implementations is not shared.
 
 function TypingIndicator({ users }: { users: string[] }) {
   if (users.length === 0) return null;
@@ -264,7 +216,18 @@ function RefSuggestionDropdown({
   );
 }
 
-export function ChatPanel() {
+/**
+ * Chat, rendered inside the phone-shaped popout (components/chat/ChatWindow).
+ *
+ * The window owns the frame, the title and the connection status, so this
+ * renders only the conversation surface and the composer. It no longer draws
+ * its own header — two headers was the first thing that looked wrong when the
+ * panel was dropped into the window.
+ */
+export function ChatPanel({ skin, context }: { skin: Skin; context?: { situation: string; panel: string } }) {
+  // What the spyglass has parked on the composer, if anything.
+  const pendingFrame = useFrameStore((s) => s.pending);
+  const clearFrame = useFrameStore((s) => s.clear);
   const { user } = useAuth();
   const {
     conversations,
@@ -304,8 +267,11 @@ export function ChatPanel() {
 
   // Track assistants that are currently responding
   const [respondingAssistants, setRespondingAssistants] = useState<Set<string>>(new Set());
+  // Set when the wait elapses with no reply. NOT the same as "not responding":
+  // this records that we asked, waited, and got nothing -- which is a fact
+  // worth showing, and the thing an endless typing indicator hides.
+  const [stalled, setStalled] = useState<string | null>(null);
 
-  const selectedConversation = conversations.find((c) => c.id === selectedConversationId);
   const conversationMessages = selectedConversationId ? getConversationMessages(selectedConversationId) : [];
   const typingUsers = selectedConversationId ? getTypingUsersFromHook(selectedConversationId) : [];
 
@@ -394,6 +360,7 @@ export function ChatPanel() {
     }
 
     if (respondedAssistants.size > 0) {
+      setStalled(null);
       setRespondingAssistants(prev => {
         const next = new Set(prev);
         respondedAssistants.forEach(id => next.delete(id));
@@ -519,26 +486,75 @@ export function ChatPanel() {
         setRespondingAssistants(new Set(['assistant:coordinator']));
       }
 
-      const result = await sendMessage(conversationId, inputValue.trim());
+      // Where the operator was standing when they asked. Sent as metadata,
+      // NOT prepended to their words — the message they typed stays the
+      // message they typed, and the situation travels alongside it.
+      // A spyglass frame travels as a REFERENCE, never as a picture.
+      //
+      // Chat cannot put the image here even by mistake: the store it reads has
+      // no image field, and the bytes are behind pixelVault, which does not
+      // have chat on its allowlist. What goes out is the node that captured
+      // the frame, the digest of the exact bytes shown to the vision service,
+      // and that service's conclusion verbatim. An assistant can ask about the
+      // frame and can find it again in the traces. It cannot see it, and
+      // neither can anyone else in the conversation.
+      const frame = useFrameStore.getState().pending;
+      const metadata =
+        context || frame
+          ? {
+              ...(context
+                ? { symbiaContext: { panel: context.panel, situation: context.situation } }
+                : {}),
+              ...(frame
+                ? {
+                    symbiaFrame: {
+                      ...frame.envelope,
+                      // The arena is the load-bearing field. An assistant that
+                      // reads a REFUSED and answers anyway is doing the thing
+                      // this platform exists to make visible.
+                      arena: frame.arena ?? 'REFUSED',
+                      verdict: frame.verdict ?? null,
+                      refused: frame.refused ?? null,
+                      provider: frame.provider ?? null,
+                      model: frame.model ?? null,
+                      path: frame.path ?? 'none',
+                    },
+                  }
+                : {}),
+            }
+          : undefined;
+
+      const result = await sendMessage(conversationId, inputValue.trim(), { metadata });
 
       if (result) {
         console.log('[Chat] Message sent successfully:', result.id);
+        // Cleared only on a CONFIRMED send. Clearing optimistically would lose
+        // the frame on a failed send and leave the operator with no way to know
+        // it had ever been attached.
+        clearFrame();
         setInputValue('');
         inputRef.current?.focus();
 
-        // Auto-clear responding state after 60 seconds (increased from 30s)
-        // This is a fallback - normally cleared when assistant message arrives
+        // If nothing comes back, SAY SO.
+        //
+        // This used to spin the typing indicator for 60s and then silently
+        // clear it, so a failed assistant looked first like one that was
+        // thinking and then like one that had never been asked. Both are
+        // untrue. Measured 7 Aug: the assistants service logged
+        // "No openai API key configured" within a second of delivery while
+        // the window showed three animated dots indefinitely.
         setTimeout(() => {
           setRespondingAssistants(prev => {
             if (prev.size > 0) {
-              console.log('[Chat] Clearing responding state after timeout');
+              setStalled('No reply. The message was delivered and the assistant was reached, but it did not respond.');
               return new Set();
             }
             return prev;
           });
-        }, 60000);
+        }, 30000);
       } else {
         console.error('[Chat] Message send returned null - both WebSocket and REST failed');
+        setStalled('Message not sent. Both the socket and the REST fallback failed.');
         // Don't clear responding immediately - the user might want to retry
         // Set a shorter timeout instead
         setTimeout(() => {
@@ -547,6 +563,7 @@ export function ChatPanel() {
       }
     } catch (error) {
       console.error('[Chat] Failed to send message:', error);
+      setStalled(`Message not sent. ${error instanceof Error ? error.message : String(error)}`);
       // Don't clear responding immediately - give some time for user to see the error
       setTimeout(() => {
         setRespondingAssistants(new Set());
@@ -753,25 +770,6 @@ export function ChatPanel() {
 
   return (
     <div className="flex-1 min-h-0 flex flex-col">
-      {/* Chat Header */}
-      <div className="shrink-0 px-4 py-2 border-b border-scc-border flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <h1 className="font-medium text-slate-200">
-            {selectedConversation?.name || 'Chat'}
-          </h1>
-          {/* Connection status */}
-          <div className="flex items-center gap-1.5 text-xs">
-            <div className={`w-2 h-2 rounded-full ${
-              connectionStatus === 'connected'
-                ? 'bg-emerald-500'
-                : connectionStatus === 'connecting'
-                ? 'bg-amber-500 animate-pulse'
-                : 'bg-slate-500'
-            }`} />
-            <span className="text-slate-500 capitalize">{connectionStatus}</span>
-          </div>
-        </div>
-      </div>
 
         {/* Messages */}
         <div
@@ -789,22 +787,46 @@ export function ChatPanel() {
                 <svg className="w-12 h-12 mx-auto mb-4 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
                 </svg>
-                <p className="text-lg font-medium text-slate-300">What can I help you with?</p>
-                <p className="text-sm text-slate-600 mt-2">
+                <p className="text-[18px] font-medium text-white/85">What can I help you with?</p>
+                <p className="text-[16px] text-white/45 mt-2 px-6">
                   Just ask a question and I'll connect you with the right assistant
                 </p>
               </div>
             </div>
           ) : (
             <>
-              {conversationMessages.map((msg: Message) => (
-                <MessageBubble
-                  key={msg.id}
-                  message={msg}
-                  isOwn={msg.sender_id === user?.id}
-                  userName={user?.email?.split('@')[0] || user?.id?.slice(0, 8)}
-                />
-              ))}
+              {conversationMessages.map((msg: Message, i: number) => {
+                const prev = conversationMessages[i - 1];
+                const startsGroup = !prev || prev.sender_id !== msg.sender_id;
+                // iMessage prints one timestamp above a run rather than one per
+                // bubble; the gap between messages is where it belongs.
+                const gap =
+                  !prev ||
+                  new Date(msg.created_at).getTime() - new Date(prev.created_at).getTime() > 5 * 60_000;
+                return (
+                  <div key={msg.id}>
+                    {gap && <GroupTimestamp iso={msg.created_at} skin={skin} />}
+                    <Bubble
+                      message={msg}
+                      isOwn={msg.sender_id === user?.id}
+                      skin={skin}
+                      startsGroup={startsGroup}
+                    />
+                    {/* The receipt. Every assistant reply carries a sealed
+                        envelope; until now none of it was visible and "42"
+                        looked exactly like a guess. */}
+                    {(() => {
+                      const prov = (msg as { metadata?: { symbia?: { provenance?: Provenance } } })
+                        .metadata?.symbia?.provenance;
+                      return prov ? (
+                        <div className="pl-1">
+                          <Receipt provenance={prov} />
+                        </div>
+                      ) : null;
+                    })()}
+                  </div>
+                );
+              })}
               {/* Show responding indicators for assistants that are processing */}
               {(() => {
                 // Filter out coordinator - it's a silent orchestrator
@@ -827,6 +849,13 @@ export function ChatPanel() {
                   );
                 });
               })()}
+              {stalled && (
+                <div className="flex justify-center px-4 py-3">
+                  <div className="max-w-[90%] rounded-[14px] border border-amber-500/35 bg-amber-500/10 px-4 py-2.5">
+                    <p className="text-[15px] text-amber-200/90">{stalled}</p>
+                  </div>
+                </div>
+              )}
               <div ref={messagesEndRef} />
             </>
           )}
@@ -836,7 +865,7 @@ export function ChatPanel() {
         <TypingIndicator users={typingUsers} />
 
         {/* Input - always visible */}
-        <div className="shrink-0 p-4 border-t border-scc-border relative">
+        <div className={`shrink-0 p-3 relative z-10 ${skin.input.bar}`}>
           {/* @mention dropdown */}
           {showMentionDropdown && filteredMentions.length > 0 && (
             <MentionDropdown
@@ -857,15 +886,67 @@ export function ChatPanel() {
             />
           )}
 
-          <div className="flex gap-2">
+          {/* A captured frame referenced by the next message.
+              THERE IS NO THUMBNAIL, and there was one until 7 Aug 2026. It was
+              rendered from base64 held in chat state, which demonstrated the
+              opposite of the property being claimed: that chat had the pixels.
+              What is shown now is the reference — the capturing node, the
+              digest, and what the vision service concluded. Chat can cite the
+              frame and cannot see it. */}
+          {pendingFrame && (
+            <div className="mb-2 flex items-center gap-2 rounded-[12px] border border-white/15 bg-black/30 p-2">
+              <div
+                className="w-10 h-10 shrink-0 rounded-full border border-dashed border-white/25 grid place-items-center text-[15px] text-white/35"
+                title="Pixels are held on the private path. Chat has no grant to read them."
+                aria-label="Frame contents not visible to chat"
+              >
+                ◎
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className="text-[13px] text-white/70 truncate">
+                  Frame {pendingFrame.envelope.digest} · {pendingFrame.envelope.width}×
+                  {pendingFrame.envelope.height}
+                </p>
+                <p className="text-[12px] text-white/35 truncate">
+                  {pendingFrame.arena ?? 'not checked'}
+                  {pendingFrame.model ? ` · ${pendingFrame.model}` : ''}
+                  {pendingFrame.path && pendingFrame.path !== 'none'
+                    ? ` · via ${pendingFrame.path}`
+                    : ''}
+                </p>
+                {/* The service's answer, verbatim. A refusal is displayed as a
+                    refusal; it is the correct answer while no vision model is
+                    loaded, and disguising it would be the exact defect this
+                    platform exists to prevent. */}
+                {pendingFrame.verdict && (
+                  <p
+                    className={`text-[12px] truncate ${
+                      pendingFrame.refused ? 'text-amber-300/70' : 'text-white/45'
+                    }`}
+                  >
+                    {pendingFrame.verdict}
+                  </p>
+                )}
+              </div>
+              <button
+                onClick={clearFrame}
+                title="Remove the reference"
+                className="shrink-0 w-7 h-7 grid place-items-center rounded-full text-white/45 hover:text-white hover:bg-white/10"
+              >
+                ✕
+              </button>
+            </div>
+          )}
+
+          <div className="flex gap-2 items-end">
             <textarea
               ref={inputRef}
               value={inputValue}
               onChange={handleInputChange}
               onKeyDown={handleKeyDown}
-              placeholder="Ask anything... (@ for assistants or @context. for data)"
+              placeholder="Message"
               rows={1}
-              className="scc-input flex-1 resize-none text-sm min-h-[40px] max-h-32"
+              className={`flex-1 resize-none min-h-[44px] max-h-[96px] overflow-y-auto outline-none ${skin.input.field}`}
               disabled={connectionStatus !== 'connected'}
               autoFocus
             />
@@ -873,10 +954,10 @@ export function ChatPanel() {
               onClick={handleSendMessage}
               disabled={!inputValue.trim() || isSending || connectionStatus !== 'connected'}
               className={`
-                px-4 rounded font-medium transition-all shrink-0
+                w-11 h-11 grid place-items-center font-medium transition-all shrink-0 self-end
                 ${inputValue.trim() && !isSending && connectionStatus === 'connected'
-                  ? 'bg-scc-primary hover:bg-scc-primary/80 text-white'
-                  : 'bg-slate-700 text-slate-500 cursor-not-allowed'
+                  ? skin.input.send
+                  : `${skin.input.sendIdle} cursor-not-allowed`
                 }
               `}
             >

@@ -1,6 +1,6 @@
 # Runtime — Architecture & Roadmap
 
-The Runtime (port 5006) is Symbia's dataflow executor: it runs component graphs — validate → join → derive → sink — with typed ports, topological ordering, and per-execution metrics. This document describes what exists today, the target architecture, and the plan to get there, with phases mapped to the platform defects logged in [`energy/API-MEASUREMENTS.md`](../../energy/API-MEASUREMENTS.md) (D1–D5).
+The Runtime (port 5006) is Symbia's dataflow executor: it runs component graphs — validate → join → derive → sink — with typed ports, topological ordering, and per-execution metrics. This document describes what exists today, the target architecture, and the plan to get there, with phases mapped to the platform defects logged in [`docs/API-MEASUREMENTS.md`](../../docs/API-MEASUREMENTS.md) (D1–D5).
 
 ## Current architecture (as of Aug 2026)
 
@@ -144,4 +144,4 @@ Energy is the forcing function, not a demo. Each phase is validated by re-regist
 - Phase 2: the simulator delivers to a declared, gated ingress; the device twin is the only thing left outside the platform (correctly — a real site is not a Symbia component).
 - Phase 3: restart the runtime mid-run; the pipeline resumes without re-seeding.
 
-New defects found along the way are appended to `energy/API-MEASUREMENTS.md` (append-only; resolved items are marked with the commit, never deleted).
+New defects found along the way are appended to `docs/API-MEASUREMENTS.md` (append-only; resolved items are marked with the commit, never deleted).

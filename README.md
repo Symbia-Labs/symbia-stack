@@ -11,7 +11,7 @@ An LLM-native orchestration platform for building, deploying, and operating auto
 │                                                                              │
 │  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐        │
 │  │  Assistants │  │   Runtime   │  │ Integrations│  │   Network   │        │
-│  │    :5004    │  │    :5006    │  │    :5007    │  │    :5054    │        │
+│  │    :5004    │  │    :5006    │  │    :5007    │  │    :5009    │        │
 │  │             │  │             │  │             │  │             │        │
 │  │ AI Workflow │  │  Dataflow   │  │ LLM Gateway │  │ Service Mesh│        │
 │  │   Engine    │  │  Executor   │  │  & Routing  │  │  & Events   │        │
@@ -55,7 +55,7 @@ An LLM-native orchestration platform for building, deploying, and operating auto
 | [Runtime](runtime/) | 5006 | Dataflow execution engine for component graphs |
 | [Integrations](integrations/) | 5007 | LLM provider gateway (OpenAI, Anthropic, HuggingFace, symbia-labs) |
 | [Models](models/) | 5008 | Local LLM inference with node-llama-cpp (GGUF models) |
-| [Network](network/) | 5054 | Software-defined network for event routing and service mesh |
+| [Network](network/) | 5009 | Software-defined network for event routing and service mesh |
 
 ## Shared Libraries
 
@@ -177,7 +177,7 @@ cd assistants && npm install && npm run dev
 ```
 Tier 1 (Foundational):
   ├── Identity (5001)     ← No dependencies
-  ├── Network (5054)      ← No dependencies
+  ├── Network (5009)      ← No dependencies
   └── Logging (5002)      ← No dependencies
 
 Tier 2 (Core Services):

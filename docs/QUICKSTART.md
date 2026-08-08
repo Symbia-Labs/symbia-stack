@@ -22,7 +22,7 @@ Nine services, each self-contained with its own OpenAPI spec at `/<service>/docs
 | runtime | 5006 | Graph/routine execution engine |
 | integrations | 5007 | LLM providers, external integrations, MCP surface |
 | models | 5008 | Local LLM inference |
-| network | 5054 | Event routing, policies, SoftSDN observability |
+| network | 5009 | Event routing, policies, SoftSDN observability |
 | service-admin | 3000 | Admin UI |
 
 ## Option A — Docker (recommended for a full, production-like run)
@@ -77,7 +77,7 @@ For a database-free dev loop on a single service, in-memory mode is available, e
 Each service exposes `/health` (plus k8s-style `/health/live` and `/health/ready`):
 
 ```bash
-for p in 5001 5002 5003 5004 5005 5006 5007 5008 5054; do
+for p in 5001 5002 5003 5004 5005 5006 5007 5008 5009; do
   printf "%s " "$p"; curl -s "http://localhost:$p/health" | head -c 80; echo
 done
 ```

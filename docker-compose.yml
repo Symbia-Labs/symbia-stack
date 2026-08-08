@@ -1,6 +1,23 @@
-# Symbia Stack - Local Development
-# Start all services: docker-compose up -d
-# View logs: docker-compose logs -f
+# Symbia Stack
+# Start: docker-compose up -d          View logs: docker-compose logs -f
+#
+# EXPOSURE: exactly one port reaches the host — 9000, the API front end.
+#
+# Every service still listens on its own port and every service still reaches
+# every other one; they do it over the compose network by service name
+# (IDENTITY_HOST: identity, and so on), which is why publishing 5001-5009 and
+# 5432 to the host bought nothing but reach. A published port is a door, and a
+# door nobody opens is still a door. Eleven of them were open by default.
+#
+# Developers who want the operator console on 8000, psql on 5432, or a service
+# port to curl should use docker-compose.dev.yml, which adds them back:
+#
+#   docker-compose -f docker-compose.yml -f docker-compose.dev.yml up -d
+#
+# start.sh does this for you via COMPOSE_FILE. That file is NOT named
+# docker-compose.override.yml on purpose: compose loads an override file
+# automatically, so anyone who cloned the repo would silently get the
+# developer's exposure surface and the default above would be a fiction.
 #
 # Port Configuration:
 # All ports can be customized via environment variables or .env file.
@@ -19,8 +36,6 @@ services:
       POSTGRES_USER: ${POSTGRES_USER:-symbia}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-symbia_dev}
       POSTGRES_DB: ${POSTGRES_DB:-symbia}
-    ports:
-      - "${POSTGRES_PORT:-5432}:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
@@ -52,12 +67,23 @@ services:
       context: .
       dockerfile: identity/Dockerfile
     environment:
+      # Where the SDN relay connects. WITHOUT THIS the relay falls back to
+      # localhost:5009, which inside a container is the container itself,
+      # and observability events are silently never emitted.
+      NETWORK_SERVICE_URL: http://network:5009
       NODE_ENV: production
       PORT: 5001
       DATABASE_URL: postgresql://${POSTGRES_USER:-symbia}:${POSTGRES_PASSWORD:-symbia_dev}@postgres:5432/identity
       SESSION_SECRET: ${SESSION_SECRET:-symbia-dev-secret-change-in-production}
-    ports:
-      - "${IDENTITY_PORT:-5001}:5001"
+      # Development switch. Untokened requests run as the first existing user.
+      # OFF unless set: a gate skipped by default is not a gate.
+      #
+      # The control center's login-disabled build depends on this. Before
+      # 6 Aug 2026 only the CLIENT half existed — App.tsx probed for it and
+      # identity had no such setting — so the probe could never succeed and a
+      # dev auto-login with hardcoded credentials was silently carrying the
+      # whole console.
+      DEV_NO_AUTH: ${DEV_NO_AUTH:-false}
     depends_on:
       db-bootstrap:
         condition: service_completed_successfully
@@ -73,12 +99,14 @@ services:
       context: .
       dockerfile: logging/Dockerfile
     environment:
+      # Where the SDN relay connects. WITHOUT THIS the relay falls back to
+      # localhost:5009, which inside a container is the container itself,
+      # and observability events are silently never emitted.
+      NETWORK_SERVICE_URL: http://network:5009
       NODE_ENV: production
       PORT: 5002
       DATABASE_URL: postgresql://${POSTGRES_USER:-symbia}:${POSTGRES_PASSWORD:-symbia_dev}@postgres:5432/logging
       IDENTITY_SERVICE_URL: http://identity:5001
-    ports:
-      - "${LOGGING_PORT:-5002}:5002"
     depends_on:
       identity:
         condition: service_healthy
@@ -98,13 +126,15 @@ services:
       context: .
       dockerfile: catalog/Dockerfile
     environment:
+      # Where the SDN relay connects. WITHOUT THIS the relay falls back to
+      # localhost:5009, which inside a container is the container itself,
+      # and observability events are silently never emitted.
+      NETWORK_SERVICE_URL: http://network:5009
       NODE_ENV: production
       PORT: 5003
       DATABASE_URL: postgresql://${POSTGRES_USER:-symbia}:${POSTGRES_PASSWORD:-symbia_dev}@postgres:5432/catalog
       IDENTITY_SERVICE_URL: http://identity:5001
       LOGGING_SERVICE_URL: http://logging:5002
-    ports:
-      - "${CATALOG_PORT:-5003}:5003"
     depends_on:
       identity:
         condition: service_healthy
@@ -124,14 +154,16 @@ services:
       context: .
       dockerfile: messaging/Dockerfile
     environment:
+      # Where the SDN relay connects. WITHOUT THIS the relay falls back to
+      # localhost:5009, which inside a container is the container itself,
+      # and observability events are silently never emitted.
+      NETWORK_SERVICE_URL: http://network:5009
       NODE_ENV: production
       PORT: 5005
       DATABASE_URL: postgresql://${POSTGRES_USER:-symbia}:${POSTGRES_PASSWORD:-symbia_dev}@postgres:5432/messaging
       IDENTITY_SERVICE_URL: http://identity:5001
       LOGGING_SERVICE_URL: http://logging:5002
       ASSISTANTS_SERVICE_URL: http://assistants:5004
-    ports:
-      - "${MESSAGING_PORT:-5005}:5005"
     depends_on:
       identity:
         condition: service_healthy
@@ -151,13 +183,15 @@ services:
       context: .
       dockerfile: network/Dockerfile
     environment:
+      # Where the SDN relay connects. WITHOUT THIS the relay falls back to
+      # localhost:5009, which inside a container is the container itself,
+      # and observability events are silently never emitted.
+      NETWORK_SERVICE_URL: http://network:5009
       NODE_ENV: production
       PORT: 5009
       IDENTITY_SERVICE_URL: http://identity:5001
       LOGGING_SERVICE_URL: http://logging:5002
       NETWORK_HASH_SECRET: ${NETWORK_HASH_SECRET:-symbia-network-dev-secret}
-    ports:
-      - "${NETWORK_PORT:-5009}:5009"
     depends_on:
       identity:
         condition: service_healthy
@@ -173,14 +207,16 @@ services:
       context: .
       dockerfile: runtime/Dockerfile
     environment:
+      # Where the SDN relay connects. WITHOUT THIS the relay falls back to
+      # localhost:5009, which inside a container is the container itself,
+      # and observability events are silently never emitted.
+      NETWORK_SERVICE_URL: http://network:5009
       NODE_ENV: production
       PORT: 5006
       DATABASE_URL: postgresql://${POSTGRES_USER:-symbia}:${POSTGRES_PASSWORD:-symbia_dev}@postgres:5432/runtime
       IDENTITY_SERVICE_URL: http://identity:5001
       CATALOG_SERVICE_URL: http://catalog:5003
       LOGGING_SERVICE_URL: http://logging:5002
-    ports:
-      - "${RUNTIME_PORT:-5006}:5006"
     depends_on:
       catalog:
         condition: service_healthy
@@ -208,10 +244,15 @@ services:
       LOGGING_SERVICE_URL: http://logging:5002
       INTEGRATIONS_SERVICE_URL: http://integrations:5007
       MESSAGING_SERVICE_URL: http://messaging:5005
+      # Added 7 Aug 2026. Without these, service.call from a rule resolved
+      # runtime and network to localhost INSIDE the assistants container and
+      # failed with a bare "fetch failed" surfaced to the end user in chat.
+      # resolveServiceUrl falls back to localhost, which is right outside
+      # compose and wrong inside it.
+      RUNTIME_SERVICE_URL: http://runtime:5006
+      NETWORK_SERVICE_URL: http://network:5009
       MESSAGING_ENDPOINT: http://messaging:5005
       CATALOG_BASE_URL: http://catalog:5003
-    ports:
-      - "${ASSISTANTS_PORT:-5004}:5004"
     depends_on:
       catalog:
         condition: service_healthy
@@ -244,8 +285,6 @@ services:
       # Add API keys for LLM providers
       # OPENAI_API_KEY: ${OPENAI_API_KEY}
       # ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY}
-    ports:
-      - "${INTEGRATIONS_PORT:-5007}:5007"
     depends_on:
       identity:
         condition: service_healthy
@@ -275,8 +314,6 @@ services:
       DEFAULT_GPU_LAYERS: ${DEFAULT_GPU_LAYERS:-0}
       DEFAULT_THREADS: ${DEFAULT_THREADS:-4}
       HUGGINGFACE_TOKEN: ${HUGGINGFACE_TOKEN:-}
-    ports:
-      - "${MODELS_PORT:-5008}:5008"
     volumes:
       - models_data:/data/models
     depends_on:
@@ -354,8 +391,6 @@ services:
       MODELS_HOST: models
       NETWORK_HOST: network
       API_HOST: service-admin
-    ports:
-      - "${CONTROL_CENTER_PORT:-8000}:8000"
     depends_on:
       identity:
         condition: service_healthy

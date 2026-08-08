@@ -247,7 +247,6 @@ server.start()
     // Connect to network service after server starts
     await initServiceRelay({
       serviceId: ServiceId.CATALOG,
-      serviceName: 'Catalog Service',
       capabilities: [
         'catalog.resource.create',
         'catalog.resource.read',

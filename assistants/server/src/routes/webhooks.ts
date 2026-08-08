@@ -60,6 +60,23 @@ interface SDNMessagePayload {
 }
 
 /**
+ * The assistant key for a loaded assistant.
+ *
+ * loadedAssistants is a Map<key, LoadedAssistant> and getAllLoadedAssistants()
+ * returns only the VALUES, so the key is not on the object — `config.key` is
+ * undefined, which is exactly what tsc says and what the log said when the
+ * mention router printed "resolves to undefined".
+ *
+ * The key lives on the catalog resource as "assistants/<key>", which is where
+ * assistant-loader derives it from in the first place.
+ */
+function loadedKey(loaded: { resource: { key?: string } }): string | undefined {
+  const k = loaded.resource?.key;
+  if (!k) return undefined;
+  return k.includes('/') ? k.split('/').pop() : k;
+}
+
+/**
  * Handle message.new events from the Network SDN.
  * This replaces the HTTP webhook for message routing.
  */
@@ -90,11 +107,17 @@ export async function handleSDNMessageNew(event: SandboxEvent): Promise<void> {
     console.log(`[SDN] No specific assistants in payload, will check ${allLoaded.length} loaded assistants`);
 
     // Convert loaded assistants to the expected format
-    assistantsToNotify = allLoaded.map(loaded => ({
-      userId: `assistant:${loaded.config.key}`,
-      key: loaded.config.key,
-      entityId: loaded.resource.entityId,
-    }));
+    // Same key derivation as the mention router below. This built
+    // `assistant:undefined` for every entry, so the "no participants in the
+    // payload" path has never worked either — it produced a list of
+    // assistants with no keys, each skipped a few lines later.
+    assistantsToNotify = allLoaded
+      .map(loaded => ({
+        userId: `assistant:${loadedKey(loaded)}`,
+        key: loadedKey(loaded) ?? null,
+        entityId: (loaded.resource as { entityId?: string }).entityId,
+      }))
+      .filter(a => a.key);
   }
 
   if (assistantsToNotify.length === 0) {
@@ -125,6 +148,48 @@ export async function handleSDNMessageNew(event: SandboxEvent): Promise<void> {
     'build': 'assistants-assistant',
   };
 
+  // AN @MENTION IS A ROUTE, NOT A HINT.
+  //
+  // If the mention names a loaded assistant, that assistant is the only one
+  // that should answer. Previously the mentioned assistant was SKIPPED (see
+  // below) on the assumption that the coordinator would forward to it — but
+  // the coordinator's orchestrate rule is a plain llm.invoke over a prompt
+  // listing its team, so it writes prose ABOUT mentions and forwards nothing.
+  //
+  // Measured 8 Aug 2026: "@docs help" in a conversation where docs was not a
+  // participant produced "I'm Claude, made by Anthropic. I don't have a @docs
+  // command" — the mentioned assistant dropped, some other assistant's
+  // catch-all answering in its place. With docs as an explicit participant the
+  // same message matched its help rule immediately, which is how the two paths
+  // were told apart.
+  if (mentionedAlias) {
+    const resolvedKey = aliasToKey[mentionedAlias] || mentionedAlias;
+    // Resolve against ALL LOADED assistants, not just the ones in the payload.
+    //
+    // The payload contains the conversation's participants, and the console
+    // adds only the coordinator by default — so "@docs help" arrived with
+    // assistants: [coordinator] and docs was never a candidate to narrow to.
+    // Searching the payload alone made this fix a no-op in exactly the case it
+    // was written for, which the first test caught.
+    const loadedMatch = getAllLoadedAssistants().find((l) => {
+      const key = loadedKey(l);
+      return (
+        key === resolvedKey ||
+        key === mentionedAlias ||
+        l.alias?.toLowerCase() === mentionedAlias
+      );
+    });
+    const matchKey = loadedMatch ? loadedKey(loadedMatch) : undefined;
+    if (loadedMatch && matchKey) {
+      console.log(`[SDN] @${mentionedAlias} resolves to ${matchKey} — routing there only`);
+      assistantsToNotify = [{
+        userId: `assistant:${matchKey}`,
+        key: matchKey,
+        entityId: (loadedMatch.resource as { entityId?: string }).entityId,
+      }];
+    }
+  }
+
   // Process for each assistant
   for (const assistant of assistantsToNotify) {
     if (!assistant.key) {
@@ -135,8 +200,12 @@ export async function handleSDNMessageNew(event: SandboxEvent): Promise<void> {
     // Skip assistants that were @mentioned in the original broadcast
     // Let coordinator route to them instead (avoids duplicate processing)
     // Only skip if this is NOT a targeted forward (payload.assistants is empty or undefined)
+    // The skip below is now unreachable for a mention that RESOLVED, because
+    // assistantsToNotify was narrowed to that one assistant above. It still
+    // applies when a mention names something that is not a loaded assistant —
+    // in that case the coordinator should get it, and the others should not.
     const isTargetedForward = payload.assistants && payload.assistants.length > 0;
-    if (!isTargetedForward && mentionedAlias) {
+    if (!isTargetedForward && mentionedAlias && assistantsToNotify.length > 1) {
       const mentionedKey = aliasToKey[mentionedAlias] || mentionedAlias;
       // Check if this assistant matches the mention (by key, alias map, or configured alias)
       const loadedAssistant = getLoadedAssistant(assistant.key);
@@ -217,8 +286,19 @@ async function processMessageForAssistant(
 
   const orgId = payload.orgId || DEFAULT_ORG_ID;
 
-  // Get auth token for LLM actions
-  let token = authToken;
+  // Get auth token for LLM actions.
+  //
+  // STRIP "Bearer ". messaging puts req.headers.authorization into
+  // payload._auth.token verbatim, prefix included, and service.call then builds
+  // `Authorization: Bearer ${token}` — producing "Bearer Bearer eyJ..." and a
+  // 401 invalid_token on every service call an assistant made.
+  //
+  // The HTTP webhook path has always stripped it
+  // (authHeader.startsWith('Bearer ') ? slice(7) : undefined). The SDN path,
+  // which is the one actually in use, never did. Measured 8 Aug 2026: the
+  // identical request with the same token, correctly formatted, returns 200
+  // from inside the same container.
+  let token = authToken?.startsWith('Bearer ') ? authToken.slice(7) : authToken;
   if (!token) {
     token = await getAssistantToken(assistantUserId, assistantKey);
   }
@@ -279,6 +359,18 @@ async function processMessageForAssistant(
           senderId: payload.message.sender_id,
           timestamp: payload.message.created_at,
           originalContent: payload.message.content,
+          // Where the operator was standing when they asked. The console sends
+          // this alongside the message rather than prepending it to their
+          // words, so "what am I looking at" is answerable without the person
+          // restating what is already on their screen.
+          //
+          // It says which PANEL they are on. It does NOT contain the panel's
+          // data — if the assistant needs the numbers it must fetch them
+          // through the platform, with a receipt. Scraping the screen would
+          // produce answers with no provenance, which is the one thing this
+          // codebase must not start doing.
+          symbiaContext: (payload.message as { metadata?: { symbiaContext?: unknown } })
+            .metadata?.symbiaContext,
         },
       },
       user: {
@@ -398,6 +490,7 @@ async function processMessageForAssistant(
 
   // Extract response content
   let responseContent: string | null = null;
+  let provenance: unknown = null;
   let errorMessage: string | null = null;
   let suppressResponse = false;
 
@@ -406,8 +499,16 @@ async function processMessageForAssistant(
     for (const action of ruleResult.actionsExecuted) {
       if (action.success && action.output) {
         if (action.actionType === 'message.send') {
-          const output = action.output as { content?: string };
+          const output = action.output as {
+            content?: string;
+            message?: { metadata?: { symbia?: { provenance?: unknown } } };
+          };
           if (output.content) responseContent = output.content;
+          // The sealed envelope travels with the reply. Dropping it here was
+          // the difference between a platform that can show where an answer
+          // came from and one that merely asserts it can.
+          const env = output.message?.metadata?.symbia?.provenance;
+          if (env) provenance = env;
         }
         if (action.actionType === 'llm.invoke') {
           const output = action.output as { response?: string };
@@ -437,6 +538,16 @@ async function processMessageForAssistant(
   // Format error as response if no response generated
   if (!responseContent && errorMessage) {
     responseContent = `⚠️ I encountered an error while processing your request:\n\n\`${errorMessage}\`\n\nPlease check my configuration or try again.`;
+    // A failure is a REFUSED answer, not an absence of one. It carries an
+    // envelope like any other reply, so the console can show that the system
+    // declined and why, rather than rendering an unattributed apology.
+    provenance = {
+      arena: 'REFUSED',
+      basis: errorMessage,
+      steps: [],
+      timestamp: new Date().toISOString(),
+      hash: null,
+    };
   }
 
   // Send response via SDN
@@ -448,7 +559,8 @@ async function processMessageForAssistant(
       assistantEntityId,
       responseContent,
       result,
-      runId
+      runId,
+      provenance
     );
   } else {
     console.log(`[SDN] No response generated for assistant: ${assistantKey}`);
@@ -481,7 +593,9 @@ async function sendResponseViaSDN(
       }>;
     }>;
   },
-  runId: string
+  runId: string,
+  /** Sealed provenance for this reply. Null only if no rule produced one. */
+  provenance?: unknown
 ): Promise<boolean> {
   // Build justification for observability
   const justification = {
@@ -506,6 +620,7 @@ async function sendResponseViaSDN(
       content,
       content_type: 'markdown',
       metadata: {
+        symbia: provenance ? { provenance } : undefined,
         assistantKey,
         rulesEvaluated: ruleResult.rulesEvaluated,
         rulesMatched: ruleResult.rulesMatched,
@@ -971,6 +1086,21 @@ router.post('/messaging', async (req: Request, res: Response) => {
         role: 'user' as const,
         content: payload.message.content,
         metadata: {
+          // Carry the INBOUND metadata through.
+          //
+          // This object was built from scratch, which silently dropped
+          // everything the sender attached — symbiaContext (which panel the
+          // operator is on) and symbiaFrame (a captured region and what a
+          // vision model said about it). The console has been sending both;
+          // nothing on this side has ever read them, so the assistant answered
+          // "I'm not sure what context you're referring to" to a message that
+          // arrived with its context attached.
+          //
+          // symbiaContext WAS read — at line ~292, in the SDN block, which is
+          // not the path the coordinator takes. Two near-identical extraction
+          // blocks, and the wrong one was wired. That is the third time in this
+          // file.
+          ...(payload.message.metadata ?? {}),
           contentType: payload.message.content_type || 'text',
           senderId: payload.message.sender_id,
           timestamp: payload.message.created_at,
@@ -1015,6 +1145,10 @@ router.post('/messaging', async (req: Request, res: Response) => {
         role: 'user',
         content: transpiled, // ← Use transpiled content instead of raw
         metadata: {
+          // Same carry-through as the execution context above. Both objects
+          // are built here and both dropped the sender's metadata; patching
+          // one would have reached neither the prompt nor the rules.
+          ...(payload.message.metadata ?? {}),
           contentType: payload.message.content_type || 'text',
           senderId: payload.message.sender_id,
           timestamp: payload.message.created_at,
@@ -1038,6 +1172,14 @@ router.post('/messaging', async (req: Request, res: Response) => {
 
     // Extract response content from rule execution
     let responseContent: string | null = null;
+    // Sealed provenance for the reply. THIS is the live path — there is a
+    // second, near-identical extraction block earlier in this file for the SDN
+    // route, and patching that one alone did nothing for two build cycles
+    // because the coordinator does not take it. Two copies of one concern,
+    // again; consolidating them is a separate change and is noted rather than
+    // done here, because doing it inside a provenance fix would hide which
+    // change caused what.
+    let provenance: unknown = null;
     let errorMessage: string | null = null;
     let suppressResponse = false;
 
@@ -1046,8 +1188,13 @@ router.post('/messaging', async (req: Request, res: Response) => {
       for (const action of ruleResult.actionsExecuted) {
         if (action.success && action.output) {
           if (action.actionType === 'message.send') {
-            const output = action.output as { content?: string };
+            const output = action.output as {
+              content?: string;
+              message?: { metadata?: { symbia?: { provenance?: unknown } } };
+            };
             if (output.content) responseContent = output.content;
+            const env = output.message?.metadata?.symbia?.provenance;
+            if (env) provenance = env;
           }
           if (action.actionType === 'llm.invoke') {
             const output = action.output as { response?: string };
@@ -1114,6 +1261,9 @@ router.post('/messaging', async (req: Request, res: Response) => {
           content: responseContent,
           contentType: 'markdown',
           metadata: {
+            // The envelope. Structured and hashed, not a sentence appended to
+            // the text.
+            ...(provenance ? { symbia: { provenance } } : {}),
             assistantKey: payload.assistant.key,
             rulesEvaluated: result.rulesEvaluated,
             rulesMatched: result.rulesMatched,

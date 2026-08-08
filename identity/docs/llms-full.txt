@@ -98,6 +98,99 @@ Path Parameters:
 
 Response: New API key created (old key revoked)
 
+### Admin
+
+#### DELETE /api/admin/orgs/{id}
+Delete orgs
+Documented from the implemented route. Request/response schema to be enriched.
+
+Path Parameters:
+- id: string
+
+Response: Deleted
+
+#### PATCH /api/admin/orgs/{id}
+Update orgs
+Documented from the implemented route. Request/response schema to be enriched.
+
+Path Parameters:
+- id: string
+
+Request Body:
+```json
+```
+
+Response: Success
+
+#### DELETE /api/admin/users/{id}
+Delete users
+Documented from the implemented route. Request/response schema to be enriched.
+
+Path Parameters:
+- id: string
+
+Response: Deleted
+
+#### PATCH /api/admin/users/{id}
+Update users
+Documented from the implemented route. Request/response schema to be enriched.
+
+Path Parameters:
+- id: string
+
+Request Body:
+```json
+```
+
+Response: Success
+
+#### GET /api/admin/audit-logs
+List audit logs
+Documented from the implemented route. Request/response schema to be enriched.
+
+Response: Success
+
+#### GET /api/admin/orgs
+List orgs
+Documented from the implemented route. Request/response schema to be enriched.
+
+Response: Success
+
+#### GET /api/admin/plans
+List plans
+Documented from the implemented route. Request/response schema to be enriched.
+
+Response: Success
+
+#### POST /api/admin/plans
+Create plans
+Documented from the implemented route. Request/response schema to be enriched.
+
+Request Body:
+```json
+```
+
+Response: Success
+
+#### GET /api/admin/users
+List users
+Documented from the implemented route. Request/response schema to be enriched.
+
+Response: Success
+
+#### PATCH /api/admin/plans/{id}
+Update plans
+Documented from the implemented route. Request/response schema to be enriched.
+
+Path Parameters:
+- id: string
+
+Request Body:
+```json
+```
+
+Response: Success
+
 ### Applications
 
 #### GET /api/projects/{projectId}/applications
@@ -169,6 +262,172 @@ Path Parameters:
 
 Response: Service unlinked
 
+### Auth
+
+#### DELETE /api/auth/keys/{id}
+Delete keys
+Documented from the implemented route. Request/response schema to be enriched.
+
+Path Parameters:
+- id: string
+
+Response: Deleted
+
+#### GET /api/auth/keys/{id}
+Get keys
+Documented from the implemented route. Request/response schema to be enriched.
+
+Path Parameters:
+- id: string
+
+Response: Success
+
+#### GET /api/auth/agent/me
+Get me
+Documented from the implemented route. Request/response schema to be enriched.
+
+Response: Success
+
+#### GET /api/auth/config
+Get config
+Documented from the implemented route. Request/response schema to be enriched.
+
+Response: Success
+
+#### GET /api/auth/keys
+List keys
+Documented from the implemented route. Request/response schema to be enriched.
+
+Response: Success
+
+#### POST /api/auth/keys
+Create keys
+Documented from the implemented route. Request/response schema to be enriched.
+
+Request Body:
+```json
+```
+
+Response: Success
+
+#### GET /api/auth/me
+Get me
+Documented from the implemented route. Request/response schema to be enriched.
+
+Response: Success
+
+#### GET /api/auth/user/me
+Get me
+Documented from the implemented route. Request/response schema to be enriched.
+
+Response: Success
+
+#### POST /api/auth/agent/login
+Login auth agent login
+Documented from the implemented route. Request/response schema to be enriched.
+
+Request Body:
+```json
+```
+
+Response: Success
+
+#### POST /api/auth/agent/refresh
+Refresh auth agent refresh
+Documented from the implemented route. Request/response schema to be enriched.
+
+Request Body:
+```json
+```
+
+Response: Success
+
+#### POST /api/auth/agent/register
+Register auth agent register
+Documented from the implemented route. Request/response schema to be enriched.
+
+Request Body:
+```json
+```
+
+Response: Success
+
+#### POST /api/auth/forgot-password
+Create forgot password
+Documented from the implemented route. Request/response schema to be enriched.
+
+Request Body:
+```json
+```
+
+Response: Success
+
+#### POST /api/auth/keys/{id}/revoke
+Revoke auth keys revoke
+Documented from the implemented route. Request/response schema to be enriched.
+
+Path Parameters:
+- id: string
+
+Request Body:
+```json
+```
+
+Response: Success
+
+#### POST /api/auth/keys/{id}/rotate
+Rotate auth keys rotate
+Documented from the implemented route. Request/response schema to be enriched.
+
+Path Parameters:
+- id: string
+
+Request Body:
+```json
+```
+
+Response: Success
+
+#### POST /api/auth/reset-password
+Create reset password
+Documented from the implemented route. Request/response schema to be enriched.
+
+Request Body:
+```json
+```
+
+Response: Success
+
+#### POST /api/auth/user/login
+Login auth user login
+Documented from the implemented route. Request/response schema to be enriched.
+
+Request Body:
+```json
+```
+
+Response: Success
+
+#### POST /api/auth/user/refresh
+Refresh auth user refresh
+Documented from the implemented route. Request/response schema to be enriched.
+
+Request Body:
+```json
+```
+
+Response: Success
+
+#### POST /api/auth/user/register
+Register auth user register
+Documented from the implemented route. Request/response schema to be enriched.
+
+Request Body:
+```json
+```
+
+Response: Success
+
 ### Authentication
 
 #### POST /api/auth/register
@@ -234,12 +493,142 @@ Request Body:
 
 Response: Verification result
 
+### Bootstrap
+
+#### GET /api/bootstrap/service
+Get service
+Documented from the implemented route. Request/response schema to be enriched.
+
+Response: Success
+
+### Credentials
+
+#### DELETE /api/credentials/{id}
+Delete credentials
+Documented from the implemented route. Request/response schema to be enriched.
+
+Path Parameters:
+- id: string
+
+Response: Deleted
+
+#### GET /api/credentials
+List credentials
+Documented from the implemented route. Request/response schema to be enriched.
+
+Response: Success
+
+#### POST /api/credentials
+Create credentials
+Documented from the implemented route. Request/response schema to be enriched.
+
+Request Body:
+```json
+```
+
+Response: Success
+
 ### Dashboard
 
 #### GET /api/dashboard
 Get dashboard data
 
 Response: Dashboard data with stats and recent activity
+
+### Entities
+
+#### GET /api/entities
+List entities
+Documented from the implemented route. Request/response schema to be enriched.
+
+Response: Success
+
+#### POST /api/entities
+Create entities
+Documented from the implemented route. Request/response schema to be enriched.
+
+Request Body:
+```json
+```
+
+Response: Success
+
+#### GET /api/entities/by-node/{nodeId}
+Get by node
+Documented from the implemented route. Request/response schema to be enriched.
+
+Path Parameters:
+- nodeId: string
+
+Response: Success
+
+#### GET /api/entities/{id}
+Get entities
+Documented from the implemented route. Request/response schema to be enriched.
+
+Path Parameters:
+- id: string
+
+Response: Success
+
+#### PATCH /api/entities/{id}
+Update entities
+Documented from the implemented route. Request/response schema to be enriched.
+
+Path Parameters:
+- id: string
+
+Request Body:
+```json
+```
+
+Response: Success
+
+#### POST /api/entities/resolve
+Resolve entities resolve
+Documented from the implemented route. Request/response schema to be enriched.
+
+Request Body:
+```json
+```
+
+Response: Success
+
+#### POST /api/entities/sync
+Sync entities sync
+Documented from the implemented route. Request/response schema to be enriched.
+
+Request Body:
+```json
+```
+
+Response: Success
+
+#### POST /api/entities/{id}/bind
+Bind entities bind
+Documented from the implemented route. Request/response schema to be enriched.
+
+Path Parameters:
+- id: string
+
+Request Body:
+```json
+```
+
+Response: Success
+
+#### POST /api/entities/{id}/unbind
+Unbind entities unbind
+Documented from the implemented route. Request/response schema to be enriched.
+
+Path Parameters:
+- id: string
+
+Request Body:
+```json
+```
+
+Response: Success
 
 ### Entitlements
 
@@ -342,6 +731,45 @@ Path Parameters:
 - orgId: string
 
 Response: Organization details with members and entitlements
+
+### Orgs
+
+#### DELETE /api/orgs/{orgId}/members/{memberId}
+Delete members
+Documented from the implemented route. Request/response schema to be enriched.
+
+Path Parameters:
+- orgId: string
+- memberId: string
+
+Response: Deleted
+
+#### PATCH /api/orgs/{orgId}/members/{memberId}
+Update members
+Documented from the implemented route. Request/response schema to be enriched.
+
+Path Parameters:
+- orgId: string
+- memberId: string
+
+Request Body:
+```json
+```
+
+Response: Success
+
+#### POST /api/orgs/{id}/members/invite
+Invite orgs members invite
+Documented from the implemented route. Request/response schema to be enriched.
+
+Path Parameters:
+- id: string
+
+Request Body:
+```json
+```
+
+Response: Success
 
 ### Projects
 
@@ -492,6 +920,14 @@ Path Parameters:
 
 Response: Service unlinked
 
+### Stats
+
+#### GET /api/stats
+List stats
+Documented from the implemented route. Request/response schema to be enriched.
+
+Response: Success
+
 ### Super Admin
 
 #### GET /api/admin/users/{userId}/entitlements
@@ -584,6 +1020,16 @@ Request Body:
 ```
 
 Response: Profile updated
+
+#### POST /api/users/me/password
+Create password
+Documented from the implemented route. Request/response schema to be enriched.
+
+Request Body:
+```json
+```
+
+Response: Success
 
 ## Data Models
 

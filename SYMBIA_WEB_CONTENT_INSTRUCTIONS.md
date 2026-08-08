@@ -198,7 +198,7 @@ The Network Service is a Software-Defined Network (SDN) that routes events betwe
 │                         TIER 3: Application                          │
 ├─────────────────┬─────────────────┬─────────────────┬───────────────┤
 │   Assistants    │     Runtime     │  Integrations   │    Network    │
-│     :5004       │      :5006      │      :5007      │     :5054     │
+│     :5004       │      :5006      │      :5007      │     :5009     │
 │  AI Workflows   │  Graph Engine   │   LLM Gateway   │   SDN Mesh    │
 ├─────────────────┴─────────────────┴─────────────────┴───────────────┤
 │                         TIER 2: Core Services                        │
@@ -229,7 +229,7 @@ The Network Service is a Software-Defined Network (SDN) that routes events betwe
 | 5005 | Messaging | Real-time WebSocket conversations |
 | 5006 | Runtime | Dataflow graph execution |
 | 5007 | Integrations | LLM provider gateway |
-| 5054 | Network | SDN mesh, contract-based routing |
+| 5009 | Network | SDN mesh, contract-based routing |
 | 5432 | PostgreSQL | Shared database |
 
 ### Data Flow Example
@@ -239,7 +239,7 @@ User sends message
     ↓
 Messaging Service (5005) receives via WebSocket
     ↓
-SDN (5054) broadcasts message.new event
+SDN (5009) broadcasts message.new event
     ↓
 Assistants Service (5004) evaluates rules
     ↓
@@ -556,7 +556,7 @@ Logging (5002) captures metrics: tokens, latency, run ID
 
 ---
 
-### 5.8 Network Service (Port 5054)
+### 5.8 Network Service (Port 5009)
 
 **Purpose:** Software-Defined Network (SDN) for service mesh, event routing, and policy enforcement.
 
@@ -730,7 +730,7 @@ Every service auto-generates `/docs/llms.txt` — LLM-optimized documentation. A
 - Code blocks use language hints (```typescript, ```json, ```bash)
 - API endpoints in monospace: `POST /api/auth/login`
 - Service names capitalized: Identity Service, Messaging Service
-- Port numbers with colon: `:5001`, `:5054`
+- Port numbers with colon: `:5001`, `:5009`
 
 ### SEO Keywords
 
@@ -1066,7 +1066,7 @@ Assistants   :5004   AI orchestration
 Messaging    :5005   Real-time comms
 Runtime      :5006   Graph execution
 Integrations :5007   LLM gateway
-Network      :5054   SDN mesh
+Network      :5009   SDN mesh
 
 CORE CONCEPTS
 ─────────────────────────────────────────

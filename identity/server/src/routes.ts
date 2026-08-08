@@ -129,10 +129,76 @@ function verifyToken(token: string): JWTPayload | null {
   }
 }
 
+/**
+ * DEV_NO_AUTH — the service half of the switch the control center has always
+ * described and this service never implemented.
+ *
+ * `symbia-control-center/src/App.tsx` carried a detailed comment saying this
+ * "pairs with identity's DEV_NO_AUTH" and that "both halves must be enabled:
+ * the UI cannot bypass the service on its own". `grep -rn DEV_NO_AUTH
+ * identity/` returned nothing, on 6 Aug 2026. The console's untokened probe
+ * could therefore never succeed, and the only thing actually authenticating
+ * it was a dev auto-login with hardcoded credentials — which was removed on
+ * the strength of that comment, taking the console with it.
+ *
+ * OFF unless explicitly set. A gate skipped by default is not a gate.
+ *
+ * What it does: an UNTOKENED request is attached to the first existing user.
+ * A request that presents a token is verified normally — this widens what is
+ * accepted, it never weakens what is checked. An invalid token is still an
+ * invalid token.
+ *
+ * Never set this on a stack reachable from anywhere but the machine running
+ * it. It is a development switch and the startup banner says so on every boot.
+ */
+const DEV_NO_AUTH = process.env.DEV_NO_AUTH === "true";
+
+if (DEV_NO_AUTH) {
+  console.warn(
+    "\n" +
+      "  ############################################################\n" +
+      "  #  DEV_NO_AUTH=true — UNTOKENED REQUESTS ARE ACCEPTED       #\n" +
+      "  #  Every request without a token runs as the first user.    #\n" +
+      "  #  Development only. Never on a reachable stack.            #\n" +
+      "  ############################################################\n"
+  );
+}
+
 async function authMiddleware(req: Request, res: Response, next: NextFunction) {
   const token = req.cookies?.token || req.headers.authorization?.replace("Bearer ", "");
 
   if (!token) {
+    if (DEV_NO_AUTH) {
+      const [firstUser] = await storage.getAllUsers();
+      if (!firstUser) {
+        // Say which of the two conditions failed. "No users exist" and
+        // "authentication required" are different states and must not present
+        // identically — a caller that cannot tell them apart debugs the wrong
+        // one, which is the whole reason a confident 0 is worse than a blank.
+        return res.status(503).json({
+          message: "DEV_NO_AUTH is enabled but there are no users to attach to",
+          hint: "seed the database or register a user",
+        });
+      }
+      req.user = {
+        id: firstUser.id,
+        email: firstUser.email,
+        name: firstUser.name,
+        isSuperAdmin: firstUser.isSuperAdmin,
+      };
+      req.principal = { id: firstUser.id, type: "user", name: firstUser.name };
+      try {
+        await setRLSContext({
+          orgId: "",
+          userId: firstUser.id,
+          isSuperAdmin: firstUser.isSuperAdmin,
+          capabilities: [],
+        });
+      } catch (error) {
+        console.error("[identity-service] Failed to set RLS context for DEV_NO_AUTH user:", error);
+      }
+      return next();
+    }
     return res.status(401).json({ message: "Authentication required" });
   }
 
@@ -424,10 +490,31 @@ export async function registerRoutes(
     if (!enrichedUser) {
       return res.status(404).json({ message: "User not found" });
     }
+
+    // Under DEV_NO_AUTH, hand back a REAL signed token alongside the user.
+    //
+    // Accepting untokened requests at identity alone is not enough and the
+    // original design missed it: the console would learn who it was and still
+    // hold no token, so messaging, catalog, runtime and every other service
+    // would reject it. Measured 6 Aug: /svc/identity/api/auth/me returned 200
+    // while /svc/messaging/api/conversations returned 401 in the same breath.
+    //
+    // The alternative was adding a bypass to every service's auth middleware —
+    // and there are at least three independent implementations of that
+    // middleware, so the fix would have reached one of them. Issuing a real
+    // token instead means every other service keeps checking auth exactly as
+    // it always has. The bypass is confined to who gets issued a token, which
+    // is precisely what logging in is.
+    const issuedToken =
+      !req.headers.authorization && !req.cookies?.token && DEV_NO_AUTH
+        ? signToken({ id: enrichedUser.id, email: enrichedUser.email, name: enrichedUser.name })
+        : undefined;
+
     res.json({
       type: "user",
       user: enrichedUser,
       organizations: enrichedUser.organizations || [],
+      ...(issuedToken ? { token: issuedToken, tokenIssuedBy: "DEV_NO_AUTH" } : {}),
     });
   });
 

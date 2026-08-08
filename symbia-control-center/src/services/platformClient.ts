@@ -15,6 +15,19 @@ export interface ServiceHealth {
   error?: string;
   checkedAt: string;
   stats?: ServiceStats;
+  /**
+   * Why there are no stats, when there are none.
+   *
+   * `stats` being undefined used to mean three different things at once: the
+   * service exposes no metrics, the request failed, or nobody asked. The tile
+   * rendered all three as an empty space below the description, which reads as
+   * "this service has nothing to report" — the most flattering of the three,
+   * and the one that was almost never true.
+   *
+   * Separated so the tile can say which. Observation, not inference: this
+   * holds what happened ("HTTP 401"), never a conclusion about what it means.
+   */
+  statsError?: string;
 }
 
 // Service-specific stats - different services expose different metrics
@@ -109,11 +122,32 @@ const catalogClient = new CatalogClient({
   endpoint: getServiceUrl('catalog'),
 });
 
+/**
+ * Why a request is being made, declared at the edge.
+ *
+ * The browser is where the answer is actually known. A timer firing a health
+ * poll and a person pressing a button arrive at a service looking identical —
+ * same origin header, same session, same paths in some cases — so nothing
+ * downstream can work it out, and anything that tried would be guessing.
+ *
+ * Measured 8 Aug 2026 before this existed: 96% of observed HTTP traffic was
+ * this console polling itself, indistinguishable from real activity.
+ */
+export type TrafficOrigin = 'internal' | 'user' | 'agent' | 'unknown';
+const ORIGIN_HEADER = 'x-symbia-origin';
+
 class PlatformClient {
-  private getHeaders(): Record<string, string> {
+  /**
+   * @param origin Why this call is happening. REQUIRED at each call site
+   *   rather than defaulting, because a default is a claim made by whoever
+   *   forgot to think about it — and the flattering default here ("user")
+   *   would quietly inflate the exact number this field exists to isolate.
+   */
+  private getHeaders(origin: TrafficOrigin): Record<string, string> {
     const token = useAuthStore.getState().token;
     const headers: Record<string, string> = {
       'Content-Type': 'application/json',
+      [ORIGIN_HEADER]: origin,
     };
     if (token) {
       headers['Authorization'] = `Bearer ${token}`;
@@ -128,13 +162,23 @@ class PlatformClient {
     }
   }
 
-  // Check health of a single service
-  async checkHealth(serviceId: string): Promise<ServiceHealth> {
+  /**
+   * Check health of a single service.
+   *
+   * `origin` is a required argument and not a property of this method, because
+   * this exact call has two different reasons behind it: the observability
+   * panel polls it every 5s (internal) and the command bar calls it when a
+   * person types `health <service>` (user). A method cannot know which; only
+   * the call site can. Anything that guessed here would be writing a
+   * conclusion into a probe.
+   */
+  async checkHealth(serviceId: string, origin: TrafficOrigin): Promise<ServiceHealth> {
     const start = Date.now();
     try {
       const url = getServiceUrl(serviceId);
       const response = await fetch(`${url}/health`, {
         method: 'GET',
+        headers: { [ORIGIN_HEADER]: origin },
         signal: AbortSignal.timeout(5000),
       });
 
@@ -170,51 +214,80 @@ class PlatformClient {
   }
 
   // Check health of all services
-  async checkAllHealth(): Promise<ServiceHealth[]> {
+  async checkAllHealth(origin: TrafficOrigin): Promise<ServiceHealth[]> {
     const results = await Promise.all(
-      SERVICES.map((service) => this.checkHealth(service.id))
+      SERVICES.map((service) => this.checkHealth(service.id, origin))
     );
     return results;
   }
 
-  // Fetch stats for a single service
-  async getServiceStats(serviceId: string): Promise<ServiceStats | null> {
+  /**
+   * Where each service keeps its metrics.
+   *
+   * Only `network` differs, and it differs because its stats are about routed
+   * events rather than about itself. Written as a map rather than a `switch`
+   * with a `default` so that adding a service makes the omission visible here
+   * instead of silently falling through to a path that 404s.
+   */
+  private statsPath(serviceId: string): string {
+    const OVERRIDES: Record<string, string> = {
+      network: '/api/events/stats',
+    };
+    return OVERRIDES[serviceId] ?? '/api/stats';
+  }
+
+  /**
+   * Fetch stats for a single service.
+   *
+   * SENDS THE AUTH HEADER. It did not, and `logging` and `network` both answer
+   * `/api/stats` with 401 without one — measured 8 Aug 2026 through the
+   * console's own proxy. Both returned full metrics the moment a token was
+   * attached, so the tiles were not empty because those services are quiet.
+   * They were empty because nobody signed the request.
+   *
+   * `getHeaders()` was already right here in this class and doing exactly
+   * this; this one method just never called it.
+   *
+   * Failures are RETURNED, not swallowed. The old `catch { return null }`
+   * turned a 401, a timeout, a 404 and "no such endpoint" into the same
+   * silence.
+   */
+  async getServiceStats(
+    serviceId: string,
+    origin: TrafficOrigin
+  ): Promise<{ stats: ServiceStats | null; error?: string }> {
+    const url = `${getServiceUrl(serviceId)}${this.statsPath(serviceId)}`;
     try {
-      const url = getServiceUrl(serviceId);
-      let statsUrl: string;
-
-      // Different services have different stats endpoints
-      switch (serviceId) {
-        case 'network':
-          statsUrl = `${url}/api/events/stats`;
-          break;
-        default:
-          statsUrl = `${url}/api/stats`;
-      }
-
-      const response = await fetch(statsUrl, {
+      const response = await fetch(url, {
         method: 'GET',
+        headers: this.getHeaders(origin),
         signal: AbortSignal.timeout(3000),
       });
 
       if (response.ok) {
-        return response.json();
+        return { stats: await response.json() };
       }
-      return null;
-    } catch {
-      return null;
+      return { stats: null, error: `HTTP ${response.status}` };
+    } catch (error) {
+      const message =
+        error instanceof Error
+          ? error.name === 'TimeoutError'
+            ? 'timed out'
+            : error.message
+          : 'request failed';
+      return { stats: null, error: message };
     }
   }
 
   // Check health and fetch stats for all services
-  async checkAllHealthWithStats(): Promise<ServiceHealth[]> {
-    const healthResults = await this.checkAllHealth();
+  async checkAllHealthWithStats(origin: TrafficOrigin): Promise<ServiceHealth[]> {
+    const healthResults = await this.checkAllHealth(origin);
 
     // Fetch stats in parallel for healthy services
     const statsPromises = healthResults.map(async (health) => {
       if (health.status === 'healthy') {
-        const stats = await this.getServiceStats(health.serviceId);
-        return { ...health, stats: stats || undefined };
+        const { stats, error } = await this.getServiceStats(health.serviceId, origin);
+        return { ...health, stats: stats || undefined, statsError: error };
       }
       return health;
     });
@@ -223,12 +296,12 @@ class PlatformClient {
   }
 
   // Get service bootstrap info
-  async getServiceBootstrap(serviceId: string): Promise<ServiceBootstrap | null> {
+  async getServiceBootstrap(serviceId: string, origin: TrafficOrigin): Promise<ServiceBootstrap | null> {
     try {
       const url = getServiceUrl(serviceId);
       const response = await fetch(`${url}/api/bootstrap/service`, {
         method: 'GET',
-        headers: this.getHeaders(),
+        headers: this.getHeaders(origin),
       });
 
       if (response.ok) {
@@ -294,6 +367,7 @@ class PlatformClient {
 
   // Runtime: Execute a graph
   async executeGraph(
+    origin: TrafficOrigin,
     graphId: string,
     input?: Record<string, unknown>
   ): Promise<{ executionId: string } | null> {
@@ -301,7 +375,7 @@ class PlatformClient {
       const url = `${getServiceUrl('runtime')}/api/graphs/${graphId}/execute`;
       const response = await fetch(url, {
         method: 'POST',
-        headers: this.getHeaders(),
+        headers: this.getHeaders(origin),
         body: JSON.stringify({ input }),
       });
 
@@ -315,12 +389,12 @@ class PlatformClient {
   }
 
   // Runtime: Get execution status
-  async getExecutionStatus(executionId: string): Promise<ExecutionStatus | null> {
+  async getExecutionStatus(executionId: string, origin: TrafficOrigin): Promise<ExecutionStatus | null> {
     try {
       const url = `${getServiceUrl('runtime')}/api/executions/${executionId}`;
       const response = await fetch(url, {
         method: 'GET',
-        headers: this.getHeaders(),
+        headers: this.getHeaders(origin),
       });
 
       if (response.ok) {
@@ -333,7 +407,7 @@ class PlatformClient {
   }
 
   // Logging: Get recent logs
-  async getRecentLogs(options?: {
+  async getRecentLogs(origin: TrafficOrigin, options?: {
     service?: string;
     level?: string;
     limit?: number;
@@ -347,7 +421,7 @@ class PlatformClient {
       const url = `${getServiceUrl('logging')}/api/logs${params.toString() ? `?${params}` : ''}`;
       const response = await fetch(url, {
         method: 'GET',
-        headers: this.getHeaders(),
+        headers: this.getHeaders(origin),
       });
 
       if (response.ok) {
@@ -361,12 +435,12 @@ class PlatformClient {
   }
 
   // Logging: Get metrics summary
-  async getMetricsSummary(): Promise<unknown | null> {
+  async getMetricsSummary(origin: TrafficOrigin): Promise<unknown | null> {
     try {
       const url = `${getServiceUrl('logging')}/api/metrics/summary`;
       const response = await fetch(url, {
         method: 'GET',
-        headers: this.getHeaders(),
+        headers: this.getHeaders(origin),
       });
 
       if (response.ok) {
@@ -379,12 +453,12 @@ class PlatformClient {
   }
 
   // Network: Get connected nodes
-  async getNetworkNodes(): Promise<unknown[]> {
+  async getNetworkNodes(origin: TrafficOrigin): Promise<unknown[]> {
     try {
       const url = `${getServiceUrl('network')}/api/sdn/nodes`;
       const response = await fetch(url, {
         method: 'GET',
-        headers: this.getHeaders(),
+        headers: this.getHeaders(origin),
       });
 
       if (response.ok) {
@@ -414,9 +488,12 @@ class PlatformClient {
       includeStats?: boolean;
     }
   ): string {
+    // A timer. By definition nobody asked for this one — it is the console
+    // observing the stack on its own initiative, which is the exact traffic
+    // that made up ~96% of all recorded HTTP events on 8 Aug 2026.
     const fetcher = options?.includeStats
-      ? () => this.checkAllHealthWithStats()
-      : () => this.checkAllHealth();
+      ? () => this.checkAllHealthWithStats('internal')
+      : () => this.checkAllHealth('internal');
 
     this.healthSubscriptionId = pollingManager.subscribe(
       fetcher,

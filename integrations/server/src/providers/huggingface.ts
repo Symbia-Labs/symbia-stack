@@ -5,6 +5,32 @@ import { normalizeFinishReason } from "./base.js";
 // HuggingFace now uses OpenAI-compatible router API
 const HUGGINGFACE_ROUTER_URL = "https://router.huggingface.co";
 
+/**
+ * A message part, for multimodal input.
+ *
+ * The router speaks OpenAI's content-array shape: a message's `content` is
+ * either a string or a list of parts, each text or image. This type existed
+ * only as `content: string` before, which made every image request a lie the
+ * compiler could not see — the cast is erased at runtime, so the array reached
+ * the router regardless while the type said it could not.
+ */
+export type ContentPart =
+  | { type: "text"; text: string }
+  | { type: "image_url"; image_url: { url: string } };
+
+export interface ChatMessage {
+  role: string;
+  content: string | ContentPart[];
+}
+
+function hasImagePart(messages: ChatMessage[] | undefined): boolean {
+  return Boolean(
+    messages?.some(
+      (m) => Array.isArray(m.content) && m.content.some((p) => p.type === "image_url")
+    )
+  );
+}
+
 interface HuggingFaceChatResponse {
   id: string;
   object: string;
@@ -35,12 +61,19 @@ interface HuggingFaceEmbeddingResponse {
 
 export class HuggingFaceProvider implements ProviderAdapter {
   name = "huggingface";
-  supportedOperations = ["text.generation", "chat.completions", "embeddings"];
+  supportedOperations = [
+    "text.generation",
+    "chat.completions",
+    "image.description",
+    "embeddings",
+  ];
 
   async execute(options: ExecuteOptions): Promise<NormalizedLLMResponse> {
-    const { operation, model, params, apiKey, timeout } = options;
+    const { model, params, apiKey, timeout } = options;
 
-    // Use OpenAI-compatible chat completions endpoint
+    // Use OpenAI-compatible chat completions endpoint. image.description goes
+    // to the same endpoint — the distinction is in what the request must
+    // contain, which validateParams enforces, not in where it is sent.
     const url = `${HUGGINGFACE_ROUTER_URL}/v1/chat/completions`;
 
     const body = this.buildChatBody(model, params);
@@ -102,6 +135,21 @@ export class HuggingFaceProvider implements ProviderAdapter {
       if (!params.messages && !params.prompt) {
         errors.push("Either messages or prompt is required");
       }
+    } else if (operation === "image.description") {
+      // Vision is a distinct operation so that a caller asking for it gets an
+      // error when the request contains no image, rather than a confident
+      // paragraph about an image the model never received. That failure mode —
+      // an answer with nothing behind it — is the one this platform exists to
+      // prevent, and chat.completions cannot detect it because a text-only
+      // message is legitimate there.
+      const messages = params.messages as ChatMessage[] | undefined;
+      if (!messages) {
+        errors.push("messages is required for image.description");
+      } else if (!hasImagePart(messages)) {
+        errors.push(
+          "image.description requires a message containing an image_url part; none was present"
+        );
+      }
     } else if (operation === "embeddings") {
       if (!params.input && !params.text) {
         errors.push("Either input or text is required for embeddings");
@@ -122,6 +170,41 @@ export class HuggingFaceProvider implements ProviderAdapter {
    */
   async listModels(_apiKey?: string): Promise<ModelInfo[]> {
     return [
+      // Vision-language models.
+      //
+      // NOT VERIFIED AGAINST THE ROUTER. This is a curated list, and curation
+      // is a claim about the world that nobody here has checked — no request
+      // has been made with these ids because no HuggingFace credential is
+      // stored for any user on this stack (measured 7 Aug 2026: the status
+      // endpoint says configured, /execute returns 401). They are listed so
+      // that capability selection has candidates and so the first real failure
+      // is a specific "model not served" from the router rather than an empty
+      // list that reads as "vision is impossible".
+      {
+        id: 'Qwen/Qwen2.5-VL-7B-Instruct',
+        name: 'Qwen 2.5 VL 7B Instruct',
+        description: 'Vision-language model: describes and reasons over images',
+        contextWindow: 32768,
+        maxOutputTokens: 4096,
+        capabilities: ['chat', 'vision'],
+      },
+      {
+        id: 'meta-llama/Llama-3.2-11B-Vision-Instruct',
+        name: 'Llama 3.2 11B Vision Instruct',
+        description: 'Meta vision-language model',
+        contextWindow: 128000,
+        maxOutputTokens: 4096,
+        capabilities: ['chat', 'vision'],
+      },
+      {
+        id: 'HuggingFaceM4/idefics2-8b',
+        name: 'IDEFICS2 8B',
+        description: 'Open multimodal model for image understanding',
+        contextWindow: 32768,
+        maxOutputTokens: 2048,
+        capabilities: ['chat', 'vision'],
+      },
+
       // Meta Llama 3.x series
       {
         id: 'meta-llama/Llama-3.3-70B-Instruct',
@@ -293,18 +376,30 @@ export class HuggingFaceProvider implements ProviderAdapter {
   }
 
   private buildChatBody(model: string, params: Record<string, unknown>): Record<string, unknown> {
-    // Build OpenAI-compatible request body
-    const messages = params.messages as Array<{ role: string; content: string }> | undefined;
+    // Build OpenAI-compatible request body. Messages may carry image parts;
+    // they are passed through untouched, which is what the router expects.
+    const messages = params.messages as ChatMessage[] | undefined;
 
     // If only prompt provided, convert to messages format
-    const finalMessages = messages || [{ role: "user", content: params.prompt as string }];
+    const finalMessages: ChatMessage[] = messages || [
+      { role: "user", content: params.prompt as string },
+    ];
 
-    return {
+    const body: Record<string, unknown> = {
       model,
       messages: finalMessages,
       max_tokens: params.maxTokens ?? 256,
-      temperature: params.temperature ?? 0.7,
     };
+
+    // Temperature only when asked for.
+    //
+    // A default of 0.7 was injected into every request here. Some models
+    // reject an explicitly supplied temperature, and this codebase has already
+    // lost time to exactly that with another provider. An unset parameter and
+    // a parameter set to the provider's own default are not the same request.
+    if (params.temperature !== undefined) body.temperature = params.temperature;
+
+    return body;
   }
 
   private normalizeChatResponse(raw: HuggingFaceChatResponse): NormalizedLLMResponse {

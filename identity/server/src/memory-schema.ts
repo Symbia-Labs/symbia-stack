@@ -195,7 +195,18 @@ CREATE TABLE "user_credentials" (
   "is_org_wide" boolean NOT NULL DEFAULT false,
   "metadata" json DEFAULT '{}'::json,
   "last_used_at" timestamp,
-  "created_at" timestamp DEFAULT now() NOT NULL
+  "created_at" timestamp DEFAULT now() NOT NULL,
+
+  -- OAuth fields. shared/schema.ts:615-620 is the schema of record and has
+  -- declared these since the OAuth work landed; this CREATE TABLE, which is
+  -- what actually builds the table, stopped at created_at. A fresh install
+  -- therefore built a table the code already believed had six more columns.
+  "credential_type" text DEFAULT 'api_key',
+  "refresh_token_encrypted" text,
+  "expires_at" timestamp,
+  "oauth_user_id" varchar(255),
+  "oauth_user_email" text,
+  "oauth_user_name" text
 );
 
 -- Indexes for users table

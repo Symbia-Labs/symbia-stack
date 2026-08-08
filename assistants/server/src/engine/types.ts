@@ -1,3 +1,4 @@
+import type { ProvenanceStep } from './provenance.js';
 export type TriggerType = 
   | 'message.received'
   | 'conversation.created'
@@ -180,6 +181,17 @@ export interface ExecutionContext {
   user?: UserContext;
   context: Record<string, unknown>;
   metadata: Record<string, unknown>;
+
+  /**
+   * Provenance accumulated during this rule's execution.
+   *
+   * Typed on the context rather than smuggled through `metadata` so that an
+   * action cannot quietly forget to record a step, and so the shape is one
+   * thing rather than a convention. See engine/provenance.ts.
+   */
+  provenance?: ProvenanceStep[];
+  /** Name of the rule producing the reply, carried into the envelope. */
+  provenanceRule?: string;
   catalog?: {
     resources?: Record<string, unknown>[];
   };

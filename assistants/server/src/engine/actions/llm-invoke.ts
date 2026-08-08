@@ -1,7 +1,8 @@
 import { BaseActionHandler } from './base.js';
 import type { ActionConfig, ActionResult, ExecutionContext } from '../types.js';
-import { invokeLLM, isIntegrationsAvailable, TokenAuthError } from '../../integrations-client.js';
+import { invokeLLM, isIntegrationsAvailable, resolveUsableProvider, TokenAuthError } from '../../integrations-client.js';
 import { interpolate } from '../template.js';
+import { buildAttachmentBlock } from './attachments.js';
 
 // Re-export for consumers
 export { TokenAuthError };
@@ -28,6 +29,28 @@ export class LLMInvokeHandler extends BaseActionHandler {
     try {
       const prompt = this.buildPrompt(params, context);
       const response = await this.callLLM(params, prompt, context);
+
+      // AN EMPTY ANSWER IS A FAILURE, NOT A SUCCESS.
+      //
+      // The provider returned no text and every step downstream reported ok:
+      // "llm.invoke(ok), message.send(ok)" — and no message was ever sent,
+      // because message.send happily rendered an empty template. Measured
+      // 8 Aug 2026 on the coordinator: four service.calls succeeded, the model
+      // returned "", and the operator saw silence with nothing in any log
+      // marked as a problem.
+      //
+      // Silence that reports success is the worst shape a failure can take
+      // here. It is indistinguishable from an assistant that had nothing to
+      // say, and it is the reason this took three rounds to see.
+      if (!response.content || response.content.trim() === '') {
+        return this.failure(
+          `LLM returned an empty response (provider=${response.model ? 'resolved' : 'unknown'}, ` +
+            `model=${response.model || 'unknown'}, promptChars=${prompt.length}). ` +
+            `Nothing was sent.`,
+          Date.now() - start
+        );
+      }
+      console.log(`[LLMInvoke] model=${response.model} promptChars=${prompt.length} replyChars=${response.content.length}`);
 
       // Store result in context if resultKey is specified
       // Try to parse as JSON for structured outputs (like routing decisions)
@@ -75,7 +98,9 @@ export class LLMInvokeHandler extends BaseActionHandler {
 
     // Use unified Symbia Script interpolation
     // Supports both {{@user.name}} and legacy {{message.content}} syntax
-    return interpolate(template, context);
+    const prompt = interpolate(template, context);
+
+    return prompt + buildAttachmentBlock(context, template);
   }
 
   private async callLLM(
@@ -83,8 +108,6 @@ export class LLMInvokeHandler extends BaseActionHandler {
     prompt: string,
     context: ExecutionContext
   ): Promise<{ content: string; model: string; usage: { promptTokens: number; completionTokens: number } }> {
-    const provider = params.provider || 'openai';
-    const model = params.model || 'gpt-4o-mini';
     const systemPrompt = params.systemPrompt || 'You are a helpful assistant.';
 
     // Verify Integrations service is available
@@ -101,6 +124,24 @@ export class LLMInvokeHandler extends BaseActionHandler {
 
     // Get rawOrgId for credential lookup (not the composite key)
     const rawOrgId = (context.metadata as Record<string, unknown>)?.rawOrgId as string | undefined;
+
+    // Explicit configuration wins. Otherwise ASK which provider has a
+    // credential rather than assuming openai — see resolveUsableProvider.
+    let provider = params.provider;
+    let model = params.model;
+
+    if (!provider) {
+      const usable = await resolveUsableProvider(token, rawOrgId);
+      if (!usable) {
+        throw new Error(
+          'No LLM provider has a usable credential. Add an API key in Settings, ' +
+            'or configure this assistant to use a local provider.'
+        );
+      }
+      provider = usable.provider;
+      model = model || usable.model;
+      console.log(`[llm.invoke] no provider configured; resolved to ${provider} (${model})`);
+    }
 
     const response = await invokeLLM(token, {
       provider,
