@@ -231,8 +231,19 @@ export function Spyglass({
       const kx = v.videoWidth / window.innerWidth;
       const ky = v.videoHeight / window.innerHeight;
 
+      // Capture at device resolution, but cap it.
+      //
+      // devicePixelRatio is 3 on Brian's display, so a 260px ring produced a
+      // 780x780 PNG — about 400kb as base64 — and the gateway returned 413.
+      // The body limit is now explicit and generous, but sending four times
+      // the pixels a vision model will use is still waste: every model
+      // downscales, and the operator pays for the tokens either way.
+      //
+      // 512 keeps small UI text legible at dpr 2-3 while roughly halving the
+      // payload. It is a chosen number, not a measured optimum.
+      const MAX_EDGE = 512;
+      const dpr = Math.min(window.devicePixelRatio || 1, MAX_EDGE / D);
       const c = document.createElement('canvas');
-      const dpr = window.devicePixelRatio || 1;
       c.width = Math.round(D * dpr);
       c.height = Math.round(D * dpr);
       const ctx = c.getContext('2d');

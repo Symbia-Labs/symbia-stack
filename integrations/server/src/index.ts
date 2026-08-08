@@ -46,7 +46,6 @@ server.start()
     // Connect to network service after server starts
     await initServiceRelay({
       serviceId: ServiceId.INTEGRATIONS,
-      serviceName: "Integrations Service",
       capabilities: [
         "integrations.execute",
         "integrations.providers.list",

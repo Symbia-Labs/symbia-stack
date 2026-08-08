@@ -58,8 +58,46 @@ is_first_run() {
   return 0  # First run
 }
 
-# Check if base image exists
+# Is the base image present AND newer than every shared library source?
+#
+# It used to only check presence, which meant editing a shared library had NO
+# EFFECT on any service, ever, with no error and no warning. The service
+# Dockerfiles copy the libs `--from=symbia-base`, so `docker-compose build
+# <service>` happily rebuilds a service against February's @symbia/relay.
+#
+# Measured 7 Aug 2026: symbia-relay/dist and symbia-http/dist were both dated
+# 2 Feb. Two full rebuild cycles of all nine services shipped unchanged library
+# code and the only way to notice was grepping a marker string inside a running
+# container.
+#
+# Now a lib source newer than the image means the image is stale, and it says
+# so out loud rather than quietly building the wrong thing.
 has_base_image() {
+  docker image inspect symbia-base:latest &> /dev/null || return 1
+
+  local built_at
+  built_at=$(docker image inspect -f '{{.Created}}' symbia-base:latest 2>/dev/null)
+  # BSD date on macOS, GNU date elsewhere. If neither parses it, fall back to
+  # "assume stale" — an unnecessary rebuild costs minutes, shipping the wrong
+  # library costs a day.
+  local built_epoch
+  built_epoch=$(date -j -f "%Y-%m-%dT%H:%M:%S" "${built_at%%.*}" +%s 2>/dev/null \
+    || date -d "$built_at" +%s 2>/dev/null) || return 1
+
+  local newest
+  newest=$(find symbia-sys/src symbia-relay/src symbia-http/src symbia-auth/src \
+    symbia-db/src symbia-logging-client/src symbia-md/src symbia-id/src \
+    symbia-messaging-client/src -type f -newermt "@$built_epoch" 2>/dev/null | head -5)
+
+  if [ -n "$newest" ]; then
+    log_warn "Shared library sources are newer than symbia-base — rebuilding it."
+    echo "$newest" | sed 's/^/    /'
+    return 1
+  fi
+  return 0
+}
+
+_has_base_image_present_only() {
   docker image inspect symbia-base:latest &> /dev/null
 }
 

@@ -188,7 +188,6 @@ async function start(): Promise<void> {
   // Connect to network service after server starts
   await initServiceRelay({
     serviceId: ServiceId.IDENTITY,
-    serviceName: 'Identity Service',
     capabilities: [
       'identity.auth.login',
       'identity.auth.logout',

@@ -154,6 +154,30 @@ export function resolveServicePort(serviceId: ServiceId | string): number {
  * identity's forked authMiddleware survive a patch to @symbia/auth. Both now
  * call this.
  */
+/**
+ * The one human-readable name for a service.
+ *
+ * There were at least three ways to spell one of these. Each service hardcoded
+ * a name in its own index.ts ("Identity Service", "Catalog Service"), while
+ * @symbia/http derived a different one from the id ("network", "assistants",
+ * "control center"), and whichever registered last won the race. Measured
+ * 7 Aug 2026, the topology listed ten nodes in three different styles at once:
+ *
+ *   network            Identity Service      Models Service
+ *   assistants         Integrations Service  control center
+ *
+ * A display name is a shared concern, and a shared concern with N independent
+ * implementations is not shared. Title Case, no "Service" suffix — the UI
+ * already badges each card with its node type, so repeating it is noise.
+ */
+export function serviceDisplayName(serviceId: ServiceId | string): string {
+  return String(serviceId)
+    .split(/[-_]/)
+    .filter(Boolean)
+    .map((w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
+    .join(' ');
+}
+
 export function resolveServiceHost(serviceId: ServiceId | string): string {
   const envVar = `${String(serviceId).toUpperCase().replace(/-/g, "_")}_HOST`;
   return process.env[envVar] || "localhost";

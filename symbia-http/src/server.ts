@@ -120,9 +120,21 @@ export function createSymbiaServer(config: ServerConfig): ServerInstance {
     allowLocalhost: cors?.allowLocalhost,
   }));
 
-  // Body parsing with raw body support
+  // Body parsing with raw body support.
+  //
+  // An EXPLICIT limit, because the implicit one was 100kb and nobody chose it.
+  // Measured 7 Aug 2026: a spyglass capture on a devicePixelRatio-3 display is
+  // a 780x780 PNG, roughly 400kb as base64, and POST /api/integrations/execute
+  // returned 413. Vision was impossible on any HiDPI screen and the only
+  // evidence was a bare "Gateway returned 413" in the chat composer.
+  //
+  // Images are a legitimate payload now that image.description exists, so the
+  // limit is set deliberately and generously rather than left to a default
+  // chosen for a web form in 2014. It is still a limit: an unbounded body is a
+  // way to run a service out of memory from outside.
   app.use(
     express.json({
+      limit: config.bodyLimit ?? "12mb",
       verify: (req, _res, buf) => {
         req.rawBody = buf;
       },
@@ -342,12 +354,29 @@ export function createSymbiaServer(config: ServerConfig): ServerInstance {
     // Initialize relay for SDN observability (after server is listening)
     if (enableObservability) {
       try {
-        await initServiceRelay({
+        const relay = await initServiceRelay({
           serviceId,
-          serviceName: serviceId.replace(/-/g, ' ').replace(/symbia/i, 'Symbia'),
+          // No serviceName. The relay defaults to serviceDisplayName(id),
+          // which is the one place that decides how a service is spelled.
+          // This line used to derive its own — lowercase, hyphens to spaces —
+          // and raced four services that hardcoded theirs in Title Case.
           capabilities: ['obs.http.emit'],
         });
-        log("SDN relay connected for observability");
+        // Report what actually happened.
+        //
+        // This line was unconditional and read "SDN relay connected for
+        // observability" — printed two lines below the relay's own
+        // "Could not connect to network service", on every service that had
+        // failed. A startup log that contradicts itself within three lines is
+        // worse than no log: the one that sounds like a pass is the one people
+        // read and stop at.
+        if (relay?.isReady()) {
+          log("SDN relay connected for observability");
+        } else {
+          log(
+            "SDN relay NOT connected — observability events will be dropped until the network service is reachable"
+          );
+        }
       } catch (err) {
         // Relay connection failure is non-fatal - service still works
         log(`SDN relay not available: ${err instanceof Error ? err.message : err}`);

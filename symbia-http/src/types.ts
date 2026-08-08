@@ -169,6 +169,14 @@ export interface ServerConfig {
   enableObservability?: boolean;
 
   /**
+   * Maximum JSON request body. Defaults to "12mb".
+   *
+   * Set explicitly rather than inherited from Express's 100kb default, which
+   * silently rejected every vision request from a HiDPI display with a 413.
+   */
+  bodyLimit?: string;
+
+  /**
    * Custom middleware to run after standard setup
    */
   middleware?: Array<(req: Request, res: Response, next: NextFunction) => void>;

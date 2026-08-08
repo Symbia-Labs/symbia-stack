@@ -238,7 +238,6 @@ server.start()
     // Connect to network service after server starts
     await initServiceRelay({
       serviceId: ServiceId.ASSISTANTS,
-      serviceName: 'Assistants Service',
       capabilities: [
         'assistants.graph.execute',
         'assistants.run.create',
