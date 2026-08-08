@@ -22,9 +22,12 @@
  * request's reason. Measured after this shipped: 40 introspect calls arrived
  * labelled `internal`, inherited from the polls that caused them.
  */
-export type TrafficOrigin = 'internal' | 'user' | 'agent' | 'unknown';
-
-export const ORIGIN_HEADER = 'x-symbia-origin';
+// Re-exported, not restated. The vocabulary is the platform's; this file only
+// decides which value each console client declares. Two copies of the union
+// would be two things to drift.
+export type { TrafficOrigin } from '@symbia/stream-client';
+export { ORIGIN_HEADER } from '@symbia/stream-client';
+import { ORIGIN_HEADER as HEADER, type TrafficOrigin } from '@symbia/stream-client';
 
 /**
  * Header fragment to spread into a fetch.
@@ -34,7 +37,7 @@ export const ORIGIN_HEADER = 'x-symbia-origin';
  * (`user`) would inflate the exact number this field exists to isolate.
  */
 export function originHeader(origin: TrafficOrigin): Record<string, string> {
-  return { [ORIGIN_HEADER]: origin };
+  return { [HEADER]: origin };
 }
 
 /**

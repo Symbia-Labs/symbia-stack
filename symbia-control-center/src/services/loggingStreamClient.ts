@@ -5,7 +5,7 @@
  * Includes efficient polling mechanism for near-real-time updates.
  */
 import { useAuthStore } from '@/stores/authStore';
-import { AuthedEventSource } from './authedEventSource';
+import { AuthedEventSource } from '@symbia/stream-client';
 import { ORIGIN_HEADER, CLIENT_ORIGIN } from './origin';
 import { useOrgStore } from '@/stores/orgStore';
 import { getServiceUrl } from '@/config/services';

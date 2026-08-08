@@ -284,9 +284,41 @@ Recorded separately and NOT chased: an inference endpoint answering
 unauthenticated requests is its own finding, and a worse one than the defect
 this section is about.
 
-### What closing it properly looks like
+### Closed
 
-Move `AuthedEventSource` into a browser-safe shared package so authenticated
-stream consumption is a platform capability rather than a control-center
-private. Logged here rather than done, because choosing its home is an
-architecture decision and not mine to make quietly.
+`@symbia/stream-client` — browser-safe, zero runtime dependencies, a workspace
+package like every other client on this stack. Authenticated stream
+consumption is now a platform capability rather than a control-center private.
+
+Verified after the rebuild:
+
+```
+implementations of AuthedEventSource : 1   (symbia-stream-client/src/index.ts)
+raw `new EventSource(` anywhere       : 0
+```
+
+The control-center copy is deleted, not merely superseded — leaving both would
+have been the N-implementations problem with extra steps.
+
+`services/origin.ts` now **re-exports** `TrafficOrigin` and `ORIGIN_HEADER`
+from the package instead of restating the union. Only the per-client decision
+of *which* value to declare stays in the console, which is correct: that is an
+app judgement, not a platform one.
+
+The package also carries `streamHeaders(token, origin)`, so the two headers a
+Symbia stream needs — the one whose absence caused the 401, and the one that
+classifies the traffic — are produced in one place instead of assembled by
+hand at each call site.
+
+Re-verified in the browser: the Logs panel streams live from the shared
+package, now showing `obs.http.request`, `obs.http.response`,
+`network.socket.connected` and `network.user.authenticated` as separate event
+types.
+
+**Still open, and named rather than quietly left:** `@symbia/logging-client`
+remains write-side only. A caller wanting logs still assembles the stream URL
+and query shape itself, and that shape is a logging-service API detail that
+belongs in the logging client. The transport gap is closed; the log-specific
+consumption API is not. It is not pulled in here because adding it would make
+every service image carry a browser transport package for a consumer that does
+not yet exist.
