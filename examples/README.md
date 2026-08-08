@@ -32,7 +32,7 @@ application, not to the engine.
 
 | Graph | Domain | What it shows |
 |---|---|---|
-| [`graphs/order-margin.graph.json`](graphs/order-margin.graph.json) | commerce | The same registration → hydration → gated ingress → durable state → metric sink path the energy pipeline uses, with no energy vocabulary anywhere. Uses the default `keyField`, so it also demonstrates that the neutral default is usable as-is. |
+| [`order-margin/order-margin.graph.json`](order-margin/order-margin.graph.json) | commerce | The same registration → hydration → gated ingress → durable state → metric sink path the energy pipeline uses, with no energy vocabulary anywhere. Uses the default `keyField`, so it also demonstrates that the neutral default is usable as-is. |
 
 ## Running one
 

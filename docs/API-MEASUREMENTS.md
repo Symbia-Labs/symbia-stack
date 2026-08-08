@@ -376,7 +376,7 @@ re-published. Audited: **zero** domain-specific vocabulary remains across all 16
 published manifests.
 
 A second worked example was added in an unrelated domain
-([`examples/graphs/order-margin.graph.json`](../examples/graphs/order-margin.graph.json),
+([`examples/order-margin/order-margin.graph.json`](../examples/order-margin/order-margin.graph.json),
 commerce) which runs the identical path — registration → hydration → gated
 ingress → durable state → metric sink — and uses the **default** `keyField`
 with no domain configuration at all. Delivered `{revenue: 1000, cost: 420}`,
