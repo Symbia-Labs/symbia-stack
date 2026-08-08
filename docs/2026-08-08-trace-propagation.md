@@ -86,8 +86,61 @@ not read it as one.
 
 ## Measured
 
-*(filled in after each prediction is tested)*
+**P1 (baseline) — as recorded.** 1011 distinct trace ids, zero shared.
+
+**P2 — CONFIRMED.** After the change, trace ids appear from more than one
+service. Small numbers so far (2 of 58 in one sample) because most calls on an
+idle stack are a single hop; the ones that fan out do share.
+
+**P3 — CONFIRMED, and richer than expected.** `caller` is present across the
+whole stack. One sample:
+
+```
+network -> logging        15     integrations -> identity   2
+runtime -> catalog         9     integrations -> logging    2
+network -> identity        4     models -> catalog          2
+catalog -> logging         3     catalog -> identity        1
+logging -> logging         3     assistants -> catalog      1
+messaging -> logging       3     runtime -> identity        1
+logging -> identity        2     assistants -> logging      1
+integrations -> catalog    2     models -> logging          1
+```
+
+That is eighteen observed edges where the graph previously had three declared
+ones. `logging -> logging` is real, not a bug: the logging service calls itself.
+
+**P4 — CONFIRMED, and the fix works.** http-proxy-middleware uses Node's `http`
+module and the global fetch wrapper never saw it. With explicit injection in
+`proxyReq`:
+
+```
+catalog      <- control-center  GET /api/resources             trace_probe_1786151925
+integrations <- control-center  GET /api/integrations/capabilities
+```
+
+The first line also confirms the edge ADOPTS an inbound trace id
+(`trace_probe_…` was set by the caller) rather than minting a new one — the
+console is the edge, and an id supplied there survives the hop.
+
+**P5 — not yet exercised.** No call from a timer or socket handler has been
+deliberately triggered and checked.
+
+## A wrong turn worth recording
+
+The first run of the check showed no `control-center -> *` edges at all and I
+was about to write P4's fix up as ineffective. Nothing was listening on port
+8000: the local console process had died during a rebuild. The evidence for
+"the fix does not work" and for "the thing under test is not running" were
+identical, and only `lsof` told them apart. Discipline 4 again — never trust a
+running process to be the code you just wrote, including when it is not running
+at all.
 
 ## Not checked
 
-*(kept honest as the work proceeds)*
+- P5: timer / interval / socket-handler calls.
+- Whether the trace id survives more than two hops. Nothing on this stack
+  currently makes a three-hop call under load.
+- The control center CONTAINER. The proxy fix is verified against the local
+  node process serving 8000; the container image has not been rebuilt with it.
+- Nothing in the UI reads `caller` yet. The data is on the bus; the topology
+  graph still draws declared contracts.

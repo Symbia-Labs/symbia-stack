@@ -5,7 +5,7 @@ import MemoryStore from "memorystore";
 import { createServer } from "http";
 import { Server as SocketIOServer } from "socket.io";
 import { resolveServicePort } from "@symbia/sys";
-import { observabilityMiddleware, initServiceRelay, shutdownRelay } from "@symbia/relay";
+import { observabilityMiddleware, initServiceRelay, shutdownRelay, installFetchTracePropagation } from "@symbia/relay";
 import type { Socket } from "net";
 import type { ServerConfig, ServerInstance, HealthConfig, HealthCheckResult, ShutdownConfig } from "./types.js";
 import { createCorsMiddleware, buildCorsOptions } from "./cors.js";
@@ -266,6 +266,14 @@ export function createSymbiaServer(config: ServerConfig): ServerInstance {
   // SDN Observability middleware - emits HTTP request/response events
   const enableObservability = config.enableObservability !== false;
   if (enableObservability) {
+    // Stamp outbound fetch with this service's id and the current trace BEFORE
+    // any route can run. Every service-to-service call then carries who called
+    // and what request it belongs to, without a single call site changing.
+    // SERVICE_ID is set here because the middleware reads it from env to avoid
+    // taking a config argument it would then have to thread everywhere.
+    process.env.SERVICE_ID = process.env.SERVICE_ID || String(serviceId);
+    installFetchTracePropagation(String(serviceId));
+
     app.use(observabilityMiddleware({
       excludePaths: ['/health', '/health/live', '/health/ready', '/favicon.ico', ...(telemetry?.excludePaths || [])],
       slowRequestThresholdMs: 5000,

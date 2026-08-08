@@ -683,6 +683,16 @@ export type ObservabilityEventType =
 export interface HttpRequestEvent {
   method: string;
   path: string;
+  /**
+   * The service that made this call, from x-symbia-caller.
+   *
+   * This is what makes a graph EDGE — caller -> handler, directly, with no
+   * correlation step. Absent means one of two things and they must not be
+   * collapsed: a browser-originated request (browsers do not send it), or a
+   * call made outside any request's async context, such as from a timer or a
+   * socket handler.
+   */
+  caller?: string;
   query?: Record<string, string>;
   headers?: Record<string, string>;
   ip?: string;

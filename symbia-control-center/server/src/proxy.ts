@@ -119,6 +119,29 @@ export function mountServiceProxies(app: Express): void {
           // request.
           fixRequestBody(proxyReq, req);
 
+          // Trace headers, injected HERE because the fetch wrapper cannot see
+          // this call.
+          //
+          // P4 from docs/2026-08-08-trace-propagation.md, registered as the
+          // prediction most likely to catch me out and confirmed by reading
+          // this file: http-proxy-middleware uses Node's `http` module, not
+          // `fetch`, so the global wrapper installed in createSymbiaServer
+          // misses every console → service request — which is the most common
+          // call on the stack and the one an operator is most likely to be
+          // looking at.
+          //
+          // The trace id comes from the browser if it sent one and is minted
+          // here otherwise: this proxy is the edge, and the edge is where a
+          // request's identity begins.
+          const incoming = req.headers['x-trace-id'];
+          proxyReq.setHeader(
+            'x-trace-id',
+            typeof incoming === 'string' && incoming
+              ? incoming
+              : `trace_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`
+          );
+          proxyReq.setHeader('x-symbia-caller', 'control-center');
+
           if (req.url?.includes('/stream') || req.url?.includes('/events')) {
             proxyReq.setHeader('X-Accel-Buffering', 'no');
           }

@@ -15,6 +15,7 @@
  */
 
 import type { Request, Response, NextFunction } from 'express';
+import { withTrace, traceIdFromHeaders, callerFromHeaders, mintTraceId } from './trace-context.js';
 import { emitHttpRequest, emitHttpResponse } from './integration.js';
 import type { HttpRequestEvent, HttpResponseEvent } from './integration.js';
 
@@ -71,7 +72,17 @@ export function observabilityMiddleware(
     }
 
     const startTime = Date.now();
-    const traceId = (req.headers[traceIdHeader] as string) || `trace_${startTime}_${Math.random().toString(36).slice(2, 8)}`;
+    // Adopt the inbound trace, or mint one. `traceIdFromHeaders` also reads
+    // W3C `traceparent`, so a request from anything already tracing is not
+    // given a second identity halfway through its own journey.
+    const traceId =
+      (req.headers[traceIdHeader] as string) ||
+      traceIdFromHeaders(req.headers as Record<string, unknown>) ||
+      mintTraceId();
+    // Who called us. Absent for browser-originated requests, which do not send
+    // the header, and absent for calls made outside a request's async context.
+    // Those are different things and must not be read as one.
+    const caller = callerFromHeaders(req.headers as Record<string, unknown>);
 
     // Build request event data
     const requestEvent: HttpRequestEvent = {
@@ -81,6 +92,7 @@ export function observabilityMiddleware(
       ip: req.ip || req.socket.remoteAddress,
       userAgent: req.headers['user-agent'],
       traceId,
+      caller,
     };
 
     // Optionally include filtered headers
@@ -100,6 +112,15 @@ export function observabilityMiddleware(
     emitHttpRequest(requestEvent, traceId).catch(() => {
       // Ignore errors - observability should not affect request handling
     });
+
+    // Everything downstream of here runs inside this request's trace.
+    //
+    // The fetch wrapper installed at startup reads this store, so any outbound
+    // call made while handling this request carries the same trace id and this
+    // service as the caller — without a single call site being changed. Calls
+    // made from timers or socket handlers are outside this context and get
+    // neither, which is correct: they are not part of this request.
+    const serviceId = process.env.SERVICE_ID || process.env.SYMBIA_SERVICE_ID || '';
 
     // Capture response
     const originalEnd = res.end;
@@ -144,7 +165,11 @@ export function observabilityMiddleware(
       return originalEnd.apply(res, [chunk, ...args] as Parameters<typeof originalEnd>);
     };
 
-    next();
+    // next() INSIDE the store, not after it. AsyncLocalStorage propagates into
+    // everything the callback awaits, so the whole downstream handler chain
+    // runs in this request's trace. Calling next() outside would establish a
+    // context that nothing could see.
+    withTrace({ traceId, serviceId }, () => next());
   };
 }
 
