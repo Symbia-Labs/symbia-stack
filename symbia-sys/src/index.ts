@@ -80,6 +80,30 @@ export const RunningServices: ServiceId[] = (
 ).filter((id) => id !== ServiceId.SERVER);
 
 /**
+ * Services the console can reach over HTTP, and therefore the services it can
+ * honestly report on: everything running except the console itself, which does
+ * not proxy to itself and answers 404 at `/svc/control-center/health`.
+ *
+ * This exists because the same list was being derived twice. The server knew
+ * it (`PROXIED_SERVICES` in the control center's proxy, derived correctly from
+ * the registry) and the browser did not — `config/services.ts` restated it as
+ * a hand-written literal of eight, omitting `models` and `api`.
+ *
+ * The consequence was not a missing row. The Overview card read **8/8,
+ * "responding to /health"**, while eleven containers ran and the mesh reported
+ * ten nodes. That tile already distinguishes healthy from unhealthy from
+ * unknown, and it was still wrong, because the denominator itself was short:
+ * `models` and `api` were not unknown, they were never asked. A count cannot
+ * be honest about services it does not know exist.
+ *
+ * So the list lives here, once, and both sides import it. Discipline 7: a
+ * shared concern with N independent implementations is not shared.
+ */
+export const ProxiedServices: ServiceId[] = RunningServices.filter(
+  (id) => id !== ServiceId.CONTROL_CENTER
+);
+
+/**
  * Local development endpoints for each service.
  *
  * Derived from ServicePorts. Previously hand-maintained alongside it, which

@@ -29,7 +29,7 @@ import {
 import type { Express } from 'express';
 import type { Server } from 'node:http';
 import type { Socket } from 'node:net';
-import { ServiceId, RunningServices, resolveServiceTarget } from '@symbia/sys';
+import { ServiceId, ProxiedServices, resolveServiceTarget } from '@symbia/sys';
 
 /**
  * Services this app proxies to.
@@ -39,12 +39,13 @@ import { ServiceId, RunningServices, resolveServiceTarget } from '@symbia/sys';
  * map this replaces once carried `energy: 5010` for weeks after that service
  * ceased to exist.
  *
- * RunningServices already excludes `server` (registered, nothing listening).
- * The console does not proxy to itself.
+ * The filter itself now lives in the registry as `ProxiedServices`, because
+ * the browser needed the same list to decide what to health-check and had
+ * instead hand-written a shorter one. Same concern, two implementations,
+ * disagreeing — which is how Overview came to report 8/8 on a ten-service
+ * stack. Re-exported here so existing importers keep their name.
  */
-export const PROXIED_SERVICES: ServiceId[] = RunningServices.filter(
-  (id) => id !== ServiceId.CONTROL_CENTER
-);
+export const PROXIED_SERVICES: ServiceId[] = ProxiedServices;
 
 /**
  * Where a service actually lives.
