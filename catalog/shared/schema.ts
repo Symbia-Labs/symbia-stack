@@ -21,17 +21,59 @@ export type ComponentImplKind =
   | "wasm"           // WebAssembly module
   | "integration"    // delegates to an Integrations/MCP operation
   | "remote-service";// delegates to an external service
+/**
+ * Provenance lane a port emits on.
+ *
+ *   inherit      carries whatever lane arrived. Lanes only tighten, so this is
+ *                the honest default for a pass-through.
+ *   canonical    recomputable from the graph and its inputs.
+ *   apocryphal   cannot be verified by recomputation.
+ *   conditional  decided by the data; `laneNote` must say by what.
+ *
+ * This lives in the manifest because the manifest is the PUBLIC contract. It
+ * was previously expressed only as a sentence inside `description` — readable
+ * by a person, not by a caller deciding whether to trust a value.
+ */
+export const portLanes = ["inherit", "canonical", "apocryphal", "conditional"] as const;
+export type PortLane = (typeof portLanes)[number];
+
 export interface ComponentPort {
   name: string;
   schema?: Record<string, unknown>; // JSON Schema for the port payload (optional)
   required?: boolean;
+  lane?: PortLane;                  // absent means "inherit"
+  laneNote?: string;                // what decides it, when lane is "conditional"
 }
+
+/**
+ * One configuration key of a component, declared so a graph node can be
+ * validated against it before it runs.
+ *
+ * The app manifest has had a typed `config` block since the app model landed;
+ * the component manifest described its configuration in prose inside
+ * `description` — `config.keyField (default "key")` and thirteen others. Prose
+ * cannot reject a typo. The two manifests deserve the same standing.
+ */
+export interface ComponentConfigField {
+  type: "string" | "number" | "boolean" | "object" | "array";
+  required?: boolean;
+  default?: unknown;
+  enum?: string[];
+  description: string;
+}
+
 export interface ComponentManifest {
   key: string;                    // e.g. "symbia.state.join"
   version: string;                // semver
   implementation: ComponentImplKind;
   inputs: ComponentPort[];
   outputs: ComponentPort[];
+  /**
+   * Absent and empty mean different things. `{}` asserts the component takes
+   * no configuration; `undefined` says nobody has declared one. Never infer the
+   * first from the second.
+   */
+  config?: Record<string, ComponentConfigField>;
   capability?: string;            // capability/gate required to execute
   description?: string;
 }
@@ -39,6 +81,15 @@ export const componentPortSchema = z.object({
   name: z.string().min(1),
   schema: z.record(z.unknown()).optional(),
   required: z.boolean().optional(),
+  lane: z.enum(portLanes).optional(),
+  laneNote: z.string().optional(),
+});
+export const componentConfigFieldSchema = z.object({
+  type: z.enum(["string", "number", "boolean", "object", "array"]),
+  required: z.boolean().optional(),
+  default: z.unknown().optional(),
+  enum: z.array(z.string()).optional(),
+  description: z.string().min(1),
 });
 export const componentManifestSchema = z.object({
   key: z.string().min(1),
@@ -46,6 +97,9 @@ export const componentManifestSchema = z.object({
   implementation: z.enum(["builtin", "expression", "wasm", "integration", "remote-service"]),
   inputs: z.array(componentPortSchema).default([]),
   outputs: z.array(componentPortSchema).default([]),
+  // Deliberately NOT .default({}) — that would erase the difference between a
+  // component that takes no config and one that has never declared its config.
+  config: z.record(componentConfigFieldSchema).optional(),
   capability: z.string().optional(),
   description: z.string().optional(),
 });

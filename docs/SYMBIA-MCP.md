@@ -69,7 +69,7 @@ messaging     :5005  healthy  15ms  v1.0.0
 runtime       :5006  healthy  16ms  v1.0.0
 integrations  :5007  healthy   8ms  v2.0.0
 models        :5008  healthy  16ms  v1.0.0
-network       :5054  healthy  19ms  v1.0.0
+network       :5009  healthy  19ms  v1.0.0
 → healthy: 9, total: 9
 ```
 

@@ -31,6 +31,11 @@ const PANEL_CONTEXT: Record<string, { title: string; about: string }> = {
     title: 'Network Topology',
     about: 'the service mesh: nodes, contracts, event routing and traces',
   },
+  catalog: {
+    title: 'Catalog',
+    about:
+      'the registry: every resource by type, each component\'s typed config contract and per-port provenance lanes, and hygiene checks over the registry itself',
+  },
   assistants: {
     title: 'Assistants',
     about: 'registered assistants, their aliases and rule sets',

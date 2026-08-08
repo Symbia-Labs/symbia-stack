@@ -27,7 +27,7 @@ than by importing each other's code.
 | runtime | 5006 | graph execution, component registry, ingress |
 | integrations | 5007 | LLM gateway, external integrations, MCP surface |
 | models | 5008 | local GGUF inference |
-| network | 5054 | event routing, service mesh, topology |
+| network | 5009 | event routing, service mesh, topology |
 | service-admin | 3000 | minimal admin UI (plain Node, no build step) |
 | control center | 5173 | the main UI — Vite dev server, **started separately** |
 
@@ -146,7 +146,7 @@ Everything has a working local default. The knobs you will actually touch:
 Every service serves `/health`, plus `/health/live` and `/health/ready`.
 
 ```bash
-for p in 5001 5002 5003 5004 5005 5006 5007 5008 5054; do
+for p in 5001 5002 5003 5004 5005 5006 5007 5008 5009; do
   printf "%s " "$p"; curl -s "http://localhost:$p/health" | head -c 80; echo
 done
 ```

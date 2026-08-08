@@ -2,7 +2,7 @@ import { useEffect } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { LoginPage } from '@/pages/LoginPage';
 import { RegisterPage } from '@/pages/RegisterPage';
-import { DashboardPage } from '@/pages/DashboardPage';
+import { DashboardPage, PANEL_IDS } from '@/pages/DashboardPage';
 import { AuthGuard } from '@/components/auth/AuthGuard';
 import { CommandPalette } from '@/components/command/CommandPalette';
 import { useAuthStore } from '@/stores/authStore';
@@ -131,7 +131,7 @@ export function App() {
             /integrations, /chat, /assistants … into a redirect, so no view
             was linkable and the address bar never tracked navigation.
           */}
-          {['overview', 'network', 'assistants', 'integrations', 'logs', 'chat'].map(
+          {PANEL_IDS.map(
             (panel) => (
               <Route
                 key={panel}

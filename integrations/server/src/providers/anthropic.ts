@@ -284,9 +284,42 @@ export class AnthropicProvider implements ProviderAdapter {
       max_tokens: params.maxTokens ?? params.max_tokens ?? 1024,
     };
 
-    // Add system prompt if provided
-    if (params.system || params.systemPrompt) {
-      body.system = params.system || params.systemPrompt;
+    // THE SYSTEM PROMPT.
+    //
+    // Anthropic takes it as a top-level field, not a message, so
+    // convertMessages() drops `role: "system"` — correctly. Nothing put it
+    // back. A caller that follows the OpenAI convention and passes the system
+    // prompt as messages[0] therefore had it deleted in transit, and the model
+    // answered as if it had never been given a role at all.
+    //
+    // MEASURED 8 Aug 2026, scripts/probe-anthropic-adapter.mts. A system
+    // message carrying a secret code, asked for in the user turn:
+    //   in messages[]          -> "I don't have a secret code."
+    //   as params.systemPrompt -> "HALIBUT-7391"
+    //
+    // Every assistant on this stack sends it in messages[] — see
+    // assistants/server/src/integrations-client.ts, which builds params from
+    // `messages` alone. So no assistant has ever had a system prompt on the
+    // Anthropic path. That is why the coordinator said it had "no access to
+    // your screen, dashboard, or any live system data" while sitting on four
+    // successful fetches: the instruction forbidding exactly that sentence was
+    // removed before the model saw it.
+    //
+    // I wrote that instruction and checked it by re-reading the prompt I had
+    // written. The prompt was never the thing being tested.
+    //
+    // Explicit params win; messages are the fallback, joined in order because
+    // Anthropic accepts one system field and dropping the second would repeat
+    // this defect at smaller scale.
+    const systemFromMessages = ((params.messages as Array<{ role?: string; content?: unknown }>) || [])
+      .filter((m) => m?.role === "system")
+      .map((m) => (typeof m.content === "string" ? m.content : JSON.stringify(m.content)))
+      .filter((s) => s && s.trim() !== "")
+      .join("\n\n");
+
+    const system = params.system || params.systemPrompt || (systemFromMessages || undefined);
+    if (system) {
+      body.system = system;
     }
 
     // Add temperature if provided

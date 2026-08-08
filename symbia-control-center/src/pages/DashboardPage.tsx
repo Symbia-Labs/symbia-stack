@@ -15,6 +15,7 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { MainLayout, type PanelId } from '@/components/layout/MainLayout';
 import { OverviewPanel } from '@/components/panels/OverviewPanel';
 import { NetworkPanel } from '@/components/panels/NetworkPanel';
+import { CatalogPanel } from '@/components/panels/CatalogPanel';
 import { AssistantsPanel } from '@/components/panels/AssistantsPanel';
 import { IntegrationsPanel } from '@/components/panels/IntegrationsPanel';
 import { LogSearchPanel } from '@/components/panels/LogSearchPanel';
@@ -33,12 +34,26 @@ import { mintSpyglassId } from '@/components/glass/spyglassNode';
 const PANELS: Record<Exclude<PanelId, 'chat'>, React.ComponentType> = {
   overview: OverviewPanel,
   network: NetworkPanel,
+  catalog: CatalogPanel,
   assistants: AssistantsPanel,
   integrations: IntegrationsPanel,
   logs: LogSearchPanel,
 };
 
-const PANEL_IDS = [...(Object.keys(PANELS) as PanelId[]), 'chat' as PanelId];
+/**
+ * Every panel that has a route, derived from PANELS rather than restated.
+ *
+ * EXPORTED because App.tsx used to keep its own hardcoded literal of the same
+ * list, which made it the fourth independent copy — after the `PanelId` union,
+ * this map, and `navItems` in MainLayout. Adding `catalog` to the first three
+ * and not the fourth produced a nav item that highlighted on click while the
+ * URL never moved and the panel never changed: the button did something, and
+ * nothing happened. Measured in a browser on 8 Aug 2026; no API check could
+ * have seen it.
+ *
+ * A shared concern with N independent implementations is not shared. One list.
+ */
+export const PANEL_IDS = [...(Object.keys(PANELS) as PanelId[]), 'chat' as PanelId];
 
 /**
  * Read the panel out of the path. Accepts both `/integrations` and

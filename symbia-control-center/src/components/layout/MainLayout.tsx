@@ -42,6 +42,12 @@ const IconLogs = () => (
   </svg>
 );
 
+const IconCatalog = () => (
+  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 6a2 2 0 012-2h12a2 2 0 012 2v12a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM8 4v16M12 8h5M12 12h5" />
+  </svg>
+);
+
 const IconChat = () => (
   <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
@@ -53,7 +59,14 @@ const IconChat = () => (
 // that capability arrives through declared paths would have shipped that
 // arrangement rather than examined it. Panel archived to archive/energy/;
 // returns when energy reaches the platform through the API.
-export type PanelId = 'overview' | 'network' | 'assistants' | 'integrations' | 'logs' | 'chat';
+export type PanelId =
+  | 'overview'
+  | 'network'
+  | 'catalog'
+  | 'assistants'
+  | 'integrations'
+  | 'logs'
+  | 'chat';
 
 function PaletteControl({ collapsed }: { collapsed: boolean }) {
   const [isOpen, setIsOpen] = useState(false);
@@ -248,10 +261,11 @@ export function MainLayout({ activePanel, onPanelChange, children }: MainLayoutP
         const panelKeys: Record<string, PanelId> = {
           '1': 'overview',
           '2': 'network',
-          '3': 'assistants',
-          '4': 'integrations',
-          '5': 'logs',
-          '6': 'chat',
+          '3': 'catalog',
+          '4': 'assistants',
+          '5': 'integrations',
+          '6': 'logs',
+          '7': 'chat',
         };
         const panel = panelKeys[e.key];
         if (panel) {
@@ -268,6 +282,7 @@ export function MainLayout({ activePanel, onPanelChange, children }: MainLayoutP
   const navItems: NavItem[] = [
     { id: 'overview', label: 'Overview', icon: IconOverview },
     { id: 'network', label: 'Network', icon: IconNetwork },
+    { id: 'catalog', label: 'Catalog', icon: IconCatalog },
     { id: 'assistants', label: 'Assistants', icon: IconAssistants, badge: loadedAssistants.length },
     { id: 'integrations', label: 'Integrations', icon: IconIntegrations, badge: providers.length },
     { id: 'logs', label: 'Logs', icon: IconLogs },

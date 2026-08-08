@@ -82,7 +82,7 @@ if ("response" in result) {
 
 ```
 ┌─────────────────────────────────────────────┐
-│   Symbia Network Service (Port 5054)        │
+│   Symbia Network Service (Port 5009)        │
 │   - Event routing and policy enforcement    │
 │   - SDN observability and tracing           │
 │   - Topology and contract management        │
@@ -128,7 +128,7 @@ const client = createRelayClient({
   nodeName: "My Service",
   nodeType: "service",
   capabilities: ["capability.one", "capability.two"],
-  networkUrl: "http://localhost:5054",
+  networkUrl: "http://localhost:5009",
 });
 
 await client.connect();
@@ -143,7 +143,7 @@ await client.connect();
 | `nodeType` | `NodeType` | Required | service, assistant, sandbox, bridge |
 | `capabilities` | `string[]` | `[]` | Node capabilities |
 | `endpoint` | `string` | Auto | HTTP endpoint for events |
-| `networkUrl` | `string` | `localhost:5054` | Network service URL |
+| `networkUrl` | `string` | `localhost:5009` | Network service URL |
 | `autoReconnect` | `boolean` | `true` | Auto-reconnect on disconnect |
 | `heartbeatIntervalMs` | `number` | `30000` | Heartbeat frequency |
 | `authToken` | `string` | - | JWT for agent auth |
@@ -510,7 +510,7 @@ interface AssistantClaim {
 | Variable | Description | Default |
 |----------|-------------|---------|
 | `NETWORK_RELAY_ENABLED` | Enable/disable relay | `true` |
-| `NETWORK_ENDPOINT` | Network service URL | `http://localhost:5054` |
+| `NETWORK_ENDPOINT` | Network service URL | `http://localhost:5009` |
 | `NETWORK_SERVICE_URL` | Alternate URL variable | - |
 | `PORT` | Service port for endpoint | - |
 | `HOST` | Service host for endpoint | - |

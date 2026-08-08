@@ -63,7 +63,7 @@ The Network Service is an event routing and service mesh hub for the Symbia ecos
 
 ```bash
 # Optional (all have defaults)
-PORT=5054
+PORT=5009
 IDENTITY_SERVICE_URL=http://localhost:5001
 NETWORK_HASH_SECRET=your-secret-key
 CORS_ORIGINS=http://localhost:3000
@@ -81,7 +81,7 @@ npm run build && npm run start
 
 ### Default Port
 
-The service runs on port **5054** by default.
+The service runs on port **5009** by default.
 
 ---
 
@@ -142,7 +142,7 @@ For assistant nodes connecting via WebSocket:
 4. Node ID must match agent's `agentId`
 
 ```javascript
-const socket = io('ws://localhost:5054', {
+const socket = io('ws://localhost:5009', {
   auth: { token: 'agent_jwt_token' }
 });
 ```
@@ -345,7 +345,7 @@ const socket = io('ws://localhost:5054', {
 ```javascript
 import { io } from 'socket.io-client';
 
-const socket = io('ws://localhost:5054', {
+const socket = io('ws://localhost:5009', {
   auth: { token: 'jwt_token' }  // Optional for agents
 });
 ```
@@ -660,7 +660,7 @@ Telemetry events capture significant state changes:
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `PORT` | `5054` | Server port |
+| `PORT` | `5009` | Server port |
 | `HOST` | `0.0.0.0` | Server host |
 | `CORS_ORIGINS` | `localhost:3000,localhost:5000` | Allowed origins |
 | `IDENTITY_SERVICE_URL` | `http://localhost:5053` | Identity service |
@@ -887,7 +887,7 @@ Content-Type: application/json
 ```javascript
 import { io } from 'socket.io-client';
 
-const socket = io('ws://localhost:5054');
+const socket = io('ws://localhost:5009');
 
 // Register as a node
 socket.emit('node:register', {

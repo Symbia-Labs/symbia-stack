@@ -241,16 +241,91 @@ per-tool judgement.
 
 ## Order of work
 
-1. **P4 first.** A loop that grows prompts hits this constantly, and it is
-   currently the difference between an answer and silence.
-2. Tool definitions through `llm.invoke` and the integrations adapter, with the
+1. ~~P4 first.~~ **Done, and it was the wrong target.** No length cliff exists.
+   The real defect found in its place — discarded system prompts — is fixed.
+2. Re-check the assistants against live questions now that their system prompts
+   actually arrive, since every judgement made about their behaviour today was
+   made about a model that was never given its instructions.
+3. Tool definitions through `llm.invoke` and the integrations adapter, with the
    two-stage tool list and the security allowlist.
-3. The loop action, with the budgets and gates above.
-4. Bridge `tool.invoke` to the MCP gateway.
+4. The loop action, with the budgets above.
+5. Bridge `tool.invoke` to the MCP gateway.
 
 ## Measured
 
-*(filled in as each prediction is tested)*
+*8 Aug 2026, `scripts/probe-anthropic-adapter.mts`, against the running stack.*
+
+### P1 — HOLDS, with a systematic bias worth keeping
+
+`chars/4` vs the provider's reported `promptTokens`, eight sizes:
+
+| promptChars | est (chars/4) | actual | error |
+|---|---|---|---|
+| 1,980 | 495 | 564 | −12.2% |
+| 5,980 | 1,495 | 1,670 | −10.5% |
+| 7,652 | 1,913 | 2,133 | −10.3% |
+| 8,113 | 2,028 | 2,262 | −10.3% |
+| 11,980 | 2,995 | 3,332 | −10.1% |
+| 19,980 | 4,995 | 5,549 | −10.0% |
+
+Within the 25% predicted. But the error is not noise — it is **−10% at every
+size**, tightening as prompts grow. `chars/4` under-estimates, which is the
+dangerous direction for a budget: it would let a loop overspend by a tenth
+while reporting it was within limits. Corrected estimator is `chars/4 × 1.12`,
+and the residual after correction is the thing to watch.
+
+### P4 — REFUTED, and the premise was wrong too
+
+I predicted the empty response was a parsing bug in `normalizeMessagesResponse`
+dropping non-`text` blocks. It is not. That function joins **all** text blocks;
+a `thinking` block alongside text would not empty it.
+
+Worse for my prediction: **the length effect does not reproduce at all.**
+Prompts of 8,113, 11,980 and 19,980 chars all returned a correct reply with
+`finishReason=stop`. There is no cliff between 7,672 and 8,133 because there is
+no cliff. The two data points I built P4 on were one success and one failure
+that differed by something other than size, and I read a threshold into them.
+
+Cause of the original empty response: **still unknown.** Not "probably fixed" —
+unknown. It is not size, and it is not the text-block filter. Recorded as open
+rather than closed, because a confident `0` that means "never asked" is exactly
+the defect this product exists to prevent.
+
+### Unpredicted, and larger than P4: the system prompt never arrived
+
+Asked for while probing P4, because the probe needed a control.
+
+A system message passed inside `messages[]` was **silently discarded** on the
+Anthropic path. `convertMessages()` filters `role: "system"` out — correct,
+Anthropic takes it as a top-level field — and nothing put it back.
+`buildMessagesRequestBody()` set `body.system` only from
+`params.system` / `params.systemPrompt`, which no caller on this stack sends.
+
+Measured with a secret code the user turn could not see:
+
+| system prompt passed as | reply |
+|---|---|
+| `messages[]` | "I don't have a secret code." |
+| `params.systemPrompt` | `HALIBUT-7391` |
+
+`assistants/server/src/integrations-client.ts` builds its request from
+`messages` alone. **So no assistant on this stack has ever had a system prompt
+on the Anthropic path.**
+
+This is the root cause of the grounding failure from earlier today — the
+coordinator answering "I don't have access to your screen, dashboard, or any
+live system data" while holding four successful fetches. The instruction
+forbidding that exact sentence was removed in transit. I had written that
+instruction and then verified it by re-reading the prompt I wrote, which is
+discipline 2 exactly: the check shared the author's optimism, because the
+prompt was never the thing under test.
+
+Fixed in `integrations/server/src/providers/anthropic.ts`: system messages are
+hoisted out of `messages` into `body.system` when no explicit param is given,
+joined in order. Verified behaviourally — both shapes now return the code.
+The marker grep in the running bundle returned 0 and was a false alarm: the
+bundle is minified, so comments and local identifiers do not survive. A
+behavioural probe is the only honest verification for this one.
 
 ## Not checked
 
@@ -260,3 +335,7 @@ per-tool judgement.
   memory today.
 - Whether `dataClass` is populated anywhere outside logging. Measured only on
   log records, where it is uniformly `none`.
+- **What actually caused the empty response.** Refuted as a length limit and as
+  a text-block parsing bug. No replacement explanation has been tested.
+- Whether the system-prompt defect had a second effect beyond grounding —
+  every assistant behaviour observed on 8 Aug was observed without one.
