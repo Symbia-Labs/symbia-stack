@@ -82,11 +82,28 @@ There are **no default credentials**. On first run you are prompted for name,
 email, password, and organization name; that first user becomes super admin
 with visibility across all orgs.
 
-Raw Compose works too (`docker-compose up -d`, `logs -f`, `down`, `down -v`).
-`docker-compose.override.yml` is loaded automatically and removes the
+Raw Compose works too (`docker-compose up -d`, `logs -f`, `down`, `down -v`),
+but note what it publishes. **`docker-compose.yml` alone exposes exactly one
+port to the host: 9000.** Everything else talks over the compose network by
+service name. That is what someone who just cloned the repo gets.
+
+For the console on 8000, psql on 5432, or a service port to curl, add the dev
+overlay:
+
+```bash
+docker-compose -f docker-compose.yml -f docker-compose.dev.yml up -d
+```
+
+`start.sh` sets `COMPOSE_FILE` to do this for you. The overlay also removes the
 `depends_on: db-bootstrap` conditions so restarts are fast. Read the comment at
 the top of that file before you touch it — an earlier version replaced
 bootstrap with an `echo`, and any new table silently never got created.
+
+It is called `docker-compose.dev.yml`, not `docker-compose.override.yml`, and
+the rename is the whole point: compose loads an override file automatically, so
+under the old name every clone silently ran with the developer's exposure
+surface and the documented default was a fiction. `npm run check:ports` now
+asserts the default surface is 9000 and nothing else.
 
 ### Path B — local, no Docker
 

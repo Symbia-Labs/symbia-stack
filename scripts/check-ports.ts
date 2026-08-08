@@ -30,7 +30,7 @@ const RETIRED: Record<string, string> = {
 /** Files that must not contain a retired port. */
 const OPERATIONAL = [
   'docker-compose.yml',
-  'docker-compose.override.yml',
+  'docker-compose.dev.yml',
   'start.sh',
   'start-local.sh',
   '.env.example',
@@ -68,22 +68,59 @@ for (const file of OPERATIONAL) {
   });
 }
 
-// Every running service must expose its port to compose under the documented
-// ${SERVICE_PORT:-default} form, with the default matching the registry.
-console.log('Checking docker-compose port mappings against the registry...');
-if (existsSync('docker-compose.yml')) {
-  const compose = readFileSync('docker-compose.yml', 'utf8');
-  for (const id of RunningServices) {
-    const port = ServicePorts[id];
-    if (!new RegExp(`(?<!\\d)${port}(?!\\d)`).test(compose)) {
-      failures++;
-      console.error(
-        `  docker-compose.yml  no mapping found for ${id} (${port}) — ` +
-          `registered services should be reachable, or the absence should be deliberate`
-      );
-    }
+/**
+ * Published-port assertions.
+ *
+ * This used to test whether the port NUMBER appeared anywhere in
+ * docker-compose.yml. After the 8 Aug 2026 exposure change it would still have
+ * passed — every number survives in `IDENTITY_SERVICE_URL: http://identity:5001`
+ * and in the header comment — while nothing was published at all. A check that
+ * a comment can satisfy is not a check. It now matches published mappings only.
+ */
+const PUBLISHED = /^\s*-\s*"\$\{[A-Z_]+:-(\d+)\}:(\d+)"/gm;
+const publishedIn = (file: string): Set<number> => {
+  const out = new Set<number>();
+  if (!existsSync(file)) return out;
+  const text = readFileSync(file, 'utf8');
+  for (const m of text.matchAll(PUBLISHED)) out.add(Number(m[1]));
+  return out;
+};
+
+console.log('\nChecking published ports...');
+const base = publishedIn('docker-compose.yml');
+const dev = publishedIn('docker-compose.dev.yml');
+
+// The default surface is one door. Anything else published by default is a
+// door somebody opened without saying so.
+const API_PORT = ServicePorts[ServiceId.API];
+for (const port of base) {
+  if (port !== API_PORT) {
+    note(
+      'docker-compose.yml',
+      0,
+      `publishes ${port} by default — only ${API_PORT} (api) should be public; ` +
+        `move it to docker-compose.dev.yml`
+    );
   }
 }
+if (!base.has(API_PORT)) {
+  note('docker-compose.yml', 0, `does not publish ${API_PORT} (api) — nothing reaches the host`);
+}
+
+// Every running service must still be reachable by a developer who opts in.
+const reachable = new Set([...base, ...dev]);
+for (const id of RunningServices) {
+  const port = ServicePorts[id];
+  if (!reachable.has(port)) {
+    note(
+      'docker-compose.dev.yml',
+      0,
+      `${id} (${port}) is published by neither file — a developer cannot reach it at all`
+    );
+  }
+}
+console.log(`  default surface: ${[...base].join(', ') || 'nothing'}`);
+console.log(`  dev overlay adds: ${[...dev].filter((p) => !base.has(p)).sort((a, b) => a - b).join(', ')}`);
 
 if (failures) {
   console.error(`\n${failures} port drift problem(s). @symbia/sys is the source.`);

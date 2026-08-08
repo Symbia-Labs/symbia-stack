@@ -7,6 +7,20 @@ set -e
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$SCRIPT_DIR"
 
+# This script is the DEVELOPER entry point, so it opts into the dev overlay:
+# host-published ports for psql, the nine services and the console on 8000,
+# plus debug logging. Every docker-compose call below inherits this.
+#
+# A plain `docker-compose up -d` — what someone who just cloned the repo runs —
+# does not, and publishes only 9000. That asymmetry is the point: the default
+# is the smaller surface, and the developer states that they want the larger
+# one. The dev file is deliberately not named docker-compose.override.yml,
+# which compose would load for everyone silently.
+#
+# Two calls below pass `-f docker-compose.yml` explicitly and so bypass the
+# overlay on purpose; leave them alone.
+export COMPOSE_FILE="docker-compose.yml:docker-compose.dev.yml"
+
 # Colors for output
 RED='\033[0;31m'
 GREEN='\033[0;32m'

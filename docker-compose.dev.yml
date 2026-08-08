@@ -1,5 +1,16 @@
 # Symbia Stack - Development Overrides
-# This file is automatically loaded by docker-compose
+#
+# NOT loaded automatically. Renamed from docker-compose.override.yml on
+# 8 Aug 2026 precisely so that it is not: an auto-loading override means the
+# exposure surface declared in docker-compose.yml is not the one anybody
+# actually gets, and a default that no run uses is a claim rather than a fact.
+#
+# Use it explicitly:
+#   docker-compose -f docker-compose.yml -f docker-compose.dev.yml up -d
+# or let start.sh set COMPOSE_FILE for you.
+#
+# What it adds: host-published ports for psql, the nine services and the
+# operator console on 8000, plus debug logging and relaxed bootstrap ordering.
 #
 # Services do not WAIT on db-bootstrap here, which is what makes restarts fast.
 # Bootstrap itself still runs.
@@ -19,6 +30,8 @@ services:
 
   # Identity - remove db-bootstrap dependency
   identity:
+    ports:
+      - "${IDENTITY_PORT:-5001}:5001"
     depends_on:
       postgres:
         condition: service_healthy
@@ -27,6 +40,8 @@ services:
 
   # Logging - remove db-bootstrap dependency
   logging:
+    ports:
+      - "${LOGGING_PORT:-5002}:5002"
     depends_on:
       identity:
         condition: service_healthy
@@ -35,6 +50,8 @@ services:
 
   # Catalog - remove db-bootstrap dependency
   catalog:
+    ports:
+      - "${CATALOG_PORT:-5003}:5003"
     depends_on:
       identity:
         condition: service_healthy
@@ -43,6 +60,8 @@ services:
 
   # Messaging - remove db-bootstrap dependency
   messaging:
+    ports:
+      - "${MESSAGING_PORT:-5005}:5005"
     depends_on:
       identity:
         condition: service_healthy
@@ -51,6 +70,8 @@ services:
 
   # Network
   network:
+    ports:
+      - "${NETWORK_PORT:-5009}:5009"
     depends_on:
       identity:
         condition: service_healthy
@@ -59,6 +80,8 @@ services:
 
   # Runtime - remove db-bootstrap dependency
   runtime:
+    ports:
+      - "${RUNTIME_PORT:-5006}:5006"
     depends_on:
       catalog:
         condition: service_healthy
@@ -67,6 +90,8 @@ services:
 
   # Assistants - remove db-bootstrap dependency
   assistants:
+    ports:
+      - "${ASSISTANTS_PORT:-5004}:5004"
     depends_on:
       catalog:
         condition: service_healthy
@@ -75,6 +100,8 @@ services:
 
   # Integrations
   integrations:
+    ports:
+      - "${INTEGRATIONS_PORT:-5007}:5007"
     depends_on:
       identity:
         condition: service_healthy
@@ -88,3 +115,20 @@ services:
         condition: service_healthy
     environment:
       NODE_ENV: development
+
+  # Not present above because dev overrides nothing else about them; these
+  # blocks exist purely to reopen host ports the base file no longer publishes.
+  postgres:
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+
+  models:
+    ports:
+      - "${MODELS_PORT:-5008}:5008"
+
+  # The operator console. Private by default; a developer verifying the UI in a
+  # browser needs it on the host, and browser verification is the only kind that
+  # counts for anything user-facing.
+  control-center:
+    ports:
+      - "${CONTROL_CENTER_PORT:-8000}:8000"
