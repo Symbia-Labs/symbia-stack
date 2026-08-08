@@ -60,6 +60,23 @@ interface SDNMessagePayload {
 }
 
 /**
+ * The assistant key for a loaded assistant.
+ *
+ * loadedAssistants is a Map<key, LoadedAssistant> and getAllLoadedAssistants()
+ * returns only the VALUES, so the key is not on the object — `config.key` is
+ * undefined, which is exactly what tsc says and what the log said when the
+ * mention router printed "resolves to undefined".
+ *
+ * The key lives on the catalog resource as "assistants/<key>", which is where
+ * assistant-loader derives it from in the first place.
+ */
+function loadedKey(loaded: { resource: { key?: string } }): string | undefined {
+  const k = loaded.resource?.key;
+  if (!k) return undefined;
+  return k.includes('/') ? k.split('/').pop() : k;
+}
+
+/**
  * Handle message.new events from the Network SDN.
  * This replaces the HTTP webhook for message routing.
  */
@@ -90,11 +107,17 @@ export async function handleSDNMessageNew(event: SandboxEvent): Promise<void> {
     console.log(`[SDN] No specific assistants in payload, will check ${allLoaded.length} loaded assistants`);
 
     // Convert loaded assistants to the expected format
-    assistantsToNotify = allLoaded.map(loaded => ({
-      userId: `assistant:${loaded.config.key}`,
-      key: loaded.config.key,
-      entityId: loaded.resource.entityId,
-    }));
+    // Same key derivation as the mention router below. This built
+    // `assistant:undefined` for every entry, so the "no participants in the
+    // payload" path has never worked either — it produced a list of
+    // assistants with no keys, each skipped a few lines later.
+    assistantsToNotify = allLoaded
+      .map(loaded => ({
+        userId: `assistant:${loadedKey(loaded)}`,
+        key: loadedKey(loaded) ?? null,
+        entityId: (loaded.resource as { entityId?: string }).entityId,
+      }))
+      .filter(a => a.key);
   }
 
   if (assistantsToNotify.length === 0) {
@@ -125,6 +148,48 @@ export async function handleSDNMessageNew(event: SandboxEvent): Promise<void> {
     'build': 'assistants-assistant',
   };
 
+  // AN @MENTION IS A ROUTE, NOT A HINT.
+  //
+  // If the mention names a loaded assistant, that assistant is the only one
+  // that should answer. Previously the mentioned assistant was SKIPPED (see
+  // below) on the assumption that the coordinator would forward to it — but
+  // the coordinator's orchestrate rule is a plain llm.invoke over a prompt
+  // listing its team, so it writes prose ABOUT mentions and forwards nothing.
+  //
+  // Measured 8 Aug 2026: "@docs help" in a conversation where docs was not a
+  // participant produced "I'm Claude, made by Anthropic. I don't have a @docs
+  // command" — the mentioned assistant dropped, some other assistant's
+  // catch-all answering in its place. With docs as an explicit participant the
+  // same message matched its help rule immediately, which is how the two paths
+  // were told apart.
+  if (mentionedAlias) {
+    const resolvedKey = aliasToKey[mentionedAlias] || mentionedAlias;
+    // Resolve against ALL LOADED assistants, not just the ones in the payload.
+    //
+    // The payload contains the conversation's participants, and the console
+    // adds only the coordinator by default — so "@docs help" arrived with
+    // assistants: [coordinator] and docs was never a candidate to narrow to.
+    // Searching the payload alone made this fix a no-op in exactly the case it
+    // was written for, which the first test caught.
+    const loadedMatch = getAllLoadedAssistants().find((l) => {
+      const key = loadedKey(l);
+      return (
+        key === resolvedKey ||
+        key === mentionedAlias ||
+        l.alias?.toLowerCase() === mentionedAlias
+      );
+    });
+    const matchKey = loadedMatch ? loadedKey(loadedMatch) : undefined;
+    if (loadedMatch && matchKey) {
+      console.log(`[SDN] @${mentionedAlias} resolves to ${matchKey} — routing there only`);
+      assistantsToNotify = [{
+        userId: `assistant:${matchKey}`,
+        key: matchKey,
+        entityId: (loadedMatch.resource as { entityId?: string }).entityId,
+      }];
+    }
+  }
+
   // Process for each assistant
   for (const assistant of assistantsToNotify) {
     if (!assistant.key) {
@@ -135,8 +200,12 @@ export async function handleSDNMessageNew(event: SandboxEvent): Promise<void> {
     // Skip assistants that were @mentioned in the original broadcast
     // Let coordinator route to them instead (avoids duplicate processing)
     // Only skip if this is NOT a targeted forward (payload.assistants is empty or undefined)
+    // The skip below is now unreachable for a mention that RESOLVED, because
+    // assistantsToNotify was narrowed to that one assistant above. It still
+    // applies when a mention names something that is not a loaded assistant —
+    // in that case the coordinator should get it, and the others should not.
     const isTargetedForward = payload.assistants && payload.assistants.length > 0;
-    if (!isTargetedForward && mentionedAlias) {
+    if (!isTargetedForward && mentionedAlias && assistantsToNotify.length > 1) {
       const mentionedKey = aliasToKey[mentionedAlias] || mentionedAlias;
       // Check if this assistant matches the mention (by key, alias map, or configured alias)
       const loadedAssistant = getLoadedAssistant(assistant.key);
