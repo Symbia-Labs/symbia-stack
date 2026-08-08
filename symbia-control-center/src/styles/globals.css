@@ -3,8 +3,10 @@
  * Imports design tokens and defines component classes
  */
 
-/* Import design tokens */
-@import '../../../website/design-system/tokens.css';
+/* Import design tokens. These lived under website/design-system/ until the
+   marketing site was removed on 8 Aug 2026; the console was its only consumer,
+   so they moved in here rather than the site staying alive to hold one file. */
+@import './tokens.css';
 
 @tailwind base;
 @tailwind components;

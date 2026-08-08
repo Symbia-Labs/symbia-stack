@@ -35,9 +35,10 @@ appearing and persisting. Two projects on one tree makes that routine rather
 than exceptional. Therefore:
 
 - **Never `git commit -a` from this project.** Stage explicit paths.
-- Relaunch work touches `docs/`, `website/`, `README.md`, `SECURITY.md`,
-  `CONTRIBUTING.md`. Anything under a service directory is out of scope here —
-  see the split below.
+- Relaunch work touches `docs/`, `README.md`, `SECURITY.md`, `CONTRIBUTING.md`.
+  Anything under a service directory is out of scope here — see the split
+  below. (`website/` was in this list until 8 Aug 2026, when the marketing site
+  and `SYMBIA_WEB_CONTENT_INSTRUCTIONS.md` were removed from the repo.)
 - If a lock file belonging to a live git process is present, leave it. Deleting
   one is how an index gets corrupted.
 

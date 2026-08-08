@@ -57,8 +57,8 @@ const tailwindPlugin: Plugin = {
 };
 
 async function buildCss() {
-  // Tailwind's CLI resolves @import (globals.css pulls in the shared design
-  // tokens from website/design-system) and expands the directives.
+  // Tailwind's CLI resolves @import (globals.css pulls in the design
+  // tokens beside it in src/styles) and expands the directives.
   await run('npx', [
     'tailwindcss',
     '-i', CSS_ENTRY,
