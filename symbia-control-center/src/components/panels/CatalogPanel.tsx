@@ -27,9 +27,11 @@
  */
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useAuthStore } from '@/stores/authStore';
-import { RealizationGraph, type Realization } from './catalog/RealizationGraph';
+import { GraphFlowPreview, type GraphDefinition } from './catalog/GraphFlowPreview';
 
-type Tab = 'graph' | 'registry' | 'contracts' | 'hygiene';
+type Tab = 'registry' | 'contracts' | 'hygiene';
+/** What you can do with one object once you have found it. */
+type Mode = 'inspect' | 'test';
 
 interface ManifestPort {
   name: string;
@@ -107,20 +109,13 @@ function Pill({ children, tone = 'quiet' }: { children: React.ReactNode; tone?: 
 
 export function CatalogPanel() {
   const authToken = useAuthStore((s) => s.token);
-  const [tab, setTab] = useState<Tab>('graph');
+  const [tab, setTab] = useState<Tab>('registry');
   const [resources, setResources] = useState<Resource[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [typeFilter, setTypeFilter] = useState<string>('all');
   const [query, setQuery] = useState('');
   const [selectedId, setSelectedId] = useState<string | null>(null);
-  /**
-   * What the RUNTIME holds, as distinct from what the catalog claims.
-   * `null` means never successfully read — which is not the same as empty, and
-   * the graph says so rather than drawing everything as unrealized.
-   */
-  const [realization, setRealization] = useState<Realization | null>(null);
-
   const load = useCallback(async () => {
     setLoading(true);
     setError(null);
@@ -140,32 +135,6 @@ export function CatalogPanel() {
       setResources(null);
     } finally {
       setLoading(false);
-    }
-
-    // Asked separately and failed separately. If the runtime cannot be read,
-    // the catalog still renders and realization reports itself unknown — the
-    // alternative is drawing every resource as unreal, which would be a
-    // confident answer to a question nobody managed to ask.
-    try {
-      const h = authToken ? { Authorization: `Bearer ${authToken}` } : undefined;
-      const [gr, cr] = await Promise.all([
-        fetch('/svc/runtime/api/graphs', { headers: h }),
-        fetch('/svc/runtime/api/components', { headers: h }),
-      ]);
-      if (!gr.ok || !cr.ok) {
-        setRealization(null);
-        return;
-      }
-      const gd = await gr.json();
-      const cd = await cr.json();
-      setRealization({
-        loadedGraphs: new Set<string>(((gd.graphs ?? gd) as { name: string }[]).map((g) => g.name)),
-        runningComponents: new Set<string>(
-          ((cd.components ?? cd) as { id: string }[]).map((c) => c.id),
-        ),
-      });
-    } catch {
-      setRealization(null);
     }
   }, [authToken]);
 
@@ -234,8 +203,7 @@ export function CatalogPanel() {
         <nav className="flex flex-wrap gap-2 mt-6 -mb-px">
           {(
             [
-              ['graph', 'Graph', realization ? `${realization.loadedGraphs.size} loaded` : '?'],
-              ['registry', 'Registry', resources ? String(resources.length) : ''],
+              ['registry', 'Library', resources ? String(resources.length) : ''],
               ['contracts', 'Contracts', String(counts.component ?? '')],
               ['hygiene', 'Hygiene', ''],
             ] as [Tab, string, string][]
@@ -264,39 +232,6 @@ export function CatalogPanel() {
 
       {!resources && !error && (
         <p className="px-8 py-8 text-slate-500">Reading the catalog…</p>
-      )}
-
-      {resources && tab === 'graph' && (
-        <div className="flex-1 min-h-0">
-          {realization === null ? (
-            <div className="p-8 max-w-2xl">
-              <h2 className="text-xl text-slate-200">Realization not checked</h2>
-              <p className="text-slate-400 mt-2 leading-relaxed">
-                The runtime could not be read, so which of these {resources.length} resources are
-                actually loaded is unknown. Drawing them all as unrealized would be a confident
-                answer to a question nobody managed to ask — so nothing is drawn.
-              </p>
-              <button
-                onClick={() => void load()}
-                className="mt-5 px-4 py-2 rounded-lg ring-1 ring-scc-border hover:bg-scc-elevated text-slate-200"
-              >
-                Try again
-              </button>
-            </div>
-          ) : (
-            <RealizationGraph
-              resources={resources}
-              realization={realization}
-              onSelect={(key) => {
-                const hit = resources.find((r) => r.key === key);
-                if (hit) {
-                  setSelectedId(hit.id);
-                  setTab('registry');
-                }
-              }}
-            />
-          )}
-        </div>
       )}
 
       {resources && tab === 'registry' && (
@@ -513,7 +448,15 @@ function Fact({ label, children }: { label: string; children: React.ReactNode })
 
 function ResourceDetail({ resource: r, onClose }: { resource: Resource; onClose: () => void }) {
   const [rawOpen, setRawOpen] = useState(false);
+  const [mode, setMode] = useState<Mode>('inspect');
   const manifest = r.metadata?.manifest;
+
+  // A graph resource keeps its definition under metadata.definition, and the
+  // runtime's hydration falls back to metadata.graph and then to metadata
+  // itself — mirrored here so the preview draws whatever the runtime would load.
+  const m = (r.metadata ?? {}) as Record<string, unknown>;
+  const definition = (m.definition ?? m.graph ?? m) as GraphDefinition;
+  const isGraph = r.type === 'graph' && Array.isArray(definition?.nodes);
 
   return (
     <article className="p-8 max-w-4xl">
@@ -530,7 +473,42 @@ function ResourceDetail({ resource: r, onClose }: { resource: Resource; onClose:
         </button>
       </div>
 
+      <div className="flex gap-2 mt-5">
+        {(
+          [
+            ['inspect', 'Inspect'],
+            ['test', 'Test'],
+          ] as [Mode, string][]
+        ).map(([id, label]) => (
+          <button
+            key={id}
+            onClick={() => setMode(id)}
+            className={`px-4 py-1.5 rounded-lg transition-colors ${
+              mode === id
+                ? 'bg-scc-primary/15 text-scc-primary ring-1 ring-scc-primary/40'
+                : 'text-slate-400 ring-1 ring-scc-border hover:bg-scc-elevated'
+            }`}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+
+      {mode === 'test' && <SandboxStub resource={r} />}
+      {mode === 'inspect' && (
+        <>
       {r.description && <p className="text-slate-300 mt-5 leading-relaxed">{r.description}</p>}
+
+      {isGraph && (
+        <section className="mt-7">
+          <h3 className="text-lg text-slate-200 mb-1">Behaviour</h3>
+          <p className="text-slate-500 mb-4">
+            {(definition.nodes ?? []).length} nodes, {(definition.edges ?? []).length} edges.
+            Branch ports are labelled; a refusal path is drawn amber.
+          </p>
+          <GraphFlowPreview definition={definition} />
+        </section>
+      )}
 
       <dl className="grid grid-cols-2 gap-x-8 gap-y-5 mt-7 pt-7 border-t border-scc-border">
         <Fact label="type">{r.type}</Fact>
@@ -584,7 +562,51 @@ function ResourceDetail({ resource: r, onClose }: { resource: Resource; onClose:
           </pre>
         )}
       </section>
+        </>
+      )}
     </article>
+  );
+}
+
+/**
+ * Sandbox — stubbed.
+ *
+ * The intent: load this object into an ephemeral, memory-only graph, run one
+ * input through it, and throw the graph away. Nothing registered, nothing
+ * persisted, nothing reaching a real execution.
+ *
+ * Deliberately a stub rather than a half-built runner. A Test button that
+ * quietly executed against the live runtime, or that reported success without
+ * having run anything, would be the Save-button defect in the one place an
+ * operator is most likely to trust it. It says what it does not do.
+ */
+function SandboxStub({ resource }: { resource: Resource }) {
+  return (
+    <section className="mt-6">
+      <div className="p-5 rounded-lg ring-1 ring-scc-border bg-scc-elevated/30">
+        <h3 className="text-lg text-slate-200">Sandbox — not built yet</h3>
+        <p className="text-slate-400 mt-2 leading-relaxed">
+          The intent is a memory-only load of <span className="font-mono text-slate-300">{resource.key}</span>{' '}
+          into an ephemeral graph: one input, one result, nothing registered and nothing persisted.
+          It would let you find out what this object does without giving it anywhere to do it.
+        </p>
+        <p className="text-slate-500 mt-3 leading-relaxed">
+          Stubbed on purpose. A Test button that ran against the live runtime, or that reported a
+          result it had not actually produced, would be worse than one that does nothing and says so.
+        </p>
+        <div className="mt-5 flex flex-wrap gap-3">
+          <button
+            disabled
+            className="px-4 py-2 rounded-lg ring-1 ring-scc-border text-slate-600 cursor-not-allowed"
+          >
+            Run in sandbox
+          </button>
+          <span className="self-center text-slate-500">
+            needs: ephemeral graph load · input form from the config contract · result with its lane
+          </span>
+        </div>
+      </div>
+    </section>
   );
 }
 

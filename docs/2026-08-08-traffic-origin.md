@@ -192,8 +192,30 @@ within a minute of the filter existing.
 - Whether WebSocket and SSE traffic can carry an origin at all. Headers on the
   upgrade request are available; whether they survive to the event record is
   untested.
-- **Why `GET /api/logs/stream` returns 401.** Surfaced by this change, not
-  diagnosed by it.
+- ~~Why `GET /api/logs/stream` returns 401.~~ **Diagnosed and fixed.** The
+  browser's built-in `EventSource` cannot send custom headers, so the stream
+  arrived unauthenticated. Measured through the proxy: no auth → 401,
+  `Authorization` header → 200, `?token=` in the query → 401. Replaced with
+  `AuthedEventSource`, SSE over `fetch`, which can carry the header. The Logs
+  panel now streams live where it had been empty.
+
+  A query-string token was rejected on principle as well as on evidence: a JWT
+  in a URL is written into every access log, every proxy log and every
+  `obs.http.*` record this platform emits. On a stack built to record what
+  happened, putting a credential in the recorded part is the worst option
+  available.
+
+  Worth naming: `EventSource.onerror` carries no status code, so a 401 was
+  indistinguishable from an idle stream, and it retried silently forever.
+  `AuthedEventSource` reports the status and backs off exponentially to 30s.
 - `@symbia/catalog-client` sends no origin, so catalog reads land in `unknown`.
   It is an imported package rather than a console file and was missed by the
   per-client pass.
+- The Log Search panel has no origin filter yet, so it is currently a wall of
+  `GET /api/stats`. The field is on the records; the view does not use it.
+- **The NET light reads red on `/logs` and green on `/overview`.** Observed,
+  not diagnosed. The network socket is subscribed per page, and the status bar
+  appears to report "this page did not subscribe" as "Network: Disconnected" —
+  a global claim derived from local state. Not caused by this work: the socket
+  is untouched, and the network service logs show it delivering to watchers
+  throughout.

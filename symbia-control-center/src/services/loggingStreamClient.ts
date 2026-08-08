@@ -5,6 +5,7 @@
  * Includes efficient polling mechanism for near-real-time updates.
  */
 import { useAuthStore } from '@/stores/authStore';
+import { AuthedEventSource } from './authedEventSource';
 import { ORIGIN_HEADER, CLIENT_ORIGIN } from './origin';
 import { useOrgStore } from '@/stores/orgStore';
 import { getServiceUrl } from '@/config/services';
@@ -260,7 +261,7 @@ export const pollingManager = new PollingManager();
 
 interface SSESubscription {
   id: string;
-  eventSource: EventSource;
+  eventSource: AuthedEventSource;
   callback: (logs: LogEntry[]) => void;
   onError?: (error: Event) => void;
 }
@@ -271,12 +272,25 @@ class SSEStreamManager {
 
   subscribe(
     url: string,
+    headers: Record<string, string>,
     callback: (logs: LogEntry[]) => void,
-    onError?: (error: Event) => void
+    onError?: (error: unknown) => void
   ): string {
     const id = `sse_${++this.idCounter}`;
 
-    const eventSource = new EventSource(url);
+    // AuthedEventSource, not EventSource: the browser's built-in cannot send
+    // an Authorization header, so this stream was answered 401 on every
+    // attempt and retried silently forever. See services/authedEventSource.ts.
+    const eventSource = new AuthedEventSource(url, {
+      headers,
+      onStatus: (status, statusText) => {
+        // Say what happened. The previous code could not tell "refused" from
+        // "nothing to send", and reported neither.
+        if (status !== 200) {
+          console.error(`[SSE] log stream refused: HTTP ${status} ${statusText}`);
+        }
+      },
+    });
 
     eventSource.addEventListener('connected', () => {
       console.log('[SSE] Connected to log stream');
@@ -302,7 +316,7 @@ class SSEStreamManager {
 
     eventSource.onerror = (error) => {
       console.error('[SSE] Connection error:', error);
-      // EventSource will automatically reconnect
+      onError?.(error);
     };
 
     this.subscriptions.set(id, { id, eventSource, callback, onError });
@@ -490,6 +504,9 @@ class LoggingStreamClient {
     // Use SSE for real-time streaming
     return sseStreamManager.subscribe(
       sseUrl,
+      // The same headers every other call from this client sends. Their
+      // absence here was the whole defect.
+      this.getHeaders(),
       callback,
       () => {
         console.warn('[LoggingStreamClient] SSE error, consider falling back to polling');

@@ -1517,69 +1517,6 @@ Recorded so the sweep is not read as uniformly negative:
 - **Components** — 16 and 16, ports, lanes and config keys all matching
   (§11.6 verifies this continuously now).
 
-### 13.8 F44 — half the component catalog is a claim nobody has cashed
-
-Built the realization graph (§14) on the premise that a catalog object is not
-real until a graph in the runtime loads it. The first render answered a question
-this document had not thought to ask.
-
-**Measured.** 4/4 graphs loaded. **8/16 components reached by a loaded graph.**
-
-Reached: `io.passthrough` (4), `io.collect` (4), `logic.filter` (3),
-`compute.arithmetic` (3), `state.join` (2), `sink.log` (2), `sink.metric` (2),
-`io.log` (2).
-
-Not reached by anything: `source.timer`, `state.rollup`, `state.window`,
-`state.latest`, `io.delay`, `io.http-request`, `logic.switch`, `transform.map`.
-
-This is not a defect — sixteen builtins ship whether or not a graph wires them,
-and an unused component is a capability in waiting. But it reframes several
-findings in this document:
-
-- **`symbia.state.rollup` is unused.** It has been cited throughout this review
-  as the component that gets the partial-total rule *right* — emitting apocryphal
-  with `{coverage, present, missing}` rather than letting a partial pass as a
-  total. It is the reference implementation of the platform's honesty rule and
-  **no graph references it**, while `compute.arithmetic`, which violated the same
-  rule until §12, is used by three.
-- **The lane work in §9 covers ports that mostly never fire.** 24 output ports
-  now publish a lane; 8 of 16 components are unreached, so a good share of that
-  contract describes behaviour no execution has exercised.
-- **F12's unexercised implementation kinds have a sibling.** Four of five
-  `implementation` kinds have zero instances; now, half the instances of the one
-  kind in use have zero consumers.
-
-`apps/control-center` renders correctly as `provides 0` — it declares no graphs,
-which is true and now visible.
-
----
-
-## 14. Built: the realization graph
-
-`symbia-control-center/src/components/panels/catalog/RealizationGraph.tsx`,
-the Catalog panel's default view.
-
-**Why it looks like the network topology.** That page already teaches the
-distinction this one needs — solid for observed, dashed for *"declared contract
-— permitted, not necessarily used"*. Reusing its visual language rather than
-inventing a second one means an operator learns the idea once. Same React Flow
-canvas, same solid/dashed grammar, same legend habit.
-
-**What it draws.** Three columns — apps, graphs, components. `app → graph` is
-"provides"; `graph → component` is "a node references". Both are catalog
-declarations. Solid and animated where the runtime actually holds the thing;
-dashed and dimmed where it is registered only.
-
-**Realization is asked separately and fails separately.** The runtime is read in
-its own request. If it cannot be read, the view does not draw everything as
-unrealized — it says *"Realization not checked"* and offers a retry. Drawing 79
-dashed boxes would be a confident answer to a question nobody managed to ask.
-
-**One layout correction, caught in the browser.** The first version overlaid the
-stats and legend on the canvas; at the zoom this console is read at they covered
-the first app card and the entire right-hand component column — a legend hiding
-the thing it explains. Both now sit outside the canvas.
-
 ### 13.7 Not checked — §13
 
 - Whether `totalMessagesProcessed` counts something other than graph hops (F43).
@@ -1591,3 +1528,60 @@ the thing it explains. Both now sit outside the canvas.
 - Nothing in §13 was checked in a browser except the Overview provider dots.
 
 ---
+
+### 13.8 F44 — withdrawn
+
+Briefly recorded here as "half the component catalog is a claim nobody has
+cashed", from a realization graph drawing which components no loaded graph
+reaches (8 of 16).
+
+**Withdrawn as a finding, and the view reverted.** The measurement was correct
+and the frame was wrong. Catalog components are a *library* of available,
+compiled, signed objects; a library is not defective for holding books nobody
+has opened this week. "Not real until loaded into a graph" describes when an
+object takes effect, not whether its registration means anything — and building
+a whole view around the second reading turned a shelf into an accusation.
+
+Kept as a note because the error is instructive: a true measurement, framed as a
+defect, would have sent someone deleting perfectly good components.
+
+---
+
+## 14. Built: browse, inspect, test
+
+The catalog experience: **browse** the library, **inspect** an object, **test**
+it in a sandbox.
+
+**Browse.** The Library tab — all 79 grouped by type, with search, type filters
+and master-detail. Catalog components are a library of available, compiled,
+signed objects, and the browser treats them as one: it does not editorialise
+about which of them a graph currently wires.
+
+**Inspect.** Facts, tags, the typed config contract and per-port lanes for
+components, and for graphs a **behaviour preview in the assistants page's own
+visual language** — `FlowNode`, dagre left-to-right, green Input and Output
+endpoints, one coloured card per node. An operator who has read the behaviour
+tile on an assistant should not have to learn a second grammar here.
+
+Nodes are coloured by component family (io, logic, state, compute, transform,
+sink, source) rather than by lane, because a lane belongs to an edge leaving a
+port and not to the node — colouring by it would say a component *is*
+apocryphal when only one of its outputs is. Branch ports are labelled, and
+`error` / `fail` edges draw amber.
+
+Entry and exit are derived rather than asserted: Input attaches to
+`metadata.ingress.node` where a graph declares one, and otherwise to whatever no
+edge targets.
+
+**Test — stubbed on purpose.** The intent is a memory-only load into an
+ephemeral graph: one input, one result, nothing registered and nothing
+persisted. It is a stub rather than a half-built runner, because a Test button
+that quietly ran against the live runtime, or reported a result it had not
+produced, would be the Save-button defect in the place an operator is most
+likely to trust it. The panel says what it does not do, and names what it needs:
+ephemeral graph load, an input form generated from the config contract, and a
+result shown with its lane.
+
+**Reverted along the way.** A realization graph — apps → graphs → components,
+solid for loaded, dashed for registered — was built first and removed. See F44.
+
