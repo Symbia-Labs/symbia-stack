@@ -47,6 +47,9 @@ interface NetworkGraphProps {
   events?: Array<{ event: SandboxEvent; trace: EventTrace }>;
   className?: string;
   onNodeClick?: (node: NetworkNode) => void;
+  showIntegrations?: boolean;
+  integrationCount?: number;
+  onToggleIntegrations?: () => void;
 }
 
 export function NetworkGraph({
@@ -55,6 +58,9 @@ export function NetworkGraph({
   events = [],
   className = '',
   onNodeClick,
+  showIntegrations = false,
+  integrationCount = 0,
+  onToggleIntegrations,
 }: NetworkGraphProps) {
   // Track if we've done initial layout
   const hasInitialLayout = useRef(false);
@@ -173,7 +179,7 @@ export function NetworkGraph({
         edgeTypes={edgeTypes}
         defaultEdgeOptions={defaultEdgeOptions}
         fitView
-        fitViewOptions={{ padding: 0.3 }}
+        fitViewOptions={{ padding: 0.15, maxZoom: 1.1 }}
         nodesDraggable={true}
         nodesConnectable={false}
         elementsSelectable={true}
@@ -198,6 +204,22 @@ export function NetworkGraph({
           showInteractive={false}
           className="network-graph-controls"
         />
+
+        {/* External integrations, off by default. See NetworkPanel for why. */}
+        {integrationCount > 0 && onToggleIntegrations && (
+          <div className="absolute top-3 right-3 z-10">
+            <button
+              onClick={onToggleIntegrations}
+              className={`rounded-md border px-2.5 py-1.5 text-[11px] backdrop-blur transition-colors ${
+                showIntegrations
+                  ? 'border-pink-400/40 bg-pink-500/10 text-pink-200'
+                  : 'border-border bg-surface-sunken/90 text-text-secondary hover:text-text-primary'
+              }`}
+            >
+              {showIntegrations ? 'Hide' : 'Show'} {integrationCount} external integrations
+            </button>
+          </div>
+        )}
 
         {/* Say what the edges are.
             They are DECLARED CONTRACTS, not observed calls. Measured 8 Aug

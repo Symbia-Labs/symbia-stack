@@ -333,6 +333,20 @@ export function NetworkPanel() {
   const permissions = useMemo(() => getUserNetworkPermissions(user), [user]);
 
   const [activeTab, setActiveTab] = useState<'graph' | 'nodes' | 'contracts' | 'events'>('graph');
+  /**
+   * External integrations OFF by default on the graph.
+   *
+   * They are eleven of the twenty nodes and every one of them hangs off the
+   * single integrations service, so dagre ranks them into one long column that
+   * dwarfs the nine services and squeezes the actual mesh into a corner.
+   * Several are also named after services they are not — an "Symbia Identity"
+   * integration sitting beside the Identity service invites exactly the
+   * misreading a topology diagram should prevent.
+   *
+   * They are one click away rather than deleted: they are real, they just are
+   * not what this view is for.
+   */
+  const [showIntegrations, setShowIntegrations] = useState(false);
   const [expandedEventId, setExpandedEventId] = useState<string | null>(null);
   const [nodeTypeFilter, setNodeTypeFilter] = useState<string | null>(null);
   const [inspectingEvent, setInspectingEvent] = useState<{ event: SandboxEvent; trace: EventTrace } | null>(null);
@@ -505,9 +519,12 @@ export function NetworkPanel() {
       <div className="flex-1 overflow-y-auto p-6">
         {activeTab === 'graph' && (
           <NetworkGraph
-            networkNodes={allNodes}
-            contracts={allContracts}
+            networkNodes={showIntegrations ? allNodes : networkNodes}
+            contracts={showIntegrations ? allContracts : networkContracts}
             events={recentNetworkEvents}
+            showIntegrations={showIntegrations}
+            integrationCount={integrationNodes.length}
+            onToggleIntegrations={() => setShowIntegrations((v) => !v)}
             className="h-[calc(100vh-280px)] min-h-[400px]"
           />
         )}

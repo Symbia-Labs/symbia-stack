@@ -114,12 +114,22 @@ function getDagreLayout(
   dagreGraph.setDefaultEdgeLabel(() => ({}));
 
   // Optimized layout settings for cleaner visualization
+  // Layout, tuned after the graph rendered as a tiny cluster in one corner with
+  // a long vertical column hanging off it.
+  //
+  // `align: 'UL'` was the main culprit: pinning every rank to the upper-left
+  // stacks same-rank nodes downward instead of centring them, which turns one
+  // service with eleven dependents into a column taller than the canvas. Left
+  // unset, dagre balances ranks around the centre line.
+  //
+  // ranksep drops because the observed edges now carry labels and need room
+  // between ranks, not a corridor; nodesep rises so sibling nodes stop
+  // touching. These are chosen by looking at the result, not derived.
   dagreGraph.setGraph({
     rankdir: 'LR',           // Left-to-right flow
-    nodesep: 100,            // Vertical spacing between nodes in same rank
-    ranksep: 200,            // Horizontal spacing between ranks
-    align: 'UL',             // Align nodes to upper-left for consistency
-    ranker: 'network-simplex', // Better ranking algorithm for complex graphs
+    nodesep: 70,             // Between nodes in the same rank
+    ranksep: 150,            // Between ranks
+    ranker: 'network-simplex',
   });
 
   // Add nodes to dagre
@@ -134,6 +144,43 @@ function getDagreLayout(
     .forEach((edge) => {
       dagreGraph.setEdge(edge.source, edge.target);
     });
+
+  // A MESH IS NOT A HIERARCHY.
+  //
+  // dagre ranks nodes by dependency depth, which is right for a DAG and wrong
+  // here: most services have no observed inbound edge, so they all land in
+  // rank 0 and stack into a single vertical column — measured after the first
+  // layout attempt, ten nodes spanning 271px wide by 668px tall, with one
+  // node stranded to the side. Tuning nodesep and ranksep moved that column
+  // around without making it not a column.
+  //
+  // When the graph is flat — fewer layout edges than nodes, i.e. no real
+  // hierarchy to show — a ring is used instead. Every node is equidistant and
+  // visible, and the observed edges become chords across it, which is the
+  // shape of the thing being described: peers calling peers.
+  const layoutEdgeCount = edges.filter(
+    (e) => !e.data?.isMesh && !e.data?.isClientConnection
+  ).length;
+  const isFlat = layoutEdgeCount < nodes.length;
+
+  if (isFlat) {
+    const radius = Math.max(260, nodes.length * 48);
+    const cx = radius + NODE_WIDTH;
+    const cy = radius + NODE_HEIGHT;
+    const layoutedNodes = nodes.map((node, i) => {
+      // Start at the top and go clockwise, so the order is stable between
+      // renders rather than jumping when a node joins.
+      const angle = (i / nodes.length) * Math.PI * 2 - Math.PI / 2;
+      return {
+        ...node,
+        position: {
+          x: cx + radius * Math.cos(angle) - NODE_WIDTH / 2,
+          y: cy + radius * Math.sin(angle) - NODE_HEIGHT / 2,
+        },
+      };
+    });
+    return { nodes: layoutedNodes, edges };
+  }
 
   // Run the layout algorithm
   dagre.layout(dagreGraph);
