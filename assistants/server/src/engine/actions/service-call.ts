@@ -1,4 +1,5 @@
 import { BaseActionHandler } from './base.js';
+import { TokenAuthError } from '../../integrations-client.js';
 import type { ActionConfig, ActionResult, ExecutionContext } from '../types.js';
 import { ServiceId, resolveServiceUrl } from '@symbia/sys';
 import { interpolate, interpolateObject } from '../template.js';
@@ -93,7 +94,37 @@ export class ServiceCallHandler extends BaseActionHandler {
 
       if (!response.ok) {
         const errorText = await response.text();
-        return this.failure(`Service call failed: ${response.status} - ${errorText}`, Date.now() - start);
+
+        // A REJECTED TOKEN MUST THROW, not return a failure.
+        //
+        // The SDN webhook path already refreshes the assistant's token and
+        // retries when it catches TokenAuthError — that machinery has been
+        // there the whole time. But only llm.invoke ever threw it. service.call
+        // returned an ordinary failure on 401, so the retry it was written for
+        // never fired, and a stale token turned into an error message in the
+        // user's chat instead of a refresh nobody would have noticed.
+        //
+        // Measured 8 Aug 2026: `network GET /events?limit=300 -> 401 (auth:
+        // bearer sent)`, while the identical request with a FRESH token from
+        // inside the same container returned 200.
+        if (response.status === 401 || response.status === 403) {
+          throw new TokenAuthError(
+            `${params.service} ${params.method || 'GET'} ${resolvedPath} rejected the token (${response.status})`
+          );
+        }
+        // SAY WHICH CALL FAILED.
+        //
+        // This read "Service call failed: 401 - {...}" with no service, no
+        // path and no indication of whether a token was even sent. A rule with
+        // four service.call steps produced an error that could have come from
+        // any of them, and the operator's only move was to guess. Naming the
+        // call, and whether an Authorization header went with it, turns one
+        // message into the whole diagnosis.
+        return this.failure(
+          `Service call failed: ${params.service} ${params.method || 'GET'} ${resolvedPath} ` +
+            `-> ${response.status} (auth: ${token ? 'bearer sent' : 'NO TOKEN'}) - ${errorText.slice(0, 200)}`,
+          Date.now() - start
+        );
       }
 
       const data = await response.json();
