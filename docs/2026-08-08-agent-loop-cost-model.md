@@ -327,6 +327,30 @@ The marker grep in the running bundle returned 0 and was a false alarm: the
 bundle is minified, so comments and local identifiers do not survive. A
 behavioural probe is the only honest verification for this one.
 
+### Verified in the browser, not with curl
+
+Same question, same panel, same assistant as this morning — Platform Overview,
+coordinator, "I thought this should show 11/11 by now?"
+
+This morning: *"I don't actually have access to your screen, dashboard, or any
+live system data in this conversation."*
+
+Now: 10 nodes total — 9 services named individually plus one client, admin's
+Control Center, all with heartbeats inside ~30s, cited `(network)`. It then
+declined to accept the premise: the 11th node "isn't in the current registry
+… it's simply not registered at all", offered the two candidate explanations,
+and routed to `@code` and `@ui` to distinguish them. Arena badge: **Composed,
+6 citations**.
+
+System-prompt rules 3 (never claim no access), 4 (cite the service) and 5 (do
+not simply agree with the operator) are all visibly obeyed for the first time,
+because for the first time the model was sent them.
+
+Unrelated and still open, seen while doing this: the Overview SERVICES card
+reads **8/8** while the mesh reports 10 nodes and 11 containers run. The card
+is counting something narrower than "services" and says `8/8`, which reads as
+complete. Not investigated here.
+
 ## Not checked
 
 - Whether the local model can emit well-formed tool selections at all. Its
