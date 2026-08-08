@@ -8,6 +8,17 @@ export interface ServiceCallParams {
   service: string;  // 'logging', 'catalog', 'identity', etc.
   method: string;   // HTTP method
   path: string;     // API path
+  /**
+   * Path prefix on the service. Defaults to "/api".
+   *
+   * Set to "" to reach a service's ROOT endpoints. Every Symbia service
+   * publishes its own documentation there — /openapi.json, /docs/openapi.json,
+   * /llms.txt — and none of it is under /api, so before this existed no rule
+   * could read what a service says about itself. Measured 8 Aug 2026: the Docs
+   * assistant asked for /openapi.json, service.call turned it into
+   * /api/openapi.json, and every one of its sources 404'd.
+   */
+  basePath?: string;
   body?: Record<string, unknown>;
   headers?: Record<string, string>;
   resultKey?: string; // Key to store result in context
@@ -35,8 +46,9 @@ function getServiceEndpoint(service: string): string | null {
   const envOverride = process.env[`${service.toUpperCase()}_ENDPOINT`];
   if (envOverride) return envOverride;
 
-  // Use @symbia/sys service resolution
-  return `${resolveServiceUrl(serviceId)}/api`;
+  // Use @symbia/sys service resolution. The /api prefix is applied by the
+  // caller so it can be overridden per call — see ServiceCallParams.basePath.
+  return resolveServiceUrl(serviceId);
 }
 
 export class ServiceCallHandler extends BaseActionHandler {
@@ -56,7 +68,11 @@ export class ServiceCallHandler extends BaseActionHandler {
       const resolvedPath = interpolate(params.path, context);
       const resolvedBody = params.body ? interpolateObject(params.body, context) : undefined;
 
-      const url = `${baseUrl}${resolvedPath}`;
+      // "/api" unless the rule says otherwise. `?? '/api'` rather than
+      // `|| '/api'` on purpose: an empty string is a deliberate choice to
+      // address the service root, and || would silently overrule it.
+      const basePath = params.basePath ?? '/api';
+      const url = `${baseUrl}${basePath}${resolvedPath}`;
 
       // Forward the caller's token.
       //

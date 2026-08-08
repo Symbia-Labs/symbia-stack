@@ -37,6 +37,9 @@ if (!token) {
   process.exit(1);
 }
 
+const SIBLINGS =
+  '@security (credentials, providers, contracts), @obs (live traffic, errors, latency), @code (catalog resources, runtime components), @ui (registered apps, connected clients), @docs (service OpenAPI)';
+
 const LLM = { provider: 'anthropic', model: 'claude-sonnet-5', maxTokens: 900, temperature: 0.3 };
 
 /** The instruction every one of these shares. */
@@ -62,6 +65,8 @@ interface Call {
   resultKey: string;
   method?: string;
   body?: unknown;
+  /** "" reaches the service root. Docs live there, not under /api. */
+  basePath?: string;
 }
 
 /**
@@ -105,6 +110,7 @@ function groundedRule(opts: {
           service: c.service,
           method: c.method ?? 'GET',
           path: c.path,
+          ...(c.basePath !== undefined ? { basePath: c.basePath } : {}),
           ...(c.body ? { body: c.body } : {}),
           resultKey: c.resultKey,
         },
@@ -146,17 +152,37 @@ function helpRule(id: string, body: string) {
 }
 
 /**
- * The catch-all.
+ * The catch-all, which FETCHES rather than refuses on a regex miss.
  *
- * Deliberately NOT a general chat fallback. It refuses and names what it can
- * answer, because an assistant scoped to one install that quietly answers
- * general questions is no longer scoped to that install.
+ * The first version was a static message: "that question did not match
+ * anything I fetch". Measured 8 Aug 2026 — an operator standing on the
+ * Platform Overview panel asked "@docs what does this dashboard show?" and got
+ * that refusal, while the assistant was holding `symbiaContext` saying exactly
+ * which panel they were on and had four live sources it never called.
+ *
+ * That is a refusal about a REGEX, dressed as a refusal about knowledge. The
+ * two are not the same and only one of them is honest. A rule that did not
+ * match is a fact about the rule; the operator should be told what the
+ * assistant actually has, not that their phrasing failed.
+ *
+ * So the fallback now does the same fetch the matched rules do, gets the
+ * operator's panel context appended automatically by attachments.ts, and is
+ * instructed to answer if it can and to name what is missing if it cannot —
+ * including which assistant WOULD have it. The refusal stays available; it just
+ * has to be earned by the data rather than by a pattern.
  */
-function refusalRule(id: string, role: string, examples: string) {
+function contextualFallbackRule(opts: {
+  id: string;
+  role: string;
+  sources: string;
+  calls: Call[];
+  siblings: string;
+}) {
+  const dataBlock = opts.calls.map((c) => `${c.service} ${c.path}: {{${c.resultKey}}}`).join('\n');
   return {
-    id: `${id}-scope`,
-    name: 'Out of scope',
-    description: 'Refuse rather than answer from general knowledge',
+    id: `${opts.id}-fallback`,
+    name: 'Answer from context',
+    description: 'Fetch, then answer or say precisely what is missing',
     enabled: true,
     trigger: 'message.received',
     priority: 10,
@@ -165,12 +191,43 @@ function refusalRule(id: string, role: string, examples: string) {
       conditions: [{ field: 'message.content', value: true, operator: 'exists' }],
     },
     actions: [
-      {
-        type: 'message.send',
+      ...opts.calls.map((c) => ({
+        id: `fb-${c.id}`,
+        type: 'service.call',
         params: {
-          content: `I only answer ${role} questions about this Symbia installation, from live data. That question did not match anything I fetch.\n\nTry:\n${examples}`,
+          service: c.service,
+          method: c.method ?? 'GET',
+          path: c.path,
+          ...(c.basePath !== undefined ? { basePath: c.basePath } : {}),
+          resultKey: c.resultKey,
+        },
+      })),
+      {
+        id: 'step-answer',
+        type: 'llm.invoke',
+        params: {
+          provider: LLM.provider,
+          model: LLM.model,
+          maxTokens: LLM.maxTokens,
+          resultKey: 'answer',
+          systemPrompt: `${grounding(opts.role, opts.sources)}
+
+THIS IS THE FALLBACK PATH. The operator's question did not match one of my
+specific rules, so decide for yourself whether the LIVE DATA below answers it.
+
+- If it does, answer, and cite the service.
+- If it does not, say so in ONE short paragraph that states: which panel the
+  operator is on (it is given to you below if known), which sources I consulted
+  by name, and what specifically is not in them.
+- Then, if another assistant would plainly have it, name them: ${opts.siblings}
+- Never say only "that did not match" — a rule that did not fire is a fact
+  about my configuration, not about what is knowable, and telling the operator
+  their phrasing was wrong when the data was simply elsewhere is the least
+  useful thing I could do.`,
+          userPrompt: `LIVE DATA (fetched from this stack just now):\n${dataBlock}\n\nUSER ASKED: {{message.content}}`,
         },
       },
+      { id: 'step-send', type: 'message.send', params: { content: '{{steps.step-answer.response}}' } },
     ],
   };
 }
@@ -306,9 +363,10 @@ const assistants = [
         match: 'endpoint|api|how do i call|openapi|route|docs|documentation|parameter|payload|schema',
         priority: 200,
         calls: [
-          { id: 'c1', service: 'catalog', path: '/openapi.json', resultKey: 'catalogApi' },
-          { id: 'c2', service: 'integrations', path: '/openapi.json', resultKey: 'integrationsApi' },
-          { id: 'c3', service: 'network', path: '/openapi.json', resultKey: 'networkApi' },
+          // basePath '' — these live at the service ROOT, not under /api.
+          { id: 'c1', service: 'catalog', path: '/docs/openapi.json', basePath: '', resultKey: 'catalogApi' },
+          { id: 'c2', service: 'integrations', path: '/docs/openapi.json', basePath: '', resultKey: 'integrationsApi' },
+          { id: 'c3', service: 'network', path: '/docs/openapi.json', basePath: '', resultKey: 'networkApi' },
         ],
       },
     ],
@@ -334,7 +392,13 @@ for (const a of assistants) {
     ...a.rules.map((r) =>
       groundedRule({ ...r, role: a.role, sources: a.sources })
     ),
-    refusalRule(a.key, a.role, a.examples),
+    contextualFallbackRule({
+      id: a.key,
+      role: a.role,
+      sources: a.sources,
+      calls: a.rules[0].calls,
+      siblings: SIBLINGS,
+    }),
   ];
 
   const resource = {
