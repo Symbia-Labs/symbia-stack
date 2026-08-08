@@ -439,7 +439,10 @@ export function ServiceObservationPanel({ serviceId, service, initialHealth, onB
       platformClient.getServiceStats(serviceId),
     ]);
     setHealth(healthResult);
-    setStats(statsResult);
+    // getServiceStats now reports WHY there are no stats rather than returning
+    // a bare null, so unwrap it. This panel keeps only the stats; the reason
+    // is surfaced on the Overview tile.
+    setStats(statsResult.stats);
   }, [serviceId]);
 
   // Filter SSE-streamed logs by service source (no polling needed)

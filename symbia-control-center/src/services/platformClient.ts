@@ -15,6 +15,19 @@ export interface ServiceHealth {
   error?: string;
   checkedAt: string;
   stats?: ServiceStats;
+  /**
+   * Why there are no stats, when there are none.
+   *
+   * `stats` being undefined used to mean three different things at once: the
+   * service exposes no metrics, the request failed, or nobody asked. The tile
+   * rendered all three as an empty space below the description, which reads as
+   * "this service has nothing to report" — the most flattering of the three,
+   * and the one that was almost never true.
+   *
+   * Separated so the tile can say which. Observation, not inference: this
+   * holds what happened ("HTTP 401"), never a conclusion about what it means.
+   */
+  statsError?: string;
 }
 
 // Service-specific stats - different services expose different metrics
@@ -177,32 +190,60 @@ class PlatformClient {
     return results;
   }
 
-  // Fetch stats for a single service
-  async getServiceStats(serviceId: string): Promise<ServiceStats | null> {
+  /**
+   * Where each service keeps its metrics.
+   *
+   * Only `network` differs, and it differs because its stats are about routed
+   * events rather than about itself. Written as a map rather than a `switch`
+   * with a `default` so that adding a service makes the omission visible here
+   * instead of silently falling through to a path that 404s.
+   */
+  private statsPath(serviceId: string): string {
+    const OVERRIDES: Record<string, string> = {
+      network: '/api/events/stats',
+    };
+    return OVERRIDES[serviceId] ?? '/api/stats';
+  }
+
+  /**
+   * Fetch stats for a single service.
+   *
+   * SENDS THE AUTH HEADER. It did not, and `logging` and `network` both answer
+   * `/api/stats` with 401 without one — measured 8 Aug 2026 through the
+   * console's own proxy. Both returned full metrics the moment a token was
+   * attached, so the tiles were not empty because those services are quiet.
+   * They were empty because nobody signed the request.
+   *
+   * `getHeaders()` was already right here in this class and doing exactly
+   * this; this one method just never called it.
+   *
+   * Failures are RETURNED, not swallowed. The old `catch { return null }`
+   * turned a 401, a timeout, a 404 and "no such endpoint" into the same
+   * silence.
+   */
+  async getServiceStats(
+    serviceId: string
+  ): Promise<{ stats: ServiceStats | null; error?: string }> {
+    const url = `${getServiceUrl(serviceId)}${this.statsPath(serviceId)}`;
     try {
-      const url = getServiceUrl(serviceId);
-      let statsUrl: string;
-
-      // Different services have different stats endpoints
-      switch (serviceId) {
-        case 'network':
-          statsUrl = `${url}/api/events/stats`;
-          break;
-        default:
-          statsUrl = `${url}/api/stats`;
-      }
-
-      const response = await fetch(statsUrl, {
+      const response = await fetch(url, {
         method: 'GET',
+        headers: this.getHeaders(),
         signal: AbortSignal.timeout(3000),
       });
 
       if (response.ok) {
-        return response.json();
+        return { stats: await response.json() };
       }
-      return null;
-    } catch {
-      return null;
+      return { stats: null, error: `HTTP ${response.status}` };
+    } catch (error) {
+      const message =
+        error instanceof Error
+          ? error.name === 'TimeoutError'
+            ? 'timed out'
+            : error.message
+          : 'request failed';
+      return { stats: null, error: message };
     }
   }
 
@@ -213,8 +254,8 @@ class PlatformClient {
     // Fetch stats in parallel for healthy services
     const statsPromises = healthResults.map(async (health) => {
       if (health.status === 'healthy') {
-        const stats = await this.getServiceStats(health.serviceId);
-        return { ...health, stats: stats || undefined };
+        const { stats, error } = await this.getServiceStats(health.serviceId);
+        return { ...health, stats: stats || undefined, statsError: error };
       }
       return health;
     });

@@ -303,6 +303,27 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
+  // GET /api/stats
+  //
+  // Every other service answers this, and the console asks every service the
+  // same question. This one 404'd, so its Overview tile showed a name, a
+  // latency and nothing else.
+  //
+  // Reports only what this process actually knows without asking anything
+  // else: how many service routes it can resolve, how many database pools it
+  // holds open, and how long it has been up. Deliberately NOT the database
+  // list — that requires super-admin and a live query per database, and a
+  // metric that can fail is not a metric, it is a second health check wearing
+  // one's clothes.
+  if (req.url === '/api/stats' && req.method === 'GET') {
+    sendJson(res, 200, {
+      proxiedServices: Object.keys(SERVICE_HOSTS).length,
+      openPools: Object.keys(pgPools).length,
+      uptimeSeconds: Math.floor(process.uptime()),
+    });
+    return;
+  }
+
   // Proxy API requests to services
   // Format: /proxy/:port/*path
   const proxyMatch = req.url.match(/^\/proxy\/([^/]+)(\/.*)?$/);
