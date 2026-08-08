@@ -55,3 +55,8 @@ __pycache__/
 
 # Claude Code local settings
 .claude/settings.local.json
+
+# Hand copies of source files. Six of these were tracked until 8 Aug 2026,
+# all dated 29 Jan, all differing from the live file they shadowed — which is
+# what made them dangerous rather than merely redundant. git is the backup.
+*.backup
