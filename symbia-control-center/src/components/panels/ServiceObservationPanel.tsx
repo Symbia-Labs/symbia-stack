@@ -443,12 +443,22 @@ export function ServiceObservationPanel({ serviceId, service, initialHealth, onB
   }, [serviceId]);
 
   // Filter SSE-streamed logs by service source (no polling needed)
+  // Match on serviceId, which is what the logging service actually sends.
+  //
+  // This filtered on `log.source` alone. No log record has ever had a `source`
+  // field — measured 8 Aug 2026, 300 records, zero — so this returned an empty
+  // array for every service and the Logs tab has been blank since it was
+  // written. `source` is still consulted as a fallback because removing a read
+  // is a separate claim from fixing a missing one.
   const serviceLogs = useMemo(() => {
-    return allLogs.filter(
-      (log) =>
-        log.source?.toLowerCase().includes(service.name.toLowerCase()) ||
-        log.source?.toLowerCase().includes(serviceId.toLowerCase())
-    );
+    const id = serviceId.toLowerCase();
+    const name = service.name.toLowerCase();
+    return allLogs.filter((log) => {
+      const sid = log.serviceId?.toLowerCase();
+      if (sid) return sid === id || sid.includes(id) || sid.includes(name);
+      const src = log.source?.toLowerCase();
+      return Boolean(src && (src.includes(id) || src.includes(name)));
+    });
   }, [allLogs, serviceId, service.name]);
 
   // Initial data fetch

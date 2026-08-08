@@ -33,6 +33,21 @@ export interface LogEntry {
   timestamp: string;
   level: 'debug' | 'info' | 'warn' | 'error';
   message: string;
+  /**
+   * Which service emitted this. THIS is the field the logging service sends.
+   *
+   * Measured 8 Aug 2026 against POST /api/logs/query: 300 records, every one
+   * carrying `serviceId`, and NOT ONE carrying `source`. The type below
+   * declared only `source`, so `log.source` was undefined everywhere and the
+   * Service Observation panel's Logs tab — which filtered on it — was empty for
+   * every service on the stack, while Log Search worked fine because it reads
+   * a different field.
+   *
+   * An optional property that nothing ever populates is indistinguishable from
+   * a working one until someone filters on it.
+   */
+  serviceId?: string;
+  /** Legacy alias. Kept because it is read in places, never sent by the API. */
   source?: string;
   tags?: Record<string, string>;
   metadata?: Record<string, unknown>;
