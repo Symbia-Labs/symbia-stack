@@ -215,12 +215,16 @@ export async function routeEvent(event: SandboxEvent): Promise<EventTrace> {
     }
 
     if (targets.length === 0) {
-      trace.status = 'dropped';
-      trace.error = 'No valid targets for event';
+      // Nobody subscribes. Not a failure — see the EventTrace status comment.
+      trace.status = 'unrouted';
+      trace.error =
+        `No subscriber: no contract routes ${event.payload.type} from ` +
+        `${event.wrapper.source}, and no explicit target was given. The event ` +
+        `is recorded.`;
 
       telemetry.event(
         NetworkEvents.EVENT_DROPPED,
-        `Event dropped - no valid targets: ${event.wrapper.id}`,
+        `Event unrouted - no subscriber: ${event.wrapper.id}`,
         { eventId: event.wrapper.id, reason: 'no_targets', ...eventLabels }
       );
       telemetry.metric(NetworkMetrics.EVENT_DROPPED, 1, { ...eventLabels, reason: 'no_targets' });

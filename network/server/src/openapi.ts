@@ -634,7 +634,7 @@ export const apiDocumentation: OpenAPIV3.Document = {
           runId: { type: 'string' },
           path: { type: 'array', items: { $ref: '#/components/schemas/TraceHop' } },
           totalDurationMs: { type: 'number' },
-          status: { type: 'string', enum: ['delivered', 'dropped', 'pending', 'error'] },
+          status: { type: 'string', enum: ['delivered', 'unrouted', 'dropped', 'pending', 'error'] },
           error: { type: 'string' },
         },
       },

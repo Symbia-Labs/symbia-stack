@@ -174,6 +174,8 @@ function EventCard({
 }) {
   const statusColors = {
     delivered: 'text-emerald-400 bg-emerald-400/10',
+    // Recorded, no subscriber. Not an error, so not red.
+    unrouted: 'text-slate-400 bg-slate-400/10',
     dropped: 'text-red-400 bg-red-400/10',
     pending: 'text-amber-400 bg-amber-400/10',
     error: 'text-red-400 bg-red-400/10',

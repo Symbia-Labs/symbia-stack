@@ -12,7 +12,7 @@ export interface TimelineEvent {
   type: string;
   source: string;
   target?: string;
-  status: 'delivered' | 'dropped' | 'pending' | 'error';
+  status: 'delivered' | 'unrouted' | 'dropped' | 'pending' | 'error';
   durationMs?: number;
   data?: unknown;
 }
@@ -26,6 +26,11 @@ interface EventTimelineProps {
 
 const STATUS_STYLES: Record<string, { color: string; bg: string; icon: string }> = {
   delivered: { color: 'text-emerald-400', bg: 'bg-emerald-500', icon: '✓' },
+  // Recorded, nobody subscribed. Deliberately NOT red and not the same style
+  // as `dropped`: the entire observability stream is unrouted by design, and a
+  // failure colour on every telemetry event trains an operator to ignore the
+  // one that actually failed.
+  unrouted: { color: 'text-slate-500', bg: 'bg-slate-600', icon: '·' },
   dropped: { color: 'text-slate-400', bg: 'bg-slate-500', icon: '○' },
   pending: { color: 'text-amber-400', bg: 'bg-amber-500', icon: '◐' },
   error: { color: 'text-red-400', bg: 'bg-red-500', icon: '✗' },
