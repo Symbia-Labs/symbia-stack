@@ -1,9 +1,18 @@
+# Symbia Service Admin
+# Requires the shared base image for @symbia/sys:
+#   docker build -t symbia-base -f docker/Dockerfile.base .
+
 FROM node:20-alpine
 
 WORKDIR /app
 
-# Copy package files and install dependencies
-COPY service-admin/package.json .
+# Pre-built shared library from the base image; package.json refers to it
+# as file:../symbia-sys, so it must sit alongside the service directory.
+COPY --from=symbia-base:latest /symbia-libs/symbia-sys ./symbia-sys
+
+# Install service dependencies
+COPY service-admin/package.json ./service-admin/
+WORKDIR /app/service-admin
 RUN npm install --production
 
 # Copy application files
