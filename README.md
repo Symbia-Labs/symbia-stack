@@ -66,7 +66,7 @@ And the two front ends:
 
 The nine services above listen on their own ports and reach each other over the
 Compose network by name. They are **not** published to your host unless you ask
-for them — see [Reaching the other services](#reaching-the-other-services).
+for them — see [What a plain Compose run publishes](#what-a-plain-compose-run-publishes).
 
 ## Shared Libraries
 
@@ -102,20 +102,24 @@ First run builds images, bootstraps the database, and prompts you to create a
 super-admin account. There are no default credentials. Later runs skip all of
 that and restart fast.
 
-Then open **<http://localhost:9000>**.
+Then open **<http://localhost:9000>** — the API and admin front end.
 
-That is the whole surface: one port. Nothing else reaches your host, because
-nothing else needs to — the services address each other over the Compose
-network by name.
+`start.sh` is the *developer* path, so it also gives you the operator console on
+**<http://localhost:8000>**, Postgres on 5432, and each service on 5001–5009.
 
-### Reaching the other services
+### What a plain Compose run publishes
 
-`start.sh` is the developer path and already opts into the overlay that
-publishes the rest: Postgres on 5432, the nine services on 5001–5009, and the
-operator console on **<http://localhost:8000>**.
+```bash
+docker-compose up -d
+```
 
-A bare `docker-compose up -d` does not, and gives you 9000 alone. To opt in
-explicitly:
+**One port: 9000.** Nothing else reaches your host, because nothing else needs
+to — the services address each other over the Compose network by name. That is
+the default surface, and it is what someone who clones this repo gets unless
+they ask for more.
+
+To ask for more, add the developer overlay — this is exactly what `start.sh`
+does for you via `COMPOSE_FILE`:
 
 ```bash
 docker-compose -f docker-compose.yml -f docker-compose.dev.yml up -d
