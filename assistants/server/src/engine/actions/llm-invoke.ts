@@ -30,6 +30,28 @@ export class LLMInvokeHandler extends BaseActionHandler {
       const prompt = this.buildPrompt(params, context);
       const response = await this.callLLM(params, prompt, context);
 
+      // AN EMPTY ANSWER IS A FAILURE, NOT A SUCCESS.
+      //
+      // The provider returned no text and every step downstream reported ok:
+      // "llm.invoke(ok), message.send(ok)" — and no message was ever sent,
+      // because message.send happily rendered an empty template. Measured
+      // 8 Aug 2026 on the coordinator: four service.calls succeeded, the model
+      // returned "", and the operator saw silence with nothing in any log
+      // marked as a problem.
+      //
+      // Silence that reports success is the worst shape a failure can take
+      // here. It is indistinguishable from an assistant that had nothing to
+      // say, and it is the reason this took three rounds to see.
+      if (!response.content || response.content.trim() === '') {
+        return this.failure(
+          `LLM returned an empty response (provider=${response.model ? 'resolved' : 'unknown'}, ` +
+            `model=${response.model || 'unknown'}, promptChars=${prompt.length}). ` +
+            `Nothing was sent.`,
+          Date.now() - start
+        );
+      }
+      console.log(`[LLMInvoke] model=${response.model} promptChars=${prompt.length} replyChars=${response.content.length}`);
+
       // Store result in context if resultKey is specified
       // Try to parse as JSON for structured outputs (like routing decisions)
       if (params.resultKey) {
