@@ -208,10 +208,22 @@ export function NetworkGraph({
             derived yet. A diagram that looks like a service map while showing
             intentions is worse than one that admits which it is. */}
         <div className="absolute bottom-3 right-3 z-10 max-w-[300px] rounded-md border border-border bg-surface-sunken/90 px-2.5 py-1.5 backdrop-blur">
-          <p className="text-[11px] text-text-secondary leading-snug">
-            Edges are <span className="text-text-primary">declared contracts</span>, not observed
-            calls. Per-node figures are measured from obs.http over the last 60s.
-          </p>
+          <div className="space-y-1 text-[11px] text-text-secondary leading-snug">
+            <div className="flex items-center gap-2">
+              <span className="inline-block w-6 h-0 border-t-2 border-cyan-400 shrink-0" />
+              <span>
+                <span className="text-text-primary">observed call</span> — count · p95, last 60s
+              </span>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="inline-block w-6 h-0 border-t border-dashed border-slate-500 shrink-0" />
+              <span>declared contract — permitted, not necessarily used</span>
+            </div>
+            <p className="text-text-muted pt-0.5">
+              A call with no <code>caller</code> draws no edge: it came from a browser, or from
+              outside a request.
+            </p>
+          </div>
         </div>
       </ReactFlow>
 

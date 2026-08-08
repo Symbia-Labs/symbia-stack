@@ -117,10 +117,19 @@ export function mountServiceProxies(app: Express): void {
           //
           // fixRequestBody re-serialises the parsed body onto the outbound
           // request.
-          fixRequestBody(proxyReq, req);
-
-          // Trace headers, injected HERE because the fetch wrapper cannot see
-          // this call.
+          // TRACE HEADERS FIRST, BEFORE fixRequestBody.
+          //
+          // Order is load-bearing and I got it wrong. fixRequestBody writes the
+          // body onto the outbound request, which flushes the headers; any
+          // setHeader after that throws ERR_HTTP_HEADERS_SENT out of an event
+          // handler and KILLS THE PROCESS. The control center exited on the
+          // first proxied request, twice, and I attributed it to the shell
+          // reaping a background process — a plausible story that happened to
+          // be wrong, and that I would have kept believing if the container
+          // (which logs its own death) had not been the thing that crashed.
+          //
+          // Injected here at all because the fetch wrapper cannot see this
+          // call: http-proxy-middleware uses Node's `http` module, not `fetch`.
           //
           // P4 from docs/2026-08-08-trace-propagation.md, registered as the
           // prediction most likely to catch me out and confirmed by reading
@@ -141,6 +150,10 @@ export function mountServiceProxies(app: Express): void {
               : `trace_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`
           );
           proxyReq.setHeader('x-symbia-caller', 'control-center');
+
+          // NOW the body. This flushes headers, so nothing may setHeader after
+          // it. See the comment above.
+          fixRequestBody(proxyReq, req);
 
           if (req.url?.includes('/stream') || req.url?.includes('/events')) {
             proxyReq.setHeader('X-Accel-Buffering', 'no');

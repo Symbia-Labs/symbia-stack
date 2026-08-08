@@ -705,6 +705,17 @@ export interface HttpResponseEvent {
   path: string;
   statusCode: number;
   durationMs: number;
+  /**
+   * The service that made this call. Same value as on the matching request.
+   *
+   * It is on BOTH events on purpose. Anything counting calls must count one of
+   * the pair, not both, and the response is the one carrying status and
+   * duration — so the response is the one worth counting. Putting caller only
+   * on the request made every consumer that counts responses see no caller at
+   * all, which is precisely how the topology graph drew zero observed edges
+   * while 147 of 300 events carried one.
+   */
+  caller?: string;
   size?: number;
   traceId?: string;
 }

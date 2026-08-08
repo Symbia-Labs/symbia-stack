@@ -148,6 +148,7 @@ export function observabilityMiddleware(
         path: req.path,
         statusCode: res.statusCode,
         durationMs,
+        caller,
         size: responseSize > 0 ? responseSize : undefined,
         traceId,
       };

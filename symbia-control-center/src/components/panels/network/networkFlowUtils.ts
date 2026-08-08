@@ -354,6 +354,99 @@ function createMeshEdges(
  * status or duration, so counting both would double every total and halve
  * every error rate.
  */
+/**
+ * Edges the platform OBSERVED, from `caller` on obs.http.* events.
+ *
+ * This is the point of trace propagation. Until 8 Aug 2026 the only edges the
+ * graph could draw were declared contracts — three of them, all
+ * assistant/messaging — while every real call between services was invisible,
+ * because obs.http recorded who HANDLED a request and nothing about who made
+ * it. With x-symbia-caller travelling on every call, `caller -> source` IS the
+ * edge. No correlation, no inference, no reconstruction.
+ *
+ * These are drawn differently from contract edges on purpose. A declaration
+ * and an observation are different kinds of claim, and a diagram that renders
+ * them identically is asserting that they are the same.
+ *
+ * Self-calls are kept. `logging -> logging` looked like a bug and is not: the
+ * logging service calls itself. Dropping it because it looks odd would be
+ * editing the measurement to match an expectation.
+ */
+function createObservedEdges(
+  nodes: Node<NetworkFlowNodeData>[],
+  events: Array<{ event: SandboxEvent; trace: EventTrace }>,
+  existingEdges: Edge[]
+): Edge[] {
+  const WINDOW_MS = 60_000;
+  const now = Date.now();
+  const pairs = new Map<string, { count: number; durations: number[]; errors: number }>();
+  const nodeIds = new Set(nodes.map((n) => n.id));
+
+  for (const { event } of events) {
+    if (event.payload?.type !== 'obs.http.response' && event.payload?.type !== 'obs.http.request') continue;
+    const handler = event.wrapper.source;
+    const data = (event.payload.data ?? {}) as {
+      caller?: string;
+      durationMs?: number;
+      statusCode?: number;
+    };
+    const caller = data.caller;
+    // No caller means a browser-originated request OR a call made outside a
+    // request context. Neither is an edge between two known nodes, and
+    // inventing one would be the graph asserting something nobody measured.
+    if (!caller || !handler) continue;
+    if (!nodeIds.has(caller) || !nodeIds.has(handler)) continue;
+
+    const at = new Date(event.wrapper.timestamp).getTime();
+    if (!Number.isFinite(at) || now - at > WINDOW_MS) continue;
+
+    const key = `${caller} ${handler}`;
+    const p = pairs.get(key) ?? { count: 0, durations: [], errors: 0 };
+    // Count the response only, so a request/response pair is one call.
+    if (event.payload.type === 'obs.http.response') {
+      p.count += 1;
+      if (typeof data.durationMs === 'number') p.durations.push(data.durationMs);
+      if (typeof data.statusCode === 'number' && data.statusCode >= 400) p.errors += 1;
+    }
+    pairs.set(key, p);
+  }
+
+  const out = [...existingEdges];
+  for (const [key, p] of pairs) {
+    if (p.count === 0) continue;
+    const [caller, handler] = key.split(' ');
+    const sorted = p.durations.slice().sort((a, b) => a - b);
+    const p95 = sorted.length
+      ? sorted[Math.min(sorted.length - 1, Math.ceil(sorted.length * 0.95) - 1)]
+      : null;
+    const hasErrors = p.errors > 0;
+
+    out.push({
+      id: `observed:${caller}->${handler}`,
+      source: caller,
+      target: handler,
+      type: 'animated',
+      animated: true,
+      label: p95 === null ? `${p.count}` : `${p.count} · ${p95}ms`,
+      labelStyle: { fill: '#94a3b8', fontSize: 10 },
+      labelBgStyle: { fill: '#0f172a', fillOpacity: 0.8 },
+      style: {
+        stroke: hasErrors ? '#f87171' : '#22d3ee',
+        // Volume is legible as thickness, capped so one chatty pair does not
+        // turn into a slab that hides everything else.
+        strokeWidth: Math.min(4, 1 + Math.log2(p.count + 1)),
+      },
+      data: {
+        isObserved: true,
+        callCount: p.count,
+        errorCount: p.errors,
+        p95Ms: p95,
+      },
+    });
+  }
+  return out;
+}
+
 function calculateNodeTraffic(
   events: Array<{ event: SandboxEvent; trace: EventTrace }>
 ): Map<string, NodeTraffic> {
@@ -542,6 +635,10 @@ export function networkToFlow(
   // Add edges from observed event traffic
   if (events.length > 0) {
     edges = createEventEdges(nodes, events, edges);
+    // Edges derived from `caller` on obs.http.*. These are OBSERVATIONS —
+    // this call actually happened — as distinct from the dashed contract
+    // edges above, which are declarations of what is permitted.
+    edges = createObservedEdges(nodes, events, edges);
   }
 
   // Add mesh edges if enabled (shows potential communication paths)
