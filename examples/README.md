@@ -5,13 +5,13 @@ deliberately unrelated to each other.
 
 ## Why this directory exists
 
-`energy/` is a **forcing function, not the product**. It was built to find out
+`energy/` was a **forcing function, not the product**. It was built to find out
 what the platform could not do, and its defect ledger
-([`energy/API-MEASUREMENTS.md`](../energy/API-MEASUREMENTS.md)) is the real
-deliverable of that exercise. But a single exercising application creates a
-standing risk: the platform quietly grows the shape of its only test case, and
-nobody notices because the only thing that runs on it is the thing it grew
-around.
+([`docs/API-MEASUREMENTS.md`](../docs/API-MEASUREMENTS.md)) is the real
+deliverable of that exercise — the app was removed on 8 Aug 2026 and the ledger
+kept. But a single exercising application creates a standing risk: the platform
+quietly grows the shape of its only test case, and nobody notices because the
+only thing that runs on it is the thing it grew around.
 
 That had already started. Two examples caught in the 6 Aug 2026 audit:
 

@@ -45,7 +45,7 @@ else is a bug worth reporting.
 Standing up an unregistered service, hand-editing a route map, or hardcoding an
 ingress will produce something that works and quietly destroys the platform's
 central claim: that no capability enters without a recorded gate. When you hit
-that wall, write the defect down. `energy/API-MEASUREMENTS.md` is the running
+that wall, write the defect down. `docs/API-MEASUREMENTS.md` is the running
 ledger of exactly this, and it is the most useful document in the repo for
 understanding what the platform actually does versus what it says it does.
 
@@ -183,8 +183,7 @@ symbia-stack/
 ├── symbia-id/  symbia-md/    # id utils, doc generation
 ├── symbia-mcp-server/        # read-only MCP window onto a running stack
 │
-├── energy/                   # the forcing-function app (see §7)
-├── examples/                 # a second worked app, deliberately unrelated
+├── examples/                 # worked apps that exercise the platform (see §7)
 ├── tests/                    # ITT framework (see §6)
 ├── scripts/                  # registration + workflow scripts
 ├── docs/                     # QUICKSTART, APP-MODEL, SYMBIA-MCP, api/
@@ -373,17 +372,21 @@ The catalog is for **reusable items only** — types, graphs, components,
 integrations, apps. Real-time point instances are primitives with a proxy
 representation on graphs. They are never catalog resources.
 
-### The two example apps
+### The example apps
 
-`energy/` is a data-centre energy monitoring app built through the platform API
-alone. It is a **test case, not the product** — the load applied to the
-platform, and its defect ledger (`energy/API-MEASUREMENTS.md`) is the real
-output. `examples/order-margin/` exists so the platform is never validated
-against a single application; it walks the same
+`energy/` was a data-centre energy monitoring app built through the platform API
+alone — a **test case, not the product**: the load applied to the platform in
+order to find out what it could not do. The app was removed on 8 Aug 2026, its
+job done. Its defect ledger survives as `docs/API-MEASUREMENTS.md` and is the
+real output; the app itself is recoverable from git history if it is ever
+needed again.
+
+`examples/order-margin/` exists so the platform is never validated against a
+single application; it walks the same
 register → hydrate → gated ingress → durable state → metric sink path in a
 domain with no energy vocabulary anywhere.
 
-If you find yourself shaping a platform contract around energy's needs, that is
+If you find yourself shaping a platform contract around one app's needs, that is
 the defect, not the feature.
 
 ---
@@ -482,6 +485,6 @@ failures, not as style preferences.
 | `docs/RLS-IMPLEMENTATION.md` | row-level security and tenant isolation |
 | `docs/SYMBIA-SCRIPT-QUICKSTART.md` | the scripting surface |
 | `docs/api/` | generated OpenAPI + `llms.txt` per service |
-| `energy/API-MEASUREMENTS.md` | the defect ledger — what the API could not do |
+| `docs/API-MEASUREMENTS.md` | the defect ledger — what the API could not do |
 | `CONTRIBUTING.md` | PR, branch, and release mechanics |
 | `SECURITY.md` | reporting security issues |

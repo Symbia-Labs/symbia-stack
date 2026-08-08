@@ -88,7 +88,7 @@ assistant    assistants/coordinator        published   [multi-agent, level-5, or
 
 - **Health first.** Run `symbia_stack_health` before anything else; most confusing tool errors are just a service that isn't up.
 - **Narrow your reads.** `symbia_list_resources` and `symbia_query_logs` support `type`/`tag`/`query`/`limit`/`offset` — use them. Broad, unfiltered reads return large payloads (the Integrations MCP registry in particular is very large).
-- **Read-only by design.** These tools observe; they don't create or change resources. To *build* on the platform you go through the service REST APIs (see each service's OpenAPI at `/<service>/docs/openapi.json`, or the collected specs in `docs/api/`). See also `energy/API-MEASUREMENTS.md` for where the write/registration APIs currently fall short.
+- **Read-only by design.** These tools observe; they don't create or change resources. To *build* on the platform you go through the service REST APIs (see each service's OpenAPI at `/<service>/docs/openapi.json`, or the collected specs in `docs/api/`). See also `docs/API-MEASUREMENTS.md` for where the write/registration APIs currently fall short.
 - **Two different `localhost`s.** The MCP servers run against the stack on your machine. If you also use a sandboxed shell, note it's a separate host and can't reach these ports — the MCP tools are the bridge.
 
 ## Related

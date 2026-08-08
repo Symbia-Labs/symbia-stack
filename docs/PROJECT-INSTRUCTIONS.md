@@ -148,10 +148,11 @@ derived series). Bake an org id or metric namespace into the artifact and it
 can only ever be installed once. Full definition in `docs/APP-MODEL.md`; status
 there is *design agreed, not fully implemented* — read it as intent.
 
-**`energy/` is a test case, not the product.** It is the load applied to the
-platform; its defect ledger `energy/API-MEASUREMENTS.md` is the real output.
+**`energy/` was a test case, not the product.** It was the load applied to the
+platform; its defect ledger `docs/API-MEASUREMENTS.md` is the real output and
+outlives it. The app was removed on 8 Aug 2026 (recoverable from git history).
 `examples/order-margin/` exists so the platform is never validated against a
-single domain. Shaping a platform contract around energy's needs is the defect,
+single domain. Shaping a platform contract around one app's needs is the defect,
 not the feature.
 
 **Trace context propagates on two headers.** `x-symbia-trace` (adopted inbound

@@ -1,5 +1,11 @@
 # Platform defects — found by building Symbia Energy through the API alone
 
+*Moved here from `energy/API-MEASUREMENTS.md` on 8 Aug 2026, when the energy app
+was removed from the tree. The app was the instrument; this is the reading. The
+app itself is recoverable from git history. Defect ids D1–D10 are cited by
+comments in `runtime/server/src/catalog/client.ts` and
+`logging/server/src/auth.ts`, which is why the ledger outlives what produced it.*
+
 **The rule, Brian's, 5 August 2026:**
 
 > If I cannot build a piece of this through the Symbia API alone, that is a
