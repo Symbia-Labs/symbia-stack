@@ -671,301 +671,20 @@ Per discipline 1, before any browser check:
 
 ---
 
-## 8. Symbia Script — full review
-
-Reviewed at `symbia-sys/src/script.ts` (811 lines) plus its consumers. **Every
-finding in §8.3 was produced by executing the shipped `symbia-sys/dist/` build,
-not by reading source.** Test scripts and raw output are reproduced inline so
-each can be re-run and disputed.
-
-### 8.1 What it is, and what is good about it
-
-Symbia Script is a **reference syntax**, not a language: `@namespace.path`, plus
-`{{…}}` interpolation. No control flow, no operators, no functions. A template
-is inert until something resolves it.
-
-The design rationale is the strongest in the codebase. A template reading
-`"Hello " + ctx.user.name` buries its dependency in JavaScript; one reading
-`"Hello {{@user.displayName}}"` is a *declaration of what it depends on* —
-parseable without running, listable before it fires. For a platform whose claim
-is provable provenance, having dependencies be inspectable data rather than
-executed code is the right primitive.
-
-Three things genuinely work:
-
-- **Single implementation.** `grep` finds one parser. The header comment notes
-  this is the part of the stack that resisted the fork-the-shared-concern
-  pattern that `authMiddleware` did not. Verified: no second `parseRef`.
-- **Parsing is complete.** URL-like paths (`@service.logging./logs/query`),
-  bracket accessors (`@catalog.component[http/Request].name`), and query strings
-  all parse correctly. The `splitPath` state machine handles the awkward cases.
-- **`docs/SYMBIA-SCRIPT-QUICKSTART.md` is an unusually honest document.** Its §6
-  records six defects (a–f), each measured against the shipped build, and its
-  §3 table has a "Resolves sync" column that says **no** for five of twelve
-  namespaces. It is the model the rest of the docs should follow.
-
-**Consumers.** `interpolate`/`resolveRef`/`parseRef` are imported by the
-assistants engine (9 files), `symbia-control-center/src/components/inputs/`, and
-`integrations/.../openapi-parser.ts`. **The runtime does not use it** — see F28.
-
-### 8.2 Already recorded by the quickstart — not re-reported as new
-
-`docs/SYMBIA-SCRIPT-QUICKSTART.md` §6 already documents, with measurements:
-
-| | |
-|---|---|
-| a | `@service` and `@integration` never resolve — return `{success:false, async:true}`, and no caller checks `async` |
-| b | `@entity` and `@mention` have no resolver and no autocomplete entry |
-| c | `@component` has no `case` in `resolveRef` |
-| d | Unresolved references interpolate to the empty string |
-| e | `SymbiaScriptInput.tsx` has no importer — the autocomplete is not on screen |
-| f | `ResolutionContext` does not declare `steps`; `template.ts` sets it anyway |
-
-I re-ran a–d and confirm all four. Credit where due: this review's job is what
-the quickstart *missed*, below.
-
-### 8.3 New findings
-
-#### F21 — `symbia.compute.arithmetic` substitutes `0` for missing inputs and labels the result canonical
-
-**The most serious finding in either review.** `runtime/.../components.ts:207`:
-
-```ts
-const filled = expr.replace(/\{(\w+)\}/g, (_m, k) => String(Number(src[k] ?? 0)));
-```
-
-Measured, by replicating the handler exactly (`/tmp/a.js`, logic copied
-verbatim from lines 204–228), expression `{facility}/{it}`:
-
-| input | expression evaluated | result | lane | `exact` |
-|---|---|---|---|---|
-| `{facility:210, it:150}` | `210/150` | `1.4` | canonical | true |
-| **numerator missing** | `0/150` | `0` | **canonical** | **true** |
-| **denominator missing** | `210/0` | `Infinity` → serializes `null` | **canonical** | **true** |
-| **both missing** | `0/0` | `NaN` → serializes `null` | **canonical** | **true** |
-| explicit `null` | `0/150` | `0` | **canonical** | **true** |
-| non-numeric string | `NaN/150` | — | apocryphal (refused) ✓ | — |
-| `{a}+{b}+{c}`, `c` missing | `5+5+0` | `10` | **canonical** | **true** |
-
-A non-numeric *string* is correctly refused, because `String(NaN)` fails the
-`/^[\d\s+\-*/().]+$/` guard. Only **missing and null** slip through, because
-`undefined ?? 0` and `null ?? 0` are both `0` before the guard ever sees them.
-
-Three separate rules are broken at once:
-
-1. *"A confident `0` that means 'never asked' is the defect this product exists
-   to prevent."* This is that literal defect, in the component that stamps
-   `lane: 'canonical'` — the highest trust label the platform has.
-2. *"A partial total must not pass as the total."* The last row is a partial sum
-   emitted as canonical. `symbia.state.rollup` implements this rule correctly,
-   on the apocryphal lane, with `{coverage, present, missing}`. **Arithmetic and
-   rollup are two implementations of one concern and they behave oppositely** —
-   discipline 8, in the two components most central to the provenance claim.
-3. `exact: true` is asserted on a value computed from a substituted zero.
-
-The fix is small: distinguish absent from zero before substitution, and route
-absence to `error`/apocryphal the way non-numeric input already goes. The
-component already has an `error` port and already knows how to refuse.
-
-#### F22 — `containsRefs()` returns alternating answers for the same input
-
-`INTERPOLATION_PATTERN` is a module-level `/g` regex, and `containsRefs` calls
-`.test()` on it. A global regex's `.test()` advances `lastIndex`, so consecutive
-calls alternate. Measured — same string, four calls:
-
-```
-containsRefs('hello {{name}} world')  ->  true , false , true , false
-```
-
-Any caller that checks "does this template need interpolation?" gets the right
-answer half the time. Nothing currently short-circuits on it — `interpolate` uses
-`String.replace`, which resets `lastIndex` — so this is latent rather than live,
-but it is a one-character fix (drop the `g`, or use a local regex).
-
-#### F23 — every email address is a valid reference
-
-`containsRefs` begins `str.includes('@')`. And `extractRefs`'s bare pattern
-matches inside an address. Measured:
-
-```
-containsRefs('brian@example.com')            ->  true
-extractRefs('mail brian@example.com now')    ->  [{ns:'example', path:'com', valid:true}]
-```
-
-Any user message containing an email address parses as carrying a Symbia
-reference to a namespace called `example`. Since `@message.content` is
-interpolated into prompts, and unresolved refs render as empty string (quickstart
-§6d), the interaction to check is whether an address in a user message can be
-silently altered on its way into a prompt. *Not checked* — see §8.4.
-
-#### F24 — `validateTemplate()` reports `valid: true` for unknown namespaces
-
-`validateRef` correctly pushes `Unknown namespace: logs` — but into `warnings`.
-`validateTemplate` collects only `errors`. Measured:
-
-```
-validateRef('@logs.recent')      -> valid:true, warnings:['Unknown namespace: logs'], errors:[]
-validateTemplate('{{@logs.recent}}') -> valid:true
-```
-
-**This is the mechanism behind F16.** The routine editor ships thirty-odd
-examples using namespaces that do not exist (`@logs`, `@metrics`, `@alerts`,
-`@runs`, `@billing`, `@docs`, `@cli`, `@code`), and the platform's own validator
-passes them clean. The warning is computed and then discarded one call up.
-
-Surfacing warnings in `validateTemplate`'s return would make F16 self-detecting.
-
-#### F25 — four independent namespace lists, none of them equal
-
-Discipline 8, in the one file that was supposed to be exempt:
-
-| source | count | contents |
-|---|---|---|
-| header docstring, `script.ts:9–18` | 10 | missing `component`, `catalog` |
-| `SymbiaNamespace` const (the truth) | **12** | context, message, user, org, service, integration, var, env, component, catalog, entity, mention |
-| `getNamespaces()` (autocomplete) | 9 | missing `component`, `entity`, `mention` |
-| `NAMESPACE_COLORS`, `SymbiaScriptHighlight.tsx:49–56` | 8 | missing `catalog`, `component`, `entity`, `mention` |
-
-Measured: `getNamespaces().length === 9`, `Object.values(SymbiaNamespace).length === 12`.
-
-A fifth list sits one level down: `getNamespaces()`'s `@service` children name six
-services (logging, catalog, identity, messaging, runtime, network), while
-`service-call.ts`'s `serviceMap` has seven — it includes `integrations`. Neither
-lists `models` or `assistants`.
-
-The quickstart's §5 already prescribes the four-step checklist for adding a
-namespace and notes step 3 is the one that gets skipped. The deeper problem is
-that a checklist is the remedy at all: the enum should generate the other three.
-
-#### F26 — `@org.id` returns the composite org id inside an assistant
-
-`resolveRef` special-cases `@org`: `return ctx.orgId ?? ctx.org?.id`. In the
-assistants engine, `context.orgId` is the composite `{assistantKey}:{orgId}` used
-for rule scoping. Measured with that shape:
-
-```
-resolveRef('@org.id', {orgId:'security:2c29d1dd-…', org:{id:'2c29d1dd-…'}})
-  -> {success:true, value:'security:2c29d1dd-5eb5-4c6a-8156-f29198055081'}
-```
-
-`ctx.orgId` is preferred over `ctx.org.id`, so the *correct* value is present in
-the context and deliberately not used. `service-call.ts` documents this exact
-hazard and guards against it with `rawOrgId` — *"context.orgId is a composite …
-and sending it as X-Org-Id makes services reject or mis-scope the request."*
-The guard lives in the action handler; the shared language has none. Any rule
-author writing `{{@org.id}}` into a path, body or prompt gets the composite.
-
-**Inference, disputable:** `template.ts` sets `org: {id: ctx.orgId}` — also the
-composite — so there is no clean value anywhere in the resolution context. The
-fix probably belongs in `toResolutionContext`, not in `script.ts`. *Not checked:*
-whether any shipped rule uses `@org.id`.
-
-#### F27 — `@env` reads any environment variable, with no allowlist
-
-```ts
-case SymbiaNamespace.ENV:
-  return { success: true, value: process.env[segments[0]] };
-```
-
-Measured: `resolveRef('@env.DEMO_SECRET', {})` returns the value.
-
-Rule templates are catalog resources, so authoring one is gated
-(`write: cap:registry.write | role:admin`) — this is not an open door. But the
-process environment holds `NETWORK_HASH_SECRET` (the key that seals provenance
-envelopes) and provider credentials, and a rule that reads one into a
-`message.send` produces an envelope that records only "message.send". The
-provenance record would not show that a secret was consulted.
-
-Recorded as a design gap, not an exploit: an allowlist, or a redaction rule for
-names matching `KEY|SECRET|TOKEN|PASSWORD`, would close it. Worth deciding
-deliberately rather than by omission — particularly for the assistant whose
-subject *is* security posture.
-
-#### F28 — the platform has two interpolation systems
-
-Symbia Script is presented in `@symbia/sys` as the "Unified Reference System".
-The runtime does not use it. `symbia.compute.arithmetic` and its siblings use
-their own syntax and their own regex:
-
-| | assistants | runtime |
-|---|---|---|
-| syntax | `{{@ns.path}}` and `{{bare.path}}` | `{placeholder}` |
-| engine | `interpolate()` in `@symbia/sys` | `expr.replace(/\{(\w+)\}/g, …)` inline |
-| missing value | empty string | **`0`** (F21) |
-| validation | `validateTemplate` (warnings dropped, F24) | none |
-
-Two syntaxes, two failure modes, one platform — and the failure modes differ in
-the direction that matters most: empty-string is visibly wrong, `0` is
-invisibly wrong. A graph author and a rule author are writing different
-languages while being told they are writing one.
-
-#### F29 — the quickstart says thirteen; the enum has twelve
-
-`docs/SYMBIA-SCRIPT-QUICKSTART.md` §3 opens *"Thirteen constants in
-`SymbiaNamespace`"* and §5 closes *"Three of thirteen namespaces skipped it."*
-The table beneath §3 lists twelve rows. Measured:
-`Object.values(SymbiaNamespace).length === 12`.
-
-Trivial in itself, and worth fixing precisely because that document is otherwise
-the most carefully measured one in `docs/` — a stray count is the kind of thing
-that erodes trust in a document whose whole value is that its numbers were run.
-
-### 8.4 Not checked — §8
-
-- Whether an email address in a user message is actually mangled on its way into
-  a prompt (F23). The parse is confirmed; the end-to-end effect is not.
-- Whether any shipped rule or graph uses `@org.id` (F26) or `@env.*` (F27).
-- Whether any registered graph's `config.expression` can currently receive a
-  missing placeholder in practice — F21 is proven at the component, not traced
-  to a live graph. `energy-pue` is the obvious candidate and was not run.
-- Whether `symbia-sys/dist/` matches `src/` at HEAD. I executed `dist/`
-  deliberately, per discipline 4, but did not diff the two.
-- None of §8 was checked in a browser.
-
-### 8.5 Suggested order — Symbia Script
-
-1. **F21 first, and alone if necessary.** Distinguish absent from zero in
-   `arithmetic`; route absence to the existing `error` port on the apocryphal
-   lane. Everything else here is hygiene; this one puts a wrong number behind
-   the platform's highest trust label.
-2. **F24** — surface `warnings` in `validateTemplate`. One line, and it makes
-   F16 and F25 self-detecting instead of requiring review.
-3. **F22** — drop the `g` flag or use a local regex. One character.
-4. **F26** — resolve the composite-org hazard in `toResolutionContext`, where
-   the clean value still exists.
-5. **F25** — generate `getNamespaces()`, the highlighter colours and the
-   docstring from `SymbiaNamespace` rather than maintaining four lists. The
-   quickstart's four-step checklist becomes unnecessary rather than better
-   followed.
-6. **F27** — decide the `@env` policy explicitly; allowlist or redact.
-7. **F28** — the honest options are to converge the runtime onto Symbia Script,
-   or to stop calling Symbia Script unified. Either is defensible; the current
-   state claims the first while doing the second.
-8. **F29** — correct the count.
-
-Deliberately *not* proposed: adding operators, conditionals or functions to
-Symbia Script. Its power comes from being inert and parseable without execution.
-Every defect above is in resolution or in the lists around it, none in the
-grammar. The grammar should stay boring.
-
-### 8.6 Registered predictions — §8
-
-- **P6** — `energy-pue`'s graph, run with one meter reading absent, emits a PUE
-  on the **canonical** lane rather than refusing. *Confidence: high.* This is
-  F21 traced to a live graph and is the measurement that matters most.
-- **P7** — Fixing F21 breaks at least one existing test or fixture that relies
-  on the zero-substitution. *Confidence: medium.*
-- **P8** — No shipped rule uses `@env.*`. *Confidence: medium-high.*
-- **P9** — At least one shipped rule uses `@org.id` or `{{@org.id}}` and is
-  therefore carrying the composite. *Confidence: low — I expect this one to be
-  wrong,* because most rules reach org through the action handlers, which guard
-  it. Registering it as the one I expect to lose.
-- **P10** — `symbia-sys/dist/` is current with `src/` at HEAD, so the §8.3
-  measurements describe the code as written. *Confidence: medium.* Untested, and
-  discipline 4 says this is exactly the assumption that has impersonated fixes
-  before.
-
----
+## 8. Symbia Script — moved
+
+Split out on 8 Aug to **`docs/2026-08-08-symbia-script-review.md`**.
+
+It was findings F21–F29 over `symbia-sys/src/script.ts`, all measured against
+the shipped `dist/` build: the arithmetic component substituting `0` for absent
+inputs (F21, fixed — see §12), `containsRefs()` returning alternating answers
+for one string, every email address parsing as a reference, `validateTemplate()`
+passing unknown namespaces because it discards its own warnings, four
+disagreeing namespace lists, `@org.id` returning the composite, and `@env`
+having no allowlist.
+
+Moved because it had stopped belonging here — this document reviews a registry;
+that one reviews a reference syntax.
 
 ## 9. Built: F3 and F4
 
@@ -1534,3 +1253,341 @@ and F30 would never have been written up as a success.
 `ComponentManifest`. Every other service — including the MCP server, which is
 configured outside this repo and has drifted before (F34) — is UNCHECKED. The
 tool prints that rather than letting the silence read as coverage.
+
+## 12. F21 fixed, and P6 measured on the live graph
+
+The most serious finding in this review. `symbia.compute.arithmetic` substituted
+`0` for any absent placeholder and stamped the result `canonical, exact: true`.
+
+### 12.1 The change
+
+Two refusals added to `runtime/server/src/executor/components.ts`, both ahead of
+the existing character guard:
+
+**Absent is not zero.** Placeholders referenced by the expression are collected
+first; any that are `undefined` or `null` exit on `error` / apocryphal, naming
+`missing` and `present`. That `{present, missing}` shape is deliberate — it is
+what `symbia.state.rollup` already emits, and the two components should describe
+partial input the same way.
+
+**Infinity is not a measurement.** A non-finite result now exits on `error`
+rather than going out canonical. `210 / 0` returned `Infinity`, which
+`JSON.stringify` renders as `null` — a canonical, exact null that a reader could
+not distinguish from an absent field.
+
+`energy-pue`'s own description already claimed *"division errors (e.g. it_kw = 0)
+exit on the arithmetic error port into the error log."* They did not. The graph
+was right and the component disagreed; now they agree.
+
+### 12.2 Measured at the component
+
+Against a `tsc` build of the changed file, calling the registered handler:
+
+| case | port | lane | result |
+|---|---|---|---|
+| both present | out | canonical | 1.4 |
+| numerator absent | error | apocryphal | `missing:["facility_kw"]` |
+| denominator absent | error | apocryphal | `missing:["it_kw"]` |
+| both absent | error | apocryphal | `missing:[both]` |
+| explicit `null` | error | apocryphal | `missing:["facility_kw"]` |
+| `it_kw = 0` | error | apocryphal | not finite |
+| non-numeric string | error | apocryphal | non-arithmetic characters (unchanged) |
+| `{a}+{b}+{c}`, c absent | error | apocryphal | `missing:["c"]` |
+| **`facility_kw = 0`** | **out** | **canonical** | **0** |
+
+The last row is the one that matters. A genuine zero is still a value and still
+computes. Absent and zero are now distinguishable, which is the entire defect.
+
+### 12.3 P6 — measured, and the prediction is spoiled
+
+Runtime rebuilt, fix confirmed present in the running bundle
+(`grep -c "inputs absent" dist/index.mjs` → 1), then injected into a live
+execution of `energy-pue`:
+
+| injection | terminal output | lane |
+|---|---|---|
+| `{facility_kw:210, it_kw:150}` | `sink:out` → 1.4 | canonical |
+| `{facility_kw:210}` | `errsink:out` → `missing:["it_kw"]` | **apocryphal** |
+| `{facility_kw:210, it_kw:0}` | `errsink:out` → not finite, `Infinity` | **apocryphal** |
+| `{facility_kw:0, it_kw:150}` | `sink:out` → 0 | canonical |
+
+The graph's `pue.error → errlog → errsink` edge was wired all along and had
+never carried traffic. It does now.
+
+**But P6 as registered is spoiled, and that is my error.** P6 predicted that
+`energy-pue` *would* emit a canonical PUE with a reading absent — a claim about
+the pre-fix system. I fixed the component and then measured, so what is recorded
+above is the post-fix state. The defect was proven at the component (§8.3) but
+**never observed in a live graph**, and now cannot be without deliberately
+reverting.
+
+Registering a prediction and then changing the subject before measuring makes
+the prediction unfalsifiable. The discipline says register before measuring; it
+should also say measure before repairing. Recorded as broken procedure rather
+than quietly dropped.
+
+### 12.5 F38 — I put a data centre back into the public contract
+
+Brian asked why the test cases were written in facility/IT power. The answer is
+that they should not have been, and the same vocabulary had already reached
+somewhere far worse than a test.
+
+**Observation.** The config contract I wrote for `symbia.compute.arithmetic` on
+8 Aug read:
+
+> `Arithmetic over {placeholders} drawn from the message, e.g. "{facility}/{it}".`
+
+That is a data centre's language in the public manifest of a component that does
+arithmetic. It was published to the catalog at v1.3.0, and the Contracts tab I
+built renders it to every operator.
+
+This is the defect the 6 Aug audit already found and fixed — `symbia.state.join`
+documenting its config with data-centre electrical point names — reintroduced
+two days later by the person reviewing the platform for that class of defect.
+
+**And the 6 Aug fix did not fix it either.** `git log -S 'ticker.acme'` returns
+`9f6afcc fix(D10): run schema bootstrap; remove test-case vocabulary from
+platform contracts`. That commit *introduced* `{"price": "ticker.acme",
+"volume": "volume.acme"}`. It removed energy's vocabulary and substituted
+finance's. The rule is that a platform contract carries no domain's vocabulary;
+the fix satisfied "remove the energy words" instead, which is the letter and not
+the rule.
+
+Then, on 8 Aug, I propagated that example into the new typed `config.select`
+field, giving a two-day-old workaround fresh standing as a contract.
+
+**This is discipline 2 pointed at an audit.** An instrument that checks for one
+domain's words shares the optimism of whoever chose that domain. The check that
+would not have shared it is "does this contract name anything outside the
+platform" — which is a different question, and answerable mechanically.
+
+**Fixed and republished.** `e.g. "({a} - {b}) / {a}"` and
+`e.g. {"x": "key.one"}`. Runtime rebuilt, and the publisher reported
+`updated 2, unchanged 14` — the field-level comparison built in §9 identifying
+exactly the two contracts that changed. Verified against the live catalog:
+
+```
+domain vocabulary across all 16 published contracts: none
+```
+
+**Still open.** That scan is a regex over a hand-written word list, which is the
+same shape of instrument that just failed. A real check would compare contract
+text against the vocabulary of registered apps — `energy` and `order-margin`
+both declare theirs — rather than against words a reviewer thought of. Logged,
+not built.
+
+### 12.4 P7 — broken
+
+P7 predicted *"fixing F21 breaks at least one existing test or fixture,
+confidence medium."* Nothing broke.
+
+The reason is the finding: **no test anywhere covers
+`symbia.compute.arithmetic`**, or any runtime component. `grep` across `tests/`
+and every `*.test.ts` returns nothing for `arithmetic` or `compute.`. The suites
+that exist are `tests/transparency`, `tests/intentions` and `tests/trust` —
+which check for `eval`, encoded logic, naming and complexity, but nothing about
+whether a component computes the right number.
+
+The component carrying the most serious defect in this review had no test to
+break. It still has none — this fix was verified by measurement, not by a test,
+and that gap is now the reason it could regress silently.
+
+---
+
+## 13. Sweep — integrations, models, network, graphs, objects
+
+Each service asked what it actually holds, then compared with what the catalog
+registers. Registered ≠ running is the axis that has produced nearly every
+finding in this document, and it produces four more here.
+
+### 13.1 F39 — the catalog's model entries are a stale, partly fictional subset
+
+**Measured**, `GET /api/integrations/capabilities` against the catalog's 20
+model resources:
+
+| provider | live | catalog | live but unregistered | registered but not served |
+|---|---|---|---|---|
+| openai | 15 | 8 | gpt-5.2, gpt-5.2-thinking, gpt-5.2-pro, gpt-5.2-codex, o4-mini, o3, o3-pro, o3-deep-research, o4-mini-deep-research | o3-mini, gpt-4-turbo |
+| anthropic | 9 | 5 | claude-sonnet-5, claude-opus-5, claude-haiku-4-5, claude-3-sonnet, claude-3-haiku | **claude-sonnet-4-20250514** |
+| huggingface | 23 | 6 | 18 including three vision models and four embedding models | deepseek-ai/DeepSeek-R1 |
+| symbia-labs | 1 | 1 | — | — |
+| **total** | **48** | **20** | **32 absent from the catalog** | **4 the service will not serve** |
+
+The integrations service already holds current model data. The catalog holds a
+hand-maintained copy that is 28 models short and names four that do not exist
+live. Two representations of one fact, one of them fed by a human.
+
+This also reframes §5.5, which proposed *refreshing* the model entries. The
+better move is not to refresh them — it is to stop maintaining a second copy.
+The service is the source; the catalog registration should derive from it or the
+entries should go.
+
+**Correction to F7.** §2 inferred that the catalog's model entries leave
+`contextWindow` / `pricing` / `capabilities` unpopulated, and §3 listed it as not
+checked. Now checked: **18 of 20 carry them.** The inference was wrong. The
+staleness is real; the emptiness was not.
+
+### 13.2 F40 — three green providers, one credential
+
+**Observation.** The Overview panel renders three LLM providers with green dots:
+Openai `gpt-4o-mini`, Anthropic `claude-sonnet-4-20250514`, Huggingface
+`meta-llama/Llama-3.2-3B-Instruct`.
+
+Identity holds **one** credential, for `anthropic`.
+
+And `claude-sonnet-4-20250514` is one of the four models in §13.1 that the
+integrations service does not serve. So the one provider that can authenticate is
+displayed alongside a model string it will reject, under a green dot.
+
+**The service itself is honest about this.** `GET /api/integrations/status`
+returns, per provider, `"credential": "not_checked"` plus:
+
+> *registered = an adapter and config exist in this service. Credentials are
+> per-user and live in identity; this route is unauthenticated and does not check
+> them. Use GET /api/integrations/capabilities with a token for a
+> credential-aware answer.*
+
+That is the "blank beats green" rule implemented properly, with the reason
+attached — and it is worth recording as a thing done right. The defect is that
+the console reads `configured: true` and paints a green dot, discarding the
+`not_checked` the service went out of its way to say.
+
+Same shape as F32 and F35: the service reports nuance, the UI flattens it to
+green. Three panels, three instances, one habit.
+
+### 13.3 F41 — "integration" names two nearly disjoint sets
+
+**Measured.** The integrations service registry holds **12** specs; the catalog
+holds **31** resources of type `integration`.
+
+| | |
+|---|---|
+| live only (7) | catalog, identity, logging, messaging, runtime, assistants, network — the platform's own services |
+| shared (5) | telegram, openai, anthropic, huggingface, symbia-labs |
+| catalog only (26) | 20 model entries, 5 Google integrations, 2 ingresses (minus overlap) |
+
+The five Google integrations — gmail, drive, calendar, sheets, docs — are
+registered in the catalog and have **no live spec**. Their five matching level-4
+assistants are, by the seed script's own admission, *"a single llm.invoke with a
+prompt that says 'describe what you WOULD do'."* The catalog registration and the
+assistant are both present; the capability behind them is not.
+
+Nothing in either surface says these are different populations. The Integrations
+panel shows the 12; the 31 were invisible in the console until §11.7.
+
+### 13.4 F42 — objects: a complete API with nothing in it
+
+**Measured.** The logging service exposes `/objects/streams`, `/objects/query`
+and `/objects/ingest`. `GET /api/objects/streams` returns **0**, and `/api/stats`
+reports `totalObjectStreams: 0, totalObjectEntries: 0` — against 192 log streams
+and 883,496 log entries on the same service.
+
+Three endpoints, a table, and no producer. §5.1 proposed `symbia.sink.object`
+because objects had no graph surface; the stronger statement is that they have no
+surface at all. Either something should write objects or the capability should be
+withdrawn — an API nobody calls is indistinguishable from one that does not work,
+and neither is checkable.
+
+### 13.5 F43 — a counter that reports zero after doing work
+
+**Observation.** `GET /api/stats` on the runtime returns:
+
+```
+{"loadedGraphs":4,"activeExecutions":2,"totalMessagesProcessed":0}
+```
+
+This was read minutes after the four §12.3 injections, each of which traversed
+four to six nodes and produced terminal output on `sink` or `errsink`.
+
+**Inference, disputable:** the counter is not wired. It may equally count
+something narrower — ingress deliveries, or messages on the bus rather than
+in-graph hops — in which case zero is correct and the *name* is the defect. Not
+checked which. Either way, a field called `totalMessagesProcessed` reading `0` on
+a runtime that just processed messages is a confident zero on the face of it.
+
+### 13.6 What was checked and found consistent
+
+Recorded so the sweep is not read as uniformly negative:
+
+- **Network** — 9 registered nodes, exactly the nine services. `control-center`
+  is correctly absent (it is not a mesh participant) and so is `server`, which is
+  registered-but-never-listening by ruling. 3 declared contracts.
+- **Models** — 1 model live, 1 registered. Agrees.
+- **Graphs** — 4 in the catalog, 4 loaded in the runtime. Agrees.
+- **Components** — 16 and 16, ports, lanes and config keys all matching
+  (§11.6 verifies this continuously now).
+
+### 13.8 F44 — half the component catalog is a claim nobody has cashed
+
+Built the realization graph (§14) on the premise that a catalog object is not
+real until a graph in the runtime loads it. The first render answered a question
+this document had not thought to ask.
+
+**Measured.** 4/4 graphs loaded. **8/16 components reached by a loaded graph.**
+
+Reached: `io.passthrough` (4), `io.collect` (4), `logic.filter` (3),
+`compute.arithmetic` (3), `state.join` (2), `sink.log` (2), `sink.metric` (2),
+`io.log` (2).
+
+Not reached by anything: `source.timer`, `state.rollup`, `state.window`,
+`state.latest`, `io.delay`, `io.http-request`, `logic.switch`, `transform.map`.
+
+This is not a defect — sixteen builtins ship whether or not a graph wires them,
+and an unused component is a capability in waiting. But it reframes several
+findings in this document:
+
+- **`symbia.state.rollup` is unused.** It has been cited throughout this review
+  as the component that gets the partial-total rule *right* — emitting apocryphal
+  with `{coverage, present, missing}` rather than letting a partial pass as a
+  total. It is the reference implementation of the platform's honesty rule and
+  **no graph references it**, while `compute.arithmetic`, which violated the same
+  rule until §12, is used by three.
+- **The lane work in §9 covers ports that mostly never fire.** 24 output ports
+  now publish a lane; 8 of 16 components are unreached, so a good share of that
+  contract describes behaviour no execution has exercised.
+- **F12's unexercised implementation kinds have a sibling.** Four of five
+  `implementation` kinds have zero instances; now, half the instances of the one
+  kind in use have zero consumers.
+
+`apps/control-center` renders correctly as `provides 0` — it declares no graphs,
+which is true and now visible.
+
+---
+
+## 14. Built: the realization graph
+
+`symbia-control-center/src/components/panels/catalog/RealizationGraph.tsx`,
+the Catalog panel's default view.
+
+**Why it looks like the network topology.** That page already teaches the
+distinction this one needs — solid for observed, dashed for *"declared contract
+— permitted, not necessarily used"*. Reusing its visual language rather than
+inventing a second one means an operator learns the idea once. Same React Flow
+canvas, same solid/dashed grammar, same legend habit.
+
+**What it draws.** Three columns — apps, graphs, components. `app → graph` is
+"provides"; `graph → component` is "a node references". Both are catalog
+declarations. Solid and animated where the runtime actually holds the thing;
+dashed and dimmed where it is registered only.
+
+**Realization is asked separately and fails separately.** The runtime is read in
+its own request. If it cannot be read, the view does not draw everything as
+unrealized — it says *"Realization not checked"* and offers a retry. Drawing 79
+dashed boxes would be a confident answer to a question nobody managed to ask.
+
+**One layout correction, caught in the browser.** The first version overlaid the
+stats and legend on the canvas; at the zoom this console is read at they covered
+the first app card and the entire right-hand component column — a legend hiding
+the thing it explains. Both now sit outside the canvas.
+
+### 13.7 Not checked — §13
+
+- Whether `totalMessagesProcessed` counts something other than graph hops (F43).
+- Whether the 5 Google integrations were ever intended to have live specs, or are
+  deliberately catalog-only declarations.
+- The 3 network contracts against the 18 observed edges the topology draws.
+- Whether any consumer reads the catalog's model entries at all — if nothing
+  does, F39 is dead weight rather than a wrong answer.
+- Nothing in §13 was checked in a browser except the Overview provider dots.
+
+---

@@ -27,8 +27,9 @@
  */
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useAuthStore } from '@/stores/authStore';
+import { RealizationGraph, type Realization } from './catalog/RealizationGraph';
 
-type Tab = 'registry' | 'contracts' | 'hygiene';
+type Tab = 'graph' | 'registry' | 'contracts' | 'hygiene';
 
 interface ManifestPort {
   name: string;
@@ -106,13 +107,19 @@ function Pill({ children, tone = 'quiet' }: { children: React.ReactNode; tone?: 
 
 export function CatalogPanel() {
   const authToken = useAuthStore((s) => s.token);
-  const [tab, setTab] = useState<Tab>('registry');
+  const [tab, setTab] = useState<Tab>('graph');
   const [resources, setResources] = useState<Resource[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [typeFilter, setTypeFilter] = useState<string>('all');
   const [query, setQuery] = useState('');
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  /**
+   * What the RUNTIME holds, as distinct from what the catalog claims.
+   * `null` means never successfully read — which is not the same as empty, and
+   * the graph says so rather than drawing everything as unrealized.
+   */
+  const [realization, setRealization] = useState<Realization | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -133,6 +140,32 @@ export function CatalogPanel() {
       setResources(null);
     } finally {
       setLoading(false);
+    }
+
+    // Asked separately and failed separately. If the runtime cannot be read,
+    // the catalog still renders and realization reports itself unknown — the
+    // alternative is drawing every resource as unreal, which would be a
+    // confident answer to a question nobody managed to ask.
+    try {
+      const h = authToken ? { Authorization: `Bearer ${authToken}` } : undefined;
+      const [gr, cr] = await Promise.all([
+        fetch('/svc/runtime/api/graphs', { headers: h }),
+        fetch('/svc/runtime/api/components', { headers: h }),
+      ]);
+      if (!gr.ok || !cr.ok) {
+        setRealization(null);
+        return;
+      }
+      const gd = await gr.json();
+      const cd = await cr.json();
+      setRealization({
+        loadedGraphs: new Set<string>(((gd.graphs ?? gd) as { name: string }[]).map((g) => g.name)),
+        runningComponents: new Set<string>(
+          ((cd.components ?? cd) as { id: string }[]).map((c) => c.id),
+        ),
+      });
+    } catch {
+      setRealization(null);
     }
   }, [authToken]);
 
@@ -198,25 +231,26 @@ export function CatalogPanel() {
           </div>
         </div>
 
-        <nav className="flex gap-8 mt-6">
+        <nav className="flex flex-wrap gap-2 mt-6 -mb-px">
           {(
             [
-              ['registry', 'Registry', 'what is in here'],
-              ['contracts', 'Contracts', 'what components promise'],
-              ['hygiene', 'Hygiene', 'what is inconsistent'],
+              ['graph', 'Graph', realization ? `${realization.loadedGraphs.size} loaded` : '?'],
+              ['registry', 'Registry', resources ? String(resources.length) : ''],
+              ['contracts', 'Contracts', String(counts.component ?? '')],
+              ['hygiene', 'Hygiene', ''],
             ] as [Tab, string, string][]
-          ).map(([id, label, hint]) => (
+          ).map(([id, label, badge]) => (
             <button
               key={id}
               onClick={() => setTab(id)}
-              title={hint}
-              className={`pb-3 -mb-px border-b-2 transition-colors ${
+              className={`px-4 py-2 rounded-t-lg border-b-2 transition-colors ${
                 tab === id
-                  ? 'border-scc-primary text-slate-100'
+                  ? 'border-scc-primary bg-scc-elevated text-slate-100'
                   : 'border-transparent text-slate-500 hover:text-slate-300'
               }`}
             >
               {label}
+              {badge && <span className="ml-2 text-slate-500">{badge}</span>}
             </button>
           ))}
         </nav>
@@ -230,6 +264,39 @@ export function CatalogPanel() {
 
       {!resources && !error && (
         <p className="px-8 py-8 text-slate-500">Reading the catalog…</p>
+      )}
+
+      {resources && tab === 'graph' && (
+        <div className="flex-1 min-h-0">
+          {realization === null ? (
+            <div className="p-8 max-w-2xl">
+              <h2 className="text-xl text-slate-200">Realization not checked</h2>
+              <p className="text-slate-400 mt-2 leading-relaxed">
+                The runtime could not be read, so which of these {resources.length} resources are
+                actually loaded is unknown. Drawing them all as unrealized would be a confident
+                answer to a question nobody managed to ask — so nothing is drawn.
+              </p>
+              <button
+                onClick={() => void load()}
+                className="mt-5 px-4 py-2 rounded-lg ring-1 ring-scc-border hover:bg-scc-elevated text-slate-200"
+              >
+                Try again
+              </button>
+            </div>
+          ) : (
+            <RealizationGraph
+              resources={resources}
+              realization={realization}
+              onSelect={(key) => {
+                const hit = resources.find((r) => r.key === key);
+                if (hit) {
+                  setSelectedId(hit.id);
+                  setTab('registry');
+                }
+              }}
+            />
+          )}
+        </div>
       )}
 
       {resources && tab === 'registry' && (

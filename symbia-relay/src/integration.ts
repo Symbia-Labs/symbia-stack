@@ -8,6 +8,7 @@
 import { createRelayClient, RelayClient } from './client.js';
 import type { RelayConfig, SandboxEvent, EventTrace, AgentEventType, AgentMessagePayload, AgentPrincipal } from './types.js';
 import { ServiceId, resolveServiceUrl, serviceDisplayName } from '@symbia/sys';
+import type { TrafficOrigin } from './trace-context.js';
 
 let globalRelay: RelayClient | null = null;
 
@@ -693,6 +694,18 @@ export interface HttpRequestEvent {
    * socket handler.
    */
   caller?: string;
+  /**
+   * Why this request happened, from x-symbia-origin.
+   *
+   * Orthogonal to `caller` and to the wrapper's `boundary`: those say which
+   * service and where, this says on whose behalf. A dashboard poll and a
+   * person pressing Send were previously identical by every recorded field —
+   * both `intra`, both called by `control-center`.
+   *
+   * Always present, because `unknown` is a value. Absence of a label is not
+   * evidence of a human.
+   */
+  origin?: TrafficOrigin;
   query?: Record<string, string>;
   headers?: Record<string, string>;
   ip?: string;
@@ -716,6 +729,12 @@ export interface HttpResponseEvent {
    * while 147 of 300 events carried one.
    */
   caller?: string;
+  /**
+   * Why this request happened. On BOTH events for the same reason `caller` is:
+   * consumers count responses, and a field that lives only on the request is
+   * invisible to every one of them.
+   */
+  origin?: TrafficOrigin;
   size?: number;
   traceId?: string;
 }

@@ -17,6 +17,10 @@ interface Command {
   handler: (args: string[], input: string) => Promise<CommandResult>;
 }
 
+// Every handler below runs because a person typed something into the command
+// bar, so each platform call made from here is declared `user`. That is the
+// only place in the console where that claim is safe to make wholesale, and it
+// is safe here precisely because typing is the trigger.
 const commands: Command[] = [
   // Status commands
   {
@@ -24,7 +28,7 @@ const commands: Command[] = [
     description: 'Show status of all services',
     examples: ['/status'],
     handler: async () => {
-      const health = await platformClient.checkAllHealth();
+      const health = await platformClient.checkAllHealth('user');
       const healthy = health.filter((h) => h.status === 'healthy').length;
       return {
         success: true,
@@ -48,7 +52,7 @@ const commands: Command[] = [
           message: `Unknown service: ${serviceId}. Available: ${SERVICES.map((s) => s.id).join(', ')}`,
         };
       }
-      const health = await platformClient.checkHealth(serviceId);
+      const health = await platformClient.checkHealth(serviceId, 'user');
       return {
         success: health.status === 'healthy',
         message: `${service.name} (${service.port}): ${health.status}${health.latencyMs ? ` (${health.latencyMs}ms)` : ''}`,
@@ -114,7 +118,7 @@ const commands: Command[] = [
     examples: ['/run my-graph-id'],
     handler: async (args) => {
       const graphId = args[1];
-      const result = await platformClient.executeGraph(graphId);
+      const result = await platformClient.executeGraph('user', graphId);
       if (result) {
         return {
           success: true,

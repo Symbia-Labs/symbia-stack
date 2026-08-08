@@ -40,11 +40,53 @@ import { AsyncLocalStorage } from 'node:async_hooks';
 
 export const TRACE_HEADER = 'x-trace-id';
 export const CALLER_HEADER = 'x-symbia-caller';
+export const ORIGIN_HEADER = 'x-symbia-origin';
+
+/**
+ * Why a request happened, and on whose behalf.
+ *
+ * A THIRD question, orthogonal to the two already recorded:
+ *
+ *   boundary  WHERE the call goes    (intra | inter | extra)
+ *   caller    WHICH service made it
+ *   origin    WHY it happened        <- this
+ *
+ * Measured 8 Aug 2026: of 499 `obs.http.response` events, 50.5% were
+ * `GET /api/stats` and 41.3% were the `POST /api/auth/introspect` those polls
+ * provoke. About 96% of observed traffic is the console watching itself, and
+ * by every field recorded at the time it was indistinguishable from a person
+ * pressing a button — both `intra`, both naming `control-center` as caller.
+ *
+ * `unknown` is a real value and is never folded into `user`. A count of human
+ * activity that quietly absorbs everything unlabelled is the same defect as a
+ * confident `0` that means "never asked".
+ */
+export type TrafficOrigin = 'internal' | 'user' | 'agent' | 'unknown';
+
+export const TRAFFIC_ORIGINS: readonly TrafficOrigin[] = [
+  'internal',
+  'user',
+  'agent',
+  'unknown',
+] as const;
+
+export function isTrafficOrigin(v: unknown): v is TrafficOrigin {
+  return typeof v === 'string' && (TRAFFIC_ORIGINS as readonly string[]).includes(v);
+}
 
 export interface TraceContext {
   traceId: string;
   /** The service this process is. Sent as the caller on outbound calls. */
   serviceId: string;
+  /**
+   * Inherited from the inbound request and stamped on everything this request
+   * goes on to call.
+   *
+   * Propagation is the whole point. Labelling only the first hop would leave
+   * the introspect storm — 41% of all traffic — unattributed, which is exactly
+   * the amplification worth seeing.
+   */
+  origin?: TrafficOrigin;
 }
 
 const storage = new AsyncLocalStorage<TraceContext>();
@@ -87,6 +129,24 @@ export function callerFromHeaders(headers: Record<string, unknown>): string | un
   return typeof c === 'string' && c.length > 0 ? c : undefined;
 }
 
+/**
+ * Read the declared origin off an inbound request.
+ *
+ * DECLARED, never inferred. Nothing here looks at the path, the user-agent or
+ * the port to make a guess. "GET /api/stats is always internal" would be a
+ * conclusion written into a probe, and false the first time an operator opens
+ * the stats endpoint themselves.
+ *
+ * An unrecognised value is `unknown` rather than being passed through, so the
+ * vocabulary cannot be widened by a caller sending whatever it likes. Absent
+ * is also `unknown`, and the two are deliberately the same: neither one says
+ * a human did anything.
+ */
+export function originFromHeaders(headers: Record<string, unknown>): TrafficOrigin {
+  const raw = headers[ORIGIN_HEADER];
+  return isTrafficOrigin(raw) ? raw : 'unknown';
+}
+
 let installed = false;
 
 /**
@@ -116,6 +176,11 @@ export function installFetchTracePropagation(serviceId: string): void {
 
     if (!headers.has(CALLER_HEADER)) headers.set(CALLER_HEADER, serviceId);
     if (!headers.has(TRACE_HEADER) && ctx?.traceId) headers.set(TRACE_HEADER, ctx.traceId);
+    // Origin travels with the trace. A call made while handling a request
+    // inherits that request's reason for existing — so the token introspection
+    // provoked by a dashboard poll is `internal` like the poll, rather than
+    // appearing as 41% of traffic with nothing attached to it.
+    if (!headers.has(ORIGIN_HEADER) && ctx?.origin) headers.set(ORIGIN_HEADER, ctx.origin);
 
     return original(input as Parameters<typeof original>[0], { ...(init ?? {}), headers });
   } as typeof original;

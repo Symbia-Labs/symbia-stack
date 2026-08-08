@@ -15,7 +15,7 @@
  */
 
 import type { Request, Response, NextFunction } from 'express';
-import { withTrace, traceIdFromHeaders, callerFromHeaders, mintTraceId } from './trace-context.js';
+import { withTrace, traceIdFromHeaders, callerFromHeaders, originFromHeaders, mintTraceId } from './trace-context.js';
 import { emitHttpRequest, emitHttpResponse } from './integration.js';
 import type { HttpRequestEvent, HttpResponseEvent } from './integration.js';
 
@@ -83,6 +83,10 @@ export function observabilityMiddleware(
     // the header, and absent for calls made outside a request's async context.
     // Those are different things and must not be read as one.
     const caller = callerFromHeaders(req.headers as Record<string, unknown>);
+    // Why this request exists, as declared by whoever started it. Never
+    // inferred here: an unrecognised or absent header is `unknown`, and
+    // `unknown` is never read as `user`.
+    const origin = originFromHeaders(req.headers as Record<string, unknown>);
 
     // Build request event data
     const requestEvent: HttpRequestEvent = {
@@ -93,6 +97,7 @@ export function observabilityMiddleware(
       userAgent: req.headers['user-agent'],
       traceId,
       caller,
+      origin,
     };
 
     // Optionally include filtered headers
@@ -149,6 +154,7 @@ export function observabilityMiddleware(
         statusCode: res.statusCode,
         durationMs,
         caller,
+        origin,
         size: responseSize > 0 ? responseSize : undefined,
         traceId,
       };
@@ -170,7 +176,7 @@ export function observabilityMiddleware(
     // everything the callback awaits, so the whole downstream handler chain
     // runs in this request's trace. Calling next() outside would establish a
     // context that nothing could see.
-    withTrace({ traceId, serviceId }, () => next());
+    withTrace({ traceId, serviceId, origin }, () => next());
   };
 }
 

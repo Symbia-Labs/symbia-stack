@@ -114,7 +114,12 @@ export {
   mintTraceId,
   traceIdFromHeaders,
   callerFromHeaders,
+  originFromHeaders,
+  isTrafficOrigin,
   TRACE_HEADER,
   CALLER_HEADER,
+  ORIGIN_HEADER,
+  TRAFFIC_ORIGINS,
   type TraceContext,
+  type TrafficOrigin,
 } from './trace-context.js';

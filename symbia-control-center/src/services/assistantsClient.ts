@@ -4,6 +4,7 @@
  * Provides full CRUD operations for prompt graphs, actors, and run management.
  */
 import { useAuthStore } from '@/stores/authStore';
+import { ORIGIN_HEADER, CLIENT_ORIGIN } from './origin';
 import { useOrgStore } from '@/stores/orgStore';
 import { getServiceUrl } from '@/config/services';
 
@@ -105,6 +106,9 @@ class AssistantsClient {
     const orgId = useOrgStore.getState().currentOrgId;
 
     const headers: Record<string, string> = {
+      // Declared, not inferred. See services/origin.ts for why this
+      // client's traffic carries the origin it does.
+      [ORIGIN_HEADER]: CLIENT_ORIGIN.assistants,
       'Content-Type': 'application/json',
     };
 

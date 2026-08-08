@@ -14,6 +14,7 @@ import { useState, useEffect, useCallback, useMemo } from 'react';
 import { type ServiceConfig } from '@/config/services';
 import { platformClient, type ServiceHealth, type ServiceStats } from '@/services/platformClient';
 import { type LogEntry } from '@/services/loggingStreamClient';
+import { type TrafficOrigin } from '@/services/origin';
 // Network event types used in useServices hook
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 import { type SandboxEvent as _SandboxEvent, type EventTrace as _EventTrace } from '@/services/networkClient';
@@ -220,6 +221,12 @@ interface ObsHttpResponseData {
   durationMs: number;
   size?: number;
   traceId?: string;
+  /**
+   * Why the request happened. Absent on events emitted by a service that has
+   * not been rebuilt since this field was added — which is NOT the same as
+   * `unknown`, and the filter below keeps them apart.
+   */
+  origin?: TrafficOrigin;
 }
 
 export function ServiceObservationPanel({ serviceId, service, initialHealth, onBack }: ServiceObservationPanelProps) {
@@ -230,6 +237,18 @@ export function ServiceObservationPanel({ serviceId, service, initialHealth, onB
   const [levelFilter, setLevelFilter] = useState<LogLevel | 'all'>('all');
   const [inspectingLog, setInspectingLog] = useState<LogEntry | null>(null);
   const [isLiveLogging, setIsLiveLogging] = useState(true);
+
+  // Internal traffic is HIDDEN BY DEFAULT, and the count of what is hidden
+  // stays on screen.
+  //
+  // Measured 8 Aug 2026: ~96% of all observed HTTP traffic was the console
+  // polling the stack, so every one of these panels was mostly a picture of
+  // itself. Filtering it out is the only way the remaining 4% is visible.
+  //
+  // Hidden, never dropped. A filter that quietly changed the totals would be
+  // the same defect as a confident zero — so the control always shows how many
+  // events it is holding back.
+  const [showInternal, setShowInternal] = useState(false);
 
   // Events tab state
   const [isLiveEvents, setIsLiveEvents] = useState(true);
@@ -290,13 +309,32 @@ export function ServiceObservationPanel({ serviceId, service, initialHealth, onB
     });
   }, [recentNetworkEvents, serviceId, service.name]);
 
+  // Split by origin. `internal` is the console's own polling; everything else
+  // is either real activity or an event from a service that predates the
+  // field. Only `internal` is hidden — `unknown` and absent are shown, because
+  // hiding what has not been classified would make the filter a claim about
+  // events nobody has labelled yet.
+  const { visibleEvents, hiddenInternalCount } = useMemo(() => {
+    let hidden = 0;
+    const visible = serviceEvents.filter(({ event }) => {
+      if (!event.payload.type.startsWith('obs.')) return true;
+      const origin = (event.payload.data as { origin?: string } | undefined)?.origin;
+      if (origin === 'internal' && !showInternal) {
+        hidden++;
+        return false;
+      }
+      return true;
+    });
+    return { visibleEvents: visible, hiddenInternalCount: hidden };
+  }, [serviceEvents, showInternal]);
+
   // Sort events by timestamp descending (newest first) using useMemo
   // This ensures sorting happens synchronously on every render, avoiding race conditions
   const sortedServiceEvents = useMemo(() => {
-    return [...serviceEvents].sort((a, b) =>
+    return [...visibleEvents].sort((a, b) =>
       b.event.wrapper.timestamp.localeCompare(a.event.wrapper.timestamp)
     );
-  }, [serviceEvents]);
+  }, [visibleEvents]);
 
   // Freeze displayed events when paused
   useEffect(() => {
@@ -322,7 +360,10 @@ export function ServiceObservationPanel({ serviceId, service, initialHealth, onB
     const newRequestData: RequestEvent[] = [];
 
     // Process HTTP response events (they have the latency and status info)
-    serviceEvents.forEach(({ event }) => {
+    // The SAME filtered set the list uses. If the charts counted everything
+    // while the list showed a subset, the two would disagree on screen and the
+    // filter would look like it had lost data.
+    visibleEvents.forEach(({ event }) => {
       const eventType = event.payload.type;
       const eventData = event.payload.data as Record<string, unknown>;
       const timestamp = new Date(event.wrapper.timestamp).getTime();
@@ -392,7 +433,7 @@ export function ServiceObservationPanel({ serviceId, service, initialHealth, onB
     setStatusData(newStatusData);
     setRequestData(newRequestData);
     setEndpointData(newEndpointData);
-  }, [serviceEvents]);
+  }, [visibleEvents]);
 
   // Convert maps to chart formats
   const statusChartData: StatusCount[] = useMemo(() => {
@@ -420,7 +461,7 @@ export function ServiceObservationPanel({ serviceId, service, initialHealth, onB
   }, [endpointData]);
 
   const timelineEvents: TimelineEvent[] = useMemo(() => {
-    return serviceEvents.map(({ event, trace }) => ({
+    return visibleEvents.map(({ event, trace }) => ({
       id: event.wrapper.id,
       timestamp: new Date(event.wrapper.timestamp).getTime(),
       type: event.payload.type,
@@ -430,13 +471,14 @@ export function ServiceObservationPanel({ serviceId, service, initialHealth, onB
       durationMs: trace.totalDurationMs,
       data: event.payload.data,
     }));
-  }, [serviceEvents]);
+  }, [visibleEvents]);
 
   // Fetch health and stats
   const fetchHealthAndStats = useCallback(async () => {
     const [healthResult, statsResult] = await Promise.all([
-      platformClient.checkHealth(serviceId),
-      platformClient.getServiceStats(serviceId),
+      // Both on a 5s timer below — the console looking, not a person asking.
+      platformClient.checkHealth(serviceId, 'internal'),
+      platformClient.getServiceStats(serviceId, 'internal'),
     ]);
     setHealth(healthResult);
     // getServiceStats now reports WHY there are no stats rather than returning
@@ -497,8 +539,8 @@ export function ServiceObservationPanel({ serviceId, service, initialHealth, onB
     const latencies = latencyData.map((d) => d.latency).sort((a, b) => a - b);
     const p95 = latencies.length > 0 ? latencies[Math.floor(latencies.length * 0.95)] : 0;
 
-    return { totalRequests, avgLatency, errorRate, p95, eventCount: serviceEvents.length };
-  }, [requestData, latencyData, serviceEvents]);
+    return { totalRequests, avgLatency, errorRate, p95, eventCount: visibleEvents.length };
+  }, [requestData, latencyData, visibleEvents]);
 
   const tabs: { id: TabId; label: string; count?: number }[] = [
     { id: 'dashboard', label: 'Dashboard' },
@@ -538,6 +580,27 @@ export function ServiceObservationPanel({ serviceId, service, initialHealth, onB
             </h1>
             <span className="text-sm text-slate-500">{service.description}</span>
           </div>
+          {/*
+            The filter states its own effect. A control that said only
+            "show internal" would leave a reader guessing whether the charts
+            above were complete; this says how many events are being held
+            back, so the number on screen is never mistaken for the total.
+          */}
+          <button
+            onClick={() => setShowInternal((v) => !v)}
+            className={`text-xs px-2 py-1 rounded border transition-colors ${
+              showInternal
+                ? 'border-scc-border text-slate-300 bg-scc-elevated'
+                : 'border-scc-border/60 text-slate-400 hover:text-slate-200'
+            }`}
+            title="Traffic the console generates by polling this service, as opposed to user or agent activity"
+          >
+            {showInternal
+              ? 'hide internal traffic'
+              : hiddenInternalCount > 0
+              ? `+${hiddenInternalCount} internal hidden`
+              : 'no internal traffic seen'}
+          </button>
           <div className="flex items-center gap-4 text-sm">
             {health?.latencyMs !== undefined && (
               <span className="text-slate-400">{health.latencyMs}ms</span>

@@ -316,7 +316,12 @@ registerComponent({
       type: 'string',
       required: true,
       description:
-        'Arithmetic over {placeholders} drawn from the message, e.g. "{facility}/{it}". Only digits, whitespace and + - * / ( ) survive the guard.',
+        // No domain vocabulary in a public contract. The first version of this
+        // read `e.g. "{facility}/{it}"`, which is a data centre's language in
+        // the manifest of a component that does arithmetic — the exact defect
+        // the 6 Aug audit removed from symbia.state.join, reintroduced here on
+        // 8 Aug and published to the catalog before anyone read it.
+        'Arithmetic over {placeholders} resolved from fields of the incoming message, e.g. "({a} - {b}) / {a}". Only digits, whitespace and + - * / ( ) survive the guard.',
     },
   },
   lanes: {
@@ -326,7 +331,42 @@ registerComponent({
   handler: (input, ctx) => {
     const expr = String(ctx.config.expression ?? '');
     const src = (input.value ?? {}) as Record<string, unknown>;
-    const filled = expr.replace(/\{(\w+)\}/g, (_m, k) => String(Number(src[k] ?? 0)));
+
+    // AN ABSENT INPUT IS NOT A ZERO.
+    //
+    // This read `Number(src[k] ?? 0)`, so a placeholder with no value became 0
+    // BEFORE anything could object, and the result went out on the canonical
+    // lane stamped `exact: true`. Measured 8 Aug 2026:
+    //
+    //   {facility}/{it}   numerator absent    -> 0/150  = 0         canonical
+    //                     denominator absent  -> 210/0  = Infinity  canonical
+    //   {a}+{b}+{c}       c absent            -> 5+5+0  = 10        canonical
+    //
+    // The last is a partial sum passing as the total, which is the rule
+    // `symbia.state.rollup` exists to enforce and enforces correctly on the
+    // apocryphal lane. Two components, one concern, opposite behaviour.
+    //
+    // A non-numeric STRING was already refused, because String(NaN) fails the
+    // character guard below. Only absent and null slipped through, because
+    // `undefined ?? 0` and `null ?? 0` are both 0 before the guard ever runs.
+    // Absence is now detected first, and named.
+    const referenced = [...expr.matchAll(/\{(\w+)\}/g)].map((m) => m[1]);
+    const missing = referenced.filter((k) => src[k] === undefined || src[k] === null);
+    if (missing.length > 0) {
+      return {
+        error: {
+          value: {
+            error: 'expression refused: inputs absent',
+            missing,
+            present: referenced.filter((k) => !missing.includes(k)),
+            expression: expr,
+          },
+          lane: 'apocryphal' as Lane,
+        },
+      };
+    }
+
+    const filled = expr.replace(/\{(\w+)\}/g, (_m, k) => String(Number(src[k])));
     if (!/^[\d\s+\-*/().]+$/.test(filled)) {
       return {
         error: {
@@ -338,6 +378,30 @@ registerComponent({
     try {
       // eslint-disable-next-line no-new-func
       const result = Function(`"use strict";return (${filled})`)();
+
+      // INFINITY IS NOT A MEASUREMENT.
+      //
+      // Division by zero returned Infinity, and NaN returned NaN, both on the
+      // canonical lane with `exact: true`. JSON.stringify then rendered either
+      // as `null`, so a downstream reader saw a null it had no way to tell from
+      // an absent field — a canonical, exact null.
+      //
+      // energy-pue's own description already claimed "division errors (e.g.
+      // it_kw = 0) exit on the arithmetic error port". They did not. The graph
+      // was right about what should happen and the component disagreed.
+      if (!Number.isFinite(result)) {
+        return {
+          error: {
+            value: {
+              error: 'expression refused: result is not finite',
+              result: String(result),
+              expression: filled,
+            },
+            lane: 'apocryphal' as Lane,
+          },
+        };
+      }
+
       return {
         out: {
           value: { result, method: 'arithmetic', expression: filled, exact: true },

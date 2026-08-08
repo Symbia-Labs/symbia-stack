@@ -1,4 +1,5 @@
 import { endpoints, socketPath } from '@/config/endpoints';
+import { ORIGIN_HEADER, CLIENT_ORIGIN } from './origin';
 import { useAuthStore } from '@/stores/authStore';
 import { useOrgStore } from '@/stores/orgStore';
 import type { Conversation, Message } from '@/stores/messagingStore';
@@ -35,6 +36,9 @@ class MessagingBridge {
     const orgId = useOrgStore.getState().currentOrgId;
 
     const headers: Record<string, string> = {
+      // Declared, not inferred. See services/origin.ts for why this
+      // client's traffic carries the origin it does.
+      [ORIGIN_HEADER]: CLIENT_ORIGIN.messaging,
       'Content-Type': 'application/json',
     };
 

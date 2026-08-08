@@ -80,7 +80,12 @@ registerComponent({
   id: 'symbia.state.join',
   name: 'Join Latest',
   description:
-    'Joins the latest values of selected keys from a keyed stream. config.select maps output fields to key values, e.g. {"price": "ticker.acme", "volume": "volume.acme"}; config.keyField (default "key") and config.valueField (default "value") locate key and value in each message. Emits the joined object on "out" once every selected key has been seen (then on every update); until then emits {have, need} on "pending".',
+    // D10 removed a data centre's electrical point names from this contract and
+    // put a stock ticker in their place (9f6afcc). That satisfies "remove
+    // energy's vocabulary" and not the rule it was serving, which is that a
+    // platform contract carries no domain's vocabulary at all. Swapping one
+    // domain for another is the same defect wearing different words.
+    'Joins the latest values of selected keys from a keyed stream. config.select maps output fields to key values, e.g. {"x": "key.one", "y": "key.two"}; config.keyField (default "key") and config.valueField (default "value") locate key and value in each message. Emits the joined object on "out" once every selected key has been seen (then on every update); until then emits {have, need} on "pending".',
   inputs: ['in'],
   outputs: ['out', 'pending'],
   config: {
@@ -88,7 +93,7 @@ registerComponent({
       type: 'object',
       required: true,
       description:
-        'Output field to key value, e.g. {"price": "ticker.acme"}. Keys of this object become the fields of the joined result; an empty select can never complete.',
+        'Output field to key value, e.g. {"x": "key.one"}. Keys of this object become the fields of the joined result; an empty select can never complete.',
     },
     keyField: {
       type: 'string',
