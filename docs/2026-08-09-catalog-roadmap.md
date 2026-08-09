@@ -454,3 +454,27 @@ same day; the log follows.*
   the gate with role:admin, and `/api/integrations/status` continues to
   report `registered: false` until the integrations service is next
   booted (boot-time cache).
+
+### Results of the live probes (same session)
+
+- **Ports:** 5003/5006/5007 all listening — via **ssh port-forwards**
+  (one PID), i.e. the stack runs remotely and the Mac tunnels to it.
+- **P4: half broken, reported as broken.**
+  `GET /api/resources?status=draft` (authenticated) → empty list ✓.
+  But the runtime graph store holds exactly the 4 hydrated published
+  graphs and **no draft** ✗. The draft graph Brian reports is findable in
+  neither catalog nor runtime as measured. Consistent with runtime's
+  in-memory mode losing it on restart — but that is inference; where the
+  draft actually lives (control-center local state? another org?) is
+  **not checked**.
+- **P5: not reached.** The POST was refused upstream of the prediction:
+  `403 — "You don't have permission to create resources"`. Observation:
+  the `.mcp.json` credential can read the catalog but cannot create
+  resources; the write gate held. This is not a platform defect — it is
+  the gate doing its job against an under-entitled principal. Consequence:
+  **every Phase 1 write (items 3, 4, 5, and the symbia-labs config) is
+  blocked on an admin credential**, to be supplied or executed from an
+  admin session. The prepared resource body (key
+  `integrations/ai/symbia-labs/config`, published, public-read,
+  bootstrap-flagged, `metadata.provider: "symbia-labs"`, no host or port
+  baked in) is recorded here for that session.
