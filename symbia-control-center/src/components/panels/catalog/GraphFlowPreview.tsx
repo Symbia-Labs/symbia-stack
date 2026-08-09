@@ -1,60 +1,44 @@
 /**
- * Graph Flow Preview
+ * Graph flow preview — the same nodes, wired.
  *
- * The behaviour tile from the assistants page, pointed at a catalog graph
- * instead of an assistant's routines. Same grammar deliberately: dagre
- * left-to-right layout, green Input and Output endpoints, a coloured card per
- * step, read-only. An operator who has read one should not have to learn the
- * other.
+ * Every node here is a `SymbiaNode`, identical to the one the catalog draws
+ * when you inspect that component on its own. Same ports, same lane colours,
+ * same geometry. Finding `symbia.compute.arithmetic` inside a pipeline should
+ * be recognising the object you just read about, not decoding a second
+ * notation for it.
  *
- * WHAT A NODE IS COLOURED BY. Its component's family — io, logic, state,
- * compute, transform, sink, source — because that is what tells you at a glance
- * whether a step moves data, decides something, remembers something or writes
- * somewhere. Lane is shown as a small mark rather than as the colour: a port's
- * lane is a property of an edge leaving the node, not of the node itself, and
- * colouring by it would say a component "is" apocryphal when only one of its
- * outputs is.
+ * PORTS CARRY THE EDGES. Each edge attaches to the named handle it actually
+ * leaves from and arrives at, so `pue.error → errlog.in` is drawn from the
+ * amber `error` port rather than from the middle of a box. A graph's branching
+ * is its whole behaviour, and the ports are where the branching lives.
  *
- * ENTRY AND EXIT ARE DERIVED, NOT DECLARED. The Input endpoint attaches to the
- * node named by `metadata.ingress.node` when a graph declares one, and
- * otherwise to whichever nodes no edge targets. Exit is whichever nodes emit to
- * nothing. Both are inferences from the shape and are drawn as endpoints rather
- * than asserted as ports.
+ * WHERE THE PORTS COME FROM. A graph node names a component; the component's
+ * published manifest names the ports and their lanes. That lookup is the reason
+ * the manifest work of 8 Aug matters here — before it, this drawing could not
+ * have known that `error` is apocryphal without parsing an English sentence.
+ * A node whose component is not manifested falls back to the ports the graph's
+ * own edges reference, and says so by having no lane colour rather than by
+ * guessing one.
  */
 import { useMemo } from 'react';
 import { ReactFlow, Controls, useNodesState, useEdgesState, type Edge, type Node } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
 import dagre from 'dagre';
 
-import { FlowNode } from './type-sections/flow-nodes';
+import {
+  symbiaNodeTypes,
+  nodeHeight,
+  NODE_WIDTH,
+  type Port,
+  type SymbiaNodeData,
+} from './SymbiaNode';
 
-const nodeTypes = { flowNode: FlowNode };
-
-const defaultEdgeOptions = {
-  type: 'smoothstep',
-  style: { stroke: '#64748b', strokeWidth: 2 },
-};
-
-/** Colour by what the step does, matching the step palette on the assistants page. */
-const FAMILY_COLOR: Record<string, string> = {
-  io: '#64748b',
-  logic: '#f59e0b',
-  state: '#f59e0b',
-  compute: '#22c55e',
-  transform: '#a855f7',
-  sink: '#00d4ff',
-  source: '#22c55e',
-};
-
-const FAMILY_ICON: Record<string, string> = {
-  io: '➜',
-  logic: '⑂',
-  state: '▤',
-  compute: '∑',
-  transform: '⇄',
-  sink: '⇥',
-  source: '⇤',
-};
+export interface ComponentPorts {
+  inputs: Port[];
+  outputs: Port[];
+  version?: string;
+  implementation?: string;
+}
 
 export interface GraphDefinition {
   nodes?: { id: string; component?: string; config?: Record<string, unknown> }[];
@@ -66,27 +50,33 @@ export interface GraphDefinition {
   metadata?: Record<string, unknown>;
 }
 
-// Must match FlowNode's fixed card size or dagre spaces against a phantom.
-const W = 140;
-const H = 50;
+const defaultEdgeOptions = {
+  type: 'smoothstep',
+  style: { stroke: '#64748b', strokeWidth: 2 },
+};
 
 function layout(nodes: Node[], edges: Edge[]): Node[] {
   const g = new dagre.graphlib.Graph().setDefaultEdgeLabel(() => ({}));
-  g.setGraph({ rankdir: 'LR', nodesep: 24, ranksep: 56 });
-  for (const n of nodes) g.setNode(n.id, { width: W, height: H });
+  g.setGraph({ rankdir: 'LR', nodesep: 30, ranksep: 90 });
+  for (const n of nodes) {
+    g.setNode(n.id, { width: NODE_WIDTH, height: nodeHeight(n.data as SymbiaNodeData) });
+  }
   for (const e of edges) g.setEdge(e.source, e.target);
   dagre.layout(g);
   return nodes.map((n) => {
     const p = g.node(n.id);
-    return { ...n, position: { x: p.x - W / 2, y: p.y - H / 2 } };
+    return { ...n, position: { x: p.x - NODE_WIDTH / 2, y: p.y - nodeHeight(n.data as SymbiaNodeData) / 2 } };
   });
 }
 
 export function GraphFlowPreview({
   definition,
+  manifests,
   className = '',
 }: {
   definition: GraphDefinition;
+  /** componentKey -> published ports. Absent entries degrade honestly. */
+  manifests?: Map<string, ComponentPorts>;
   className?: string;
 }) {
   const { nodes: initial, edges: initialEdges, count } = useMemo(() => {
@@ -94,78 +84,57 @@ export function GraphFlowPreview({
     const defEdges = (definition.edges ?? []).filter((e) => e.source?.node && e.target?.node);
     if (defNodes.length === 0) return { nodes: [], edges: [], count: 0 };
 
-    const targeted = new Set(defEdges.map((e) => e.target!.node!));
-    const sourced = new Set(defEdges.map((e) => e.source!.node!));
-    const declaredEntry = (definition.metadata?.ingress as { node?: string } | undefined)?.node;
-
-    const entries = declaredEntry
-      ? [declaredEntry]
-      : defNodes.filter((n) => !targeted.has(n.id)).map((n) => n.id);
-    const exits = defNodes.filter((n) => !sourced.has(n.id)).map((n) => n.id);
-
-    const n: Node[] = [];
-    const e: Edge[] = [];
-
-    n.push({
-      id: '__in',
-      type: 'flowNode',
-      position: { x: 0, y: 0 },
-      data: {
-        nodeType: 'input',
-        label: 'Input',
-        icon: '📥',
-        description: declaredEntry ? 'declared ingress' : 'entry',
-        color: '#22c55e',
-      },
-    });
-
-    for (const node of defNodes) {
-      const family = (node.component ?? '').split('.')[1] ?? 'io';
-      const short = (node.component ?? 'unknown').replace(/^symbia\.[a-z]+\./, '');
-      n.push({
-        id: node.id,
-        type: 'flowNode',
-        position: { x: 0, y: 0 },
-        data: {
-          nodeType: 'step',
-          label: node.id,
-          icon: FAMILY_ICON[family] ?? '➜',
-          description: short,
-          color: FAMILY_COLOR[family] ?? '#64748b',
-        },
-      });
+    // Ports actually referenced by this graph, as a fallback for unmanifested
+    // components. Derived, and therefore laneless — an inferred port has no
+    // published lane and must not be given one.
+    const usedOut = new Map<string, Set<string>>();
+    const usedIn = new Map<string, Set<string>>();
+    for (const e of defEdges) {
+      if (!usedOut.has(e.source!.node!)) usedOut.set(e.source!.node!, new Set());
+      usedOut.get(e.source!.node!)!.add(e.source!.port ?? 'out');
+      if (!usedIn.has(e.target!.node!)) usedIn.set(e.target!.node!, new Set());
+      usedIn.get(e.target!.node!)!.add(e.target!.port ?? 'in');
     }
 
-    n.push({
-      id: '__out',
-      type: 'flowNode',
-      position: { x: 0, y: 0 },
-      data: { nodeType: 'output', label: 'Output', icon: '📤', description: 'result', color: '#22c55e' },
+    const n: Node[] = defNodes.map((node) => {
+      const m = node.component ? manifests?.get(node.component) : undefined;
+      const inputs: Port[] =
+        m?.inputs ?? [...(usedIn.get(node.id) ?? new Set(['in']))].map((name) => ({ name }));
+      const outputs: Port[] =
+        m?.outputs ?? [...(usedOut.get(node.id) ?? new Set(['out']))].map((name) => ({ name }));
+      const data: SymbiaNodeData = {
+        label: node.id,
+        componentKey: node.component,
+        inputs,
+        outputs,
+        subtitle: (node.component ?? '').replace(/^symbia\./, ''),
+      };
+      return {
+        id: node.id,
+        type: 'symbia',
+        position: { x: 0, y: 0 },
+        data: data as unknown as Record<string, unknown>,
+      };
     });
 
-    for (const id of entries) e.push({ id: `in-${id}`, source: '__in', target: id, ...defaultEdgeOptions });
-    for (const ed of defEdges) {
-      // The port is the useful label: a graph that branches does it by port,
-      // and "pass" versus "fail" or "out" versus "error" is the whole story.
-      const port = ed.source?.port;
-      e.push({
-        id: ed.id ?? `${ed.source!.node}-${ed.target!.node}-${port ?? ''}`,
+    const e: Edge[] = defEdges.map((ed, i) => {
+      const port = ed.source?.port ?? 'out';
+      const refusal = port === 'error' || port === 'fail';
+      return {
+        id: ed.id ?? `e${i}`,
         source: ed.source!.node!,
         target: ed.target!.node!,
-        label: port && port !== 'out' ? port : undefined,
-        labelStyle: { fill: '#94a3b8', fontSize: 12 },
-        labelBgStyle: { fill: '#0f172a' },
+        sourceHandle: port,
+        targetHandle: ed.target?.port ?? 'in',
         ...defaultEdgeOptions,
-        style:
-          port === 'error' || port === 'fail'
-            ? { stroke: '#f59e0b', strokeWidth: 2 }
-            : defaultEdgeOptions.style,
-      });
-    }
-    for (const id of exits) e.push({ id: `out-${id}`, source: id, target: '__out', ...defaultEdgeOptions });
+        style: refusal
+          ? { stroke: '#f59e0b', strokeWidth: 2 }
+          : defaultEdgeOptions.style,
+      };
+    });
 
     return { nodes: layout(n, e), edges: e, count: defNodes.length };
-  }, [definition]);
+  }, [definition, manifests]);
 
   const [nodes] = useNodesState(initial);
   const [edges] = useEdgesState(initialEdges);
@@ -179,21 +148,17 @@ export function GraphFlowPreview({
   }
 
   return (
-    // NOT fitView. FlowNode is fixed at 140×50 with 12px labels, so fitting a
-    // seven-rank graph into this pane rendered the text at about five pixels —
-    // a diagram you cannot read is a decoration. It opens at real size and pans
-    // instead, which is the honest trade when the drawing is wider than the
-    // space: show it legibly and let the reader move, rather than shrink it
-    // until it fits and nobody can use it.
-    <div className={`h-[400px] rounded-lg ring-1 ring-scc-border bg-scc-elevated/20 relative ${className}`}>
+    // Opens at real size and pans. Fitting a wide graph into this pane rendered
+    // labels at about five pixels; a diagram you cannot read is a decoration.
+    <div className={`h-[460px] rounded-lg ring-1 ring-scc-border bg-scc-elevated/20 relative ${className}`}>
       <ReactFlow
         nodes={nodes}
         edges={edges}
-        nodeTypes={nodeTypes}
+        nodeTypes={symbiaNodeTypes}
         defaultEdgeOptions={defaultEdgeOptions}
         defaultViewport={{ x: 24, y: 24, zoom: 1 }}
-        minZoom={0.4}
-        maxZoom={1.6}
+        minZoom={0.35}
+        maxZoom={1.5}
         nodesDraggable={false}
         nodesConnectable={false}
         elementsSelectable={false}

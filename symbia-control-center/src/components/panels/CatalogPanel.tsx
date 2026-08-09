@@ -27,7 +27,12 @@
  */
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useAuthStore } from '@/stores/authStore';
-import { GraphFlowPreview, type GraphDefinition } from './catalog/GraphFlowPreview';
+import {
+  GraphFlowPreview,
+  type GraphDefinition,
+  type ComponentPorts,
+} from './catalog/GraphFlowPreview';
+import { OperationDiagram } from './catalog/OperationDiagram';
 
 type Tab = 'registry' | 'contracts' | 'hygiene';
 /** What you can do with one object once you have found it. */
@@ -148,6 +153,28 @@ export function CatalogPanel() {
     return c;
   }, [resources]);
 
+  /**
+   * Published ports by component key, so a node drawn inside a graph uses the
+   * same contract the catalog shows when that component is inspected alone.
+   * This is the lookup that makes "the same object" literal rather than a
+   * resemblance.
+   */
+  const manifests = useMemo(() => {
+    const m = new Map<string, ComponentPorts>();
+    for (const r of resources ?? []) {
+      const man = r.metadata?.manifest;
+      if (r.type === 'component' && man?.key) {
+        m.set(man.key, {
+          inputs: man.inputs ?? [],
+          outputs: man.outputs ?? [],
+          version: man.version,
+          implementation: man.implementation,
+        });
+      }
+    }
+    return m;
+  }, [resources]);
+
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
     return (resources ?? []).filter(
@@ -245,6 +272,7 @@ export function CatalogPanel() {
           setQuery={setQuery}
           selected={selected}
           setSelectedId={setSelectedId}
+          manifests={manifests}
         />
       )}
       {resources && tab === 'contracts' && (
@@ -269,8 +297,9 @@ function RegistryView(props: {
   setQuery: (q: string) => void;
   selected: Resource | null;
   setSelectedId: (id: string | null) => void;
+  manifests: Map<string, ComponentPorts>;
 }) {
-  const { counts, total, filtered, typeFilter, setTypeFilter, query, setQuery, selected, setSelectedId } =
+  const { counts, total, filtered, typeFilter, setTypeFilter, query, setQuery, selected, setSelectedId, manifests } =
     props;
 
   const groups = useMemo(() => {
@@ -367,7 +396,11 @@ function RegistryView(props: {
         {!selected ? (
           <EmptyDetail counts={counts} typeFilter={typeFilter} onPick={setTypeFilter} />
         ) : (
-          <ResourceDetail resource={selected} onClose={() => setSelectedId(null)} />
+          <ResourceDetail
+            resource={selected}
+            manifests={manifests}
+            onClose={() => setSelectedId(null)}
+          />
         )}
       </div>
     </div>
@@ -446,7 +479,15 @@ function Fact({ label, children }: { label: string; children: React.ReactNode })
   );
 }
 
-function ResourceDetail({ resource: r, onClose }: { resource: Resource; onClose: () => void }) {
+function ResourceDetail({
+  resource: r,
+  manifests,
+  onClose,
+}: {
+  resource: Resource;
+  manifests: Map<string, ComponentPorts>;
+  onClose: () => void;
+}) {
   const [rawOpen, setRawOpen] = useState(false);
   const [mode, setMode] = useState<Mode>('inspect');
   const manifest = r.metadata?.manifest;
@@ -504,9 +545,10 @@ function ResourceDetail({ resource: r, onClose }: { resource: Resource; onClose:
           <h3 className="text-lg text-slate-200 mb-1">Behaviour</h3>
           <p className="text-slate-500 mb-4">
             {(definition.nodes ?? []).length} nodes, {(definition.edges ?? []).length} edges.
-            Branch ports are labelled; a refusal path is drawn amber.
+            Each node is the same object the catalog draws on its own — edges attach to the named
+            port they leave from, and a refusal path is drawn amber.
           </p>
-          <GraphFlowPreview definition={definition} />
+          <GraphFlowPreview definition={definition} manifests={manifests} />
         </section>
       )}
 
@@ -534,19 +576,30 @@ function ResourceDetail({ resource: r, onClose }: { resource: Resource; onClose:
       )}
 
       {manifest && (
-        <section className="mt-8 pt-7 border-t border-scc-border">
-          <h3 className="text-lg text-slate-200">Contract</h3>
-          <p className="text-slate-500 mt-1">
-            v{manifest.version} · {manifest.implementation}
-            {manifest.capability && <> · requires {manifest.capability}</>}
-          </p>
-          <div className="mt-5">
-            <Lanes ports={manifest.outputs} />
-          </div>
-          <div className="mt-6">
+        <>
+          <section className="mt-8 pt-7 border-t border-scc-border">
+            <h3 className="text-lg text-slate-200 mb-1">Operation</h3>
+            <p className="text-slate-500 mb-4">
+              One operation, its named ports, and the provenance lane each output carries.
+            </p>
+            <OperationDiagram
+              componentKey={manifest.key}
+              inputs={manifest.inputs ?? []}
+              outputs={manifest.outputs ?? []}
+              implementation={manifest.implementation}
+              capability={manifest.capability}
+              version={manifest.version}
+            />
+          </section>
+
+          <section className="mt-8 pt-7 border-t border-scc-border">
+            <h3 className="text-lg text-slate-200 mb-1">Configuration</h3>
+            <p className="text-slate-500 mb-4">
+              Declared so a graph node can be checked against it before it runs.
+            </p>
             <ConfigTable config={manifest.config} />
-          </div>
-        </section>
+          </section>
+        </>
       )}
 
       <section className="mt-8 pt-7 border-t border-scc-border">

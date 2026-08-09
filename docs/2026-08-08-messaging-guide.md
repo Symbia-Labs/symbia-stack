@@ -11,6 +11,12 @@ that is confirmed, this document is a proposal, not a standard.
 
 **No human-time estimates appear here.** Nothing in this guide is scheduled.
 
+**Correction owed upstream.** §1 below rejects the launch plan's core message
+(*"An answer without a receipt is a rumour"*) as a lane collapse and replaces
+"receipt" with "provenance". `docs/2026-08-08-launch-plan.md` §5 still carries
+the old line. Until it is amended, the two documents disagree and the launch
+plan is the one that is wrong.
+
 ---
 
 ## 0. How to use this document
@@ -28,8 +34,38 @@ and the copy that used it comes down. §7 is the decay register for exactly this
 
 ## 1. The thesis, in one sentence
 
-> **An answer without a receipt is a rumour. Symbia is infrastructure that
+> **An answer without provenance is a rumour. Symbia is infrastructure that
 > refuses to produce one.**
+
+### Why not "receipt" — a correction owed to the launch plan
+
+**Observation.** `docs/2026-08-08-launch-plan.md` §5 gives the core message as
+*"An answer without a **receipt** is a rumour."* This guide does not carry that
+version, and the launch plan needs the same correction.
+
+**A receipt is one artifact, belonging to one arena.** The four arenas produce
+four different things, and only the first of them is a receipt:
+
+| arena | what it produces | is it a receipt? |
+|---|---|---|
+| COMPUTED | a recomputable receipt — expression, inputs, result | yes |
+| RETRIEVED | a named source, quoted verbatim | no |
+| COMPOSED | a claim-by-claim scorecard over cited material | no |
+| REFUSED | a stated reason | no, and emphatically so |
+
+"Receipt" as a synonym for provenance does the exact thing §5 of this guide
+bans: it collapses four distinct artifacts into the one that sounds most
+concrete. It also promises the strongest lane on every answer, when the code's
+own comment says most replies are currently GENERATED — no artifact at all.
+
+There is a second reason. Launch plan §2.3 counts four competitors already
+claiming the receipt vocabulary and advises *"do not fight for the word."*
+Leading with the contested word is fighting for it. **Provenance is the wider,
+truer, and less crowded claim, and it is the word the project instructions
+already use.**
+
+**Rule.** "Receipt" is a COMPUTED-lane word. Use it when talking about
+computation. Never as a stand-in for provenance.
 
 The differentiator, for use where a competitor is in the room:
 
@@ -103,7 +139,7 @@ it, because copying it means publishing the same thing about themselves.
 Copy may make these four claims. It may not make a fifth without adding it here
 with an anchor first.
 
-### 3.1 There are four honest ways to answer, and one of them is "I can't"
+### 3.1 Four honest ways to answer, four different artifacts, and one of them is "I can't"
 
 **Anchor.** `assistants/server/src/engine/provenance.ts` — `classify()` at
 line 106 derives the arena from what actually happened rather than from what the
@@ -197,6 +233,21 @@ leverage · cutting-edge · "trust layer"
 Also banned: **any number that has not been measured**, and **any adjective
 standing in for one**. "Fast," "robust," "comprehensive" and "production-ready"
 are numbers wearing a disguise.
+
+### Banned as a synonym: "receipt" for "provenance"
+
+Per §1. A receipt is what COMPUTED produces. A source is what RETRIEVED
+produces, a scorecard is what COMPOSED produces, a reason is what REFUSED
+produces. Copy that says "receipt" when it means any of the other three is
+promising the strongest lane on every answer.
+
+| write this | not this |
+|---|---|
+| "an answer arrives with its provenance" | "every answer comes with a receipt" |
+| "computed, with a receipt you can recompute" | "receipted" |
+| "retrieved, with the source named" | "a receipt for the source" |
+| "composed, with a claim-by-claim scorecard" | "a receipt for each claim" |
+| "refused, with the reason stated" | — (a refusal has no receipt, and that is the point) |
 
 ### Required in every piece
 

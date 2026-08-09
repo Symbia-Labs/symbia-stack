@@ -53,6 +53,32 @@ const createResourceSchema = z.object({
   metadata: z.record(z.unknown()).nullable().optional(),
 });
 
+/**
+ * `.strict()` — unknown keys are REJECTED, not silently stripped.
+ *
+ * MEASURED 8 Aug 2026, reported by an agent building a demo against this API:
+ * `POST /api/graphs` accepts a body containing `content`, returns 201, and the
+ * graph definition is gone. Two independent silent drops stacked on the same
+ * field:
+ *
+ *   1. a plain `z.object` strips unknown keys during `.parse()`, and
+ *   2. the handler then builds `resourceData` from an explicit allowlist that
+ *      does not include `content` either.
+ *
+ * So a caller could send a graph definition, be told 201 Created, and have
+ * stored a graph with no graph in it. That is the Save-button-that-persists-
+ * nothing defect, in the endpoint that registers the platform's own
+ * executable artifacts.
+ *
+ * Rejecting is the fix rather than accepting `content`, because what `content`
+ * should MEAN here is a real design question — graph definitions live under
+ * `metadata.definition` by convention today — and guessing at it would replace
+ * a silent drop with a silent reinterpretation. A 400 naming the field lets
+ * the caller find out in one round trip.
+ *
+ * Verified before changing: no in-repo caller posts to this endpoint. The
+ * affected callers are external agents, who currently get a lie.
+ */
 const createGraphSchema = z.object({
   key: z.string().min(1).max(255),
   name: z.string().min(1).max(255),
@@ -60,14 +86,14 @@ const createGraphSchema = z.object({
   orgId: z.string().min(1),
   tags: z.array(z.string()).nullable().optional(),
   metadata: z.record(z.unknown()).nullable().optional(),
-});
+}).strict();
 
 const updateGraphSchema = z.object({
   name: z.string().min(1).max(255).optional(),
   description: z.string().nullable().optional(),
   tags: z.array(z.string()).nullable().optional(),
   metadata: z.record(z.unknown()).nullable().optional(),
-});
+}).strict();
 
 const createContextSchema = z.object({
   key: z.string().min(1).max(255),
@@ -971,6 +997,21 @@ export async function registerRoutes(
       res.status(201).json(graph);
     } catch (error) {
       if (error instanceof z.ZodError) {
+        // Name the unrecognised fields and say where a graph definition
+        // actually goes. A validation error that does not tell the caller what
+        // to do instead just moves the guessing one step later.
+        const unknownKeys = error.errors
+          .filter((e) => e.code === 'unrecognized_keys')
+          .flatMap((e) => (e as unknown as { keys?: string[] }).keys ?? []);
+        if (unknownKeys.length > 0) {
+          return res.status(400).json({
+            error: `Unrecognised field(s): ${unknownKeys.join(', ')}. These are not stored.`,
+            hint: unknownKeys.includes('content')
+              ? 'A graph definition belongs in metadata.definition, which is also what the control center renders from.'
+              : 'Accepted fields: key, name, description, orgId, tags, metadata.',
+            details: error.errors,
+          });
+        }
         return res.status(400).json({ error: "Validation error", details: error.errors });
       }
       console.error("Error creating graph:", error);

@@ -1,4 +1,4 @@
-import { initializeDatabase, setSessionContext, clearSessionContext, type RLSContext } from "@symbia/db";
+import { initializeDatabase, setSessionContext, clearSessionContext, splitSqlStatements, type RLSContext } from "@symbia/db";
 import * as schema from "@shared/schema";
 import { MEMORY_SCHEMA_SQL } from "./memory-schema";
 import type { Pool } from "pg";
@@ -30,10 +30,14 @@ export async function ensureIdentitySchema(): Promise<void> {
     );
 
     const schemaSql = toIdempotentSchemaSql(MEMORY_SCHEMA_SQL);
-    const statements = schemaSql
-      .split(";")
-      .map((s) => s.trim())
-      .filter(Boolean);
+    // splitSqlStatements, NOT split(";").
+    //
+    // A semicolon inside a SQL comment — added on 8 Aug 2026 to document a
+    // past schema defect — cut a CREATE TABLE in half here. Postgres replied
+    // `syntax error at end of input`, identity refused to boot, and because
+    // every service depends on identity the whole stack failed to start. The
+    // comment was correct; the splitter was not.
+    const statements = splitSqlStatements(schemaSql);
 
     // If users doesn't exist, definitely apply schema; otherwise still apply idempotently
     // so missing tables/indexes get created if the DB is partially initialized.

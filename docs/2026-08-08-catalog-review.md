@@ -1547,6 +1547,206 @@ defect, would have sent someone deleting perfectly good components.
 
 ---
 
+## 16. Priority and turn-taking — the fifth thing that decides
+
+Four signed artifacts govern *what may run*. They say nothing about **who gets
+the turn**, and on this platform that is decided by an unsigned heuristic
+resolved in a 100ms race. Deciding which assistant speaks is a capability
+decision; it currently sits outside the model in §15 entirely.
+
+### 16.1 How a claim gets its number
+
+**Measured**, `assistants/server/src/routes/webhooks.ts:441–445`:
+
+```ts
+confidence: Math.min(result.rulesMatched / Math.max(result.rulesEvaluated, 1), 1.0)
+priority   = Math.round(confidence * 100)
+```
+
+Priority is **matched rules ÷ evaluated rules**. In the 8 Aug operator test
+`@docs` evaluated 3 rules, matched 1, and emitted `priority=33` — the log and
+the formula agree exactly.
+
+### 16.2 F45 — priority rewards having fewer rules
+
+The formula is not a measure of fit. It is a measure of how much of an
+assistant's rule set happened to fire.
+
+| assistant | rules | matched | priority |
+|---|---|---|---|
+| a specialist with a careful rule set | 10 | 1 (exactly the right one) | **10** |
+| a scoped assistant | 3 | 1 | **33** |
+| an assistant with a single catch-all | 1 | 1 (always) | **100** |
+
+**An assistant wins by knowing less.** A specialist that has thought about ten
+cases and matched precisely the correct one is beaten, every time, by one that
+has a single rule which matches everything. The bootstrap assistants — whose
+catch-alls are a single `llm.invoke` over the user's words — are structurally
+advantaged over the five scoped assistants built to fetch first.
+
+The name makes it worse: `confidence` reads as "how sure am I", and it computes
+"what fraction of me fired". Nothing about the matched rule's specificity, its
+priority, its conditions, or whether the assistant can actually serve the
+request enters into it.
+
+### 16.3 F46 — the arbitration is an in-process race
+
+**Measured**, `symbia-relay/src/integration.ts:658` and `898–943`:
+
+- `activeClaims` is a module-level `Map` — **in-process memory**. Claims are
+  visible only to assistants running inside the same process. That holds today
+  because all assistants share one container, and stops holding silently the
+  moment they do not: every assistant would then win its own claim and every one
+  would answer.
+- Every claimant `await`s the **full** window (`setTimeout(windowMs)`) whether or
+  not anyone contests. Default `ASSISTANT_CLAIM_WINDOW_MS=100`, so every reply
+  pays 100ms for an arbitration that in practice has one participant.
+- **Ties resolve by arrival order.** `validClaims.sort((a, b) => b.priority - a.priority)`
+  leaves equal priorities in insertion order, so the winner of a tie is whoever
+  registered first — a race, not a rule. Two assistants with one catch-all each
+  both score 100, and the faster process wins.
+- An assistant slower than the window to evaluate is not out-argued, it is
+  **not present**. Relevance never enters.
+
+`emitDefer` is called with `undefined // We don't have winner's entityId`, so the
+deferral record names the winner by key and cannot identify it by principal.
+
+### 16.4 Why this belongs in the signing model
+
+A signed component, configuration, graph and application establish what an
+actor may do. Turn-taking establishes **which actor acts** — and it is:
+
+- computed from an unsigned heuristic no artifact declares,
+- resolved against in-process state no other service can see or audit,
+- decided in a window that rewards being fast rather than being right,
+- and unrecorded except as two `console.log` lines.
+
+An operator cannot ask "why did @docs answer rather than @obs" and get an answer
+from anything durable. The claim, its priority, its justification and the defer
+are emitted as SDN events — so the raw material exists — but nothing joins them
+into a decision an operator can inspect, and nothing signs the rule that
+produced it.
+
+**This is the provenance thesis with a hole in it.** A reply carries
+`arena · steps · hash` explaining how the answer was produced. It carries
+nothing explaining why *this assistant* was the one to produce it.
+
+### 16.5 What would change it
+
+1. **Replace the ratio.** Priority should come from the matched rule, not from
+   the rule set's size — the rule's own `priority` field already exists (300 /
+   200 / 10 in every scoped assistant) and is currently used only to order rules
+   *within* an assistant, then discarded at the claim boundary.
+2. **Make the claim state shared and auditable** rather than a process-local
+   Map, so the arbitration survives more than one replica and can be replayed.
+3. **Put the decision in the envelope.** The provenance envelope should record
+   which assistants claimed, with what priority, and why this one won — the same
+   way it records which steps ran.
+4. **Then sign the arbitration rule itself**, as the fifth artifact alongside
+   §15's four.
+
+### 16.6 Not checked — §16
+
+- Whether more than one assistant has ever contested a claim in this
+  installation. In the 8 Aug test only `docs` emitted one, so the sort, the tie
+  path and the defer path may never have executed against real traffic.
+- Whether `emitClaim` / `emitDefer` events are persisted anywhere queryable, or
+  only crossed the bus.
+- What happens when the winner then fails mid-rule (§7's F18 silence): the
+  losers have already deferred, so the conversation may get no reply at all.
+  Untested, and the most likely real-world failure of the two mechanisms
+  combined.
+
+---
+
+## 15. The execution layer as four signatures
+
+Brian's statement of the target, 8 Aug: the safest execution layer is a **signed
+component, signed configuration, signed graph definition, signed application** —
+and beyond that, *just a list of input and output definitions*.
+
+The consequence is the interesting part. If each of those four is signed, the
+runtime trusts no code at execution time. It resolves signatures, then moves
+values between declared ports. Everything substantive is a verified artifact;
+the graph is only wiring. "A list of input and output definitions" is then
+literal rather than a simplification — and it is exactly what `SymbiaNode` now
+draws (§14).
+
+### 15.1 The shape exists; the signatures do not
+
+Each rung already has its contract. None has its signature.
+
+| rung | contract today | signed? |
+|---|---|---|
+| component | manifest: typed ports, per-port lane, typed config, capability, implementation kind (§9) | **no** |
+| configuration | config values live on the graph node, validated against the component's config schema | **no** |
+| graph definition | nodes, edges, declared role, declared ingress `{node, port, capability}` | **no** |
+| application | app manifest: provides, requires, surfaces, config schema, privilege (`docs/APP-MODEL.md`) | **no** |
+
+**Measured.** `signatures` holds **0** rows and `certifications` **0** (F36).
+There is a `GET /api/resources/:id/signatures` and no route that creates one.
+And `grep` for `verify|signature|checksum|integrity` across
+`runtime/server/src/catalog/` returns one comment about manifest availability
+and nothing else: **the runtime loads catalog artifacts on trust.**
+
+### 15.2 The primitives are already here, joined to nothing
+
+This is not a build-from-zero. Three pieces exist and none of them touches the
+four artifacts:
+
+- **A sealing construction.** `network/server/src/services/policy.ts` hashes a
+  canonical body then a shared secret — `sha256(canonicalJSON).update(secret)`.
+  `assistants/.../provenance.ts` deliberately mirrors it so a reply and an event
+  crossing the mesh are checkable by the same means.
+- **A signature table with the right shape.** `signatures` carries `resourceId`,
+  **`versionId`**, `signerId`, `algorithm`, `signature`, `signedAt`. Binding to a
+  *version* is what makes a signature invalidate when the artifact changes —
+  precisely the property this model needs, already in the schema.
+- **A gated, ledgered write path.** Catalog writes are capability-checked and
+  recorded. The place a signature would be produced already exists and already
+  knows who is writing.
+
+So the gap is narrow and specific: nothing signs on write, and nothing verifies
+on load.
+
+### 15.3 What this reframes
+
+**F36 is not one tabled item.** It was recorded as a blocker for the
+`@extra`/docker integration design (§11.4). It is the keystone of all four rungs
+here. Until a signature can be created and checked, "signed component" is a
+description of an intention.
+
+**`RUNTIME_MANIFEST_ENFORCEMENT=strict` checks existence, not integrity.** It
+refuses a graph that references an unmanifested component — which is real, and
+is the gate that stops capability entering by sitting in a directory. It does
+not check that the manifest is the one someone signed, because nothing is signed.
+
+**The provenance envelope is the model working one layer up.** A reply already
+carries `arena · steps · hash`, sealed over canonical JSON. The four rungs are
+the same idea applied to the artifacts rather than to the answer: today Symbia
+can tell you how an answer was produced, and cannot yet tell you that the things
+which produced it are the things that were reviewed.
+
+### 15.4 Order this implies
+
+1. **A signature write path** — `POST /api/resources/:id/signatures`, signing
+   over the canonical body at a `versionId`, reusing the policy.ts construction
+   rather than inventing a second one.
+2. **Verify on load** — the runtime's `syncComponentManifests` and graph
+   hydration check the signature before accepting. Distinguish *unsigned*,
+   *signed and valid*, and *signed and broken* — three states, and "unsigned"
+   must not read as "fine".
+3. **Then the other three rungs**, in the order they are consumed: component,
+   graph definition, configuration, application.
+
+*Not checked:* whether `NETWORK_HASH_SECRET`-style shared-secret sealing is the
+right primitive for artifacts that outlive a deployment, or whether these want
+asymmetric keys so a signer can be identified rather than merely shared with.
+The `signatures.algorithm` column suggests someone already anticipated the
+question.
+
+---
+
 ## 14. Built: browse, inspect, test
 
 The catalog experience: **browse** the library, **inspect** an object, **test**

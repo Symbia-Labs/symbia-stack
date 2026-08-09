@@ -10,6 +10,7 @@
  * Sinks pass their input through on "out" so chains continue after the
  * side effect. Registered from index.ts once the telemetry client exists.
  */
+import { preview } from './preview.js';
 import { registerComponent } from './components.js';
 
 interface SinkDeps {
@@ -25,7 +26,21 @@ interface SinkDeps {
     labels?: Record<string, unknown>,
     orgId?: string
   ) => boolean;
-  log: (level: string, message: string, metadata?: Record<string, unknown>) => void;
+  /**
+   * Write a log line. Returns false when the writer is known to be failing,
+   * mirroring `metric` above.
+   *
+   * This returned `void` until 8 Aug 2026, which is why `sink.log` had no
+   * error port: there was nothing to report a failure with. The silence went
+   * all the way down — `@symbia/logging-client` discarded failures after
+   * retries under a comment reading "Silent failure after retries exhausted".
+   * Fixed there, surfaced here.
+   */
+  log: (
+    level: string,
+    message: string,
+    metadata?: Record<string, unknown>
+  ) => boolean;
 }
 
 function field(obj: unknown, name: string): unknown {
@@ -101,7 +116,7 @@ export function registerSinkComponents(deps: SinkDeps): void {
     description:
       'Writes the message to the Logging service log stream (config.level, default "info"; config.message template prefix optional) and passes the input through on "out". Unlike symbia.io.log, which only writes to the execution trace, this persists to the platform log store.',
     inputs: ['in'],
-    outputs: ['out'],
+    outputs: ['out', 'error'],
     config: {
       level: {
         type: 'string',
@@ -116,19 +131,29 @@ export function registerSinkComponents(deps: SinkDeps): void {
       },
     },
     lanes: {
-      out: {
-        lane: 'inherit',
-        // Note this sink has no error port: unlike symbia.sink.metric it cannot
-        // report a failed write. Recorded here rather than left to be noticed.
-      },
+      out: { lane: 'inherit' },
+      error: { lane: 'inherit' },
     },
     handler: (input, ctx) => {
       const level = String(ctx.config.level ?? 'info');
       const prefix = ctx.config.message ? String(ctx.config.message) + ' ' : '';
-      deps.log(level, `${prefix}${JSON.stringify(input.value)?.slice(0, 500)}`, {
-        node: ctx.nodeId,
-        lane: input.lane,
-      });
+      const ok = deps.log(
+        level,
+        `${prefix}${preview(input.value, 500)}`,
+        { node: ctx.nodeId, lane: input.lane }
+      );
+      // A persistence component that cannot fail is lying. This one used to
+      // return `out` unconditionally, so a graph writing into a dead log path
+      // reported success on every message — the same defect as a Save button
+      // that persists nothing, in the component whose entire job is to persist.
+      if (!ok) {
+        return {
+          error: {
+            error: 'log write path is failing; the message was not persisted',
+            level,
+          },
+        };
+      }
       return { out: input };
     },
   });

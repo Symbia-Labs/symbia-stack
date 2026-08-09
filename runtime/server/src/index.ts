@@ -79,7 +79,14 @@ const metricWriter = new MetricWriter({ serviceId: config.serviceId });
 
 registerSinkComponents({
   metric: (name, value, labels, orgId) => metricWriter.write({ name, value, labels, orgId }),
-  log: (level, message, metadata) => telemetry.log(level, message, metadata),
+  // Report the writer's health back to the sink. `log()` itself is
+  // fire-and-forget (batched flush), so the honest answer is "is the write
+  // path currently failing", not "did this line land" -- the same distinction
+  // MetricWriter.write() already makes above.
+  log: (level, message, metadata) => {
+    telemetry.log(level, message, metadata);
+    return telemetry.getLastError() === null;
+  },
 });
 
 async function registerRoutes(_server: HttpServer, app: Express): Promise<void> {
