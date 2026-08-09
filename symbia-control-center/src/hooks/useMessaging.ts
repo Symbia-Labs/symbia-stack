@@ -253,8 +253,13 @@ export function useMessaging() {
         });
 
         if (options?.before || options?.after) {
-          // Append/prepend to existing messages for pagination
-          const existing = messages.get(conversationId) || [];
+          // Append/prepend to existing messages for pagination. Read the
+          // current messages NON-reactively from the store: closing over the
+          // reactive `messages` map put it in this callback's deps, so every
+          // incoming message recreated loadMessages, which refired the join
+          // effect that depends on it — dozens of room joins per second while a
+          // reply streamed (observed 9 Aug). getState() breaks that dependency.
+          const existing = useMessagingStore.getState().messages.get(conversationId) || [];
           if (options.before) {
             // Prepend older messages
             setMessages(conversationId, [...msgs, ...existing]);
@@ -270,7 +275,7 @@ export function useMessaging() {
         console.error('Failed to load messages:', error);
       }
     },
-    [setMessages, messages]
+    [setMessages]
   );
 
   // Send message (prefer WebSocket, fallback to REST)
