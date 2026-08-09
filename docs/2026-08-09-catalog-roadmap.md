@@ -402,6 +402,55 @@ unclear. Fix the registry before growing it.
 
 ---
 
-*Nothing in §7 was executed. This document is the paper version, per
-request. Items 1–6 are checkable through the MCP read tools plus git; the
-predictions above are falsifiable by that check.*
+*Nothing in §7 was executed at first writing. Phase 1 execution began the
+same day; the log follows.*
+
+---
+
+## 8. Phase 1 execution log (9 Aug, same session)
+
+### Measured so far
+
+- **P1 broken, and in an unexpected direction.** The Google-assistant seed
+  is in neither node_modules nor the stranded branch — the branch
+  `work/2026-08-05-energy-and-honesty-repairs` **no longer exists in this
+  repo at all** (state-pointer in project docs is stale). The seed source
+  is commit `79fdfa7` on an **orphaned commit chain contained by no
+  branch**, sitting atop two commits titled "Published your App" —
+  something committed to git outside the normal flow and the lineage was
+  abandoned. The registrations outlived their source's reachability.
+- **Item 2 resolved: the orphan seed file is wired to nothing.** No
+  reference to `bootstrap-assistants.json` or `seed-bootstrap-assistants`
+  exists outside `assistants/seeds/` itself. Dead file; decision stands
+  (wire it or delete it), now with certainty it never ran from this tree.
+- **Item 6 diagnosed exactly.** `registered` in the integrations status
+  route means "a provider config record exists"
+  (`configs.some(c => c.provider === p)`), nothing more. The symbia-labs
+  *adapter* is registered unconditionally in code
+  (`initializeProviders()`); what's missing is the catalog resource
+  `integrations/ai/symbia-labs/config`. The other three providers each
+  have one (loaded at boot from `/api/bootstrap`, which serves
+  bootstrap-flagged ∧ public-read ∧ published resources). The stale-process
+  hypothesis is dead: the live status response contains the exact note
+  string present in current source. Fix = one gated catalog write.
+  Note: `loadProviderConfigs()` runs only at service boot — the flip to
+  `registered: true` appears on next integrations start, not on write.
+- **Item 7 half-resolved.** `/api/resources` filters by *access policy*
+  (`filterResourcesByReadAccess`), not by a hardcoded published-only rule —
+  that rule (`filterPublicResources`) applies to `/api/bootstrap` only. So
+  drafts are enumerable to an authorized caller. The MCP listing (authed)
+  returned zero drafts ⇒ the reported draft graph is not a catalog
+  resource visible to this principal. Runtime hydrates only *published*
+  graphs from the catalog (`sync.ts:185`); graphs POSTed directly to
+  runtime live in runtime's own store, in-memory unless Postgres is up.
+
+### Predictions registered before the live probes
+
+- **P4:** `GET /api/resources?status=draft` (authenticated) returns zero
+  resources; the draft graph will be found in the runtime service's graph
+  store instead — and if runtime is in memory-mode, it may not have
+  survived a restart at all.
+- **P5:** the `integrations/ai/symbia-labs/config` write succeeds through
+  the gate with role:admin, and `/api/integrations/status` continues to
+  report `registered: false` until the integrations service is next
+  booted (boot-time cache).
