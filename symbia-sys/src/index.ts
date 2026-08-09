@@ -39,6 +39,13 @@ export const ServiceId = {
   INTEGRATIONS: "integrations",
   MODELS: "models",
   NETWORK: "network",
+  /**
+   * Federation directory (control plane): the peer directory (BDT) of networks
+   * this one federates with, the foreign-node table (FDT), and admission. The
+   * bridge node is the data plane; this holds the policy. See
+   * docs/2026-08-09-network-bridge-bbmd.md.
+   */
+  DIRECTORY: "directory",
   /** Operator console. Serves its own built assets and proxies /svc/{id}. */
   CONTROL_CENTER: "control-center",
   /** Admin/API front end. Was `service-admin` on 3000, unregistered. */
@@ -63,6 +70,7 @@ export const ServicePorts: Record<ServiceId, number> = {
   [ServiceId.INTEGRATIONS]: 5007,
   [ServiceId.MODELS]: 5008,
   [ServiceId.NETWORK]: 5009,
+  [ServiceId.DIRECTORY]: 5010,
   [ServiceId.CONTROL_CENTER]: 8000,
   [ServiceId.API]: 9000,
 };
@@ -130,6 +138,7 @@ const ServicePortEnvVars: Record<ServiceId, string> = {
   [ServiceId.INTEGRATIONS]: "INTEGRATIONS_PORT",
   [ServiceId.MODELS]: "MODELS_PORT",
   [ServiceId.NETWORK]: "NETWORK_PORT",
+  [ServiceId.DIRECTORY]: "DIRECTORY_PORT",
   [ServiceId.CONTROL_CENTER]: "CONTROL_CENTER_PORT",
   [ServiceId.API]: "API_PORT",
 };

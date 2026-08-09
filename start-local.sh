@@ -40,6 +40,7 @@ RUNTIME_PORT="${RUNTIME_PORT:-5006}"
 INTEGRATIONS_PORT="${INTEGRATIONS_PORT:-5007}"
 MODELS_PORT="${MODELS_PORT:-5008}"
 NETWORK_PORT="${NETWORK_PORT:-5009}"
+DIRECTORY_PORT="${DIRECTORY_PORT:-5010}"
 API_PORT="${API_PORT:-9000}"
 CONTROL_CENTER_PORT="${CONTROL_CENTER_PORT:-8000}"
 
@@ -293,6 +294,10 @@ start_all_services() {
   # Tier 2: Depends on identity
   start_service "network" "$NETWORK_PORT" ""
   wait_for_service "network" "$NETWORK_PORT"
+
+  # Federation control plane. No DB, depends on nothing at boot; a bridge and
+  # the network service consult it, so it comes up early alongside network.
+  start_service "directory" "$DIRECTORY_PORT" ""
 
   # Tier 3: Depends on identity + network
   start_service "logging" "$LOGGING_PORT" "logging"

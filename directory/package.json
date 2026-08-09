@@ -1,0 +1,32 @@
+{
+  "name": "@symbia/directory-service",
+  "version": "1.0.0",
+  "type": "module",
+  "main": "dist/index.mjs",
+  "license": "MIT",
+  "description": "Symbia Directory Service - federation control plane (peer directory, foreign-node table, admission)",
+  "scripts": {
+    "dev": "NODE_ENV=development tsx watch server/src/index.ts",
+    "build": "tsx scripts/build.ts",
+    "start": "NODE_ENV=production node dist/index.mjs",
+    "check": "tsc",
+    "test": "tsx scripts/test-registry.ts"
+  },
+  "dependencies": {
+    "@symbia/http": "file:../symbia-http",
+    "@symbia/logging-client": "file:../symbia-logging-client",
+    "@symbia/sys": "file:../symbia-sys",
+    "cookie-parser": "^1.4.7",
+    "cors": "^2.8.5",
+    "express": "^5.2.1"
+  },
+  "devDependencies": {
+    "@types/cookie-parser": "^1.4.10",
+    "@types/cors": "^2.8.19",
+    "@types/express": "^5.0.6",
+    "@types/node": "^22.10.2",
+    "esbuild": "^0.25.0",
+    "tsx": "^4.21.0",
+    "typescript": "^5.9.3"
+  }
+}

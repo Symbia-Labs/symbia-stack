@@ -78,6 +78,15 @@ services:
     environment:
       LOG_LEVEL: debug
 
+  directory:
+    ports:
+      - "${DIRECTORY_PORT:-5010}:5010"
+    depends_on:
+      identity:
+        condition: service_healthy
+    environment:
+      LOG_LEVEL: debug
+
   # Runtime - remove db-bootstrap dependency
   runtime:
     ports:
