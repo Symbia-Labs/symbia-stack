@@ -1,6 +1,7 @@
 import type { Express, Request, Response } from "express";
 import type { Server } from "http";
 import { randomUUID } from "crypto";
+import { config } from "./config.js";
 import { readFileSync } from "fs";
 import { join, dirname } from "path";
 import { fileURLToPath } from "url";
@@ -1086,9 +1087,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
 
     // Handle OAuth error from provider
     if (error) {
-      const redirectUrl = process.env.OAUTH_ERROR_REDIRECT_URL ||
-        process.env.WEBSITE_URL ||
-        "http://localhost:3000";
+      const redirectUrl = config.oauthErrorRedirectUrl;
       const errorParams = new URLSearchParams({
         error: String(error),
         error_description: String(error_description || ""),
@@ -1125,9 +1124,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     } catch (error) {
       console.error("[oauth] Callback error:", error);
 
-      const redirectUrl = process.env.OAUTH_ERROR_REDIRECT_URL ||
-        process.env.WEBSITE_URL ||
-        "http://localhost:3000";
+      const redirectUrl = config.oauthErrorRedirectUrl;
 
       const errorMessage = error instanceof OAuthError
         ? error.message

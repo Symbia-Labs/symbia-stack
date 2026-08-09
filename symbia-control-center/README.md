@@ -13,31 +13,46 @@ Control Center provides real-time monitoring, log search, and network topology v
 - Node.js 18+
 - Running Symbia services (Identity, Logging, Network, etc.)
 
-### Environment Variables
+### Service URLs
 
-Copy `.env.example` to `.env` and configure:
+There is nothing to configure. The console is a **service**, not a static
+bundle: it serves its own esbuild output and proxies `/svc/{id}` to each
+service, deriving the route table from `@symbia/sys`.
 
-```bash
-# API URLs
-VITE_API_URL=http://localhost:3000
-VITE_LOGGING_URL=http://localhost:3004
-VITE_NETWORK_URL=http://localhost:3002
+```ts
+export function getServiceUrl(id: string): string {
+  return `/svc/${id}`;   // always. no environment detection anywhere.
+}
 ```
+
+Same origin in every mode, so there are no `VITE_*` variables, no per-service
+URLs, and no dev/prod branch. A build with two modes kept reproducing the same
+environment-detection defect — a fix landing in one config file and not its
+twin — and a build with one mode cannot.
 
 ### Running
 
+From the repo root, with the stack up:
+
 ```bash
-# Install dependencies
-npm install
-
-# Start development server
-npm run dev
-
-# Build for production
-npm run build
+./start.sh
 ```
 
-Open http://localhost:5173 in your browser.
+Then open <http://localhost:8000>.
+
+`start.sh` opts into `docker-compose.dev.yml`, which publishes 8000. A bare
+`docker-compose up -d` publishes only 9000 and leaves the console internal —
+reachable through the stack, not from your browser. To bring it up explicitly:
+
+```bash
+docker-compose -f docker-compose.yml -f docker-compose.dev.yml up -d
+```
+
+To rebuild just this service after a change:
+
+```bash
+npm run build -w symbia-control-center
+```
 
 ---
 
@@ -287,7 +302,7 @@ interface ServicesStore {
 
 - **React 18** — UI framework
 - **TypeScript** — Type safety
-- **Vite** — Build tool
+- **esbuild** — Build tool, driven by `scripts/build.ts`
 - **Tailwind CSS** — Styling
 - **Zustand** — State management
 - **Socket.IO Client** — WebSocket

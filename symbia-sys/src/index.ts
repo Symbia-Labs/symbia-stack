@@ -161,8 +161,23 @@ export function resolveServicePort(serviceId: ServiceId | string): number {
     if (!isNaN(port)) return port;
   }
 
-  // Return default port
-  return ServicePorts[id] ?? 3000;
+  // Return the registered default.
+  //
+  // This used to be `?? 3000`. Every ServiceId has an entry in ServicePorts, so
+  // the fallback was unreachable for a valid id — its only effect was to hand a
+  // caller who passed a typo (the signature accepts `string`) a plausible
+  // number for a port that was retired when service-admin moved to 9000. A
+  // service would then bind somewhere nobody expected and look like it started
+  // correctly. An unknown id is not a service on 3000; it is a bug, and it says
+  // so now.
+  const port = ServicePorts[id];
+  if (port === undefined) {
+    throw new Error(
+      `resolveServicePort: unknown service id "${serviceId}". ` +
+        `Known ids: ${Object.keys(ServicePorts).join(', ')}`
+    );
+  }
+  return port;
 }
 
 /**

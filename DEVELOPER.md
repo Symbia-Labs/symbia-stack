@@ -203,13 +203,12 @@ symbia-stack/
 ├── examples/                 # worked apps that exercise the platform (see §7)
 ├── tests/                    # ITT framework (see §6)
 ├── scripts/                  # registration + workflow scripts
-├── docs/                     # QUICKSTART, APP-MODEL, SYMBIA-MCP, api/
-└── website/                  # marketing site
+└── docs/                     # QUICKSTART, APP-MODEL, SYMBIA-MCP, api/
 ```
 
 `package.json` at the root lists the npm workspaces. Note what is **not** in
-that list and therefore needs its own `npm install`: `symbia-control-center`,
-`symbia-catalog-client`, `symbia-mcp-server`, `tests`, `energy`, `website`.
+that list and therefore needs its own `npm install`: `symbia-mcp-server` and
+`tests`.
 
 ### Anatomy of a service
 

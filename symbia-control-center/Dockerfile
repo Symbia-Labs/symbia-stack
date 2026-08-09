@@ -45,7 +45,6 @@ COPY symbia-seed/           symbia-seed/
 COPY symbia-md/             symbia-md/
 COPY symbia-id/             symbia-id/
 COPY symbia-stream-client/   symbia-stream-client/
-COPY website/design-system/ website/design-system/
 COPY symbia-control-center/ symbia-control-center/
 
 RUN npm run build:libs
