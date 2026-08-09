@@ -522,3 +522,40 @@ Note that removing the :5010 service **breaks `EnergyPanel.tsx`**, which read fr
 it. That break is left visible rather than patched: the panel should read the
 `energy.v2.*` metrics the graph now persists to Logging, and rebuilding it that
 way is the honest fix.
+
+---
+
+## Update — 8 Aug 2026, the instrument removed; the ledger kept
+
+The energy app was deleted from the tree today. This file moved from
+`energy/API-MEASUREMENTS.md` to `docs/`. Nothing above is edited — the entries
+are the record of what was measured when it was measured, and two of them now
+name things that no longer exist. That is not drift to repair; it is what an
+append-only ledger looks like after its subject is retired. Read them as
+history and note the following:
+
+- **`docker-compose.override.yml`, named in D10 and its resolution, is now
+  `docker-compose.dev.yml`.** It was renamed because Compose loads an override
+  file automatically, so the exposure surface declared in `docker-compose.yml`
+  was never the one anyone actually ran. The D10 finding itself is unaffected:
+  bootstrap still runs, services still do not wait on it.
+
+- **D9 now has an obvious answer.** The two `type: graph` catalog resources
+  carrying no definition are `energy.graph.pue` and `energy.graph.ingest`. The
+  app they belonged to is gone, so "populate or unregister" resolves to
+  unregister. They have not been unregistered yet — that is a catalog write
+  against a running stack, not a repo change, and it is worth doing while
+  watching what hydration reports before and after. **Open, with a decision.**
+
+- **D6 and D7 are untouched and are runtime concerns, not energy ones.**
+  Graph-written metrics landing in the system org that the obvious read path
+  cannot see (D6), and a new metric series per runtime restart because
+  `ensureMetric` caches in-process and names are not unique per (org, service)
+  (D7), describe the runtime's telemetry path. Removing the app that exposed
+  them changes nothing about them. The series they produced,
+  `energy.v2.*`, remain in Logging as the only concrete evidence either defect
+  ever fired; do not delete them before D6 and D7 are closed.
+
+- **D8 is the honesty defect closest to tomorrow's work.** `GET /api/graphs`
+  answering `{"loadedGraphs":1,"activeExecutions":1,"graphs":[]}` is a summary
+  contradicting the array beneath it, in the service about to be worked on.
