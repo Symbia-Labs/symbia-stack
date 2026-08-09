@@ -29,6 +29,10 @@ hardcoded ingress all destroy the point).
 - Dev/local persistence is JSONL + local logs only (DB connectors later,
   behind an interface).
 - Catalog holds reusable items only — never real-time point instances.
+- Catalog keys are normalized type-prefixed paths: `<type-plural>/<name...>`
+  (plural always, nesting where earned, domain in tags never keys); the
+  write gate validates key-prefix ⇄ type-column agreement. Settled 9 Aug
+  (`docs/2026-08-09-catalog-roadmap.md` §7.3) — do not relitigate.
 - Component manifests are public contracts: no domain vocabulary.
 - App vs installation: no org ids or metric namespaces baked into artifacts
   (`docs/APP-MODEL.md` — design agreed, not fully implemented).

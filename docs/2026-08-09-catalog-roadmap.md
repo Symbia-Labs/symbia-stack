@@ -29,30 +29,42 @@ All 16 registered in runtime and mirrored into the catalog as
 `components/<id>`. Every component carries lane annotations
 (canonical / apocryphal / conditional / inherit) on its output ports.
 
-| id | ports (out) | lane notes |
-|---|---|---|
-| symbia.io.passthrough | out | inherit |
-| symbia.io.collect | out | inherit |
-| symbia.io.log | out | inherit (execution trace only) |
-| symbia.io.delay | out | inherit; ms capped 5000 |
-| symbia.io.http-request | out, error | **apocryphal** — remote body not recomputable |
-| symbia.transform.map | out, error | inherit / error apocryphal |
-| symbia.logic.filter | pass, fail | inherit |
-| symbia.logic.switch | default (+configured) | inherit; port allowlist |
-| symbia.compute.arithmetic | out, error | **canonical** — recomputable |
-| symbia.state.latest | out, snapshot | snapshot **conditional** (no freshness guarantee) |
-| symbia.state.join | out, pending | pending **apocryphal** (coverage, not a join) |
-| symbia.state.window | out, error | out **conditional** (read count against size) |
-| symbia.state.rollup | out | **conditional** — apocryphal when any expected key missing |
-| symbia.source.timer | out | canonical (platform-generated tick) |
-| symbia.sink.metric | out, error | writes to logging metrics; error apocryphal |
-| symbia.sink.log | out, error | persists to platform log store |
+| id | description | ports (out) | lane notes |
+|---|---|---|---|
+| symbia.io.passthrough | Emits input unchanged; graph entry point | out | inherit |
+| symbia.io.collect | Terminal node; collects results for the execution output | out | inherit |
+| symbia.io.log | Writes value to the execution trace only (ephemeral, per-run); passes through | out | inherit (execution trace only) |
+| symbia.io.delay | Waits config.ms, then passes through | out | inherit; ms capped 5000 |
+| symbia.io.http-request | Fetches config.url | out, error | **apocryphal** — remote body not recomputable |
+| symbia.transform.map | Reshapes an object via config.mapping; deterministic | out, error | inherit / error apocryphal |
+| symbia.logic.filter | Routes on a predicate (field / op / value) | pass, fail | inherit |
+| symbia.logic.switch | Emits on the port named by a field's value | default (+configured) | inherit; port allowlist |
+| symbia.compute.arithmetic | Exact arithmetic over config.expression with {placeholders} | out, error | **canonical** — recomputable |
+| symbia.state.latest | Remembers most recent message per key; snapshot downstream | out, snapshot | snapshot **conditional** (no freshness guarantee) |
+| symbia.state.join | Joins latest values of selected keys from a keyed stream | out, pending | pending **apocryphal** (coverage, not a join) |
+| symbia.state.window | Rolling window of last N values; emits count/sum/mean/min/max/last | out, error | out **conditional** (read count against size) |
+| symbia.state.rollup | Aggregates latest values of an expected key set (sum/mean/min/max) | out | **conditional** — apocryphal when any expected key missing |
+| symbia.source.timer | Emits {tick, ts} every intervalMs while running | out | canonical (platform-generated tick) |
+| symbia.sink.metric | Writes a numeric data point to logging metrics | out, error | writes to logging metrics; error apocryphal |
+| symbia.sink.log | Persists message to the Logging service log store (durable, unlike io.log) | out, error | persists to platform log store |
 
 **Observations.** Domain vocabulary is out of the manifests (6 Aug audit
 holds): `state.latest` / `state.join` / `state.rollup` all default
 `keyField: "key"`. Config descriptions state their honesty mechanics in the
 manifest itself (e.g. rollup: "without expected, coverage is 1 by vacuous
 default and every partial total looks complete").
+
+**Open design question — key as a port-level contract.** "Keyed stream" is
+currently a convention (three components independently defaulting
+`keyField: "key"`), not a contract: nothing at load time checks that the
+upstream of a join actually emits keyed messages; the mismatch surfaces at
+runtime semantics. Lanes are the precedent for the fix — a semantic
+property declared per port in the manifest and validated by the platform.
+The candidate shape is a second port annotation, `{lane, keyedBy?}`, with
+the loader checking producer/consumer key agreement the way strict
+enforcement checks component registration. Against it: only three
+components consume keys today, so typing it now may be premature. Logged
+here, not decided; see Phase 3.
 
 **Gaps (inference — candidates, not defects).** No LLM-call component, no
 integrations-gateway component, no catalog-read component, no
@@ -142,6 +154,10 @@ any boot path.
 
 ## 4. Graphs — 4 published, 0 demo/template category
 
+*Ruling (Brian, 9 Aug): all four are outdated examples and are to be
+deleted through the API — Phase 1, item 5. The listing below stands as the
+measured record of what was registered when the ruling was made.*
+
 | key | name | tags | source in repo |
 |---|---|---|---|
 | graphs/order-margin | order-margin | pipeline, commerce | `examples/order-margin/order-margin.graph.json` |
@@ -160,6 +176,19 @@ any boot path.
   `template`, or `tutorial` tag in type=graph. The tutorial ladder exists
   for assistants (10 items, levels 1–5) and has no counterpart for graphs —
   yet graphs are where the lane/provenance semantics actually live.
+- **A draft graph is reported to exist (Brian, 9 Aug) but is invisible to
+  every read path used here.** The MCP catalog listing returns exactly 4
+  graphs, all published (total=4 — not a pagination miss), and no draft
+  rows appear in local data dirs. Unresolved between two explanations:
+  (a) the catalog list route filters to `published` by default — note the
+  8 Aug review found the status column *defaults* to draft yet nothing has
+  ever been observed in draft state, which would be exactly this filter
+  hiding them; (b) the draft lives in runtime's graph store, which the MCP
+  server exposes no read tool for. Either way this is a listing-honesty
+  defect of the platform or the tooling: a draft that exists but cannot be
+  enumerated is a resource without provenance. **Not checked:** the catalog
+  list endpoint's status filtering, and runtime's graph table. Both go to
+  Phase 1.
 
 ---
 
@@ -227,67 +256,136 @@ unclear. Fix the registry before growing it.
 2. **Decide the 7 orphans.** Wire `bootstrap-assistants.json` into a seed
    path, or delete the file. A seed file that doesn't seed is a confident
    green that means never-ran.
-3. **One graph key convention.** Migrate `energy.graph.*` → `graphs/*` (or
-   the reverse), through the API.
+3. **One key semantic for object reference — decide, then migrate.** The
+   graph split (`graphs/*` vs `energy.graph.*`) is one symptom; the catalog
+   also holds a bare key (`telegram`), a singular prefix (`context/*` where
+   everything else is plural), and one place where key semantics and the
+   type column already disagree (ingress records keyed `ingress/*`, typed
+   `integration`). The options:
+
+   **(a) Type-prefixed path — `<type-plural>/<name...>`.** The current
+   majority (`graphs/order-margin`, `components/symbia.state.join`,
+   `integrations/ai/openai/models/gpt-4o`). Reads well, proven to nest,
+   cheapest migration (4 graph keys, 5 context keys, 1 telegram key, 2
+   ingress keys move). Also maps directly onto an MQTT topic hierarchy —
+   a key is a topic, a type is a subscription filter (`graphs/#`,
+   `integrations/ai/+/models/#`), which matters the day catalog changes or
+   keyed streams ride a broker; none of the other options give wildcards
+   for free. Cost: the type appears twice — in the key and in the
+   type column — and two copies of one fact can disagree; the ingress rows
+   prove it already happened. If chosen, the write gate must enforce
+   key-prefix ⇄ type-column agreement so the redundancy can't drift.
+
+   **(b) Reverse-DNS dotted — `<namespace>.<type>.<name>`.** Matches
+   component id style (`symbia.state.join`). Sorts and globs well. Cost:
+   the namespace slot invites exactly the leak the app model forbids —
+   `energy.graph.pue` bakes a domain into a portable artifact's key. The
+   existing dotted keys are the violation, not the precedent.
+
+   **(c) URN — `urn:symbia:<type>:<name>` (or scheme URI).** Fully
+   qualified, unambiguous across services, extensible to org/installation
+   scoping later without reinterpreting old keys. Cost: verbose, biggest
+   migration, and scoping-in-the-key cuts against app-vs-installation —
+   org belongs to the installation, never the artifact, so the extensibility
+   argument is weaker here than it looks.
+
+   **(d) Opaque slug — key carries no semantics.** Type, namespace,
+   domain all live in typed columns and tags; key is just unique. Nothing
+   can drift because nothing is duplicated. Cost: keys stop communicating;
+   every human surface needs a join to say what a thing is.
+
+   **Ruling (settled, Brian, 9 Aug): (a), normalized.** Plural type prefix
+   always (`contexts/`, not `context/`), name is the only free segment,
+   nesting allowed where earned (`integrations/ai/openai/models/gpt-4o`),
+   domain vocabulary in tags never in keys, and the write gate validates
+   key-prefix ⇄ type-column agreement on every write. Grounds: standing
+   majority (~67 of 79 keys conform; migration touches ~12, four of which
+   are the graphs already ruled deleted); keys-as-MQTT-topics gives type
+   subscription filters for free; and the one real weakness — type stated
+   twice — is a defect class the gate is built to catch, so choosing (a)
+   doubles as a test of the gate. Dissent on record: (d) is the only
+   option where drift is impossible rather than caught; if gate validation
+   is ever found skipped in a write path, (d) gets another look.
 4. **Re-type or relocate the 2 ingress records.** Own type, or move to
    installation-scoped storage per APP-MODEL.
-5. **Locate or regenerate the 3 energy graph sources** so every published
-   graph has a definition under version control.
+5. **Delete the example graphs — ruled outdated (Brian, 9 Aug).** All four
+   registered graphs (order-margin, energy-pipeline, energy-ingest,
+   energy-pue) go, superseding the earlier plan to locate/regenerate their
+   sources. The removal is itself a probe: it must happen through the
+   platform API as a ledgered write — the schema defines a `deprecated`
+   status that has never once been used, so this is the first test of
+   whether retirement is expressible through the gate at all. If a graph
+   can only be removed by hand-editing storage, that's the defect to log.
+   Check the two `ingress/*` records and `runFlow` references for dangling
+   pointers after removal. Replacement graphs come from Phase 4's template
+   ladder, built against the decided key convention (item 3).
 6. **Reconcile symbia-labs** across integrations (provider registry), models
    (serving), catalog (resource) — one answer in `@symbia/sys`-equivalent
-   form, not three.
+   form, not three. **Sequenced first within Phase 1 (Brian, 9 Aug):**
+   either register the provider through the API (gated, ledgered) or retire
+   the model entry and catalog resource; if the API alone can't do it,
+   that's a platform defect to log.
+7. **Make drafts enumerable.** Establish where the reported draft graph
+   lives (§4) and whether the catalog list route silently filters
+   non-published resources. If it does, that filter must be explicit and
+   overridable — a listing that quietly hides drafts is a confident count
+   that means "never asked."
 
 ### Phase 2 — assistant review actioned
 
-7. **One LLM config per assistant.** Kill the `llm` vs `llmConfig`
+8. **One LLM config per assistant.** Kill the `llm` vs `llmConfig`
    split-brain; the loser gets deleted, not deprecated.
-8. **Refresh model pins** and make model references *catalog references*
+9. **Refresh model pins** and make model references *catalog references*
    (assistant → `integrations/ai/.../models/...` key) instead of inline
    strings, so a stale pin is a dangling reference the platform can detect
    rather than silent prose.
-9. **Strip LLM config from deterministic assistants** (echo, calculator,
+10. **Strip LLM config from deterministic assistants** (echo, calculator,
    converter). An assistant that never calls a model should not carry one.
-10. **Lift the scoped-assistant rules into the type.** "Answer only from
+11. **Lift the scoped-assistant rules into the type.** "Answer only from
     fetched data / name what's missing / cite per fact" becomes a declared
     assistant property the platform enforces or at least renders, not
     5 copies of prose.
-11. **Coordinator roster from the catalog**, not hardcoded help text.
+12. **Coordinator roster from the catalog**, not hardcoded help text.
 
 ### Phase 3 — fill the component holes
 
-12. **`symbia.ai.generate` (or similar):** LLM call as a graph node, routed
+13. **`symbia.ai.generate` (or similar):** LLM call as a graph node, routed
     through the integrations gateway, output on the **apocryphal** lane by
     construction. This is the spyglass lesson made reusable, and it is the
     prerequisite for any graph that composes over model output.
-13. **`symbia.io.integration`:** invoke a registered integration operation
+14. **`symbia.io.integration`:** invoke a registered integration operation
     (telegram send, sheets append) as a node — capability-checked like
     ingress.
-14. **Catalog-read component** (resource lookup as a node, canonical) and
+15. **Catalog-read component** (resource lookup as a node, canonical) and
     **assistant-invoke component** (apocryphal).
-15. Candidates behind those, in need order: schedule source, time-bucket
+16. Candidates behind those, in need order: schedule source, time-bucket
     aggregate, JSONL sink (per the dev-persistence constraint).
+17. **Decide the key-as-port-contract question (§2).** If new state
+    components land in this phase, decide before they ship — every added
+    `keyField` config is another copy of the convention that a later
+    contract has to migrate.
 
 ### Phase 4 — demo & template graphs (the missing category)
 
-16. **A graph ladder mirroring the assistant ladder**, tagged `tutorial`,
+18. **A graph ladder mirroring the assistant ladder**, tagged `tutorial`,
     one per lane lesson: (1) passthrough→collect, (2) arithmetic with a
     receipt, (3) http-request showing apocryphal taint, (4) rollup showing
     partial-total honesty, (5) a composed graph with a scorecard. Each is a
     catalog resource with `template` tag and no org-specific values (app
     model: portable artifact).
-17. **Templates are reusable by ruling** — they belong in the catalog;
+19. **Templates are reusable by ruling** — they belong in the catalog;
     their *executions* do not. The distinction gets a tag pair
     (`template` vs nothing) and a rule in the seed path.
-18. Second-domain templates come from `examples/order-margin`, not energy,
+20. Second-domain templates come from `examples/order-margin`, not energy,
     so the platform contract isn't shaped around one domain.
 
 ### Phase 5 — integration surface grows behind the gate
 
-19. Refresh the AI model entries (all providers) as catalog writes with the
+21. Refresh the AI model entries (all providers) as catalog writes with the
     ledger recording when and by what.
-20. Contexts for non-integrations domains, if and only if a consumer
+22. Contexts for non-integrations domains, if and only if a consumer
     exists — no speculative contexts.
-21. Non-AI integrations beyond telegram/google as demand appears; each
+23. Non-AI integrations beyond telegram/google as demand appears; each
     arrives with its operation registry, auth type, and a template graph
     that exercises it.
 
