@@ -6,6 +6,7 @@
  */
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { Bubble, GroupTimestamp } from '@/components/chat/Bubble';
+import { participantColor } from '@/components/chat/participantColor';
 import { Receipt, type Provenance } from '@/components/chat/Receipt';
 import type { Skin } from '@/components/chat/skins';
 import { useMessaging } from '@/hooks/useMessaging';
@@ -803,14 +804,44 @@ export function ChatPanel({ skin, context }: { skin: Skin; context?: { situation
                 const gap =
                   !prev ||
                   new Date(msg.created_at).getTime() - new Date(prev.created_at).getTime() > 5 * 60_000;
+
+                // Resolve the sender to a real alias + a stable per-participant
+                // colour. Agents match the mention list by principalId (or the
+                // alias embedded in `assistant:<alias>`); the local user is
+                // "You"; an unresolved human degrades to a short id, not a UUID.
+                const isOwn = !!user?.id && msg.sender_id === user.id;
+                const senderColor = participantColor(msg.sender_id);
+                let senderName: string;
+                if (isOwn) {
+                  senderName = user?.name || 'You';
+                } else if (msg.sender_type === 'agent') {
+                  const a =
+                    mentionableAssistants.find((m) => m.principalId === msg.sender_id) ||
+                    mentionableAssistants.find(
+                      (m) => msg.sender_id === `assistant:${m.alias}` || msg.sender_id.endsWith(`:${m.alias}`)
+                    );
+                  senderName =
+                    a?.name ||
+                    a?.alias ||
+                    msg.sender_id
+                      .replace(/^assistant:/, '')
+                      .split(/[-_]/)
+                      .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+                      .join(' ');
+                } else {
+                  senderName = msg.sender_id.slice(0, 8);
+                }
+
                 return (
                   <div key={msg.id}>
                     {gap && <GroupTimestamp iso={msg.created_at} skin={skin} />}
                     <Bubble
                       message={msg}
-                      isOwn={msg.sender_id === user?.id}
+                      isOwn={isOwn}
                       skin={skin}
                       startsGroup={startsGroup}
+                      senderName={senderName}
+                      senderColor={senderColor}
                     />
                     {/* The receipt. Every assistant reply carries a sealed
                         envelope; until now none of it was visible and "42"
