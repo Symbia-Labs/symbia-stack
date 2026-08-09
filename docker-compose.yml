@@ -411,6 +411,7 @@ services:
       INTEGRATIONS_HOST: integrations
       MODELS_HOST: models
       NETWORK_HOST: network
+      DIRECTORY_HOST: directory
       API_HOST: service-admin
     depends_on:
       identity:

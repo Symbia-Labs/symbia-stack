@@ -33,6 +33,9 @@ import {
   type ComponentPorts,
 } from './catalog/GraphFlowPreview';
 import { OperationDiagram } from './catalog/OperationDiagram';
+import { RoutineFlowPreview } from './catalog/type-sections/RoutineFlowPreview';
+import type { Routine } from './catalog/type-sections/RoutineEditor';
+import { getDefaultRoutines } from './catalog/type-sections/defaultRoutines';
 
 type Tab = 'registry' | 'contracts' | 'hygiene';
 /** What you can do with one object once you have found it. */
@@ -499,6 +502,19 @@ function ResourceDetail({
   const definition = (m.definition ?? m.graph ?? m) as GraphDefinition;
   const isGraph = r.type === 'graph' && Array.isArray(definition?.nodes);
 
+  // An assistant's routines are its graph. They render on the live assistant
+  // views and in the editable catalog config, but the read-only inspect view
+  // drew nothing for them — components get an Operation diagram (from their
+  // manifest) and graphs get a flow preview, while assistants fell through.
+  // Draw the same routine flow the live views use. Derive routines exactly as
+  // AssistantConfigSection does: stored routines if present, otherwise the
+  // defaults for this assistant's alias — seeded assistants (e.g. Intent
+  // Router) carry no stored routines and render defaults on the live views.
+  const assistantAlias = (m.alias as string) || r.key.split('/').pop() || '';
+  const storedRoutines = (Array.isArray(m.routines) ? m.routines : []) as Routine[];
+  const routines = storedRoutines.length > 0 ? storedRoutines : getDefaultRoutines(assistantAlias);
+  const isAssistant = r.type === 'assistant' && routines.some((rt) => (rt?.steps?.length ?? 0) > 0);
+
   return (
     <article className="p-8 max-w-4xl">
       <div className="flex items-start justify-between gap-6">
@@ -549,6 +565,18 @@ function ResourceDetail({
             port they leave from, and a refusal path is drawn amber.
           </p>
           <GraphFlowPreview definition={definition} manifests={manifests} />
+        </section>
+      )}
+
+      {isAssistant && (
+        <section className="mt-7">
+          <h3 className="text-lg text-slate-200 mb-1">Behaviour</h3>
+          <p className="text-slate-500 mb-4">
+            {routines.reduce((sum, rt) => sum + (rt.steps?.length ?? 0), 0)} steps across{' '}
+            {routines.length} routine{routines.length !== 1 ? 's' : ''}. The same routine flow the
+            live assistant views draw.
+          </p>
+          <RoutineFlowPreview routines={routines} />
         </section>
       )}
 

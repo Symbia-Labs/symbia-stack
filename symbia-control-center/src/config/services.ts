@@ -20,6 +20,7 @@ const SERVICE_COLORS: Record<string, string> = {
   [ServiceId.RUNTIME]: '#f97316',     // orange
   [ServiceId.INTEGRATIONS]: '#a855f7', // violet
   [ServiceId.MODELS]: '#14b8a6',      // teal
+  [ServiceId.DIRECTORY]: '#eab308',   // yellow
   [ServiceId.API]: '#f43f5e',         // rose
 };
 
@@ -33,6 +34,7 @@ const SERVICE_DESCRIPTIONS: Record<string, string> = {
   [ServiceId.RUNTIME]: 'Graph execution engine',
   [ServiceId.INTEGRATIONS]: 'Third-party API gateway',
   [ServiceId.MODELS]: 'Local model inference',
+  [ServiceId.DIRECTORY]: 'Federation control plane',
   [ServiceId.API]: 'Admin & service API',
 };
 
@@ -46,6 +48,7 @@ const SERVICE_NAMES: Record<string, string> = {
   [ServiceId.RUNTIME]: 'Runtime',
   [ServiceId.INTEGRATIONS]: 'Integrations',
   [ServiceId.MODELS]: 'Models',
+  [ServiceId.DIRECTORY]: 'Directory',
   [ServiceId.API]: 'API',
 };
 

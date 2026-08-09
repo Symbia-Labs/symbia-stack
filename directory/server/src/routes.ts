@@ -13,6 +13,17 @@ import { config } from './config.js';
 export function createRouter(): Router {
   const router = Router();
 
+  // --- Stats (for the console tile) ---------------------------------------
+
+  router.get('/stats', (_req: Request, res: Response) => {
+    const peers = registry.listPeers();
+    res.json({
+      totalPeers: peers.length,
+      activePeers: peers.filter((p) => p.status === 'active').length,
+      foreignNodes: registry.listForeign().length,
+    });
+  });
+
   // --- Peers (BDT) ---------------------------------------------------------
 
   router.post('/peers', (req: Request, res: Response) => {
