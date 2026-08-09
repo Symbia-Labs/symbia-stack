@@ -1153,7 +1153,7 @@
                 "id": "step-say",
                 "type": "message.send",
                 "params": {
-                  "content": "{{steps.step-calc.result}}\n\n_computed by math.evaluate \u2014 no model call_"
+                  "content": "{{steps.step-calc.result}}"
                 }
               }
             ],
