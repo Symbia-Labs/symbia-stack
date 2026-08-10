@@ -292,6 +292,14 @@ services:
       context: .
       dockerfile: assistants/Dockerfile
     environment:
+      # Same secret as `network`, because provenance.ts seals with the same
+      # construction and its docstring promises an envelope sealed here is
+      # checkable by the same means as an event crossing the mesh. Until
+      # 10 Aug 2026 this was unset, so assistants fell back to
+      # 'symbia-network-dev-only' while network used
+      # 'symbia-network-dev-secret' — different secrets, so that promise
+      # was false and nothing ever noticed.
+      NETWORK_HASH_SECRET: ${NETWORK_HASH_SECRET:-symbia-network-dev-secret}
       NODE_ENV: production
       PORT: 5004
       DATABASE_URL: postgresql://${POSTGRES_USER:-symbia}:${POSTGRES_PASSWORD:-symbia_dev}@postgres:5432/assistants
