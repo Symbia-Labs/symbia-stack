@@ -47,28 +47,42 @@ apply wherever the boundary is crossed.
 
 ## 2. What is actually in the box
 
-**`@symbia/crypto` — primitives. Built.**
+**`@symbia/crypto` — the signing pen and the seal. Built.**
 
-RFC 8785 canonical JSON; SHA-256; ed25519 identity where the id is derived from
-the public key, so it cannot be claimed by a non-holder; signing and
-verification over whole canonical documents; durable service identity loaded
-once at process start.
+Two jobs. It writes a document down the *same way every time*, so that two
+people who each have a copy can agree, byte for byte, on what the document says
+— which sounds trivial and is the part most systems get wrong. And it signs
+that document with a key only the signer holds, so anyone can check the
+signature and nobody else can produce one.
 
-Deliberately small. It exists so that nothing in the platform has to grow its
-own. The alternative is what this codebase contained before today in more than
-one place: a digest over a shared secret. That detects accidents. It cannot be
-checked by anyone who does not already hold the secret, and anyone who holds it
-can forge — so it is not evidence, it is a checksum with ceremony.
+The signer's name is derived from its own key, which means an identity cannot
+be claimed by someone who does not hold it. Concretely: RFC 8785 canonical
+JSON, SHA-256, ed25519, signatures over whole documents rather than parts of
+them, and a durable key loaded once when a process starts.
 
-**`@symbia/lineage` — the record. Built.**
+Deliberately small, so nothing in the platform grows its own. What it replaces,
+in more than one place in this codebase, is a digest computed with a **shared
+secret** — the equivalent of a wax seal whose stamp is kept in the drawer
+everyone uses. It catches accidents. It cannot be checked by anyone outside the
+organisation, and anyone inside can forge it. That is not evidence; it is a
+checksum with ceremony.
 
-A hash chain, an `Observation` primitive, an attestation vocabulary, and a
-claims vocabulary. `chain(n) = sha256(chain(n-1) ‖ digest(n))` over content
-chunks, with one append-only, parent-linked, signed event per chunk, following
-the GKS Lineage primitive: immutable, ordered, identity-scoped, verifiable, and
-**non-epistemic** — the ledger carries digests, byte counts, offsets and
-geometry, never content. It can be published precisely because it cannot leak
-what it describes.
+**`@symbia/lineage` — the logbook. Built.**
+
+A running record of what passed through, written a line at a time as it
+happened. Each line carries a fingerprint of one piece of content, plus a
+running total that folds in every line before it:
+`chain(n) = sha256(chain(n-1) ‖ digest(n))`. Change any earlier line and every
+line after it stops adding up — which is how you can tell that a page was torn
+out of a logbook rather than merely suspecting it.
+
+Lines are only ever appended, never revised, each one signed and pointing back
+at its parent. Following the GKS Lineage primitive, the logbook is
+**non-epistemic**: it records fingerprints, sizes, offsets and where a thing
+came from — never the content itself. Reading the whole logbook tells you
+exactly what passed through, in what order, and shows you none of it. That is
+why it can be handed to a regulator, a court or a counterparty who is not
+allowed to see the material it describes.
 
 ## 3. Sources and sinks are the same shape
 
