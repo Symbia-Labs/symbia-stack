@@ -150,3 +150,26 @@ In `docs/`, dated. `provenance-envelope-shared-secret`,
 3. Deal with `main` being 122 commits behind reality.
 
 Everything else can wait.
+
+## 11. Removed 10 August 2026
+
+Cleanup, all recoverable from git history.
+
+- **`docs/api/`** (18 files) — an aggregated *copy* of the per-service
+  `*/docs/openapi.json` and `llms.txt`, written by `build-docs.sh` and read by
+  nothing. `validate-docs.sh` and CI read the per-service files directly, which
+  was verified before removal by running the validation with the copy gone. The
+  aggregation step is deleted from `build-docs.sh` too: a second copy of a
+  generated artifact is a second thing to drift.
+- **`mcp/`** (3 files) — a hand-kept copy of the MCP server, by its own README.
+  `symbia-mcp-server/` is the TypeScript source and the better home. Two
+  sources of truth for one server is the forked-concern defect this project
+  already names.
+- **`symbia-control-center/archive/`** (9 files) — a directory named
+  `dead-2026-08-06`, plus an orphaned energy panel.
+
+**Kept deliberately:** `tests/` — the ITT suite (intentions, transparency,
+trust, RLS isolation, secret handling). It is **not** in `workspaces`, so
+nothing runs it, and it has not been touched since 1 February. Kept because a
+trust-and-transparency suite is worth wiring into CI rather than discarding.
+Until it runs, it proves nothing, and this file should not imply otherwise.
