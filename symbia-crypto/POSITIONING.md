@@ -30,6 +30,21 @@ The commitment is that **provenance is a property of the boundary, not of a
 media type**, and that the same record shape and the same cryptographic strength
 apply wherever the boundary is crossed.
 
+> **Unsettled — the framing above, not the substance.** "A property of the
+> boundary, not of a media type" has not survived first reading. Two likely
+> reasons, recorded so the next attempt is better aimed. It is a *negative*
+> definition, saying what this is not rather than what it is. And the thing it
+> denies — that provenance belongs to media — is an objection nobody raised;
+> it entered this work because the first implementation happened to be a video
+> recorder, so the headline is answering a question the reader never asked.
+>
+> Candidates for the positive form, none adopted: *the record attaches to an
+> act, not to an artifact* — C2PA describes an object's history, this describes
+> an event of custody; or plainly, *every time something enters or leaves, the
+> same receipt gets written, whatever the something is*. Left open deliberately.
+> A positioning paper whose central sentence does not land is not finished, and
+> replacing one abstraction with another would hide that rather than fix it.
+
 ## 2. What is actually in the box
 
 **`@symbia/crypto` — primitives. Built.**
