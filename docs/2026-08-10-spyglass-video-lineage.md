@@ -242,8 +242,86 @@ verifier prints that sentence rather than a tick, and the same wording is
 written into the artifact itself, so it cannot be lost by a UI that renders a
 signature as a green check.
 
-**Not checked.** Whether a rotation event correctly refuses to upgrade earlier
-clips — the import path is stubbed and no genesis has been imported, so the
-retroactive-blessing guard is stated in code comments and this document but has
-never been exercised. That is the next thing to measure, not something to
-assume.
+**Not checked at time of writing.** Whether a rotation refuses to upgrade
+earlier clips. Now checked — §4.7.
+
+### 4.7 Rotation, and two defects it exposed
+
+The alpha2 genesis was imported and the instrument rotated onto it. The guard
+that had never been exercised now has been, and exercising it found two things
+wrong with the work that preceded it.
+
+**Rotation generates a NEW key.** The easier implementation keeps the existing
+key and raises its level. This one does not, and the reason is the whole point:
+clips already recorded were signed by the *old* key, and the genesis certifies
+only the *new* one. Those clips therefore cannot be raised to attested by
+anybody — not by this tool, not by the verifier, not by a hostile party holding
+the genesis — because the genesis says nothing whatsoever about the key that
+signed them. Non-retroactivity stops being a rule someone has to remember and
+becomes arithmetic. The old key is retained, never deleted: GKS identity §6
+requires the old identity to remain in lineage, and old clips must stay
+verifiable forever.
+
+The anchor was verified before anything depended on it — `ssh-keygen -Y verify`
+returns `Good "symbia" signature`, and the fingerprint the document claims
+matches the key that signed it (`SHA256:gBiJsMk…`). The offered signing key was
+checked to be the private half of that same public key before it was used.
+
+**Observation:** the outgoing key had no creation event, because it predates
+the identity ledger. Writing the rotation with a parent that does not exist
+would be a dangling pointer dressed as provenance, so the import records an
+`identity.observed` event instead — the key was found on disk, its creation is
+not in the record — and links the rotation to that.
+
+#### Defect 1: the signature did not cover the payload
+
+Found by attacking my own work rather than by a test passing.
+
+**Observation.** The open event's signature was `sign(GENESIS)` — a signature
+over 32 zero bytes. Ed25519 is deterministic, so signing that constant twice
+produces identical output, and the ledger's open signature was byte-identical
+to it. Rewriting `attestation.level` from `self-attested` to `attested` and
+re-verifying returned **true**.
+
+**Inference.** Signing the chain value alone left the entire payload outside
+the signed bytes. The open event's signature was the same for every clip that
+key ever produced and attested nothing about any particular one. Worse, the
+single field the whole non-retroactivity design rests on — the attestation
+level — was the one field nothing protected.
+
+Fixed by signing a SHA-256 digest over the whole canonical event minus the
+signature itself, with recursively key-sorted serialization so the signed bytes
+depend on content rather than on serialization order. The scheme is now named in
+the artifact (`canonical-event-v2`) so a verifier can tell what a signature
+covers. Clips written under `chain-value-v1` still verify for what they actually
+attest, and the verifier reports the limitation as **NOTE** rather than
+collapsing "proves less" into either PASS or FAIL — the same error as reading
+"not checked" as "checked and fine".
+
+#### Defect 2: the verifier republished a claim it had just refuted
+
+The forgery test: take the pre-rotation clip, rewrite its level to `attested`,
+paste in a genesis block. The verifier correctly reported *"genesis does NOT
+vouch for this clip"* and correctly explained that importing a genesis does not
+reach backwards — and then printed **`attestation: attested`** as its headline,
+because it read the level straight out of the payload it had just finished being
+unable to verify.
+
+A reader skimming for the summary line would have taken the forged value. Fixed:
+the verifier now reports what it can **substantiate**, never what the file
+claims, and prints the two separately when they differ. Claiming `attested`
+requires a genesis that actually vouches; absent one, the claim is reported as
+not substantiated rather than repeated.
+
+#### Result
+
+| clip | claims | substantiated | genesis vouches |
+|---|---|---|---|
+| pre-rotation | self-attested | self-attested | no — signed by a key it never certified |
+| pre-rotation, forged to `attested` | attested | **self-attested — not substantiated** | no |
+| post-rotation | attested | attested | yes |
+
+The post-rotation clip additionally passes *"rewriting the attestation level
+breaks the signature"* and *"rewriting the binding breaks the signature"*, which
+the pre-rotation clip cannot, because those properties did not exist when it was
+made.

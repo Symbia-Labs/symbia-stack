@@ -43,19 +43,56 @@ const path = require('node:path');
 const crypto = require('node:crypto');
 
 const args = process.argv.slice(2);
-const dir = args.find((a) => !a.startsWith('--'));
+const dir = args.find((a, i) => !a.startsWith('--') && args[i - 1] !== '--absent' && args[i - 1] !== '--genesis');
 const absent = new Set();
 for (let i = 0; i < args.length; i++) if (args[i] === '--absent') absent.add(args[i + 1]);
+// Offer a genesis and the verifier will say whether it vouches for THIS clip.
+// The answer is frequently no, and that is the point: a clip captured before a
+// rotation was signed by a key the genesis never certified, so no amount of
+// later trust can reach it.
+const genesisDir = args[args.indexOf('--genesis') + 1];
+const withGenesis = args.includes('--genesis') ? genesisDir : null;
 if (!dir) {
-  console.error('usage: verify-clip.js <clip-dir> [--absent <track>]');
+  console.error('usage: verify-clip.js <clip-dir> [--absent <track>] [--genesis <dir>]');
   process.exit(2);
 }
 
 const TRACK_FILES = { video: 'clip.webm', audio: 'audio.webm' };
 const results = [];
+let genesisVouches = null; // null = no genesis offered
+// Three states, not two. A signature scheme that proves less than the current
+// one is not a failure and is not a pass; collapsing it into either is the same
+// mistake as reading "not checked" as "checked and fine".
 const check = (name, ok, detail) => results.push({ name, ok, detail });
+const note = (name, detail) => results.push({ name, ok: 'note', detail });
 const hex = (s) => String(s).replace(/^sha256:/, '');
 const advance = (chain, digest) => crypto.createHash('sha256').update(chain).update(digest).digest();
+
+// Must match the writer exactly: recursively key-sorted, so the signed bytes
+// depend on content and not on serialization order.
+function canonicalize(v) {
+  if (Array.isArray(v)) return '[' + v.map(canonicalize).join(',') + ']';
+  if (v && typeof v === 'object') {
+    return '{' + Object.keys(v).sort()
+      .filter((k) => v[k] !== undefined)
+      .map((k) => JSON.stringify(k) + ':' + canonicalize(v[k])).join(',') + '}';
+  }
+  return JSON.stringify(v === undefined ? null : v);
+}
+// v2 signs a digest over the whole canonical event. v1 signed only the chain
+// value, leaving the payload — including the attestation level — outside the
+// signed bytes. v1 clips are still verifiable for what they attest; they just
+// attest less, and the report has to say which.
+function verifyEvent(ev, key, scheme) {
+  if (!ev.signature) return false;
+  const sig = Buffer.from(String(ev.signature).replace(/^ed25519:/, ''), 'base64');
+  if (scheme === 'chain-value-v1') {
+    return crypto.verify(null, Buffer.from(hex(ev.checksum), 'hex'), key, sig);
+  }
+  const { signature, ...rest } = ev;
+  const digest = crypto.createHash('sha256').update(canonicalize(rest)).digest();
+  return crypto.verify(null, digest, key, sig);
+}
 
 // What each attestation level is allowed to claim. Kept as prose because the
 // failure this guards against is a UI rendering a signature as a tick and a
@@ -201,23 +238,78 @@ if (!att) {
     unsigned.length ? `${unsigned.length} unsigned of ${signable.length}` : `${signable.length} events`);
 
   if (key) {
+    // Absent field means the clip predates scheme versioning, which is exactly
+    // the clips written under v1.
+    const scheme = att.signature_scheme ?? 'chain-value-v1';
     let bad = null;
     for (const e of signable) {
       if (!e.signature) continue;
-      const sig = Buffer.from(String(e.signature).replace(/^ed25519:/, ''), 'base64');
-      const ok = crypto.verify(null, Buffer.from(hex(e.checksum), 'hex'), key, sig);
-      if (!ok) { bad = e.event_id; break; }
+      if (!verifyEvent(e, key, scheme)) { bad = e.event_id; break; }
     }
-    check('every signature verifies against that key', !bad, bad ? `first bad: ${bad}` : '');
+    check(`every signature verifies against that key (${scheme})`, !bad,
+      bad ? `first bad: ${bad}` : '');
 
-    // A signature over a value that is not the recomputed chain would verify
-    // while attesting nothing about the bytes. The chain checks above already
-    // recompute each head; this confirms the signed value is that head.
-    const closeSigOk = close.signature
-      ? crypto.verify(null, Buffer.from(hex(close.payload.binding), 'hex'), key,
-          Buffer.from(String(close.signature).replace(/^ed25519:/, ''), 'base64'))
-      : false;
-    check('the close signature covers the binding, not some other value', closeSigOk);
+    // The signature must cover the whole event, not just its chain value. v1
+    // signed the chain alone, which left the entire payload outside the signed
+    // bytes: `attestation.level` could be rewritten from self-attested to
+    // attested and every signature still verified. Proving the payload is
+    // covered means rewriting it must break the signature.
+    const probe = JSON.parse(JSON.stringify(open));
+    probe.payload.attestation.level = probe.payload.attestation.level === 'attested'
+      ? 'self-attested' : 'attested';
+    const levelProtected = !verifyEvent(probe, key, scheme);
+
+    if (scheme === 'chain-value-v1') {
+      note('signatures do NOT cover the payload',
+        'scheme chain-value-v1 signs only the chain value; the attestation level in this clip is not protected by its signatures');
+      // The open event's chain value is the constant genesis and Ed25519 is
+      // deterministic, so this signature is byte-identical for every clip this
+      // key ever produced. Worth stating: it attests nothing about this clip.
+      note('the open event signature is not clip-specific',
+        'it is a signature over a constant, identical across every clip from this key');
+    } else {
+      check('rewriting the attestation level breaks the signature', levelProtected);
+      const probe2 = JSON.parse(JSON.stringify(close));
+      probe2.payload.binding = 'sha256:' + '0'.repeat(64);
+      check('rewriting the binding breaks the signature', !verifyEvent(probe2, key, scheme));
+    }
+  }
+}
+
+// --- does an offered genesis actually vouch for this clip? ------------------
+// This is the non-retroactivity guard, made checkable rather than promised. A
+// clip carries the instrument key that signed it. If that key is not the one
+// the genesis certified, the genesis says nothing about this clip, and no
+// later import can change that — it is a fact about which bytes were signed,
+// not a policy anyone has to enforce.
+if (withGenesis) {
+  const certPath = path.join(withGenesis, 'instrument-cert.json');
+  const certSigPath = path.join(withGenesis, 'instrument-cert.sig');
+  const gPubPath = path.join(withGenesis, 'genesis.pub.pem');
+  if (!fs.existsSync(certPath) || !fs.existsSync(gPubPath)) {
+    check('genesis offered has an instrument certificate', false, `nothing at ${withGenesis}`);
+  } else {
+    const certBytes = fs.readFileSync(certPath);
+    let certOk = false;
+    try {
+      certOk = crypto.verify(null, certBytes, crypto.createPublicKey(fs.readFileSync(gPubPath)),
+        fs.readFileSync(certSigPath));
+    } catch { /* reported by the check */ }
+    check('offered certificate verifies against that genesis', certOk);
+
+    const cert = JSON.parse(certBytes.toString());
+    const clipKey = (att?.public_key ?? '').trim();
+    const vouched = certOk && clipKey && cert.instrument_public_key.trim() === clipKey;
+    if (vouched) {
+      check(`genesis ${cert.genesis_id} certifies the key that signed this clip`, true);
+    } else {
+      // Not a failure. The correct outcome for anything captured before the
+      // rotation, and the verifier must say so in those words.
+      check(`genesis ${cert.genesis_id} does NOT vouch for this clip`, true,
+        'signed by ' + (att?.instrument ?? 'an unknown key') + ', which this genesis never certified');
+      genesisVouches = false;
+    }
+    if (vouched) genesisVouches = true;
   }
 }
 
@@ -237,20 +329,57 @@ function report() {
   const tracks = Object.entries(close?.payload?.tracks ?? {})
     .map(([k, v]) => `${k} ${v.segments}seg/${v.bytes}B${absent.has(k) ? ' (withheld)' : ''}`).join('  ');
   console.log(`clip ${open?.payload?.clip_id ?? '?'}  ${tracks}  ${((close?.payload?.duration_ms ?? 0) / 1000).toFixed(1)}s`);
-  let failed = 0;
+  let failed = 0, notes = 0;
   for (const r of results) {
-    if (!r.ok) failed++;
-    console.log(`  ${r.ok ? 'PASS' : 'FAIL'}  ${r.name}${r.detail ? '  (' + r.detail + ')' : ''}`);
+    if (r.ok === false) failed++;
+    if (r.ok === 'note') notes++;
+    const tag = r.ok === 'note' ? 'NOTE' : r.ok ? 'PASS' : 'FAIL';
+    console.log(`  ${tag}  ${r.name}${r.detail ? '  (' + r.detail + ')' : ''}`);
   }
   // Never print a bare "verified" for a signed clip. What was verified is
   // integrity; what the signature adds depends on the level, and the level has
   // to be said out loud or the tick gets read as identity.
-  const lvl = open?.payload?.attestation?.level ?? 'unsigned';
+  //
+  // Report what can be SUBSTANTIATED, never what the file claims. A clip states
+  // its own level in its payload, and under scheme v1 that field is covered by
+  // no signature — so echoing it here would republish a claim the verifier has
+  // just finished being unable to confirm. Claimed and substantiated print as
+  // separate lines whenever they differ.
+  const claimed = open?.payload?.attestation?.level ?? 'unsigned';
+  const sigScheme = open?.payload?.attestation?.signature_scheme ?? 'chain-value-v1';
+  let substantiated = claimed;
+  let why = null;
+
+  if (claimed === 'attested') {
+    if (genesisVouches === true) {
+      substantiated = 'attested';
+    } else if (genesisVouches === false) {
+      substantiated = 'self-attested';
+      why = 'This clip claims to be attested, but the genesis offered does not vouch for '
+          + 'the key that signed it. Importing a genesis does not reach backwards.';
+    } else {
+      substantiated = 'self-attested';
+      why = 'This clip claims to be attested. Nothing here can confirm that, because no '
+          + 'genesis was offered to check it against. Re-run with --genesis <dir> to test '
+          + 'the claim rather than accept it.';
+    }
+  } else if (genesisVouches === false) {
+    why = 'The genesis you offered does not vouch for this clip. It was signed before that '
+        + 'genesis certified this instrument, and importing a genesis does not reach '
+        + 'backwards. This clip is intact and self-attested; it is not attested.';
+  }
+  if (sigScheme === 'chain-value-v1' && why === null && claimed !== 'unsigned') {
+    why = 'Under scheme chain-value-v1 the level field is covered by no signature, so it is '
+        + 'a claim this clip makes about itself rather than something proven.';
+  }
+
   if (failed === 0) {
-    console.log(`\nintegrity verified — attestation: ${lvl}`);
-    console.log(wrap(MEANS[lvl] ?? 'Unknown attestation level; treat as unsigned.', 76, '  '));
+    console.log(`\nintegrity verified — attestation: ${substantiated}`);
+    if (substantiated !== claimed) console.log(`  the clip claims: ${claimed} — not substantiated`);
+    console.log(wrap(MEANS[substantiated] ?? 'Unknown attestation level; treat as unsigned.', 76, '  '));
+    if (why) console.log('\n' + wrap(why, 76, '  '));
   } else {
-    console.log(`\n${failed} check(s) failed — attestation: ${lvl}`);
+    console.log(`\n${failed} check(s) failed — attestation: ${substantiated}`);
   }
   process.exit(failed === 0 ? 0 : 1);
 }

@@ -153,6 +153,16 @@ const GENESIS = '0'.repeat(64);
 const KEY_DIR = path.join(app.getPath('userData'), 'identity');
 const KEY_FILE = path.join(KEY_DIR, 'instrument.key.pem');
 const PUB_FILE = path.join(KEY_DIR, 'instrument.pub.pem');
+// Identity events live in their own append-only ledger. A clip records the
+// level it was captured under; this records when the level changed. Keeping
+// them separate is what stops a rotation from being mistaken for a property of
+// clips that predate it.
+const ID_LEDGER = path.join(KEY_DIR, 'lineage.jsonl');
+// Written by scripts/import-genesis.js. Absent = never rotated.
+const ANCHOR_FILE = path.join(KEY_DIR, 'genesis.json');
+const ANCHOR_PUB = path.join(KEY_DIR, 'genesis.pub.pem');
+const CERT_FILE = path.join(KEY_DIR, 'instrument-cert.json');
+const CERT_SIG = path.join(KEY_DIR, 'instrument-cert.sig');
 
 // Attestation is three-valued and recorded at capture time. It is never a
 // boolean, because "signed" and "trusted" are different claims and collapsing
@@ -163,17 +173,59 @@ const PUB_FILE = path.join(KEY_DIR, 'instrument.pub.pem');
 //   attested          key chains to an imported, trusted genesis
 //   hardware-attested key that cannot be exported from the machine
 //
-// Importing a genesis later must write a rotation event and must NOT upgrade
-// clips already recorded. GKS identity §6: rotation preserves lineage, the old
-// identity remains, and no epistemic continuity is implied. A clip captured
-// under self-attestation stays self-attested forever — that is the whole point.
-const ATTESTATION = 'self-attested';
-
+// Importing a genesis writes a rotation event and must NOT upgrade clips
+// already recorded. GKS identity §6: rotation preserves lineage, the old
+// identity remains, and no epistemic continuity is implied.
+//
+// That rule is enforced by arithmetic rather than by remembering to obey it.
+// Rotation generates a NEW instrument key and the genesis certifies only that
+// one; the old key is retained but was never certified by anybody. So a clip
+// signed under self-attestation cannot be upgraded even by a verifier that
+// wants to — the genesis simply says nothing about the key that signed it.
 let instrument = null;
+
+// Resolved at startup from what is actually on disk and verified, never
+// asserted. Absent or invalid certificate ⇒ self-attested.
+let ATTESTATION = 'self-attested';
+let anchor = null;
+
+function appendIdentityEvent(ev) {
+  fs.appendFileSync(ID_LEDGER, lineageLine(ev));
+}
+
+// A certificate is only worth the check that was actually run against it. This
+// re-verifies on every boot rather than trusting that import-time verification
+// happened: the file could have been swapped since.
+function loadAttestation(inst) {
+  if (!fs.existsSync(CERT_FILE) || !fs.existsSync(CERT_SIG) || !fs.existsSync(ANCHOR_PUB)) return;
+  try {
+    const certRaw = fs.readFileSync(CERT_FILE);
+    const sig = fs.readFileSync(CERT_SIG);
+    const genesisKey = crypto.createPublicKey(fs.readFileSync(ANCHOR_PUB));
+    if (!crypto.verify(null, certRaw, genesisKey, sig)) {
+      console.warn('[spyglass] instrument certificate does not verify against the genesis — staying self-attested');
+      return;
+    }
+    const cert = JSON.parse(certRaw.toString());
+    // The certificate must bind THIS key. A certificate for some other
+    // instrument would otherwise launder any key into attested.
+    if (cert.instrument_public_key.trim() !== inst.publicKeyPem.trim()) {
+      console.warn('[spyglass] certificate is for a different instrument key — staying self-attested');
+      return;
+    }
+    anchor = {
+      id: cert.genesis_id, epoch: cert.genesis_epoch,
+      fingerprint: cert.genesis_fingerprint, issued_at: cert.issued_at,
+    };
+    ATTESTATION = 'attested';
+  } catch (err) {
+    console.warn('[spyglass] attestation check failed, staying self-attested: ' + (err && err.message || err));
+  }
+}
 
 function loadInstrument() {
   fs.mkdirSync(KEY_DIR, { recursive: true, mode: 0o700 });
-  let privateKey, publicKey;
+  let privateKey, publicKey, fresh = false;
   if (fs.existsSync(KEY_FILE)) {
     privateKey = crypto.createPrivateKey(fs.readFileSync(KEY_FILE));
     publicKey = crypto.createPublicKey(privateKey);
@@ -181,6 +233,7 @@ function loadInstrument() {
     ({ privateKey, publicKey } = crypto.generateKeyPairSync('ed25519'));
     fs.writeFileSync(KEY_FILE, privateKey.export({ type: 'pkcs8', format: 'pem' }), { mode: 0o600 });
     fs.writeFileSync(PUB_FILE, publicKey.export({ type: 'spki', format: 'pem' }), { mode: 0o644 });
+    fresh = true;
     console.log('[spyglass] generated instrument key (first run) → ' + KEY_FILE);
   }
   const spki = publicKey.export({ type: 'spki', format: 'der' });
@@ -193,15 +246,54 @@ function loadInstrument() {
     id: `spyglass:instrument:${fingerprint.slice(0, 16)}`,
     publicKeyPem: publicKey.export({ type: 'spki', format: 'pem' }).toString().trim(),
   };
+  if (fresh) {
+    appendIdentityEvent({
+      event_id: `event:identity:${fingerprint.slice(0, 16)}:created`,
+      timestamp: new Date().toISOString(),
+      actor_identity: instrument.id,
+      event_type: 'identity.created',
+      payload: { instrument: instrument.id, algorithm: 'ed25519', level: 'self-attested' },
+      continuity_context: { instrument: instrument.id },
+      parent_links: [],
+      checksum: `sha256:${fingerprint}`,
+      signature: null,
+    });
+  }
+  loadAttestation(instrument);
   return instrument;
 }
 
-// Ed25519 over the raw 32 bytes being committed to. Signing the chain value
-// rather than the JSON keeps the signature independent of how the event is
-// serialized — a reformatted ledger still verifies.
-function sign(hexValue) {
+// Recursively key-sorted serialization, so the bytes signed depend on the
+// event's CONTENT and not on the order a particular JSON library happened to
+// write it in. Anyone re-serializing the event reproduces these bytes.
+function canonicalize(v) {
+  if (Array.isArray(v)) return '[' + v.map(canonicalize).join(',') + ']';
+  if (v && typeof v === 'object') {
+    return '{' + Object.keys(v).sort()
+      .filter((k) => v[k] !== undefined)
+      .map((k) => JSON.stringify(k) + ':' + canonicalize(v[k])).join(',') + '}';
+  }
+  return JSON.stringify(v === undefined ? null : v);
+}
+
+// Sign a digest over the WHOLE event, minus the signature field itself.
+//
+// This replaces signing the chain value alone, which was a real hole and is
+// worth recording rather than quietly correcting: the open event's chain value
+// is the constant genesis, Ed25519 is deterministic, so its signature was
+// byte-identical for every clip a key ever produced. It attested nothing about
+// any particular clip — and because the payload was outside the signed bytes,
+// `attestation.level` could be rewritten from self-attested to attested and the
+// signature still verified. The one field the whole non-retroactivity design
+// rests on was the one nothing was protecting.
+//
+// Signing the canonical event covers payload, parents and checksum together, so
+// it is strictly stronger than what it replaces.
+function signEvent(ev) {
   if (!instrument) return null;
-  return 'ed25519:' + crypto.sign(null, Buffer.from(hexValue, 'hex'), instrument.privateKey).toString('base64');
+  const { signature, ...rest } = ev;
+  const digest = crypto.createHash('sha256').update(canonicalize(rest)).digest();
+  return 'ed25519:' + crypto.sign(null, digest, instrument.privateKey).toString('base64');
 }
 
 function advance(chainHex, digestHex) {
@@ -257,19 +349,31 @@ ipcMain.handle('clip-open', async (_evt, meta) => {
         instrument: instrument.id,
         public_key: instrument.publicKeyPem,
         algorithm: 'ed25519',
+        // Named so a verifier can tell what a signature here actually covers.
+        // v1 signed the chain value alone and left the payload unprotected.
+        signature_scheme: 'canonical-event-v2',
+        // Present only when a genesis has certified THIS key. Its absence in a
+        // clip is not an omission; it is the record that at capture time
+        // nothing vouched for the instrument.
+        genesis: anchor,
         // Stated in the artifact so it cannot be lost in a UI that renders a
         // signature as a tick.
-        means: 'Signed by a key generated on this machine. Proves these events '
-             + 'were produced by one holder of that key and have not been '
-             + 'altered since. Does NOT establish which machine, which person, '
-             + 'or any external trust.',
+        means: ATTESTATION === 'attested'
+          ? 'Signed by a key that ' + anchor.id + ' certified. Proves these '
+            + 'events came from an instrument that genesis vouched for and have '
+            + 'not been altered since. Trust is only as good as that genesis '
+            + 'and how it was obtained.'
+          : 'Signed by a key generated on this machine. Proves these events '
+            + 'were produced by one holder of that key and have not been '
+            + 'altered since. Does NOT establish which machine, which person, '
+            + 'or any external trust.',
       },
     },
     continuity_context: { clip: clipId },
     parent_links: [],
     checksum: `sha256:${GENESIS}`,
-    signature: sign(GENESIS),
   };
+  ev.signature = signEvent(ev);
   fs.writeSync(clip.ledgerFd, lineageLine(ev));
   clip.openEventId = ev.event_id;
   for (const t of clip.tracks.values()) t.lastEventId = ev.event_id;
@@ -311,13 +415,13 @@ ipcMain.handle('clip-chunk', async (_evt, clipId, trackId, bytes) => {
     // binding over chains, not one interleaved sequence.
     parent_links: [track.lastEventId],
     checksum: `sha256:${track.chain}`,
-    // Every segment is signed, not just the close event. Ed25519 costs tens of
-    // microseconds against one segment per second, and signing only at close
-    // would leave a clip that died mid-recording entirely unattested — the
-    // signature would be weaker than the chain it signs. This way a crashed
-    // clip stays attested up to its last written second.
-    signature: sign(track.chain),
   };
+  // Every segment is signed, not just the close event. Ed25519 costs tens of
+  // microseconds against one segment per second, and signing only at close
+  // would leave a clip that died mid-recording entirely unattested — the
+  // signature would be weaker than the chain it signs. This way a crashed clip
+  // stays attested up to its last written second.
+  ev.signature = signEvent(ev);
   fs.writeSync(clip.ledgerFd, lineageLine(ev));
   track.lastEventId = ev.event_id;
   return { track: trackId, seq: track.seq, bytes: buf.length, digest, chain: track.chain };
@@ -356,8 +460,8 @@ ipcMain.handle('clip-close', async (_evt, clipId) => {
     continuity_context: { clip: clip.clipId },
     parent_links: ids.map((id) => clip.tracks.get(id).lastEventId),
     checksum: `sha256:${bindingHex}`,
-    signature: sign(bindingHex),
   };
+  ev.signature = signEvent(ev);
   fs.writeSync(clip.ledgerFd, lineageLine(ev));
   for (const t of clip.tracks.values()) fs.closeSync(t.fd);
   fs.closeSync(clip.ledgerFd);
