@@ -55,10 +55,16 @@ people who each have a copy can agree, byte for byte, on what the document says
 that document with a key only the signer holds, so anyone can check the
 signature and nobody else can produce one.
 
-The signer's name is derived from its own key, which means an identity cannot
-be claimed by someone who does not hold it. Concretely: RFC 8785 canonical
-JSON, SHA-256, ed25519, signatures over whole documents rather than parts of
-them, and a durable key loaded once when a process starts.
+A signer's name is worked out from its own key. You cannot take someone else's
+name without taking their key, and you cannot make up a name for a key you do
+not have. Nobody issues the names and nobody can hand one out twice.
+
+The key is made once, the first time something starts up, and kept. A new key
+every morning would mean a new stranger every morning, and none of yesterday's
+signatures would mean anything today.
+
+*Under the hood, for those who want it: RFC 8785 canonical JSON, SHA-256,
+ed25519, and signatures that cover a whole document rather than any part of it.*
 
 Deliberately small, so nothing in the platform grows its own. What it replaces,
 in more than one place in this codebase, is a digest computed with a **shared
