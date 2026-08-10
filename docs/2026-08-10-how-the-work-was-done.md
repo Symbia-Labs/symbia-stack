@@ -46,7 +46,9 @@ Roughly, and repeatedly:
    written, with the command visible in the transcript.
 3. **Register predictions before measuring**, when the measurement is a test of
    a design. Each set named the one expected to fail. Two of them did fail; two
-   did not, and that was reported as loudly.
+   did not, and that was reported as loudly. The ways this practice can poison
+   the thing it is meant to protect are serious enough to have their own
+   section — §2.1.
 4. **Separate observation from inference, explicitly.** "Corner pixels read
    `rgb(5,4,9)`" is an observation. "The veil is being captured" is an
    inference. The documents mark which is which, because inferences rot when the
@@ -57,6 +59,69 @@ Roughly, and repeatedly:
 6. **Write it down in the same motion.** The commit message is drafted while the
    reasoning is still live. A commit written an hour later records what changed;
    one written immediately records why.
+
+## 2.1 How registering predictions contaminates the exercise
+
+Writing a prediction down changes the person who then goes looking. That is the
+point — it makes a wrong belief expensive — but it introduces failure modes of
+its own, and this session produced examples of most of them.
+
+**The six ways it goes wrong:**
+
+1. **Anchoring the search.** Having written where I expected a failure, I look
+   there. Today I predicted the chat path would break in *integrations*. It
+   broke in the calculator's input handling instead. Had I searched only where
+   I predicted, I would have found nothing and recorded a pass.
+2. **Hedged predictions that cannot fail.** "Something in the assistant path
+   fails on first use" and "at least one panel shows a confident zero" are not
+   predictions, they are weather. Both were written today. Both technically
+   resolved, and neither told anyone anything.
+3. **Near-misses recorded as hits.** I predicted twelve service tiles and saw
+   eleven. The temptation to call that essentially right is exactly the
+   corrosion this practice exists to resist.
+4. **Safe selection.** Predicting only what is already known, so the record
+   accumulates a high hit rate that means nothing. A run of successful
+   predictions is evidence of timidity at least as often as skill.
+5. **Prediction as target.** Once written, a prediction can quietly become
+   something to satisfy — by fixing toward it, or by choosing the measurement
+   that makes it true.
+6. **The measurer is the predictor is the builder.** I wrote the code, wrote the
+   prediction, ran the test and judged the result. There is no independent party
+   anywhere in that loop.
+
+**What actually holds it together:**
+
+- **Commit before measuring.** Timestamped in git so retroactive editing is
+  detectable. This defends against exactly one of the six — the last-resort one
+  — and it is the one most often mistaken for the whole practice.
+- **Results in a separate document.** The prediction file is never reopened.
+- **Specificity is the real test.** Compare today's predictions: *"ffprobe
+  reports a duration"* named a tool, a field and an expected value, and broke
+  informatively. *"openssl agrees with the Node verifier"* named an independent
+  implementation, and passing meant something. *"Something fails somewhere"*
+  named nothing and meant nothing. **If a prediction does not say what
+  observation would disconfirm it, it is not a prediction and should not be
+  written down as one.**
+- **A near-miss is a miss.** Eleven is not twelve. Recorded that way.
+- **Reach outside the loop for at least one check.** The single most valuable
+  result today came from `openssl` — an implementation with no stake in being
+  agreeable. Every internal check can only confirm the author agrees with
+  himself.
+- **Watch the hit rate as a signal, not a score.** If predictions are nearly
+  always right, they are too safe. Being wrong twice today about things stated
+  precisely is worth more than being right ten times about things stated
+  vaguely.
+- **Predict against your own work, not someone else's.** The Electron prediction
+  — *"nothing here breaks, and if it does my model of what is coupled to what is
+  wrong"* — staked something falsifiable on my own understanding. That is the
+  shape worth copying.
+
+**What is still missing.** Nothing in this session separates the predictor from
+the measurer. The honest mitigation available today is precision — a prediction
+specific enough that its failure is not negotiable — and reaching for at least
+one instrument that was not built here. Neither substitutes for an adversary,
+and the project's own rule that adversarial roles keep isolated context exists
+because of this gap.
 
 ## 3. What the loop caught, and what it missed
 
