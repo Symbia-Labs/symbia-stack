@@ -214,14 +214,51 @@ value of this work is not the proxy module. It is that a platform whose
 provenance core is small, open and independently verifiable is easier to believe
 than one whose provenance is a private feature.
 
-**What would change my mind.** Two things, and both are measurable rather than
-matters of taste. If body digesting at realistic request rates costs materially
-more than a few percent, the design has to retreat to metadata-only and most of
-the interesting claims go with it. And if no witness ever gets built, the record
-proves *unaltered* but not *complete* — an operator can keep two consistent
-logbooks and produce whichever suits — which makes this good for internal
-assurance and weak as external evidence. The first is a benchmark. The second is
-a decision.
+### 7.1 Two tiers, chosen by the use case rather than by the budget
+
+The cost question is not one decision. It is two deployments, and conflating
+them is what made an earlier draft of this section read as a risk.
+
+**Metadata tier.** Record what crossed and when — method, path, status, timing,
+sizes, peer, TLS session — chained and signed, with no body digesting at all.
+This is cheap at any request rate and it answers the questions general-purpose
+operators actually have: did this call happen, in what order, against which
+upstream, and has the log been edited since. It does not answer what was in the
+payload, and does not pretend to.
+
+**Content tier.** Digest request and response bodies, chunked and chained, so a
+specific payload can be produced later and matched. This is what investigative,
+forensic, contractual and regulated capture require, because in those settings
+the dispute is *about the content* — which order was submitted, what the vendor
+feed actually sent, what left the building.
+
+The important part: **need and cost run in opposite directions.** The
+high-volume paths where digesting would hurt — static assets, health checks,
+chatty internal APIs — are precisely the paths where metadata is sufficient. The
+paths where content digesting is indispensable are low-volume and high-value per
+transaction: a payment submission, an evidence upload, a control instruction, an
+export to a third party. A CDN edge at 50,000 requests a second does not need
+body digests. A case-management system taking two hundred uploads a day does,
+and will never notice the cost.
+
+So the benchmark in §6 does not decide whether the design survives. It locates
+the line between the two tiers, and per-route policy is how an operator sits on
+both sides of it at once.
+
+### 7.2 What would still change my mind
+
+- **If the metadata tier cannot run at line rate.** Unlikely — it is a hash and
+  a signature over a few hundred bytes — but unmeasured, and everything else
+  rests on it.
+- **If the content tier cannot hit acceptable throughput even at investigative
+  volumes.** If digesting a 10 MB evidence upload is meaningfully slower than
+  storing it, the tier is theoretical.
+- **If no witness ever gets built.** This one stands unchanged and is the more
+  serious of the three. Without one, the record proves *unaltered* but not
+  *complete*: an operator can keep two internally consistent logbooks and
+  produce whichever suits. That is good enough for internal assurance and weak
+  as external evidence — which, for the forensic tier, is the entire point. The
+  first two are benchmarks. This one is a decision.
 
 ---
 
