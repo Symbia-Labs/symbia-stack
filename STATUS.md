@@ -144,10 +144,14 @@ In `docs/`, dated. `provenance-envelope-shared-secret`,
 
 ## 10. What I would do next
 
+See `docs/2026-08-11-plan.md`. In short:
+
 1. Fix the catalog bootstrap (§6.1) — until then, changes to bootstrap data are
-   not real.
-2. Decide `@symbia/lineage`: give it one caller or park it explicitly.
-3. Deal with `main` being 122 commits behind reality.
+   not real, and the canary is the calc suffix that has never taken effect.
+2. Calc accepts natural language.
+3. Spyglass gesture interference.
+4. Two decisions that are not the assistant's: `@symbia/lineage` gets a caller
+   or gets parked, and `main` is 122 commits behind reality.
 
 Everything else can wait.
 
