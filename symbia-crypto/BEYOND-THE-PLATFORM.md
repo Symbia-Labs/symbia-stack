@@ -268,14 +268,59 @@ an authoritative chained structural record with payload access as a distinct
 lane. That is a reason to treat the split as load-bearing rather than as a
 performance compromise.
 
-### 7.2 What would still change my mind
+### 7.2 The better distinction already exists, and it is not about cost
+
+"Metadata tier" and "content tier" divide by *expense*. The platform already
+divides by *epistemic status*, and that division is live in the component
+manifest — the public contract — in `catalog/shared/schema.ts`:
+
+```ts
+export const portLanes = ["inherit", "canonical", "apocryphal", "conditional"];
+```
+
+with the definitions given there:
+
+- **`canonical`** — recomputable from the graph and its inputs.
+- **`apocryphal`** — cannot be verified by recomputation.
+- **`inherit`** — carries whatever lane arrived; *lanes only tighten*, so this
+  is the honest default for a pass-through.
+- **`conditional`** — decided by the data, and `laneNote` must say by what.
+
+This is sharper than the tiers, and it reframes the whole of this document.
+**The logbook is canonical about material that is apocryphal.** You cannot
+recompute what a camera saw, what a microphone heard, or what a server chose to
+return — those are apocryphal by nature, and no amount of signing changes it.
+What you *can* recompute is the chain: every digest, every running total, every
+signature, from the record alone. That is the entire design stated in the
+platform's own vocabulary, and it explains why the claims in `claims.ts` are
+worded as they are. An upload asserts receipt rather than authenticity
+*because the bytes are apocryphal*.
+
+**"Lanes only tighten" is the same rule as non-retroactivity**, in a different
+domain. An apocryphal input cannot be laundered into a canonical output by
+passing through a component that would like it to be otherwise, exactly as a
+self-attested record cannot be raised by a genesis imported afterwards. Both are
+monotonicity constraints, and both are enforced structurally rather than by
+policy — the runtime already marks sink outputs `apocryphal` in
+`components-sinks.ts` rather than trusting a caller to be honest about it.
+
+The practical consequence for this sketch: an edge record should carry a lane,
+not just a digest. A response body relayed from an upstream is apocryphal no
+matter how carefully it was hashed, and saying so in the record is the
+difference between *we know exactly what crossed* and *we vouch for what
+crossed*.
+
+### 7.3 What would still change my mind
 
 - **If the metadata tier cannot run at line rate.** Unlikely — it is a hash and
   a signature over a few hundred bytes — but unmeasured, and everything else
   rests on it.
-- **If the content tier cannot hit acceptable throughput even at investigative
-  volumes.** If digesting a 10 MB evidence upload is meaningfully slower than
-  storing it, the tier is theoretical.
+- ~~If the content tier cannot hit acceptable throughput.~~ **Withdrawn.** This
+  was never a falsifier. If digesting is slower than storing, you slow the
+  store. In investigative and forensic settings an upload that takes twice as
+  long and is provably intact is a trade anyone takes, and back-pressure at
+  ingest is an ordinary engineering budget rather than a threat to the design.
+  It belongs in §6 as a number to measure, not here as a reason to doubt.
 - **If no witness ever gets built.** This one stands unchanged and is the more
   serious of the three. Without one, the record proves *unaltered* but not
   *complete*: an operator can keep two internally consistent logbooks and
