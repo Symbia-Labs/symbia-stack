@@ -3,143 +3,306 @@
 <head>
   <meta charset="utf-8" />
   <style>
+    :root {
+      --cyan: #00e5ff;
+      --violet: #a855f7;
+      --red: #ff3b3b;
+      --ink: #0a0a1a;
+    }
+    * { box-sizing: border-box; }
     html, body {
       margin: 0; height: 100%; width: 100%;
-      /* Fully transparent so the captured screen underneath is clean; the ring
-         is the only thing drawn, and it is hidden the instant before capture. */
-      background: transparent;
-      overflow: hidden;
-      cursor: default;
-      font: 13px -apple-system, system-ui, sans-serif;
-      user-select: none;
+      background: transparent; overflow: hidden;
+      font: 12px -apple-system, system-ui, sans-serif;
+      user-select: none; cursor: default;
+      -webkit-font-smoothing: antialiased;
     }
-    /* A faint scrim so the operator can see the aperture is armed. Removed
-       during capture (.capturing) so it never tints the frame. */
-    #scrim {
-      position: fixed; inset: 0;
-      background: rgba(10, 10, 26, 0.18);
-      transition: opacity 80ms;
+
+    /* The veil is its own layer: a ring-sized circle whose giant box-shadow
+       darkens EVERYTHING outside the aperture, with a clear hole inside. Because
+       it's separate from #ring, the surround can darken while the ring stays
+       lit — and it sits entirely outside the capture crop, so it never taints
+       the grabbed pixels. */
+    #veil {
+      position: fixed; border-radius: 50%; pointer-events: none;
+      box-shadow: 0 0 0 100vmax rgba(6, 8, 20, 0.42);
+      transition: box-shadow 200ms ease;
     }
-    body.capturing #scrim,
-    body.capturing #ring,
-    body.capturing #bar { opacity: 0; }
+    body.shooting #veil { box-shadow: 0 0 0 100vmax rgba(3, 4, 10, 0.86); }
+    body.arming  #veil { box-shadow: 0 0 0 100vmax rgba(9, 9, 16, 0.5); }
 
     #ring {
-      position: fixed;
-      left: 40%; top: 35%;
-      width: 320px; height: 320px;
-      border-radius: 50%;
-      border: 2px solid rgba(255,255,255,0.9);
-      box-shadow: 0 0 0 100vmax rgba(10,10,26,0.18), inset 0 0 24px rgba(0,0,0,0.25);
-      /* The hole reads clear against the scrim: cut the scrim with the shadow
-         trick above, so inside the ring the desktop shows through undimmed. */
+      position: fixed; left: 38%; top: 32%;
+      width: 340px; height: 340px; border-radius: 50%;
+      border: 1.5px solid var(--cyan);
+      box-shadow: 0 0 22px rgba(0, 229, 255, 0.55), inset 0 0 26px rgba(0, 229, 255, 0.18);
       cursor: grab;
+      transition: border-color 160ms, box-shadow 160ms, opacity 90ms;
     }
     #ring.dragging { cursor: grabbing; }
+    /* Crosshair at the exact centre. */
+    #ring::before, #ring::after {
+      content: ''; position: absolute; background: rgba(0,229,255,0.7);
+      transition: background 160ms, opacity 90ms;
+    }
+    #ring::before { left: 50%; top: calc(50% - 9px); width: 1px; height: 18px; transform: translateX(-0.5px); }
+    #ring::after  { top: 50%; left: calc(50% - 9px); height: 1px; width: 18px; transform: translateY(-0.5px); }
 
-    #bar {
-      position: fixed;
-      display: flex; gap: 8px; align-items: center;
-      padding: 6px 8px;
-      background: rgba(20,20,30,0.92);
-      border-radius: 10px;
-      color: #e8e8ef;
-      box-shadow: 0 6px 24px rgba(0,0,0,0.4);
+    /* Four corner ticks framing the ring — also resize handles. */
+    .tick { position: fixed; width: 12px; height: 12px; border: 1.5px solid rgba(0,229,255,0.85); transition: border-color 160ms, opacity 90ms; }
+    #t0, #t3 { cursor: nwse-resize; } /* top-left / bottom-right */
+    #t1, #t2 { cursor: nesw-resize; } /* top-right / bottom-left */
+
+    /* Resize grip at the ring's lower-right. */
+    #grip {
+      position: fixed; width: 16px; height: 16px; border-radius: 50%;
+      background: var(--cyan); box-shadow: 0 0 10px rgba(0,229,255,0.8);
+      cursor: nwse-resize; transition: background 160ms, box-shadow 160ms, opacity 90ms;
     }
-    #bar button {
-      font: inherit; color: #e8e8ef;
-      background: #2a2a3a; border: 1px solid #3a3a4a;
-      padding: 5px 12px; border-radius: 7px; cursor: pointer;
+
+    /* --- Armed: counting down. Ring + ball go red while the ball sweeps. --- */
+    body.arming #ring {
+      border-color: var(--red);
+      box-shadow: 0 0 30px rgba(255, 59, 59, 0.65), inset 0 0 28px rgba(255, 59, 59, 0.22);
     }
-    #bar button.primary { background: #2d6cdf; border-color: #2d6cdf; }
-    #bar #status { color: #9aa; max-width: 360px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    body.arming #ring::before, body.arming #ring::after { background: rgba(255, 90, 90, 0.85); }
+    body.arming .tick { border-color: rgba(255, 90, 90, 0.9); }
+    body.arming #grip { background: var(--red); box-shadow: 0 0 14px rgba(255, 59, 59, 0.95); }
+
+    /* --- Grabbing: hide only the cyan bits that sit inside the capture crop for
+       the single grab frame, so the saved pixels are clean. The veil (outside
+       dark) stays up the whole time — the aperture never blanks. --- */
+    body.grabbing #ring { border-color: transparent; box-shadow: none; }
+    body.grabbing #ring::before, body.grabbing #ring::after,
+    body.grabbing #grip, body.grabbing .tick { opacity: 0; }
+
+    /* Shutter = a focus pull CONFINED to the aperture. The live pixels showing
+       through the transparent window inside the ring snap from blurred to sharp
+       (with a faint light lift), so the emphasis is the image resolving inside
+       the capture region — no colour wash. backdrop-filter blurs the desktop
+       behind the element; animating it to zero reads as pulling into focus. */
+    #flash {
+      position: fixed; border-radius: 50%; pointer-events: none;
+      opacity: 0;
+      backdrop-filter: blur(0px) brightness(1);
+      -webkit-backdrop-filter: blur(0px) brightness(1);
+    }
+    #flash.fire { animation: shutter 420ms ease-out; }
+    @keyframes shutter {
+      0%   { opacity: 1; backdrop-filter: blur(16px) brightness(1.25); -webkit-backdrop-filter: blur(16px) brightness(1.25); }
+      70%  { opacity: 1; backdrop-filter: blur(3px)  brightness(1.06); -webkit-backdrop-filter: blur(3px)  brightness(1.06); }
+      100% { opacity: 0; backdrop-filter: blur(0px)  brightness(1);    -webkit-backdrop-filter: blur(0px)  brightness(1); }
+    }
   </style>
 </head>
 <body>
-  <div id="scrim"></div>
+  <div id="veil"></div>
   <div id="ring"></div>
-  <div id="bar">
-    <button id="capture" class="primary">Capture</button>
-    <button id="close">Close</button>
-    <span id="status"></span>
-  </div>
+  <div class="tick" id="t0"></div><div class="tick" id="t1"></div>
+  <div class="tick" id="t2"></div><div class="tick" id="t3"></div>
+  <div id="grip"></div>
+  <div id="flash"></div>
 
   <script>
     const ring = document.getElementById('ring');
-    const bar = document.getElementById('bar');
-    const status = document.getElementById('status');
+    const veil = document.getElementById('veil');
+    const grip = document.getElementById('grip');
+    const flash = document.getElementById('flash');
+    const ticks = ['t0','t1','t2','t3'].map((id) => document.getElementById(id));
 
-    // Keep the toolbar just under the ring.
-    function placeBar() {
-      const r = ring.getBoundingClientRect();
-      bar.style.left = r.left + 'px';
-      bar.style.top = (r.bottom + 10) + 'px';
+    const MIN = 90, MAX = 900;
+    const COUNTDOWN = 5000; // ms — spacebar arms this, shutter fires at the end
+
+    function ringBox() { return ring.getBoundingClientRect(); }
+
+    // The grip rides the ring at an angle (base: lower-right, 45°). Kept as an
+    // angle so the idle bounce and the countdown sweep can drive it.
+    const GRIP_BASE = Math.PI / 4;
+    let gripAngle = GRIP_BASE;
+    function placeGrip() {
+      const r = ringBox();
+      const cx = r.left + r.width / 2, cy = r.top + r.height / 2, rad = r.width / 2;
+      grip.style.left = (cx + rad * Math.cos(gripAngle) - 8) + 'px';
+      grip.style.top = (cy + rad * Math.sin(gripAngle) - 8) + 'px';
     }
-    placeBar();
 
-    // Drag the ring anywhere on the desktop.
+    function reflow() {
+      const r = ringBox();
+      // Veil + flash track the ring exactly (same circle).
+      [veil, flash].forEach((el) => {
+        el.style.left = r.left + 'px'; el.style.top = r.top + 'px';
+        el.style.width = r.width + 'px'; el.style.height = r.height + 'px';
+      });
+      const off = 8;
+      const corners = [
+        [r.left - off, r.top - off], [r.right - 12 + off, r.top - off],
+        [r.left - off, r.bottom - 12 + off], [r.right - 12 + off, r.bottom - 12 + off],
+      ];
+      ticks.forEach((t, i) => { t.style.left = corners[i][0] + 'px'; t.style.top = corners[i][1] + 'px'; });
+      placeGrip();
+    }
+    reflow();
+
+    // --- click-through except over the ring / grip -------------------------
+    let interactive = false;
+    function setInteractive(yes) {
+      if (yes === interactive) return;
+      interactive = yes;
+      window.spyglass.setInteractive(yes);
+    }
+    function overRect(x, y, el) {
+      const b = el.getBoundingClientRect();
+      return b.width > 0 && x >= b.left && x <= b.right && y >= b.top && y <= b.bottom;
+    }
+    function overRing(x, y) {
+      const r = ringBox();
+      const cx = r.left + r.width / 2, cy = r.top + r.height / 2, rad = r.width / 2;
+      return Math.hypot(x - cx, y - cy) <= rad + 12; // whole disc is grabbable
+    }
+    function updateInteractive(x, y) {
+      if (dragging || resizing) { setInteractive(true); return; }
+      setInteractive(overRing(x, y) || overRect(x, y, grip) || ticks.some((t) => overRect(x, y, t)));
+    }
+
+    // --- drag the ring (grab anywhere on it) -------------------------------
     let dragging = false, dx = 0, dy = 0;
     ring.addEventListener('mousedown', (e) => {
       dragging = true; ring.classList.add('dragging');
-      dx = e.clientX - ring.offsetLeft; dy = e.clientY - ring.offsetTop;
-      e.preventDefault();
+      dx = e.clientX - ring.offsetLeft; dy = e.clientY - ring.offsetTop; e.preventDefault();
     });
+
+    // --- resize via grip or wheel ------------------------------------------
+    let resizing = false, cx0 = 0, cy0 = 0;
+    // Resize from the ring centre — the size formula tracks the cursor's
+    // distance to a corner, so the grip AND the four corner ticks all work.
+    function startResize(e) {
+      const r = ringBox(); cx0 = r.left + r.width / 2; cy0 = r.top + r.height / 2;
+      resizing = true; e.preventDefault(); e.stopPropagation();
+    }
+    grip.addEventListener('mousedown', startResize);
+    ticks.forEach((t) => t.addEventListener('mousedown', startResize));
+    function setSize(size, keepCx, keepCy) {
+      size = Math.max(MIN, Math.min(MAX, size));
+      ring.style.width = size + 'px'; ring.style.height = size + 'px';
+      ring.style.left = (keepCx - size / 2) + 'px'; ring.style.top = (keepCy - size / 2) + 'px';
+      reflow();
+    }
     window.addEventListener('mousemove', (e) => {
-      if (!dragging) return;
-      ring.style.left = (e.clientX - dx) + 'px';
-      ring.style.top = (e.clientY - dy) + 'px';
-      placeBar();
+      if (dragging) { ring.style.left = (e.clientX - dx) + 'px'; ring.style.top = (e.clientY - dy) + 'px'; reflow(); }
+      else if (resizing) { const d = Math.hypot(e.clientX - cx0, e.clientY - cy0) * 2 / 1.414; setSize(d, cx0, cy0); }
+      updateInteractive(e.clientX, e.clientY);
     });
-    window.addEventListener('mouseup', () => { dragging = false; ring.classList.remove('dragging'); });
+    window.addEventListener('mouseup', () => { dragging = false; resizing = false; ring.classList.remove('dragging'); });
+    ring.addEventListener('wheel', (e) => {
+      const r = ringBox(); setSize(r.width - e.deltaY * 0.4, r.left + r.width / 2, r.top + r.height / 2);
+      e.preventDefault();
+    }, { passive: false });
 
-    document.getElementById('close').onclick = () => window.spyglass.quit();
-
-    document.getElementById('capture').onclick = async () => {
-      const rect = ring.getBoundingClientRect(); // CSS px == screen points
+    // --- capture -----------------------------------------------------------
+    async function capture() {
+      const r = ringBox();
       try {
-        // Blink: hide our own drawing so the capture is only the desktop.
-        document.body.classList.add('capturing');
-        await new Promise((r) => setTimeout(r, 250));
-
+        // Darken the surround, keep the ring lit; hide only the in-crop cyan
+        // bits for the actual grab so the saved pixels are clean.
+        document.body.classList.add('shooting');
+        document.body.classList.add('grabbing');
+        await new Promise((res) => setTimeout(res, 150));
         const src = await window.spyglass.screenSource();
-        if (!src.sourceId) throw new Error('no screen source (grant Screen Recording?)');
-
+        if (!src.sourceId) throw new Error('no screen source — grant Screen Recording');
         const stream = await navigator.mediaDevices.getUserMedia({
           audio: false,
-          video: {
-            mandatory: {
-              chromeMediaSource: 'desktop',
-              chromeMediaSourceId: src.sourceId,
-              maxWidth: src.width * src.scaleFactor,
-              maxHeight: src.height * src.scaleFactor,
-            },
-          },
+          video: { mandatory: { chromeMediaSource: 'desktop', chromeMediaSourceId: src.sourceId,
+            maxWidth: src.width * src.scaleFactor, maxHeight: src.height * src.scaleFactor } },
         });
         const video = document.createElement('video');
-        video.srcObject = stream;
-        await video.play();
-        await new Promise((r) => requestAnimationFrame(() => r()));
-
+        video.srcObject = stream; await video.play();
+        await new Promise((res) => requestAnimationFrame(() => res()));
         const vw = video.videoWidth, vh = video.videoHeight;
-        // The video is in real pixels; the ring rect is in points. Scale.
-        const sx = (rect.left / window.innerWidth) * vw;
-        const sy = (rect.top / window.innerHeight) * vh;
-        const sw = (rect.width / window.innerWidth) * vw;
-        const sh = (rect.height / window.innerHeight) * vh;
-
+        const sx = (r.left / innerWidth) * vw, sy = (r.top / innerHeight) * vh;
+        const sw = (r.width / innerWidth) * vw, sh = (r.height / innerHeight) * vh;
         const canvas = document.createElement('canvas');
         canvas.width = Math.round(sw); canvas.height = Math.round(sh);
         canvas.getContext('2d').drawImage(video, sx, sy, sw, sh, 0, 0, canvas.width, canvas.height);
         stream.getTracks().forEach((t) => t.stop());
-
-        const res = await window.spyglass.saveFrame(canvas.toDataURL('image/png'));
-        document.body.classList.remove('capturing');
-        status.textContent = `Captured ${canvas.width}×${canvas.height} → ${res.file}`;
+        const out = await window.spyglass.saveFrame(canvas.toDataURL('image/png'));
+        // Ring/crosshair back, then bloom inside the aperture.
+        document.body.classList.remove('grabbing');
+        flash.classList.remove('fire'); void flash.offsetWidth; flash.classList.add('fire');
+        setTimeout(() => document.body.classList.remove('shooting'), 360);
+        console.log('[spyglass] frame sha256:' + out.digest.slice(0, 12) + ' · ' +
+          canvas.width + '×' + canvas.height + ' · ' + (out.bytes / 1024 | 0) + ' KB · ' + out.file);
       } catch (err) {
-        document.body.classList.remove('capturing');
-        status.textContent = 'Capture failed: ' + (err && err.message || err);
+        document.body.classList.remove('grabbing');
+        document.body.classList.remove('shooting');
+        console.error('[spyglass] capture failed:', err && err.message || err);
       }
-    };
+    }
+
+    // --- countdown ---------------------------------------------------------
+    // Spacebar arms a timed shot: ring + ball turn red, the ball sweeps one full
+    // turn counterclockwise as the clock runs, and the shutter fires when it
+    // lands back at the origin. Space or Esc during the count cancels it.
+    let counting = false, countRAF = null;
+    function startCountdown() {
+      if (counting || document.body.classList.contains('shooting')) return;
+      counting = true;
+      document.body.classList.add('arming');
+      const start = performance.now();
+      function frame(now) {
+        if (!counting) return; // cancelled
+        const t = (now - start) / COUNTDOWN;
+        if (t >= 1) {
+          counting = false;
+          document.body.classList.remove('arming');
+          gripAngle = GRIP_BASE; placeGrip();
+          capture();
+          return;
+        }
+        // Ball travels counterclockwise around the ring as the timer runs.
+        gripAngle = GRIP_BASE - t * Math.PI * 2;
+        placeGrip();
+        countRAF = requestAnimationFrame(frame);
+      }
+      countRAF = requestAnimationFrame(frame);
+    }
+    function cancelCountdown() {
+      if (!counting) return;
+      counting = false;
+      if (countRAF) cancelAnimationFrame(countRAF);
+      document.body.classList.remove('arming');
+      gripAngle = GRIP_BASE; placeGrip();
+    }
+
+    // --- keyboard ----------------------------------------------------------
+    window.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') { if (counting) cancelCountdown(); else window.spyglass.quit(); }
+      else if (e.key === ' ') { e.preventDefault(); if (counting) cancelCountdown(); else startCountdown(); }
+      else if (e.key === '+' || e.key === '=') { const r = ringBox(); setSize(r.width + 30, r.left + r.width/2, r.top + r.height/2); }
+      else if (e.key === '-' || e.key === '_') { const r = ringBox(); setSize(r.width - 30, r.left + r.width/2, r.top + r.height/2); }
+    });
+
+    // --- idle "still here" bounce ------------------------------------------
+    let bouncing = false;
+    function bounce() {
+      if (dragging || resizing || counting || bouncing) { scheduleBounce(); return; }
+      bouncing = true;
+      const start = performance.now();
+      const dur = 2500;
+      const amp = (45 + Math.random() * 45) * Math.PI / 180; // first shoot height
+      const decay = 3.6;
+      function frame(now) {
+        const t = (now - start) / dur;
+        if (t >= 1 || dragging || resizing || counting) {
+          gripAngle = GRIP_BASE; placeGrip(); bouncing = false; scheduleBounce(); return;
+        }
+        gripAngle = GRIP_BASE - amp * Math.sin(t * Math.PI * 6) * Math.exp(-decay * t);
+        placeGrip();
+        requestAnimationFrame(frame);
+      }
+      requestAnimationFrame(frame);
+    }
+    function scheduleBounce() { setTimeout(bounce, 6000 + Math.random() * 9000); }
+    scheduleBounce();
   </script>
 </body>
 </html>
