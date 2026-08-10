@@ -201,7 +201,6 @@ symbia-stack/
 ├── symbia-mcp-server/        # read-only MCP window onto a running stack
 │
 ├── examples/                 # worked apps that exercise the platform (see §7)
-├── tests/                    # ITT framework (see §6)
 ├── scripts/                  # registration + workflow scripts
 └── docs/                     # QUICKSTART, APP-MODEL, SYMBIA-MCP, api/
 ```
@@ -279,28 +278,30 @@ missing from the spec. Run it before you claim an API exists.
 ./scripts/workflow/workflow.sh build --docker
 ./scripts/workflow/workflow.sh docs
 ./scripts/workflow/workflow.sh validate
-./scripts/workflow/workflow.sh test          # ITT tests
 ./scripts/workflow/workflow.sh ci            # audit → build → validate
 ```
 
-### Tests — the ITT framework
+### Tests
 
-Tests live in `tests/` and are organised by what they are trying to establish,
-not by what they touch:
+There is no test suite in this repository at present, and that is a deliberate
+state rather than an oversight.
 
-- **Intentions** — does the code do what `INTENT.md` and `README.md` say?
-  (`intent-alignment`, `api-contract`)
-- **Trust** — auth enforcement, RLS tenant isolation, secret handling
-- **Transparency** — complexity, naming, no `eval`, no encoded logic,
-  correlation ids, user-journey telemetry
+An ITT framework (intentions, trust, transparency) lived in `tests/` until
+10 August 2026. It was removed after being read and run for the first time in
+months: 388 assertions passed, 303 failed, and the failures were not defects.
+Nearly every assertion was a `grep` over source text, so it tested a February
+architecture by looking for strings. Seven services failed a correlation-id
+check because request-id handling had been moved *out* of each service and into
+`symbia-http` — the suite penalised the codebase for removing the duplication
+it could not see.
 
-```bash
-npx tsx tests/run-itt.ts              # everything
-npx tsx tests/run-itt.ts intentions   # or trust / transparency
-./scripts/workflow/test-itt.sh
-```
+Recover it with `git log --diff-filter=D -- tests` if the structure is wanted
+as a starting point. The categories are worth keeping; the instruments are not.
 
-Thresholds and detection patterns are in `tests/itt.config.ts`.
+What replaced it, for now: `npm run check`, `check:ports`,
+`validate-docs.sh`, the per-package tests in `symbia-lineage`, and walking the
+console in a browser. That last one found four real defects in an afternoon,
+which is four more than the suite found in six months.
 
 ### Git hooks
 

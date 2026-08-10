@@ -49,9 +49,6 @@ case "$COMMAND" in
   release)
     bash "$SCRIPT_DIR/release.sh" "$@"
     ;;
-  test|itt)
-    bash "$SCRIPT_DIR/test-itt.sh" "$@"
-    ;;
   all)
     echo "=== Running Full Pipeline ==="
     echo ""

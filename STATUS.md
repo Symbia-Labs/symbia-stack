@@ -194,10 +194,21 @@ stays — `scripts/check-staleness.mts` reads it.
 
   All of it is in git history. `git log --diff-filter=D --name-only` finds it.
 
-**`tests/` is runnable but never run.** `scripts/workflow/test-itt.sh` invokes
-it; nothing invokes that script. CI has jobs for audit, build, validate-docs,
-docker and release — and no test job. So the ITT suite is one CI line away from
-being real, which is a better position than it appeared.
+- **`tests/`** (16 files) and its runner — the ITT suite. Removed after being
+  read and run for the first time in months: **388 assertions passed, 303
+  failed, and the failures were not defects.** Nearly every assertion is a
+  `grep` over source text, so it tested a February architecture by looking for
+  strings. Seven services failed a correlation-id check because request-id
+  handling was deliberately moved *out* of each service into `symbia-http` —
+  the suite penalised the codebase for removing duplication it could not see.
+
+  This is the same failure the rest of today kept producing: an instrument that
+  shares the assumptions of what it measures, and calls the code broken when the
+  code improves. Third instance today, and the largest.
+
+  The categories — intentions, trust, transparency — are worth rebuilding as
+  behavioural tests against a running stack. The browser walk found four real
+  defects in an afternoon; this suite found none in six months.
 
 **Kept deliberately:** `tests/` — the ITT suite (intentions, transparency,
 trust, RLS isolation, secret handling). It is **not** in `workspaces`, so
