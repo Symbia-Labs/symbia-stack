@@ -1,0 +1,145 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <style>
+    html, body {
+      margin: 0; height: 100%; width: 100%;
+      /* Fully transparent so the captured screen underneath is clean; the ring
+         is the only thing drawn, and it is hidden the instant before capture. */
+      background: transparent;
+      overflow: hidden;
+      cursor: default;
+      font: 13px -apple-system, system-ui, sans-serif;
+      user-select: none;
+    }
+    /* A faint scrim so the operator can see the aperture is armed. Removed
+       during capture (.capturing) so it never tints the frame. */
+    #scrim {
+      position: fixed; inset: 0;
+      background: rgba(10, 10, 26, 0.18);
+      transition: opacity 80ms;
+    }
+    body.capturing #scrim,
+    body.capturing #ring,
+    body.capturing #bar { opacity: 0; }
+
+    #ring {
+      position: fixed;
+      left: 40%; top: 35%;
+      width: 320px; height: 320px;
+      border-radius: 50%;
+      border: 2px solid rgba(255,255,255,0.9);
+      box-shadow: 0 0 0 100vmax rgba(10,10,26,0.18), inset 0 0 24px rgba(0,0,0,0.25);
+      /* The hole reads clear against the scrim: cut the scrim with the shadow
+         trick above, so inside the ring the desktop shows through undimmed. */
+      cursor: grab;
+    }
+    #ring.dragging { cursor: grabbing; }
+
+    #bar {
+      position: fixed;
+      display: flex; gap: 8px; align-items: center;
+      padding: 6px 8px;
+      background: rgba(20,20,30,0.92);
+      border-radius: 10px;
+      color: #e8e8ef;
+      box-shadow: 0 6px 24px rgba(0,0,0,0.4);
+    }
+    #bar button {
+      font: inherit; color: #e8e8ef;
+      background: #2a2a3a; border: 1px solid #3a3a4a;
+      padding: 5px 12px; border-radius: 7px; cursor: pointer;
+    }
+    #bar button.primary { background: #2d6cdf; border-color: #2d6cdf; }
+    #bar #status { color: #9aa; max-width: 360px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  </style>
+</head>
+<body>
+  <div id="scrim"></div>
+  <div id="ring"></div>
+  <div id="bar">
+    <button id="capture" class="primary">Capture</button>
+    <button id="close">Close</button>
+    <span id="status"></span>
+  </div>
+
+  <script>
+    const ring = document.getElementById('ring');
+    const bar = document.getElementById('bar');
+    const status = document.getElementById('status');
+
+    // Keep the toolbar just under the ring.
+    function placeBar() {
+      const r = ring.getBoundingClientRect();
+      bar.style.left = r.left + 'px';
+      bar.style.top = (r.bottom + 10) + 'px';
+    }
+    placeBar();
+
+    // Drag the ring anywhere on the desktop.
+    let dragging = false, dx = 0, dy = 0;
+    ring.addEventListener('mousedown', (e) => {
+      dragging = true; ring.classList.add('dragging');
+      dx = e.clientX - ring.offsetLeft; dy = e.clientY - ring.offsetTop;
+      e.preventDefault();
+    });
+    window.addEventListener('mousemove', (e) => {
+      if (!dragging) return;
+      ring.style.left = (e.clientX - dx) + 'px';
+      ring.style.top = (e.clientY - dy) + 'px';
+      placeBar();
+    });
+    window.addEventListener('mouseup', () => { dragging = false; ring.classList.remove('dragging'); });
+
+    document.getElementById('close').onclick = () => window.spyglass.quit();
+
+    document.getElementById('capture').onclick = async () => {
+      const rect = ring.getBoundingClientRect(); // CSS px == screen points
+      try {
+        // Blink: hide our own drawing so the capture is only the desktop.
+        document.body.classList.add('capturing');
+        await new Promise((r) => setTimeout(r, 250));
+
+        const src = await window.spyglass.screenSource();
+        if (!src.sourceId) throw new Error('no screen source (grant Screen Recording?)');
+
+        const stream = await navigator.mediaDevices.getUserMedia({
+          audio: false,
+          video: {
+            mandatory: {
+              chromeMediaSource: 'desktop',
+              chromeMediaSourceId: src.sourceId,
+              maxWidth: src.width * src.scaleFactor,
+              maxHeight: src.height * src.scaleFactor,
+            },
+          },
+        });
+        const video = document.createElement('video');
+        video.srcObject = stream;
+        await video.play();
+        await new Promise((r) => requestAnimationFrame(() => r()));
+
+        const vw = video.videoWidth, vh = video.videoHeight;
+        // The video is in real pixels; the ring rect is in points. Scale.
+        const sx = (rect.left / window.innerWidth) * vw;
+        const sy = (rect.top / window.innerHeight) * vh;
+        const sw = (rect.width / window.innerWidth) * vw;
+        const sh = (rect.height / window.innerHeight) * vh;
+
+        const canvas = document.createElement('canvas');
+        canvas.width = Math.round(sw); canvas.height = Math.round(sh);
+        canvas.getContext('2d').drawImage(video, sx, sy, sw, sh, 0, 0, canvas.width, canvas.height);
+        stream.getTracks().forEach((t) => t.stop());
+
+        const res = await window.spyglass.saveFrame(canvas.toDataURL('image/png'));
+        document.body.classList.remove('capturing');
+        status.textContent = `Captured ${canvas.width}×${canvas.height} → ${res.file}`;
+      } catch (err) {
+        document.body.classList.remove('capturing');
+        status.textContent = 'Capture failed: ' + (err && err.message || err);
+      }
+    };
+  </script>
+</body>
+</html>
