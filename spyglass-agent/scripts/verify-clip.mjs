@@ -2,7 +2,7 @@
 /**
  * Verify a spyglass clip against its lineage ledger.
  *
- *   node scripts/verify-clip.js /tmp/symbia-spyglass/clip-<id>
+ *   node scripts/verify-clip.mjs /tmp/symbia-spyglass/clip-<id>
  *
  * Reads ONLY the ledger and the files on disk — never the app's own account of
  * what it did. The point of the ledger is that a third party who has the clip
@@ -38,9 +38,10 @@
  * (docs/2026-08-10-spyglass-video-lineage.md §4.1); it is caught at record time,
  * not here.
  */
-const fs = require('node:fs');
-const path = require('node:path');
-const crypto = require('node:crypto');
+import fs from 'node:fs';
+import path from 'node:path';
+import crypto from 'node:crypto';
+import { canonicalJson } from '@symbia/crypto';
 
 const args = process.argv.slice(2);
 const dir = args.find((a, i) => !a.startsWith('--') && args[i - 1] !== '--absent' && args[i - 1] !== '--genesis');
@@ -53,7 +54,7 @@ for (let i = 0; i < args.length; i++) if (args[i] === '--absent') absent.add(arg
 const genesisDir = args[args.indexOf('--genesis') + 1];
 const withGenesis = args.includes('--genesis') ? genesisDir : null;
 if (!dir) {
-  console.error('usage: verify-clip.js <clip-dir> [--absent <track>] [--genesis <dir>]');
+  console.error('usage: verify-clip.mjs <clip-dir> [--absent <track>] [--genesis <dir>]');
   process.exit(2);
 }
 
@@ -68,17 +69,11 @@ const note = (name, detail) => results.push({ name, ok: 'note', detail });
 const hex = (s) => String(s).replace(/^sha256:/, '');
 const advance = (chain, digest) => crypto.createHash('sha256').update(chain).update(digest).digest();
 
-// Must match the writer exactly: recursively key-sorted, so the signed bytes
-// depend on content and not on serialization order.
-function canonicalize(v) {
-  if (Array.isArray(v)) return '[' + v.map(canonicalize).join(',') + ']';
-  if (v && typeof v === 'object') {
-    return '{' + Object.keys(v).sort()
-      .filter((k) => v[k] !== undefined)
-      .map((k) => JSON.stringify(k) + ':' + canonicalize(v[k])).join(',') + '}';
-  }
-  return JSON.stringify(v === undefined ? null : v);
-}
+// Canonicalization comes from @symbia/crypto, not from a copy kept in step by
+// hand. A verifier carrying its own private notion of what was signed can only
+// ever confirm that it agrees with itself — and this file has already been
+// wrong twice about things it was checking.
+//
 // v2 signs a digest over the whole canonical event. v1 signed only the chain
 // value, leaving the payload — including the attestation level — outside the
 // signed bytes. v1 clips are still verifiable for what they attest; they just
@@ -90,7 +85,8 @@ function verifyEvent(ev, key, scheme) {
     return crypto.verify(null, Buffer.from(hex(ev.checksum), 'hex'), key, sig);
   }
   const { signature, ...rest } = ev;
-  const digest = crypto.createHash('sha256').update(canonicalize(rest)).digest();
+  const digest = crypto.createHash('sha256')
+    .update(canonicalJson(rest)).digest();
   return crypto.verify(null, digest, key, sig);
 }
 

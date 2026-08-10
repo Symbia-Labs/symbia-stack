@@ -225,26 +225,22 @@ function loadAttestation(inst) {
 
 function loadInstrument() {
   fs.mkdirSync(KEY_DIR, { recursive: true, mode: 0o700 });
-  let privateKey, publicKey, fresh = false;
+  let identity, fresh = false;
   if (fs.existsSync(KEY_FILE)) {
-    privateKey = crypto.createPrivateKey(fs.readFileSync(KEY_FILE));
-    publicKey = crypto.createPublicKey(privateKey);
+    identity = symbiaCrypto.identityFromPrivatePem(fs.readFileSync(KEY_FILE));
   } else {
-    ({ privateKey, publicKey } = crypto.generateKeyPairSync('ed25519'));
-    fs.writeFileSync(KEY_FILE, privateKey.export({ type: 'pkcs8', format: 'pem' }), { mode: 0o600 });
-    fs.writeFileSync(PUB_FILE, publicKey.export({ type: 'spki', format: 'pem' }), { mode: 0o644 });
+    identity = symbiaCrypto.generateIdentity();
+    fs.writeFileSync(KEY_FILE, symbiaCrypto.exportPrivatePem(identity), { mode: 0o600 });
+    fs.writeFileSync(PUB_FILE, identity.publicKeyPem + '\n', { mode: 0o644 });
     fresh = true;
     console.log('[spyglass] generated instrument key (first run) → ' + KEY_FILE);
   }
-  const spki = publicKey.export({ type: 'spki', format: 'der' });
   // The instrument id is derived from the public key, so it cannot be claimed
   // by anyone who does not hold the private half.
-  const fingerprint = crypto.createHash('sha256').update(spki).digest('hex');
+  const fingerprint = identity.fingerprint;
   instrument = {
-    privateKey, publicKey,
-    fingerprint,
-    id: `spyglass:instrument:${fingerprint.slice(0, 16)}`,
-    publicKeyPem: publicKey.export({ type: 'spki', format: 'pem' }).toString().trim(),
+    ...identity,
+    id: symbiaCrypto.identityId('spyglass:instrument', fingerprint),
   };
   if (fresh) {
     appendIdentityEvent({
@@ -263,37 +259,26 @@ function loadInstrument() {
   return instrument;
 }
 
-// Recursively key-sorted serialization, so the bytes signed depend on the
-// event's CONTENT and not on the order a particular JSON library happened to
-// write it in. Anyone re-serializing the event reproduces these bytes.
-function canonicalize(v) {
-  if (Array.isArray(v)) return '[' + v.map(canonicalize).join(',') + ']';
-  if (v && typeof v === 'object') {
-    return '{' + Object.keys(v).sort()
-      .filter((k) => v[k] !== undefined)
-      .map((k) => JSON.stringify(k) + ':' + canonicalize(v[k])).join(',') + '}';
-  }
-  return JSON.stringify(v === undefined ? null : v);
-}
+// Canonical serialization and signing now come from @symbia/crypto — the same
+// primitives a service or an upload path uses, rather than a copy living inside
+// this app. The spyglass is one observer, not the category.
+//
+// The scheme is unchanged by the move, deliberately: signatures cover a sha256
+// over the RFC 8785 canonical event minus the signature field. That is checked,
+// not asserted — clips recorded before the port must still verify afterwards,
+// and if the port altered a single signed byte they would not.
+//
+// `signature_scheme: canonical-event-v2` names it in the artifact. v1 signed
+// only the chain value, which left the whole payload unprotected: the open
+// event's chain is a constant, so with deterministic Ed25519 its signature was
+// byte-identical across every clip a key ever made, and `attestation.level`
+// could be rewritten from self-attested to attested while every signature still
+// verified. See docs/2026-08-10-spyglass-video-lineage.md §4.7.
+let symbiaCrypto = null; // loaded in whenReady; the libs are ESM
 
-// Sign a digest over the WHOLE event, minus the signature field itself.
-//
-// This replaces signing the chain value alone, which was a real hole and is
-// worth recording rather than quietly correcting: the open event's chain value
-// is the constant genesis, Ed25519 is deterministic, so its signature was
-// byte-identical for every clip a key ever produced. It attested nothing about
-// any particular clip — and because the payload was outside the signed bytes,
-// `attestation.level` could be rewritten from self-attested to attested and the
-// signature still verified. The one field the whole non-retroactivity design
-// rests on was the one nothing was protecting.
-//
-// Signing the canonical event covers payload, parents and checksum together, so
-// it is strictly stronger than what it replaces.
 function signEvent(ev) {
-  if (!instrument) return null;
-  const { signature, ...rest } = ev;
-  const digest = crypto.createHash('sha256').update(canonicalize(rest)).digest();
-  return 'ed25519:' + crypto.sign(null, digest, instrument.privateKey).toString('base64');
+  if (!instrument || !symbiaCrypto) return null;
+  return symbiaCrypto.signDocument(ev, instrument);
 }
 
 function advance(chainHex, digestHex) {
@@ -471,7 +456,10 @@ ipcMain.handle('clip-close', async (_evt, clipId) => {
 
 ipcMain.on('quit', () => app.quit());
 
-app.whenReady().then(() => {
+app.whenReady().then(async () => {
+  // The libs are ESM and this is a CommonJS main process, so they load by
+  // dynamic import rather than require.
+  symbiaCrypto = await import('@symbia/crypto');
   const inst = loadInstrument();
   console.log('[spyglass] instrument ' + inst.id + ' (' + ATTESTATION + ')');
   createOverlay();
