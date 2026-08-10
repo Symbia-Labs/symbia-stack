@@ -245,6 +245,29 @@ So the benchmark in §6 does not decide whether the design survives. It locates
 the line between the two tiers, and per-route policy is how an operator sits on
 both sides of it at once.
 
+**This split is not new here.** It is the shape of the Canonical Event Bus
+(`~/vscode/canonical-event-bus`), and reading that back confirms the two tiers
+were an architectural position long before today's benchmark suggested them.
+Its README states the rule outright:
+
+> Decisions are CEG-only (no payload fetch, no retrieval).
+
+That is the metadata tier as a *constraint* rather than an optimisation —
+decisions are made from a small, hash-chained, append-only log and its
+rebuildable projections, and reaching for a payload is a separate, deliberate
+act. Three other properties there are the same ones arrived at independently in
+this work: the log is authoritative while projections are derived and can be
+deleted and rebuilt to prove it; `/ceg/audit` checks chain integrity as a
+first-class operation; and a stale projection produces `escalate` rather than a
+guess, which is *blank beats green* implemented years before it was named.
+
+The convergence is worth stating plainly because it is evidence about the
+design rather than a nice coincidence. Two attempts at the problem, from
+different directions and different decades of the same person's work, produced
+an authoritative chained structural record with payload access as a distinct
+lane. That is a reason to treat the split as load-bearing rather than as a
+performance compromise.
+
 ### 7.2 What would still change my mind
 
 - **If the metadata tier cannot run at line rate.** Unlikely — it is a hash and
