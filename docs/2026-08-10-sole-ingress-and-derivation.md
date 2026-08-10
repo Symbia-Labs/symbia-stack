@@ -109,13 +109,41 @@ service. `fetch()` is used for both and grep cannot tell them apart. The
 inference that "85 sites reach the web" would be wrong; the supportable
 statement is that there is **no chokepoint** through which web access passes.
 
-**Also measured:** the runtime's builtin components are
-`io.passthrough`, `io.collect`, `io.log`, `transform.map`, `logic.filter`,
-`logic.switch`, `compute.arithmetic`, `io.delay`. **There is no HTTP
-component.** A graph cannot currently fetch a URL at all — web access happens
-inside services, beneath the graph layer. That is convenient for this design:
-adding `symbia.io.retrieve` as the only web-reaching component starts from
-zero, with nothing to migrate at the graph level.
+**Corrected, 10 Aug 2026 (evening).** An earlier version of this section said
+the runtime had eight builtin components and **no HTTP component**, and
+concluded that a graph could not fetch a URL at all. That was wrong. It came
+from grepping a single file, `runtime/server/src/executor/components.ts`, when
+the components are registered across several — a shell inventory answering an
+inventory question the platform's own API answers properly.
+
+Asked through `symbia_list_components`, the runtime reports **sixteen**
+builtins, including:
+
+```
+symbia.io.http-request — "Fetches config.url. Output is apocryphal:
+                          a remote body cannot be recomputed from the graph."
+                          emitsApocryphal: true
+```
+
+So a graph *can* already reach the web, and the component that does it already
+declares its output apocryphal with the reasoning this document spends its
+length arriving at. Sole ingress therefore does not start from zero at the
+graph layer — it starts from one existing component that already has the right
+lane semantics, which is a better position than the one claimed, and a
+different piece of work: **govern the existing component** rather than
+introduce a new one.
+
+The rest of the runtime inventory is also richer than the earlier claim: state
+components (`latest`, `join`, `window`, `rollup`), a timer source, and metric
+and log sinks. Several carry lane notes worth reading as precedent, notably
+`symbia.state.rollup`, whose output is *"canonical only when missing is empty;
+a rollup with any expected key absent is emitted apocryphal, because a partial
+total must not pass as the total."*
+
+**Method note.** This error is the reason the operator's instruction was to use
+the MCP server for inventory questions. A grep answers what is in one file; the
+platform answers what is registered. The first was mistaken for the second, and
+the mistake reached a committed document.
 
 ## 5. Enforcement, ranked by how hard they are to bypass
 
