@@ -178,6 +178,22 @@ that look unreferenced and are not: `spyglass-agent` (standalone, and the thing
 that works) and `.github` (invoked by GitHub, not by us). `symbia-mcp-server`
 stays — `scripts/check-staleness.mts` reads it.
 
+- **15 historical documents** (6,237 lines) — the 6–9 August session archive:
+  the control-center rebuild record, trace propagation, catalog review, code
+  review week, launch plan, cost model, repo inventory, session close, traffic
+  origin, script review, MCP write prerequisites, the EC2 walk, the API
+  validation report, and two mirrors of the Cowork project instructions.
+
+  **This was a judgement call, not a script's verdict**, and the attempts to
+  make it mechanical failed twice — `grep` matched `softprops/action-gh-release`
+  for `ops/`, then missed today's findings because STATUS abbreviates their
+  names. Prose does not yield to reference-counting. What was kept: design
+  records for things that shipped (`network-bridge-bbmd` → the directory
+  service, `spyglass-vision-via-integrations`), the reference docs, and today's
+  findings. What went: session narrative superseded by this file.
+
+  All of it is in git history. `git log --diff-filter=D --name-only` finds it.
+
 **`tests/` is runnable but never run.** `scripts/workflow/test-itt.sh` invokes
 it; nothing invokes that script. CI has jobs for audit, build, validate-docs,
 docker and release — and no test job. So the ITT suite is one CI line away from
