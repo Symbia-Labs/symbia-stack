@@ -57,6 +57,20 @@ const check = (name, ok, detail) => results.push({ name, ok, detail });
 const hex = (s) => String(s).replace(/^sha256:/, '');
 const advance = (chain, digest) => crypto.createHash('sha256').update(chain).update(digest).digest();
 
+// What each attestation level is allowed to claim. Kept as prose because the
+// failure this guards against is a UI rendering a signature as a tick and a
+// reader concluding "verified" — the word has to travel with the result.
+const MEANS = {
+  'unsigned':
+    'Nothing attests this clip. The chain shows it is internally consistent; anyone could have written it.',
+  'self-attested':
+    'Signed by a key generated on the capturing machine. Proves every event came from one holder of that key and has not been altered since. Does NOT establish which machine, which person, or any external trust.',
+  'attested':
+    'Signed by a key chaining to an imported genesis. Trust is only as good as that genesis and how it was obtained.',
+  'hardware-attested':
+    'Signed by a key that cannot be exported from the machine that holds it.',
+};
+
 const evs = fs.readFileSync(path.join(dir, 'lineage.jsonl'), 'utf8').trim().split('\n')
   .map((l, i) => {
     try { return JSON.parse(l); }
@@ -157,9 +171,64 @@ const b = crypto.createHash('sha256');
 for (const id of inClose.slice().sort()) b.update(id).update(Buffer.from(heads[id], 'hex'));
 check('binding reproduces from the track heads', b.digest('hex') === hex(close.payload.binding));
 
+// --- signatures ------------------------------------------------------------
+// A chain proves the clip is internally consistent. It does not say who made
+// it: a forger can produce a perfectly consistent chain over bytes they chose.
+// The signature is what makes the ledger evidence to someone who does not trust
+// the process that wrote it — and only as far as the level allows.
+const att = open.payload.attestation ?? null;
+const level = att?.level ?? 'unsigned';
+if (!att) {
+  check('attestation declared', false, 'no attestation block — treating as unsigned');
+} else {
+  let key = null;
+  try { key = crypto.createPublicKey(att.public_key); } catch { /* reported below */ }
+  check('public key in the ledger is usable', Boolean(key));
+
+  // The instrument id must be derived from the key it travels with, or the id
+  // is just another string the writer chose.
+  if (key) {
+    const fp = crypto.createHash('sha256').update(key.export({ type: 'spki', format: 'der' })).digest('hex');
+    check('instrument id is derived from the public key',
+      att.instrument === `spyglass:instrument:${fp.slice(0, 16)}`,
+      att.instrument);
+  }
+
+  // Every event that carries a checksum must carry a signature over it.
+  const signable = evs.filter((e) => e.checksum);
+  const unsigned = signable.filter((e) => !e.signature);
+  check('every event is signed', unsigned.length === 0,
+    unsigned.length ? `${unsigned.length} unsigned of ${signable.length}` : `${signable.length} events`);
+
+  if (key) {
+    let bad = null;
+    for (const e of signable) {
+      if (!e.signature) continue;
+      const sig = Buffer.from(String(e.signature).replace(/^ed25519:/, ''), 'base64');
+      const ok = crypto.verify(null, Buffer.from(hex(e.checksum), 'hex'), key, sig);
+      if (!ok) { bad = e.event_id; break; }
+    }
+    check('every signature verifies against that key', !bad, bad ? `first bad: ${bad}` : '');
+
+    // A signature over a value that is not the recomputed chain would verify
+    // while attesting nothing about the bytes. The chain checks above already
+    // recompute each head; this confirms the signed value is that head.
+    const closeSigOk = close.signature
+      ? crypto.verify(null, Buffer.from(hex(close.payload.binding), 'hex'), key,
+          Buffer.from(String(close.signature).replace(/^ed25519:/, ''), 'base64'))
+      : false;
+    check('the close signature covers the binding, not some other value', closeSigOk);
+  }
+}
+
 // Non-epistemic rule: structural metadata only, never content. Device labels
-// are structural (which microphone), not content (what it heard).
-const leak = evs.find((e) => /data:|base64|[A-Za-z0-9+/]{200,}/.test(JSON.stringify(e)));
+// are structural (which microphone), not content (what it heard). The public
+// key is exempt: it is long and opaque, and it is the one thing here that must
+// travel in the clear.
+const leak = evs.find((e) => {
+  const s = JSON.stringify({ ...e, payload: { ...e.payload, attestation: undefined } });
+  return /data:|base64,|[A-Za-z0-9+/]{200,}/.test(s);
+});
 check('ledger carries no media, only digests and structure', !leak, leak ? `event ${leak.event_id}` : '');
 
 report();
@@ -173,6 +242,27 @@ function report() {
     if (!r.ok) failed++;
     console.log(`  ${r.ok ? 'PASS' : 'FAIL'}  ${r.name}${r.detail ? '  (' + r.detail + ')' : ''}`);
   }
-  console.log(failed === 0 ? '\nverified' : `\n${failed} check(s) failed`);
+  // Never print a bare "verified" for a signed clip. What was verified is
+  // integrity; what the signature adds depends on the level, and the level has
+  // to be said out loud or the tick gets read as identity.
+  const lvl = open?.payload?.attestation?.level ?? 'unsigned';
+  if (failed === 0) {
+    console.log(`\nintegrity verified — attestation: ${lvl}`);
+    console.log(wrap(MEANS[lvl] ?? 'Unknown attestation level; treat as unsigned.', 76, '  '));
+  } else {
+    console.log(`\n${failed} check(s) failed — attestation: ${lvl}`);
+  }
   process.exit(failed === 0 ? 0 : 1);
+}
+
+function wrap(s, width, indent) {
+  const words = s.split(' ');
+  const lines = [];
+  let line = '';
+  for (const w of words) {
+    if ((line + ' ' + w).trim().length > width) { lines.push(line.trim()); line = w; }
+    else line += ' ' + w;
+  }
+  if (line.trim()) lines.push(line.trim());
+  return lines.map((l) => indent + l).join('\n');
 }

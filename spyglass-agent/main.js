@@ -121,6 +121,7 @@ function lineageLine(ev) {
     continuity_context: ev.continuity_context,
     parent_links: ev.parent_links,
     checksum: ev.checksum,
+    signature: ev.signature ?? null,
   }) + '\n';
 }
 
@@ -133,6 +134,75 @@ function lineageLine(ev) {
 // boundary expressed in files rather than in policy.
 const TRACK_FILES = { video: 'clip.webm', audio: 'audio.webm' };
 const GENESIS = '0'.repeat(64);
+
+// --- instrument identity ---------------------------------------------------
+// The chain proves a clip is intact. It says nothing about where the clip came
+// from: `actor_identity` derived from a hostname is a claim the app makes about
+// itself, and anyone can write that string. A signature is what turns the
+// ledger from an assertion into evidence for someone who does not trust the
+// process that produced it.
+//
+// This key identifies the INSTRUMENT, not the operator — the claim is "this
+// spyglass captured these bytes in this order", which is what a camera can
+// honestly say. An operator, when there is one, belongs in the payload as an
+// attribute, not as the signer.
+//
+// Generated ONCE, on first run, and persisted. A key regenerated each boot
+// would make every session a stranger and give up the only thing a local key
+// buys: continuity. What it does NOT buy is identity — see ATTESTATION below.
+const KEY_DIR = path.join(app.getPath('userData'), 'identity');
+const KEY_FILE = path.join(KEY_DIR, 'instrument.key.pem');
+const PUB_FILE = path.join(KEY_DIR, 'instrument.pub.pem');
+
+// Attestation is three-valued and recorded at capture time. It is never a
+// boolean, because "signed" and "trusted" are different claims and collapsing
+// them is how a pseudonym gets read as an identity.
+//
+//   unsigned          no key; the ledger asserts, nothing attests
+//   self-attested     locally generated key, no external claim about who
+//   attested          key chains to an imported, trusted genesis
+//   hardware-attested key that cannot be exported from the machine
+//
+// Importing a genesis later must write a rotation event and must NOT upgrade
+// clips already recorded. GKS identity §6: rotation preserves lineage, the old
+// identity remains, and no epistemic continuity is implied. A clip captured
+// under self-attestation stays self-attested forever — that is the whole point.
+const ATTESTATION = 'self-attested';
+
+let instrument = null;
+
+function loadInstrument() {
+  fs.mkdirSync(KEY_DIR, { recursive: true, mode: 0o700 });
+  let privateKey, publicKey;
+  if (fs.existsSync(KEY_FILE)) {
+    privateKey = crypto.createPrivateKey(fs.readFileSync(KEY_FILE));
+    publicKey = crypto.createPublicKey(privateKey);
+  } else {
+    ({ privateKey, publicKey } = crypto.generateKeyPairSync('ed25519'));
+    fs.writeFileSync(KEY_FILE, privateKey.export({ type: 'pkcs8', format: 'pem' }), { mode: 0o600 });
+    fs.writeFileSync(PUB_FILE, publicKey.export({ type: 'spki', format: 'pem' }), { mode: 0o644 });
+    console.log('[spyglass] generated instrument key (first run) → ' + KEY_FILE);
+  }
+  const spki = publicKey.export({ type: 'spki', format: 'der' });
+  // The instrument id is derived from the public key, so it cannot be claimed
+  // by anyone who does not hold the private half.
+  const fingerprint = crypto.createHash('sha256').update(spki).digest('hex');
+  instrument = {
+    privateKey, publicKey,
+    fingerprint,
+    id: `spyglass:instrument:${fingerprint.slice(0, 16)}`,
+    publicKeyPem: publicKey.export({ type: 'spki', format: 'pem' }).toString().trim(),
+  };
+  return instrument;
+}
+
+// Ed25519 over the raw 32 bytes being committed to. Signing the chain value
+// rather than the JSON keeps the signature independent of how the event is
+// serialized — a reformatted ledger still verifies.
+function sign(hexValue) {
+  if (!instrument) return null;
+  return 'ed25519:' + crypto.sign(null, Buffer.from(hexValue, 'hex'), instrument.privateKey).toString('base64');
+}
 
 function advance(chainHex, digestHex) {
   return crypto.createHash('sha256')
@@ -149,7 +219,7 @@ ipcMain.handle('clip-open', async (_evt, meta) => {
     clipId,
     dir,
     ledger: path.join(dir, 'lineage.jsonl'),
-    actor: `spyglass:agent:${crypto.createHash('sha256').update(os.hostname()).digest('hex').slice(0, 8)}`,
+    actor: instrument.id,
     tracks: new Map(),
     startedAt: Date.now(),
   };
@@ -178,10 +248,27 @@ ipcMain.handle('clip-open', async (_evt, meta) => {
       // Each track declares what it is and where it came from. Source bindings
       // are structural — device labels and a salted id hash, never a sample.
       tracks: declared,
+      // The verifying key travels with the ledger. On its own this proves only
+      // that one holder of one private key produced every event here; what that
+      // holder IS depends entirely on `level`, which is why the level is
+      // recorded rather than implied.
+      attestation: {
+        level: ATTESTATION,
+        instrument: instrument.id,
+        public_key: instrument.publicKeyPem,
+        algorithm: 'ed25519',
+        // Stated in the artifact so it cannot be lost in a UI that renders a
+        // signature as a tick.
+        means: 'Signed by a key generated on this machine. Proves these events '
+             + 'were produced by one holder of that key and have not been '
+             + 'altered since. Does NOT establish which machine, which person, '
+             + 'or any external trust.',
+      },
     },
     continuity_context: { clip: clipId },
     parent_links: [],
     checksum: `sha256:${GENESIS}`,
+    signature: sign(GENESIS),
   };
   fs.writeSync(clip.ledgerFd, lineageLine(ev));
   clip.openEventId = ev.event_id;
@@ -224,6 +311,12 @@ ipcMain.handle('clip-chunk', async (_evt, clipId, trackId, bytes) => {
     // binding over chains, not one interleaved sequence.
     parent_links: [track.lastEventId],
     checksum: `sha256:${track.chain}`,
+    // Every segment is signed, not just the close event. Ed25519 costs tens of
+    // microseconds against one segment per second, and signing only at close
+    // would leave a clip that died mid-recording entirely unattested — the
+    // signature would be weaker than the chain it signs. This way a crashed
+    // clip stays attested up to its last written second.
+    signature: sign(track.chain),
   };
   fs.writeSync(clip.ledgerFd, lineageLine(ev));
   track.lastEventId = ev.event_id;
@@ -258,10 +351,12 @@ ipcMain.handle('clip-close', async (_evt, clipId) => {
       duration_ms: durationMs,
       tracks,
       binding: `sha256:${bindingHex}`,
+      attestation: { level: ATTESTATION, instrument: instrument.id },
     },
     continuity_context: { clip: clip.clipId },
     parent_links: ids.map((id) => clip.tracks.get(id).lastEventId),
     checksum: `sha256:${bindingHex}`,
+    signature: sign(bindingHex),
   };
   fs.writeSync(clip.ledgerFd, lineageLine(ev));
   for (const t of clip.tracks.values()) fs.closeSync(t.fd);
@@ -272,5 +367,9 @@ ipcMain.handle('clip-close', async (_evt, clipId) => {
 
 ipcMain.on('quit', () => app.quit());
 
-app.whenReady().then(createOverlay);
+app.whenReady().then(() => {
+  const inst = loadInstrument();
+  console.log('[spyglass] instrument ' + inst.id + ' (' + ATTESTATION + ')');
+  createOverlay();
+});
 app.on('window-all-closed', () => app.quit());

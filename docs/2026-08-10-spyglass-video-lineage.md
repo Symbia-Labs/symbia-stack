@@ -119,6 +119,47 @@ diverge, and records the absence as a failure. The check inherited the shape of
 the long clip it was written against — an instrument agreeing with itself until
 something outside it objected. Recorded here rather than quietly corrected.
 
+### 4.5 Attestation: predictions registered before measuring
+
+The chain proves a clip is intact. It says nothing about where the clip came
+from — a forger can produce a perfectly consistent chain over bytes they chose,
+and `actor_identity` derived from a hostname is a string anyone can write. A
+signature is what turns the ledger into evidence for a party who does not trust
+the process that produced it.
+
+Decisions, recorded so they are not relitigated:
+
+- The key identifies the **instrument**, not the operator. The honest claim is
+  "this spyglass captured these bytes in this order" — what a camera can say.
+  An operator, when there is one, is an attribute in the payload, not the
+  signer.
+- Generated **once, on first run**, and persisted at `0600`. A key regenerated
+  each boot would make every session a stranger and forfeit the only thing a
+  local key buys, which is continuity.
+- **Every segment is signed**, not only the close event. Ed25519 costs tens of
+  microseconds against one segment per second, and signing only at close would
+  leave a clip that died mid-recording entirely unattested — the signature
+  would be weaker than the chain it signs.
+- Attestation is **three-valued and recorded at capture time**: `unsigned`,
+  `self-attested`, `attested`, `hardware-attested`. Importing a genesis later
+  writes a rotation event and must **not** upgrade clips already recorded. GKS
+  identity §6: rotation preserves lineage, the old identity remains, and no
+  epistemic continuity is implied. A clip captured under self-attestation stays
+  self-attested forever.
+
+What self-attestation is worth, stated plainly because the failure mode is a UI
+rendering a signature as a tick: it proves every event came from one holder of
+one key and has not been altered since. It establishes **no** external trust,
+and does not say which machine or which person. That sentence ships inside the
+artifact and is printed by the verifier, so it travels with the result.
+
+| # | Prediction |
+|---|---|
+| P11 | The key is generated once and survives restart — same fingerprint, no regeneration. *(Measured before the clip: passed. `spyglass:instrument:490a8733deda6bed`, `0600`.)* |
+| P12 | The instrument id in the ledger is derivable from the public key that travels with it, so the id cannot be claimed by a non-holder. |
+| P13 | Every event carrying a checksum also carries a signature, and all verify against the ledger's public key. |
+| P14 | **The one I expect to get wrong.** An independent implementation — `openssl`, using only the PEM public key lifted from the ledger — agrees with the Node verifier on a segment signature. My verifier calls the same crypto library the writer used, so it shares the writer's assumptions; openssl does not. I expect an encoding mismatch (raw vs DER signature, or hex vs binary over the signed value) to make the first attempt disagree. |
+
 ### 4.3 Audio, and one chain per track
 
 Added after the video work, same day. Decisions taken deliberately and recorded
