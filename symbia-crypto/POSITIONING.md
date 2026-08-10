@@ -66,12 +66,13 @@ signatures would mean anything today.
 *Under the hood, for those who want it: RFC 8785 canonical JSON, SHA-256,
 ed25519, and signatures that cover a whole document rather than any part of it.*
 
-Deliberately small, so nothing in the platform grows its own. What it replaces,
-in more than one place in this codebase, is a digest computed with a **shared
-secret** — the equivalent of a wax seal whose stamp is kept in the drawer
-everyone uses. It catches accidents. It cannot be checked by anyone outside the
-organisation, and anyone inside can forge it. That is not evidence; it is a
-checksum with ceremony.
+The usual alternative is a **shared secret** — a checksum both sides compute
+using a password they both know. It is a wax seal whose stamp is kept in the
+drawer everyone uses. It will catch a file that got corrupted in transit. It
+will not survive anyone asking the only question that matters in a dispute:
+*could the people showing me this have made it themselves?* They could. And
+nobody outside the organisation can check it at all, because checking requires
+the stamp, and holding the stamp means you could have pressed it.
 
 **`@symbia/lineage` — the logbook. Built.**
 
