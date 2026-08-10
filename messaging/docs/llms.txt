@@ -43,6 +43,10 @@ Use /api as the base path for all endpoints.
 - POST /api/admin/conversations/{id}/participants - Add participant (admin)
 - DELETE /api/admin/conversations/{id}/participants/{userId} - Remove participant (admin)
 - GET /api/admin/stats - Service stats (admin)
+- GET /api/auth/config - Get config
+- GET /api/auth/me - Get me
+- GET /api/bootstrap/service - Get service
+- GET /api/stats - List stats
 
 ## Authentication
 
