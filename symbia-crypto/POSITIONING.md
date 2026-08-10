@@ -106,12 +106,23 @@ They share the record and differ only in what they claim.
 | egress | `publication` | this system wrote these bytes to this destination — **intended** |
 
 The egress side matters more than it first appears, and it is where this differs
-most from provenance work aimed at media or software artifacts. In a platform
-that takes actions — a control setpoint inside a facility, a message sent, a
-row written — the interesting question is not only *what informed this* but
-*what did we do, and can we still show it a year from now*. An emission record
-parent-links to the observations that fed it, so the receipt for an action
-reaches back through the derivation to the moment the bytes entered.
+most from provenance work aimed at media or software artifacts. When a system
+takes an action — changes a setpoint in a facility, sends a message, writes a
+row — three questions can be asked about it afterwards: **what did it do, who
+authorised it, and what was it working from?**
+
+Those questions are almost never asked on the day. They arrive months later,
+when a machine has failed and an insurer is disputing the claim, when a
+regulator audits a period, or when someone's lawyer asks why an automated system
+did what it did. By then the people who were there have moved on, the dashboards
+have rolled over, and all that remains is whatever got written down at the time
+— usually a log line that the operator's own team could have written yesterday.
+
+An emission record points back at the observations it was derived from. So a
+challenged action can be followed backwards, step by step, to the moment those
+bytes entered the system — and by someone who does not trust the operator,
+because every step in the path was signed by a key its holder cannot deny and
+nobody else could have used.
 
 **Not built.** Only the two ingress observers exist today. The symmetry is a
 design commitment, and stating it as anything more would be the exact error this
