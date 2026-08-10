@@ -23,7 +23,8 @@ hardcoded ingress all destroy the point).
 - UX validation uses a browser, never curl. Blank beats green: never infer a
   pass from absence of evidence. Separate observation ("returned 404") from
   inference ("endpoint missing").
-- Register predictions in git before measuring; report broken ones as broken.
+- MAP (measure against prediction): register predictions in git before
+  measuring; report broken ones as broken.
 
 ## Constraints
 - Dev/local persistence is JSONL + local logs only (DB connectors later,

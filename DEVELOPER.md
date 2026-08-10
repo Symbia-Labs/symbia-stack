@@ -473,8 +473,8 @@ code.
 Conventions the codebase is maintained under. They exist because of specific
 failures, not as style preferences.
 
-1. **Predictions before results.** Register the expected number in git before
-   measuring. Report broken predictions as broken.
+1. **MAP — measure against prediction.** Register the expected number in git
+   before measuring. Report broken predictions as broken.
 2. **Every instrument measures itself until something outside it objects.** A
    fuzzer's severity taxonomy shared the optimism of the code it tested; a
    classifier was validated against the labels it was corrected against; a

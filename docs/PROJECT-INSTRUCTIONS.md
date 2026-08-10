@@ -56,7 +56,7 @@ credential resolved from identity, not a HuggingFace call from the browser.
 
 ## Working discipline (earned, each from a specific failure)
 
-1. **Predictions before results.** Register the number in git before measuring.
+1. **MAP — measure against prediction.** Register the number in git before measuring.
    Report broken predictions as broken. Every dated doc in `docs/` since 6 Aug
    follows this; P4 in the trace doc was registered as "the one I expect to get
    wrong" and was.
