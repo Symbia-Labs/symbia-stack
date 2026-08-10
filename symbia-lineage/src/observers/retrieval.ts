@@ -51,6 +51,20 @@ export interface RetrieveOptions {
   maxBytes?: number;
   timeoutMs?: number;
   headers?: Record<string, string>;
+  /**
+   * Target bytes per chained chunk. Arriving data is coalesced to roughly this
+   * before a lineage event is written.
+   *
+   * This matters more than it looks. Signing each `data` event directly means
+   * chunking at whatever size TCP happened to deliver — measured at ~1.4 KB,
+   * which produced 11.4 KB of ledger for 19 KB of content, 60% overhead, and
+   * 148 signatures for a 200 KB page. At 64 KB the same page is four events.
+   *
+   * The floor on this is the crash case: chunks are the granularity at which a
+   * dead transfer stays attested, so a very large value trades recoverable
+   * evidence for a smaller ledger.
+   */
+  chunkBytes?: number;
 }
 
 export interface RetrieveResult {
@@ -97,6 +111,7 @@ export function retrieve(opts: RetrieveOptions): Promise<RetrieveResult> {
   const maxRedirects = opts.maxRedirects ?? 5;
   const maxBytes = opts.maxBytes ?? 32 * 1024 * 1024;
   const timeoutMs = opts.timeoutMs ?? 30_000;
+  const chunkBytes = opts.chunkBytes ?? 64 * 1024;
   const redirects: string[] = [];
 
   return new Promise((resolve, reject) => {
@@ -157,20 +172,41 @@ export function retrieve(opts: RetrieveOptions): Promise<RetrieveResult> {
 
         let bytes = 0;
         let aborted: string | null = null;
+        // Coalesce arriving data to the target chunk size before chaining, so
+        // the ledger is granular by design rather than by whatever TCP handed
+        // us. Nothing is buffered beyond one chunk: everything already chained
+        // is already committed, so a crash keeps the evidence up to the last
+        // completed chunk.
+        let pending: Buffer[] = [];
+        let pendingBytes = 0;
+        const flush = () => {
+          if (!pendingBytes) return;
+          obs.chunk(Buffer.concat(pending, pendingBytes));
+          pending = [];
+          pendingBytes = 0;
+        };
 
         res.on('data', (chunk: Buffer) => {
           if (aborted) return;
           bytes += chunk.length;
           if (bytes > maxBytes) {
             aborted = `body exceeded maxBytes (${maxBytes})`;
+            // Chain what did arrive before tearing down — a refused body is
+            // still an observation of the part that got here.
+            pending.push(chunk); pendingBytes += chunk.length;
+            flush();
+            opts.onData?.(chunk);
             res.destroy();
             return;
           }
-          obs.chunk(chunk);
+          pending.push(chunk);
+          pendingBytes += chunk.length;
+          if (pendingBytes >= chunkBytes) flush();
           opts.onData?.(chunk);
         });
 
         res.on('end', () => {
+          flush();
           const sealed = obs.close({ complete: !aborted, note: aborted ?? undefined });
           resolve({ observation_id: sealed.id, source: { ...source, bytes },
             chunks: sealed.chunks, bytes: sealed.bytes, head: sealed.head,
@@ -180,6 +216,7 @@ export function retrieve(opts: RetrieveOptions): Promise<RetrieveResult> {
         // A connection that drops mid-body is not an error to be swallowed —
         // it is an observation that is honestly incomplete.
         res.on('error', (err) => {
+          flush();
           const sealed = obs.close({ complete: false, note: 'transport error: ' + err.message });
           resolve({ observation_id: sealed.id, source: { ...source, bytes },
             chunks: sealed.chunks, bytes: sealed.bytes, head: sealed.head,
@@ -187,6 +224,7 @@ export function retrieve(opts: RetrieveOptions): Promise<RetrieveResult> {
         });
         res.on('close', () => {
           if (!aborted || res.readableEnded) return;
+          flush();
           const sealed = obs.close({ complete: false, note: aborted ?? undefined });
           resolve({ observation_id: sealed.id, source: { ...source, bytes },
             chunks: sealed.chunks, bytes: sealed.bytes, head: sealed.head,
