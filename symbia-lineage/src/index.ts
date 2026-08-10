@@ -39,3 +39,9 @@ export {
 } from './attestation.js';
 
 export { Observation, type ObservationInit } from './observation.js';
+
+export {
+  retrieve,
+  type RetrieveOptions,
+  type RetrieveResult,
+} from './observers/retrieval.js';
