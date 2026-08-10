@@ -1,5 +1,9 @@
 # symbia-stack
 
+**Read `/STATUS.md` first.** It says what is built, what is wired, and what
+is only written down. `docs/` holds dated findings; `docs/proposals/` holds
+things that do not exist.
+
 Platform for provable provenance. The governing rule: **if a piece can't be
 built through the Symbia API alone, that's a platform defect to log — never a
 reason to reach outside** (unregistered services, hand-edited routes,
