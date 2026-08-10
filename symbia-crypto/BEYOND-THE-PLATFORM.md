@@ -183,18 +183,45 @@ Before any of this is more than a sketch:
 5. **Forward security, or an explicit statement that it is absent.** Currently
    absent. Currently unstated anywhere but here.
 
-## 7. The honest summary
+## 7. Verdict
 
-The libraries are small, general, and have no dependency on the platform they
-were written for. The boundary they attach to already exists in every
-architecture, already sees everything, and currently produces the least
-trustworthy artifact in the system. Fixing that looks like a modest amount of
-code at the edge and a lot of care about what the resulting record is allowed to
-claim.
+**Build it. Second, not first. As a demonstration, not a product.**
 
-The care is the hard part. The cryptography is a solved problem, the plumbing is
-ordinary, and the thing that makes such a record worth anything — or makes it a
-liability — is whether the words inside it are true about what it proves.
+**Why build it.** It is the cheapest strong evidence that the record format is
+general rather than a shape left over from a video recorder. A proxy is about as
+far from a screen-capture instrument as you can get and still be at a boundary,
+and if the same record works there without changing the primitive, the
+generality claim is earned rather than asserted. That is worth more to this work
+than any feature, because every argument in the positioning paper depends on it.
+
+**Why not first.** An independent implementation of the record format in another
+language is worth more, and costs less. If someone can write a verifier from the
+specification alone and it agrees with ours on a set of conformance vectors,
+then "the record is the authority, not the tool" stops being a slogan. The nginx
+integration proves the format travels across *domains*; a second implementation
+proves it travels across *implementers*, which is the harder and more important
+claim. Do that one first.
+
+**Why not a product.** Anyone who needs signed edge logs badly enough to pay for
+them is in a regulated industry buying from vendors with certifications and
+support contracts, and much of that need is already partly served — CloudTrail
+for AWS estates, WORM storage and SIEM tooling elsewhere. A library from a small
+shop does not win that on merit. It wins nothing by trying.
+
+**What it is instead:** a reference integration that makes the format credible,
+and a genuinely useful thing for anyone who wants it, given away. The commercial
+value of this work is not the proxy module. It is that a platform whose
+provenance core is small, open and independently verifiable is easier to believe
+than one whose provenance is a private feature.
+
+**What would change my mind.** Two things, and both are measurable rather than
+matters of taste. If body digesting at realistic request rates costs materially
+more than a few percent, the design has to retreat to metadata-only and most of
+the interesting claims go with it. And if no witness ever gets built, the record
+proves *unaltered* but not *complete* — an operator can keep two consistent
+logbooks and produce whichever suits — which makes this good for internal
+assurance and weak as external evidence. The first is a benchmark. The second is
+a decision.
 
 ---
 
