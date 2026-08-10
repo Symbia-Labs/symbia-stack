@@ -167,6 +167,21 @@ Cleanup, all recoverable from git history.
   already names.
 - **`symbia-control-center/archive/`** (9 files) — a directory named
   `dead-2026-08-06`, plus an orphaned energy panel.
+- **`ops/`** (4 files) — a functional probe script nothing calls, two `.jsonl`
+  run-data files of 3 and 2 lines, and one dated probe report superseded by
+  later findings. Referenced by nothing; an apparent match in `ci.yml` was
+  `softprops/action-gh-release` matching the string `ops/`.
+
+**The rest of the tree is referenced.** Every remaining top-level directory is
+either a workspace, built by `docker-compose`, or called by `scripts/`. Two
+that look unreferenced and are not: `spyglass-agent` (standalone, and the thing
+that works) and `.github` (invoked by GitHub, not by us). `symbia-mcp-server`
+stays — `scripts/check-staleness.mts` reads it.
+
+**`tests/` is runnable but never run.** `scripts/workflow/test-itt.sh` invokes
+it; nothing invokes that script. CI has jobs for audit, build, validate-docs,
+docker and release — and no test job. So the ITT suite is one CI line away from
+being real, which is a better position than it appeared.
 
 **Kept deliberately:** `tests/` — the ITT suite (intentions, transparency,
 trust, RLS isolation, secret handling). It is **not** in `workspaces`, so
