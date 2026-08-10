@@ -270,6 +270,11 @@ performance compromise.
 
 ### 7.2 The better distinction already exists, and it is not about cost
 
+> **Moved.** The lane analysis below describes **shipped behaviour** and now
+> lives as a finding: `docs/2026-08-10-lanes-claims-and-lineage.md`. It is kept
+> here for the argument's flow, but it does not belong in a directory whose
+> README says nothing in it is built.
+
 "Metadata tier" and "content tier" divide by *expense*. The platform already
 divides by *epistemic status*, and that division is live in the component
 manifest — the public contract — in `catalog/shared/schema.ts`:

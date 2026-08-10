@@ -129,9 +129,11 @@ Moved to `docs/proposals/`. Nothing here exists in code.
 
 ## 8. Findings — recorded, not proposals
 
-In `docs/`, dated. `provenance-envelope-shared-secret`,
-`spyglass-video-lineage`, `browser-walk-predictions` / `-results`,
-`how-the-work-was-done`.
+In `docs/`, dated. Start with **`2026-08-10-lanes-claims-and-lineage`** — it is
+the conceptual spine: port lanes, the claims vocabulary, attestation levels and
+the GKS Lineage grounding, all describing shipped behaviour. Then
+`provenance-envelope-shared-secret`, `spyglass-video-lineage`,
+`browser-walk-predictions` / `-results`, `how-the-work-was-done`.
 
 ## 9. Git
 
