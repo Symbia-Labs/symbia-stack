@@ -69,6 +69,21 @@
     body.arming .tick { border-color: rgba(255, 90, 90, 0.9); }
     body.arming #grip { background: var(--red); box-shadow: 0 0 14px rgba(255, 59, 59, 0.95); }
 
+    /* --- Recording. The ring breathes red and the ball lifts off the rim to
+       orbit outside the capture region, so the motion that says "running" is
+       never in the frame. Crosshair hides — it sits inside the crop. --- */
+    body.recording #ring { border-color: var(--red); animation: breathe 2s ease-in-out infinite; }
+    body.recording #ring::before, body.recording #ring::after { opacity: 0; }
+    body.recording .tick { border-color: rgba(255, 90, 90, 0.9); }
+    body.recording #grip { background: var(--red); cursor: default; }
+    /* Each sealed segment ticks the ball — one flash per appended lineage
+       event, so the chain accruing is something you can watch happen. */
+    body.recording #grip.sealed { background: #fff; box-shadow: 0 0 20px 4px rgba(255,255,255,0.95); }
+    @keyframes breathe {
+      0%, 100% { box-shadow: 0 0 18px rgba(255, 59, 59, 0.45), inset 0 0 22px rgba(255, 59, 59, 0.14); }
+      50%      { box-shadow: 0 0 40px rgba(255, 59, 59, 0.85), inset 0 0 34px rgba(255, 59, 59, 0.30); }
+    }
+
     /* --- Grabbing: hide only the cyan bits that sit inside the capture crop for
        the single grab frame, so the saved pixels are clean. The veil (outside
        dark) stays up the whole time — the aperture never blanks. --- */
@@ -119,9 +134,14 @@
     // angle so the idle bounce and the countdown sweep can drive it.
     const GRIP_BASE = Math.PI / 4;
     let gripAngle = GRIP_BASE;
+    // While recording the ball rides OUTSIDE the rim, clear of the capture
+    // region, so the running indicator can never appear in the frame.
+    const ORBIT_LIFT = 18;
+    let recording = false; // declared here: placeGrip() reads it on first reflow
     function placeGrip() {
       const r = ringBox();
-      const cx = r.left + r.width / 2, cy = r.top + r.height / 2, rad = r.width / 2;
+      const cx = r.left + r.width / 2, cy = r.top + r.height / 2;
+      const rad = r.width / 2 + (recording ? ORBIT_LIFT : 0);
       grip.style.left = (cx + rad * Math.cos(gripAngle) - 8) + 'px';
       grip.style.top = (cy + rad * Math.sin(gripAngle) - 8) + 'px';
     }
@@ -176,6 +196,7 @@
     // Resize from the ring centre — the size formula tracks the cursor's
     // distance to a corner, so the grip AND the four corner ticks all work.
     function startResize(e) {
+      if (recording) return; // frame size is fixed for the length of a clip
       const r = ringBox(); cx0 = r.left + r.width / 2; cy0 = r.top + r.height / 2;
       resizing = true; e.preventDefault(); e.stopPropagation();
     }
@@ -194,11 +215,53 @@
     });
     window.addEventListener('mouseup', () => { dragging = false; resizing = false; ring.classList.remove('dragging'); });
     ring.addEventListener('wheel', (e) => {
-      const r = ringBox(); setSize(r.width - e.deltaY * 0.4, r.left + r.width / 2, r.top + r.height / 2);
       e.preventDefault();
+      if (recording) return; // frame size is fixed for the length of a clip
+      const r = ringBox(); setSize(r.width - e.deltaY * 0.4, r.left + r.width / 2, r.top + r.height / 2);
     }, { passive: false });
 
-    // --- capture -----------------------------------------------------------
+    // --- capture geometry --------------------------------------------------
+    // The crop is the ring's bounding square in the source video's pixel space.
+    // It is rectangular, but everything drawn is clipped to the inscribed
+    // circle: the aperture is round, so the corners are not ours to keep — and
+    // the corners are exactly where the veil sits, so clipping is also what
+    // lets the surround stay dark while a frame is taken.
+    function cropRect(video) {
+      const r = ringBox();
+      const vw = video.videoWidth, vh = video.videoHeight;
+      return {
+        sx: (r.left / innerWidth) * vw, sy: (r.top / innerHeight) * vh,
+        sw: (r.width / innerWidth) * vw, sh: (r.height / innerHeight) * vh,
+      };
+    }
+    function drawAperture(ctx, video, c) {
+      const { sx, sy, sw, sh } = cropRect(video);
+      const w = ctx.canvas.width, h = ctx.canvas.height;
+      ctx.clearRect(0, 0, w, h);
+      ctx.save();
+      ctx.beginPath();
+      ctx.arc(w / 2, h / 2, Math.min(w, h) / 2, 0, Math.PI * 2);
+      ctx.clip();
+      ctx.drawImage(video, sx, sy, sw, sh, 0, 0, w, h);
+      ctx.restore();
+    }
+    async function desktopStream() {
+      const src = await window.spyglass.screenSource();
+      if (!src.sourceId) throw new Error('no screen source — grant Screen Recording');
+      return navigator.mediaDevices.getUserMedia({
+        audio: false,
+        video: { mandatory: { chromeMediaSource: 'desktop', chromeMediaSourceId: src.sourceId,
+          maxWidth: src.width * src.scaleFactor, maxHeight: src.height * src.scaleFactor } },
+      });
+    }
+    async function playing(stream) {
+      const video = document.createElement('video');
+      video.srcObject = stream; await video.play();
+      await new Promise((res) => requestAnimationFrame(() => res()));
+      return video;
+    }
+
+    // --- still capture -----------------------------------------------------
     async function capture() {
       const r = ringBox();
       try {
@@ -207,22 +270,12 @@
         document.body.classList.add('shooting');
         document.body.classList.add('grabbing');
         await new Promise((res) => setTimeout(res, 150));
-        const src = await window.spyglass.screenSource();
-        if (!src.sourceId) throw new Error('no screen source — grant Screen Recording');
-        const stream = await navigator.mediaDevices.getUserMedia({
-          audio: false,
-          video: { mandatory: { chromeMediaSource: 'desktop', chromeMediaSourceId: src.sourceId,
-            maxWidth: src.width * src.scaleFactor, maxHeight: src.height * src.scaleFactor } },
-        });
-        const video = document.createElement('video');
-        video.srcObject = stream; await video.play();
-        await new Promise((res) => requestAnimationFrame(() => res()));
-        const vw = video.videoWidth, vh = video.videoHeight;
-        const sx = (r.left / innerWidth) * vw, sy = (r.top / innerHeight) * vh;
-        const sw = (r.width / innerWidth) * vw, sh = (r.height / innerHeight) * vh;
+        const stream = await desktopStream();
+        const video = await playing(stream);
+        const { sw, sh } = cropRect(video);
         const canvas = document.createElement('canvas');
         canvas.width = Math.round(sw); canvas.height = Math.round(sh);
-        canvas.getContext('2d').drawImage(video, sx, sy, sw, sh, 0, 0, canvas.width, canvas.height);
+        drawAperture(canvas.getContext('2d'), video, r);
         stream.getTracks().forEach((t) => t.stop());
         const out = await window.spyglass.saveFrame(canvas.toDataURL('image/png'));
         // Ring/crosshair back, then bloom inside the aperture.
@@ -235,6 +288,121 @@
         document.body.classList.remove('grabbing');
         document.body.classList.remove('shooting');
         console.error('[spyglass] capture failed:', err && err.message || err);
+      }
+    }
+
+    // --- video: record the aperture ----------------------------------------
+    // The desktop stream is pumped through a canvas clipped to the aperture, so
+    // what the recorder sees is only ever the circle — the crop happens before
+    // any encoding, not after. MediaRecorder emits a segment per timeslice; each
+    // one is handed straight to main, hashed, and chained on arrival. Nothing is
+    // buffered waiting to be stamped: the ledger stays truthful even if the app
+    // dies mid-clip, because every segment already written is already committed.
+    const SEGMENT_MS = 1000;   // one lineage event per second of capture
+    const ORBIT_MS = 4000;     // ball completes a turn every 4s while running
+    let recorder = null, recStream = null, recSrcStream = null;
+    let recVideo = null, recPump = null, recClipId = null, recOrbit = null;
+    // Segment writes are async; the clip cannot close until every one has
+    // landed, or the close event would be appended ahead of the tail segment
+    // and the ledger would misreport its own order.
+    let recPending = [];
+
+    async function startRecording() {
+      if (recording || counting || document.body.classList.contains('shooting')) return;
+      const r = ringBox();
+      try {
+        recSrcStream = await desktopStream();
+        recVideo = await playing(recSrcStream);
+        const { sw, sh } = cropRect(recVideo);
+        // Even dimensions — encoders dislike odd ones.
+        const canvas = document.createElement('canvas');
+        canvas.width = Math.round(sw / 2) * 2;
+        canvas.height = Math.round(sh / 2) * 2;
+        const ctx = canvas.getContext('2d');
+
+        // Redraw every frame from the CURRENT ring position, so the aperture can
+        // be panned over the desktop mid-clip and the recording follows it.
+        const pump = () => { drawAperture(ctx, recVideo, null); recPump = requestAnimationFrame(pump); };
+        pump();
+
+        recStream = canvas.captureStream(30);
+        const mimeType = MediaRecorder.isTypeSupported('video/webm;codecs=vp9')
+          ? 'video/webm;codecs=vp9' : 'video/webm';
+        const opened = await window.spyglass.videoOpen({
+          mimeType,
+          frame: { width: canvas.width, height: canvas.height },
+          aperture: { x: Math.round(r.left), y: Math.round(r.top), diameter: Math.round(r.width) },
+        });
+        recClipId = opened.clipId;
+
+        recorder = new MediaRecorder(recStream, { mimeType });
+        recorder.ondataavailable = (e) => {
+          if (!e.data || !e.data.size) return;
+          // Snapshot the clip id SYNCHRONOUSLY. stop() fires this handler and
+          // then onstop; if the id were read after the first await, the tail
+          // segment would arrive to a clip that had already been closed.
+          const id = recClipId;
+          if (!id) return;
+          const write = (async () => {
+            const buf = new Uint8Array(await e.data.arrayBuffer());
+            const res = await window.spyglass.videoChunk(id, buf);
+            // Tick the ball: one flash per appended lineage event.
+            grip.classList.add('sealed');
+            setTimeout(() => grip.classList.remove('sealed'), 110);
+            console.log('[spyglass] segment ' + res.seq + ' · ' + (res.bytes / 1024 | 0) +
+              ' KB · sha256:' + res.digest.slice(0, 12) + ' · chain:' + res.chain.slice(0, 12));
+          })();
+          recPending.push(write);
+        };
+        recPending = [];
+        recorder.start(SEGMENT_MS);
+
+        recording = true;
+        document.body.classList.add('recording');
+        // Ball orbits continuously while running.
+        const t0 = performance.now();
+        const orbit = (now) => {
+          if (!recording) return;
+          gripAngle = GRIP_BASE - ((now - t0) / ORBIT_MS) * Math.PI * 2;
+          placeGrip();
+          recOrbit = requestAnimationFrame(orbit);
+        };
+        recOrbit = requestAnimationFrame(orbit);
+        console.log('[spyglass] recording ' + canvas.width + '×' + canvas.height +
+          ' → ' + opened.dir);
+      } catch (err) {
+        await stopRecording(true);
+        console.error('[spyglass] record failed:', err && err.message || err);
+      }
+    }
+
+    async function stopRecording(silent) {
+      if (recorder && recorder.state !== 'inactive') {
+        // Flush the tail segment before closing, so the ledger covers every byte
+        // that made it into the file.
+        await new Promise((res) => { recorder.onstop = res; recorder.stop(); });
+      }
+      // onstop can resolve while the tail segment is still being read and
+      // hashed. Wait for every queued write before the clip is closed.
+      await Promise.allSettled(recPending);
+      recPending = [];
+      recording = false;
+      document.body.classList.remove('recording');
+      if (recOrbit) cancelAnimationFrame(recOrbit);
+      if (recPump) cancelAnimationFrame(recPump);
+      if (recStream) recStream.getTracks().forEach((t) => t.stop());
+      if (recSrcStream) recSrcStream.getTracks().forEach((t) => t.stop());
+      recorder = recStream = recSrcStream = recVideo = recPump = recOrbit = null;
+      gripAngle = GRIP_BASE; placeGrip();
+      if (recClipId) {
+        const id = recClipId; recClipId = null;
+        const out = await window.spyglass.videoClose(id);
+        if (!silent) {
+          console.log('[spyglass] clip ' + out.clipId + ' · ' + out.segments + ' segments · ' +
+            (out.bytes / 1024 | 0) + ' KB · ' + (out.durationMs / 1000).toFixed(1) + 's');
+          console.log('[spyglass] chain head sha256:' + out.chain);
+          console.log('[spyglass] ' + out.dir);
+        }
       }
     }
 
@@ -274,17 +442,52 @@
     }
 
     // --- keyboard ----------------------------------------------------------
+    // One key, one gesture, the way a camera works: tap the shutter for a
+    // still, hold it to roll. Nothing to discover and nothing to remember —
+    // the difference is how long your thumb stays down.
+    const HOLD_MS = 350; // past this, the press is a hold, not a tap
+    let holdTimer = null, spaceDown = false;
+
     window.addEventListener('keydown', (e) => {
-      if (e.key === 'Escape') { if (counting) cancelCountdown(); else window.spyglass.quit(); }
-      else if (e.key === ' ') { e.preventDefault(); if (counting) cancelCountdown(); else startCountdown(); }
-      else if (e.key === '+' || e.key === '=') { const r = ringBox(); setSize(r.width + 30, r.left + r.width/2, r.top + r.height/2); }
-      else if (e.key === '-' || e.key === '_') { const r = ringBox(); setSize(r.width - 30, r.left + r.width/2, r.top + r.height/2); }
+      if (e.key === 'Escape') {
+        if (recording) stopRecording();
+        else if (counting) cancelCountdown();
+        else window.spyglass.quit();
+        return;
+      }
+      if (e.key === ' ') {
+        e.preventDefault();
+        if (e.repeat || spaceDown) return; // ignore auto-repeat while held
+        spaceDown = true;
+        holdTimer = setTimeout(() => {
+          holdTimer = null;
+          if (counting) cancelCountdown(); // holding overrides an armed still
+          startRecording();
+        }, HOLD_MS);
+        return;
+      }
+      // Size is fixed for the length of a clip — the encoder is already running
+      // at one frame size, and a mid-clip change would silently letterbox.
+      if ((e.key === '+' || e.key === '=') && !recording) { const r = ringBox(); setSize(r.width + 30, r.left + r.width/2, r.top + r.height/2); }
+      else if ((e.key === '-' || e.key === '_') && !recording) { const r = ringBox(); setSize(r.width - 30, r.left + r.width/2, r.top + r.height/2); }
+    });
+
+    window.addEventListener('keyup', (e) => {
+      if (e.key !== ' ') return;
+      e.preventDefault();
+      spaceDown = false;
+      if (holdTimer) {           // released before the threshold — it was a tap
+        clearTimeout(holdTimer); holdTimer = null;
+        if (counting) cancelCountdown(); else startCountdown();
+        return;
+      }
+      if (recording) stopRecording(); // rolled while held; release ends the clip
     });
 
     // --- idle "still here" bounce ------------------------------------------
     let bouncing = false;
     function bounce() {
-      if (dragging || resizing || counting || bouncing) { scheduleBounce(); return; }
+      if (dragging || resizing || counting || recording || bouncing) { scheduleBounce(); return; }
       bouncing = true;
       const start = performance.now();
       const dur = 2500;
@@ -292,7 +495,7 @@
       const decay = 3.6;
       function frame(now) {
         const t = (now - start) / dur;
-        if (t >= 1 || dragging || resizing || counting) {
+        if (t >= 1 || dragging || resizing || counting || recording) {
           gripAngle = GRIP_BASE; placeGrip(); bouncing = false; scheduleBounce(); return;
         }
         gripAngle = GRIP_BASE - amp * Math.sin(t * Math.PI * 6) * Math.exp(-decay * t);

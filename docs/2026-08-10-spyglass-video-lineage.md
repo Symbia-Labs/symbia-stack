@@ -66,4 +66,55 @@ For a hand-recorded clip of roughly six seconds:
 
 ## 4. Results
 
-*(appended after measuring)*
+Three clips measured. The first run (`clip-cedbf308dc67fa63`, 10 segments)
+exposed a defect and was re-measured after the fix; the two clips below are
+post-fix, one long hold and one deliberately short one.
+
+| # | Result | Evidence |
+|---|---|---|
+| P1 | **PASS** | Decodes at 340×350. Seeks to 6.748s and 0.936s respectively — the tail decodes, not just the header. |
+| P2 | **PASS** | 9 lines / 7 segments, and 3 lines / 1 segment. |
+| P3 | **PASS** | 7 segments vs 6.8s; 1 segment vs 1.0s. |
+| P4 | **PASS** | 888381 = 888381 and 71402 = 71402. Exact, both clips. |
+| P5 | **PASS** | Chain recomputed from segment digests alone reproduces the recorded head (`47d08b77…`, `ea323015…`). |
+| P6 | **BROKEN, as registered** | `duration` is `null`. The clip seeks to its end, so the bytes are present and the index is usable; the container simply carries no duration in its header. Predicted to break, broke. |
+
+Two checks beyond the predictions:
+
+- **Tamper locality.** Flipping one bit of segment 4's digest makes the
+  recomputed chain first diverge at exactly segment 4. The break is local: the
+  prefix before it stays verifiable, so a damaged clip degrades to a shorter
+  trustworthy clip rather than to nothing.
+- **Non-epistemic.** No ledger event carries a data URL, base64 blob, or any
+  long opaque run. Digests, byte counts, offsets and geometry only. The ledger
+  is publishable precisely because it cannot leak what it describes.
+
+### 4.1 Defect found: the dropped tail
+
+**Observation.** Every clip in the first run logged
+`Error: unknown clip: null` from `video-chunk` immediately before its close
+event. Two short holds produced clips with 0 segments.
+
+**Inference.** `recorder.stop()` fires `dataavailable` and then `onstop`. The
+handler read `recClipId` *after* awaiting `e.data.arrayBuffer()`, by which point
+`stopRecording` had already nulled it and closed the clip. The final segment
+reached neither the file nor the ledger.
+
+This is the interesting part: **P4 still passed.** The file and the ledger
+stayed consistent with each other while both silently omitted the end. A
+self-consistent record that is missing its tail is exactly the failure this
+product exists to make impossible, and the internal check could not see it —
+only the error line in the log could. Byte-sum agreement is not evidence of
+completeness; it is evidence of agreement.
+
+Fixed by snapshotting the clip id synchronously in the handler and awaiting
+every queued segment write before appending the close event. Short holds now
+produce a real one-segment clip.
+
+### 4.2 The verification script measured its own assumptions
+
+The tamper check reported `FAIL` on the one-segment clip. The clip is fine: the
+probe tampers with the fourth segment of a clip that has one, finds nothing to
+diverge, and records the absence as a failure. The check inherited the shape of
+the long clip it was written against — an instrument agreeing with itself until
+something outside it objected. Recorded here rather than quietly corrected.
