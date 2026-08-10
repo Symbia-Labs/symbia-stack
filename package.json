@@ -5,6 +5,8 @@
   "description": "Symbia Platform - AI Assistant Infrastructure",
   "workspaces": [
     "symbia-sys",
+    "symbia-crypto",
+    "symbia-lineage",
     "symbia-auth",
     "symbia-db",
     "symbia-http",

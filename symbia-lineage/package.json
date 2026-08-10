@@ -1,0 +1,41 @@
+{
+  "name": "@symbia/lineage",
+  "version": "1.0.0",
+  "license": "MIT",
+  "description": "Signed, chained observation records for anything entering the system as context",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "require": "./dist/index.js",
+      "default": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "typecheck": "tsc --noEmit",
+    "test": "npx tsx scripts/test-lineage.ts"
+  },
+  "dependencies": {
+    "@symbia/crypto": "*"
+  },
+  "devDependencies": {
+    "@types/node": "^22.15.29",
+    "typescript": "^5.8.3"
+  },
+  "files": [
+    "dist",
+    "src"
+  ],
+  "keywords": [
+    "symbia",
+    "lineage",
+    "provenance",
+    "attestation",
+    "observer"
+  ]
+}
