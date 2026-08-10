@@ -149,32 +149,48 @@ const server = createSymbiaServer({
     // nothing, and against a users table that already holds rows but not the
     // defaults it skips user creation yet still attaches entitlements to the
     // absent super admin — a foreign-key violation (observed 9 Aug against a
-    // DB with real users). This ensures ONLY dev@example.com, idempotently,
-    // and coexists with existing users. login needs just the row: it compares
-    // the password hash and issues a token; orgs may be empty for now.
+    // DB with real users). This ensures ONLY dev@example.com plus its own org,
+    // idempotently, and coexists with existing users.
+    //
+    // The org + membership are load-bearing, not optional: a bare user with no
+    // membership has NO org context, and every org-scoped call refuses with
+    // "Organization context required. Provide X-Org-Id" — observed 9 Aug when
+    // the spyglass vision call through the integrations gateway refused because
+    // the admin belonged to no org. Each insert is onConflictDoNothing, so this
+    // is safe on every boot and repairs an existing org-less admin.
     // Disable with IDENTITY_SEED_DEFAULT_ADMIN=false.
     if (process.env.IDENTITY_SEED_DEFAULT_ADMIN !== "false") {
       try {
-        const existing = await db
-          .select({ id: schema.users.id })
-          .from(schema.users)
-          .where(eq(schema.users.email, "dev@example.com"))
-          .limit(1);
-        if (existing.length === 0) {
-          await db
-            .insert(schema.users)
-            .values({
-              id: DEFAULT_USER_IDS.SUPER_ADMIN,
-              email: "dev@example.com",
-              passwordHash: bcrypt.hashSync("password123", 10),
-              name: "Dev Admin",
-              isSuperAdmin: true,
-            })
-            .onConflictDoNothing();
-          console.log("✓ Default admin created (dev@example.com / password123)");
-        } else {
-          console.log("✓ Default admin already present (dev@example.com)");
-        }
+        await db
+          .insert(schema.users)
+          .values({
+            id: DEFAULT_USER_IDS.SUPER_ADMIN,
+            email: "dev@example.com",
+            passwordHash: bcrypt.hashSync("password123", 10),
+            name: "Dev Admin",
+            isSuperAdmin: true,
+          })
+          .onConflictDoNothing();
+
+        await db
+          .insert(schema.organizations)
+          .values({
+            id: DEFAULT_ORG_IDS.SYMBIA_LABS,
+            name: "Symbia Labs",
+            slug: "symbia-labs",
+          })
+          .onConflictDoNothing();
+
+        await db
+          .insert(schema.memberships)
+          .values({
+            userId: DEFAULT_USER_IDS.SUPER_ADMIN,
+            orgId: DEFAULT_ORG_IDS.SYMBIA_LABS,
+            role: "admin",
+          })
+          .onConflictDoNothing();
+
+        console.log("✓ Default admin ensured (dev@example.com / password123) in org symbia-labs");
       } catch (error) {
         console.error("Failed to ensure default admin:", error);
       }
