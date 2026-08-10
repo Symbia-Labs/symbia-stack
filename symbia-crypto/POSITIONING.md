@@ -200,6 +200,27 @@ audio, and still prove the audio belonged to that capture.** Verified by
 deleting `audio.webm` and re-running the verifier, which reports the video
 complete, the binding confirmed, and the audio *withheld* rather than missing.
 
+**The verifier is not a model, and must never be one.** It is a 393-line script
+that reads the files and does arithmetic: re-hash each chunk of the media,
+recompute the running total, compare it to what the logbook recorded, check each
+signature against the key travelling in the record. There is no judgement in it,
+no network call, and nothing to configure. Every check either adds up or does
+not.
+
+That matters more than it sounds. A verifier that *interpreted* a record — a
+model reading it and forming a view — would reintroduce the problem the whole
+design exists to remove: you would be trusting the reader instead of the
+evidence, and two runs could disagree. Verification here is closer to balancing
+a ledger than to reviewing a document.
+
+It follows that the verifier is not privileged, and this is the real test.
+Anyone can write their own from the specification in a few hundred lines, and if
+theirs disagrees with ours, one of us has a bug — the record is the authority,
+not the tool. That was checked rather than assumed: a signature from one of
+these clips was verified with `openssl`, given nothing but the public key lifted
+out of the logbook, and it agreed. It also refused, as it must, when a single
+bit of the signed value was flipped.
+
 The parts are not media. A "track" is a named chain, and `TRACK_FILES` mapping
 ids to filenames is the entire coupling to media. The same structure gives
 per-part disclosure over a document set, a multi-party recording where one
