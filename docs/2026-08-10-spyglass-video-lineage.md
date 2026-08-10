@@ -118,3 +118,58 @@ probe tampers with the fourth segment of a clip that has one, finds nothing to
 diverge, and records the absence as a failure. The check inherited the shape of
 the long clip it was written against — an instrument agreeing with itself until
 something outside it objected. Recorded here rather than quietly corrected.
+
+### 4.3 Audio, and one chain per track
+
+Added after the video work, same day. Decisions taken deliberately and recorded
+so they are not relitigated by accident:
+
+**Tier one is the system microphone**, because on this machine it is the only
+thing macOS will give us. **Observation:** Electron 32.3.3's own typings say
+`loopback` audio "is currently only supported on Windows"; the machine has
+`audioinput` devices for the built-in and Continuity mics and no virtual audio
+device installed. **Inference:** system-audio capture has no supported path in
+the current runtime, and tier two — including left and right bound to
+*different* sources, so channel separation itself carries provenance — is
+deferred rather than attempted. The source model is declared in a shape that
+can express it, so that tier is a config change and not a rewrite.
+
+**Each track carries its own chain**, written to its own file, with the close
+event binding the track heads:
+
+    binding = sha256( "audio" ‖ head_audio ‖ "video" ‖ head_video )   (ids sorted)
+
+The alternative — one chain over a muxed container — is simpler and gives up
+the only property worth having here: with separate chains you can release the
+video and *prove the audio belonged to the same capture without handing over
+the audio*. That is the Observer boundary expressed in files rather than in
+policy, and it is checkable by a party who holds only one of the tracks.
+
+**The halo is driven by analyser RMS, not by a flag.** A steady "audio on"
+light is a claim, and a muted input, a dead device, or a track that ended
+silently all light it identically. Level is evidence: if it moves, sound is
+arriving. When audio is not capturing there is no halo at all — absence means
+no audio track, never "audio might be on". This is the blank-beats-green rule
+applied to a consent signal, and consent is why it matters: a ring pointed at a
+screen is aimed, but a microphone takes in everyone in the room who never saw
+the instrument, and they should be able to tell it is live without trusting us.
+
+**Gestures.** One key, four gestures: tap for a still, hold for video, tap-then-
+hold for video with audio, tap-tap for audio only. Audio-only latches and any
+press stops it — a voice note is not something you hold your hand down for, and
+there should be no state you cannot leave with the key you entered it with.
+
+### 4.4 Audio predictions and results
+
+| # | Prediction | Result |
+|---|---|---|
+| P7 | macOS prompts for microphone access on first use | **No prompt** — `getMediaAccessStatus('microphone')` already read `granted`, so nothing was asked. Predicted as likely-not; correct. |
+| P8 | Two independent chains; audio segment count within ±1 of video | **PASS** — audio 6 segments, video 6 segments. |
+| P9 | The binding recomputes from the two track heads | **PASS** |
+| P10 | **Expected to break.** With `audio.webm` deleted, the clip still verifies: video complete, binding confirmed from the audio head in the ledger, audio reported present-but-withheld | **PASS** — it did not break. Registered as the doubtful one because the two recorders start milliseconds apart and the withheld path had never been exercised; both concerns turned out not to bear on it. |
+
+Five clips verified across all four gestures, including a 0.5s single-segment
+video and an audio-only clip: every chain recomputes, every segment's bytes on
+disk hash to the digest the ledger claims, and tampering diverges exactly where
+it was introduced.
+

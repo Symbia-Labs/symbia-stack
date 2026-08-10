@@ -9,10 +9,10 @@ contextBridge.exposeInMainWorld('spyglass', {
   // Flip the window between click-through (loupe hovers over your work) and
   // interactive (cursor is over the ring/toolbar).
   setInteractive: (yes) => ipcRenderer.send('interactive', yes),
-  // Video: open a clip, append each recorder segment (hashed and chained as it
-  // lands), close and get the receipt.
-  videoOpen: (meta) => ipcRenderer.invoke('video-open', meta),
-  videoChunk: (clipId, bytes) => ipcRenderer.invoke('video-chunk', clipId, bytes),
-  videoClose: (clipId) => ipcRenderer.invoke('video-close', clipId),
+  // Clips: open with a set of declared tracks, append each recorder segment to
+  // its own track (hashed and chained as it lands), close and get the receipt.
+  clipOpen: (meta) => ipcRenderer.invoke('clip-open', meta),
+  clipChunk: (clipId, trackId, bytes) => ipcRenderer.invoke('clip-chunk', clipId, trackId, bytes),
+  clipClose: (clipId) => ipcRenderer.invoke('clip-close', clipId),
   quit: () => ipcRenderer.send('quit'),
 });

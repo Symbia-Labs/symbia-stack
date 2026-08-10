@@ -4,22 +4,31 @@
  *
  *   node scripts/verify-clip.js /tmp/symbia-spyglass/clip-<id>
  *
- * Reads ONLY the ledger and the file on disk — never the app's own account of
+ * Reads ONLY the ledger and the files on disk — never the app's own account of
  * what it did. The point of the ledger is that a third party who has the clip
  * and the sidecar, and nothing else, can decide for themselves whether the clip
  * is intact. So this script takes nothing on trust, including from the process
  * that wrote the files.
  *
- * It checks:
- *   - structure: one open event, one close event, segments in strict order with
- *     single parent links forming a chain back to the open event;
- *   - completeness: the segment byte counts sum to the size of the clip file;
- *   - integrity: the chain recomputed from the segment digests alone reproduces
- *     the recorded head;
- *   - tamper locality: flipping a bit in one segment digest breaks the chain at
- *     that segment and no earlier;
- *   - the non-epistemic rule: no event carries media, only digests and
- *     structural metadata.
+ * Each TRACK is its own chain. The clip is a binding over track heads, not one
+ * interleaved sequence, which is what allows a track to be withheld: run this
+ * with `--absent audio` and it verifies everything it still has, confirms the
+ * binding using the withheld track's head from the ledger, and reports the
+ * audio as present-but-not-held rather than missing. Someone can be handed the
+ * video and shown that the audio belonged to the same capture without being
+ * given the audio.
+ *
+ * Checks:
+ *   - structure: one open and one close event; segments in strict order within
+ *     each track, single parent links chaining back to the open event;
+ *   - completeness: each track's segment bytes tile its file exactly;
+ *   - integrity: each chain recomputed from digests alone reproduces its head,
+ *     and the bytes on disk hash to the digests claimed;
+ *   - binding: the recorded binding is reproducible from the track heads;
+ *   - tamper locality: flipping a bit in one segment digest breaks that track's
+ *     chain at that segment and no earlier;
+ *   - the non-epistemic rule: no event carries media, only digests, device
+ *     labels and structure.
  *
  * Exits non-zero if any check fails.
  *
@@ -33,107 +42,137 @@ const fs = require('node:fs');
 const path = require('node:path');
 const crypto = require('node:crypto');
 
-const dir = process.argv[2];
+const args = process.argv.slice(2);
+const dir = args.find((a) => !a.startsWith('--'));
+const absent = new Set();
+for (let i = 0; i < args.length; i++) if (args[i] === '--absent') absent.add(args[i + 1]);
 if (!dir) {
-  console.error('usage: verify-clip.js <clip-dir>');
+  console.error('usage: verify-clip.js <clip-dir> [--absent <track>]');
   process.exit(2);
 }
 
+const TRACK_FILES = { video: 'clip.webm', audio: 'audio.webm' };
 const results = [];
-const check = (name, ok, detail) => { results.push({ name, ok, detail }); };
+const check = (name, ok, detail) => results.push({ name, ok, detail });
+const hex = (s) => String(s).replace(/^sha256:/, '');
+const advance = (chain, digest) => crypto.createHash('sha256').update(chain).update(digest).digest();
 
-const ledgerPath = path.join(dir, 'lineage.jsonl');
-const videoPath = path.join(dir, 'clip.webm');
-const lines = fs.readFileSync(ledgerPath, 'utf8').trim().split('\n');
-const evs = lines.map((l, i) => {
-  try { return JSON.parse(l); }
-  catch { console.error(`line ${i + 1} is not valid JSON`); process.exit(2); }
-});
+const evs = fs.readFileSync(path.join(dir, 'lineage.jsonl'), 'utf8').trim().split('\n')
+  .map((l, i) => {
+    try { return JSON.parse(l); }
+    catch { console.error(`line ${i + 1} is not valid JSON`); process.exit(2); }
+  });
 
 const open = evs.find((e) => e.event_type === 'capture.clip.open');
 const close = evs.find((e) => e.event_type === 'capture.clip.close');
-const segs = evs.filter((e) => e.event_type === 'capture.segment');
-const size = fs.statSync(videoPath).size;
-
 check('open and close events present', Boolean(open && close));
-check('line count = segments + 2', lines.length === segs.length + 2,
-  `${lines.length} lines, ${segs.length} segments`);
-check('close reports the segment count it has', close.payload.segments === segs.length,
-  `close says ${close.payload.segments}, ledger has ${segs.length}`);
+if (!open || !close) { report(); }
 
-// Ordering and parentage: seq is 1..n with no gaps, and each event links to
-// exactly one parent — the previous segment, or the open event for the first.
-const ordered = segs.every((e, i) =>
-  e.payload.seq === i + 1 &&
-  Array.isArray(e.parent_links) && e.parent_links.length === 1 &&
-  e.parent_links[0] === (i === 0 ? open.event_id : segs[i - 1].event_id));
-check('segments strictly ordered with single parent links', ordered);
+const declared = (open.payload.tracks ?? []).map((t) => t.id);
+const inClose = Object.keys(close.payload.tracks ?? {});
+check('declared tracks match the close event', declared.slice().sort().join(',') === inClose.slice().sort().join(','),
+  `declared [${declared}] vs closed [${inClose}]`);
 
-// Offsets must tile the file exactly, with no gap and no overlap.
-let cursor = 0, tiled = true;
-for (const e of segs) {
-  if (e.payload.offset !== cursor) { tiled = false; break; }
-  cursor += e.payload.bytes;
-}
-check('segment offsets tile the file with no gap or overlap', tiled);
-check('byte counts sum to the clip file size', cursor === size,
-  `${cursor} vs ${size}`);
+const heads = {};
+for (const id of inClose.slice().sort()) {
+  const segs = evs.filter((e) => e.event_type === 'capture.segment' && e.payload.track === id);
+  const summary = close.payload.tracks[id];
+  heads[id] = hex(summary.chain_head);
+  const held = !absent.has(id);
+  const file = path.join(dir, TRACK_FILES[id] ?? `${id}.webm`);
+  const exists = held && fs.existsSync(file);
 
-// Recompute the chain from the digests alone.
-const digestOf = (e) => Buffer.from(e.payload.digest.replace(/^sha256:/, ''), 'hex');
-const advance = (chain, digest) =>
-  crypto.createHash('sha256').update(chain).update(digest).digest();
+  check(`[${id}] close reports the segment count the ledger has`,
+    summary.segments === segs.length, `close ${summary.segments}, ledger ${segs.length}`);
 
-let chain = Buffer.alloc(32); // genesis: 32 zero bytes
-const perSegment = [];
-for (const e of segs) { chain = advance(chain, digestOf(e)); perSegment.push(chain.toString('hex')); }
-const head = `sha256:${chain.toString('hex')}`;
-check('chain recomputes to the recorded head', head === close.payload.chain_head,
-  `${head.slice(0, 22)}… vs ${String(close.payload.chain_head).slice(0, 22)}…`);
-check('every segment checksum matches its position in the chain',
-  segs.every((e, i) => e.checksum === `sha256:${perSegment[i]}`));
+  // Ordering and parentage within the track.
+  const ordered = segs.every((e, i) =>
+    e.payload.seq === i + 1 &&
+    Array.isArray(e.parent_links) && e.parent_links.length === 1 &&
+    e.parent_links[0] === (i === 0 ? open.event_id : segs[i - 1].event_id));
+  check(`[${id}] segments strictly ordered with single parent links`, ordered);
 
-// Each segment's own bytes must hash to the digest the ledger claims.
-const fd = fs.openSync(videoPath, 'r');
-let bytesOk = true;
-for (const e of segs) {
-  const buf = Buffer.alloc(e.payload.bytes);
-  fs.readSync(fd, buf, 0, e.payload.bytes, e.payload.offset);
-  if (crypto.createHash('sha256').update(buf).digest('hex') !== e.payload.digest.replace(/^sha256:/, '')) {
-    bytesOk = false; break;
+  // Offsets must tile the track's file exactly.
+  let cursor = 0, tiled = true;
+  for (const e of segs) {
+    if (e.payload.offset !== cursor) { tiled = false; break; }
+    cursor += e.payload.bytes;
+  }
+  check(`[${id}] segment offsets tile with no gap or overlap`, tiled);
+  check(`[${id}] byte counts sum to the close event's total`, cursor === summary.bytes,
+    `${cursor} vs ${summary.bytes}`);
+
+  // Recompute this track's chain from its digests alone.
+  let chain = Buffer.alloc(32); // genesis
+  const perSegment = [];
+  for (const e of segs) { chain = advance(chain, Buffer.from(hex(e.payload.digest), 'hex')); perSegment.push(chain.toString('hex')); }
+  check(`[${id}] chain recomputes to the recorded head`, chain.toString('hex') === heads[id],
+    `${chain.toString('hex').slice(0, 16)}… vs ${heads[id].slice(0, 16)}…`);
+  check(`[${id}] every segment checksum matches its position in the chain`,
+    segs.every((e, i) => hex(e.checksum) === perSegment[i]));
+
+  if (!held) {
+    check(`[${id}] withheld — binding still checkable from its head alone`, true,
+      'track not present, head taken from the ledger');
+    continue;
+  }
+  if (!exists) {
+    check(`[${id}] track file present`, false, `${file} missing (pass --absent ${id} if withheld deliberately)`);
+    continue;
+  }
+  check(`[${id}] byte counts sum to the file size`, cursor === fs.statSync(file).size,
+    `${cursor} vs ${fs.statSync(file).size}`);
+
+  // The bytes on disk must hash to the digests the ledger claims.
+  const fd = fs.openSync(file, 'r');
+  let bytesOk = true;
+  for (const e of segs) {
+    const buf = Buffer.alloc(e.payload.bytes);
+    fs.readSync(fd, buf, 0, e.payload.bytes, e.payload.offset);
+    if (crypto.createHash('sha256').update(buf).digest('hex') !== hex(e.payload.digest)) { bytesOk = false; break; }
+  }
+  fs.closeSync(fd);
+  check(`[${id}] bytes on disk hash to the digests the ledger claims`, bytesOk);
+
+  // Tamper locality. Target a segment that exists — an earlier version of this
+  // script always tampered with segment 4 and reported a failure on any clip
+  // shorter than that, which was the script agreeing with the clip it was
+  // written against rather than testing anything.
+  if (segs.length) {
+    const target = Math.min(4, segs.length); // 1-based
+    let t = Buffer.alloc(32), divergedAt = null;
+    segs.forEach((e, i) => {
+      let d = Buffer.from(hex(e.payload.digest), 'hex');
+      if (i === target - 1) { d = Buffer.from(d); d[0] ^= 1; }
+      t = advance(t, d);
+      if (divergedAt === null && t.toString('hex') !== perSegment[i]) divergedAt = i + 1;
+    });
+    check(`[${id}] tampering with segment ${target} diverges at segment ${target}`,
+      divergedAt === target, `diverged at ${divergedAt}`);
   }
 }
-fs.closeSync(fd);
-check('clip bytes hash to the digests the ledger claims', bytesOk);
 
-// Tamper locality. Pick a segment that exists — an earlier version of this
-// script always tampered with segment 4 and reported a failure on any clip
-// shorter than that, which was the script agreeing with the clip it was written
-// against rather than testing anything.
-if (segs.length >= 1) {
-  const target = Math.min(4, segs.length); // 1-based
-  let t = Buffer.alloc(32), divergedAt = null;
-  segs.forEach((e, i) => {
-    let d = digestOf(e);
-    if (i === target - 1) { d = Buffer.from(d); d[0] ^= 1; }
-    t = advance(t, d);
-    if (divergedAt === null && t.toString('hex') !== perSegment[i]) divergedAt = i + 1;
-  });
-  check(`tampering with segment ${target} diverges at segment ${target}`,
-    divergedAt === target, `diverged at ${divergedAt}`);
-}
+// The binding commits to every track head in sorted order.
+const b = crypto.createHash('sha256');
+for (const id of inClose.slice().sort()) b.update(id).update(Buffer.from(heads[id], 'hex'));
+check('binding reproduces from the track heads', b.digest('hex') === hex(close.payload.binding));
 
-// Non-epistemic rule: structural metadata only, never content.
+// Non-epistemic rule: structural metadata only, never content. Device labels
+// are structural (which microphone), not content (what it heard).
 const leak = evs.find((e) => /data:|base64|[A-Za-z0-9+/]{200,}/.test(JSON.stringify(e)));
-check('ledger carries no media, only digests and structure', !leak,
-  leak ? `event ${leak.event_id}` : '');
+check('ledger carries no media, only digests and structure', !leak, leak ? `event ${leak.event_id}` : '');
 
-let failed = 0;
-console.log(`clip ${open.payload.clip_id}  ${open.payload.frame.width}×${open.payload.frame.height}  ` +
-  `${segs.length} segments  ${size} bytes  ${(close.payload.duration_ms / 1000).toFixed(1)}s`);
-for (const r of results) {
-  if (!r.ok) failed++;
-  console.log(`  ${r.ok ? 'PASS' : 'FAIL'}  ${r.name}${r.detail ? '  (' + r.detail + ')' : ''}`);
+report();
+
+function report() {
+  const tracks = Object.entries(close?.payload?.tracks ?? {})
+    .map(([k, v]) => `${k} ${v.segments}seg/${v.bytes}B${absent.has(k) ? ' (withheld)' : ''}`).join('  ');
+  console.log(`clip ${open?.payload?.clip_id ?? '?'}  ${tracks}  ${((close?.payload?.duration_ms ?? 0) / 1000).toFixed(1)}s`);
+  let failed = 0;
+  for (const r of results) {
+    if (!r.ok) failed++;
+    console.log(`  ${r.ok ? 'PASS' : 'FAIL'}  ${r.name}${r.detail ? '  (' + r.detail + ')' : ''}`);
+  }
+  console.log(failed === 0 ? '\nverified' : `\n${failed} check(s) failed`);
+  process.exit(failed === 0 ? 0 : 1);
 }
-console.log(failed === 0 ? '\nverified' : `\n${failed} check(s) failed`);
-process.exit(failed === 0 ? 0 : 1);

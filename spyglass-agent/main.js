@@ -124,26 +124,48 @@ function lineageLine(ev) {
   }) + '\n';
 }
 
-ipcMain.handle('video-open', async (_evt, meta) => {
+// Each TRACK carries its own chain, and each track is written to its own file.
+// The alternative — one chain over a muxed container — is simpler and useless
+// for the thing that matters: with separate chains you can hand someone the
+// video and prove the audio belonged to the same capture without handing over
+// the audio. The close event binds the track heads together, so the binding is
+// checkable by a party who holds only one of them. That is the Observer
+// boundary expressed in files rather than in policy.
+const TRACK_FILES = { video: 'clip.webm', audio: 'audio.webm' };
+const GENESIS = '0'.repeat(64);
+
+function advance(chainHex, digestHex) {
+  return crypto.createHash('sha256')
+    .update(Buffer.from(chainHex, 'hex'))
+    .update(Buffer.from(digestHex, 'hex'))
+    .digest('hex');
+}
+
+ipcMain.handle('clip-open', async (_evt, meta) => {
   const clipId = crypto.randomBytes(8).toString('hex');
   const dir = path.join(os.tmpdir(), 'symbia-spyglass', `clip-${clipId}`);
   fs.mkdirSync(dir, { recursive: true });
   const clip = {
     clipId,
     dir,
-    video: path.join(dir, 'clip.webm'),
     ledger: path.join(dir, 'lineage.jsonl'),
     actor: `spyglass:agent:${crypto.createHash('sha256').update(os.hostname()).digest('hex').slice(0, 8)}`,
-    seq: 0,
-    bytes: 0,
-    // Genesis: the chain starts from the zero hash, so segment 1 has a parent
-    // like every other segment and no segment is a special case.
-    chain: '0'.repeat(64),
+    tracks: new Map(),
     startedAt: Date.now(),
-    lastEventId: null,
   };
-  clip.videoFd = fs.openSync(clip.video, 'a');
   clip.ledgerFd = fs.openSync(clip.ledger, 'a');
+
+  const declared = (meta?.tracks ?? []).map((t) => {
+    const file = path.join(dir, TRACK_FILES[t.id] ?? `${t.id}.webm`);
+    clip.tracks.set(t.id, {
+      id: t.id, file, fd: fs.openSync(file, 'a'),
+      seq: 0, bytes: 0,
+      // Genesis: the chain starts from the zero hash, so segment 1 has a parent
+      // like every other segment and no segment is a special case.
+      chain: GENESIS, lastEventId: null,
+    });
+    return t;
+  });
 
   const ev = {
     event_id: `event:${clipId}:0`,
@@ -152,59 +174,80 @@ ipcMain.handle('video-open', async (_evt, meta) => {
     event_type: 'capture.clip.open',
     payload: {
       clip_id: clipId,
-      media_type: meta?.mimeType ?? 'video/webm',
-      frame: meta?.frame ?? null,       // capture geometry in device pixels
       aperture: meta?.aperture ?? null, // ring geometry in points
+      // Each track declares what it is and where it came from. Source bindings
+      // are structural — device labels and a salted id hash, never a sample.
+      tracks: declared,
     },
     continuity_context: { clip: clipId },
     parent_links: [],
-    checksum: `sha256:${clip.chain}`,
+    checksum: `sha256:${GENESIS}`,
   };
   fs.writeSync(clip.ledgerFd, lineageLine(ev));
-  clip.lastEventId = ev.event_id;
+  clip.openEventId = ev.event_id;
+  for (const t of clip.tracks.values()) t.lastEventId = ev.event_id;
   clips.set(clipId, clip);
-  return { clipId, dir, video: clip.video, ledger: clip.ledger };
+  return {
+    clipId, dir, ledger: clip.ledger,
+    files: Object.fromEntries([...clip.tracks].map(([id, t]) => [id, t.file])),
+  };
 });
 
-ipcMain.handle('video-chunk', async (_evt, clipId, bytes) => {
+ipcMain.handle('clip-chunk', async (_evt, clipId, trackId, bytes) => {
   const clip = clips.get(clipId);
   if (!clip) throw new Error('unknown clip: ' + clipId);
+  const track = clip.tracks.get(trackId);
+  if (!track) throw new Error('unknown track: ' + trackId + ' on clip ' + clipId);
+
   const buf = Buffer.from(bytes);
   const digest = crypto.createHash('sha256').update(buf).digest('hex');
-  // Chain over the PARENT chain value and this segment's digest, in that order.
-  clip.chain = crypto.createHash('sha256')
-    .update(Buffer.from(clip.chain, 'hex'))
-    .update(Buffer.from(digest, 'hex'))
-    .digest('hex');
-  clip.seq += 1;
-  clip.bytes += buf.length;
-  fs.writeSync(clip.videoFd, buf);
+  track.chain = advance(track.chain, digest);
+  track.seq += 1;
+  track.bytes += buf.length;
+  fs.writeSync(track.fd, buf);
 
   const ev = {
-    event_id: `event:${clip.clipId}:${clip.seq}`,
+    event_id: `event:${clip.clipId}:${trackId}:${track.seq}`,
     timestamp: new Date().toISOString(),
     actor_identity: clip.actor,
     event_type: 'capture.segment',
     payload: {
       clip_id: clip.clipId,
-      seq: clip.seq,
+      track: trackId,
+      seq: track.seq,
       bytes: buf.length,
       digest: `sha256:${digest}`,
-      offset: clip.bytes - buf.length,
+      offset: track.bytes - buf.length,
     },
-    continuity_context: { clip: clip.clipId },
-    parent_links: [clip.lastEventId],
-    checksum: `sha256:${clip.chain}`,
+    continuity_context: { clip: clip.clipId, track: trackId },
+    // Parents run within the track: a track is a chain, and the clip is a
+    // binding over chains, not one interleaved sequence.
+    parent_links: [track.lastEventId],
+    checksum: `sha256:${track.chain}`,
   };
   fs.writeSync(clip.ledgerFd, lineageLine(ev));
-  clip.lastEventId = ev.event_id;
-  return { seq: clip.seq, bytes: buf.length, digest, chain: clip.chain };
+  track.lastEventId = ev.event_id;
+  return { track: trackId, seq: track.seq, bytes: buf.length, digest, chain: track.chain };
 });
 
-ipcMain.handle('video-close', async (_evt, clipId) => {
+ipcMain.handle('clip-close', async (_evt, clipId) => {
   const clip = clips.get(clipId);
   if (!clip) throw new Error('unknown clip: ' + clipId);
   const durationMs = Date.now() - clip.startedAt;
+  const ids = [...clip.tracks.keys()].sort(); // deterministic order for the binding
+
+  const tracks = {};
+  for (const id of ids) {
+    const t = clip.tracks.get(id);
+    tracks[id] = { segments: t.seq, bytes: t.bytes, chain_head: `sha256:${t.chain}` };
+  }
+  // The binding commits to every track head, in a fixed order. Someone holding
+  // one track, its chain, and this value can confirm the other track belonged
+  // to the same capture — and still cannot hear or see it.
+  const binding = crypto.createHash('sha256');
+  for (const id of ids) binding.update(id).update(Buffer.from(clip.tracks.get(id).chain, 'hex'));
+  const bindingHex = binding.digest('hex');
+
   const ev = {
     event_id: `event:${clip.clipId}:close`,
     timestamp: new Date().toISOString(),
@@ -212,25 +255,19 @@ ipcMain.handle('video-close', async (_evt, clipId) => {
     event_type: 'capture.clip.close',
     payload: {
       clip_id: clip.clipId,
-      segments: clip.seq,
-      bytes: clip.bytes,
       duration_ms: durationMs,
-      // The head commits to every segment, in order. This is the receipt for
-      // the clip as a whole.
-      chain_head: `sha256:${clip.chain}`,
+      tracks,
+      binding: `sha256:${bindingHex}`,
     },
     continuity_context: { clip: clip.clipId },
-    parent_links: [clip.lastEventId],
-    checksum: `sha256:${clip.chain}`,
+    parent_links: ids.map((id) => clip.tracks.get(id).lastEventId),
+    checksum: `sha256:${bindingHex}`,
   };
   fs.writeSync(clip.ledgerFd, lineageLine(ev));
-  fs.closeSync(clip.videoFd);
+  for (const t of clip.tracks.values()) fs.closeSync(t.fd);
   fs.closeSync(clip.ledgerFd);
   clips.delete(clipId);
-  return {
-    clipId: clip.clipId, dir: clip.dir, video: clip.video, ledger: clip.ledger,
-    segments: clip.seq, bytes: clip.bytes, durationMs, chain: clip.chain,
-  };
+  return { clipId: clip.clipId, dir: clip.dir, ledger: clip.ledger, durationMs, tracks, binding: bindingHex };
 });
 
 ipcMain.on('quit', () => app.quit());
