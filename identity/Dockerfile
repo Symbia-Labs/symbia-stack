@@ -22,6 +22,7 @@ COPY identity/ ./identity/
 
 # Link to pre-built libraries from base image
 COPY --from=symbia-base /symbia-libs/symbia-sys ./symbia-sys
+COPY --from=symbia-base /symbia-libs/symbia-crypto ./symbia-crypto
 COPY --from=symbia-base /symbia-libs/symbia-db ./symbia-db
 COPY --from=symbia-base /symbia-libs/symbia-http ./symbia-http
 COPY --from=symbia-base /symbia-libs/symbia-relay ./symbia-relay

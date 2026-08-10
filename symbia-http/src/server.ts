@@ -5,6 +5,7 @@ import MemoryStore from "memorystore";
 import { createServer } from "http";
 import { Server as SocketIOServer } from "socket.io";
 import { resolveServicePort } from "@symbia/sys";
+import { loadServiceIdentity, describeServiceIdentity, type ServiceIdentity } from "@symbia/crypto";
 import { observabilityMiddleware, initServiceRelay, shutdownRelay, installFetchTracePropagation } from "@symbia/relay";
 import type { Socket } from "net";
 import type { ServerConfig, ServerInstance, HealthConfig, HealthCheckResult, ShutdownConfig } from "./types.js";
@@ -41,6 +42,9 @@ export function createSymbiaServer(config: ServerConfig): ServerInstance {
     database,
     dbExportPath = process.env.DB_EXPORT_PATH,
   } = config;
+
+  // Set when the service's keypair loads; absent if it could not be read.
+  let identity: ServiceIdentity | undefined;
 
   // Parse health config
   const healthEnabled = healthConfig !== false;
@@ -274,6 +278,31 @@ export function createSymbiaServer(config: ServerConfig): ServerInstance {
     process.env.SERVICE_ID = process.env.SERVICE_ID || String(serviceId);
     installFetchTracePropagation(String(serviceId));
 
+    // Stage 0 of docs/2026-08-10-envelope-signatures-proposal.md.
+    //
+    // Every service boots through this function, so the key is loaded once here
+    // rather than copied into ten services — a shared concern with N
+    // implementations is not shared, and authMiddleware has already been forked
+    // three ways in this codebase to prove it.
+    //
+    // Nothing is signed yet. This exists so that when envelopes start carrying
+    // signatures there is already a durable identity to sign with, and so the
+    // operational question — does the key survive a restart — gets answered
+    // before the cryptographic one.
+    try {
+      identity = loadServiceIdentity({ role: String(serviceId) });
+      log(describeServiceIdentity(identity));
+      if (identity.created) {
+        // Worth saying out loud: if this appears on every boot, the key is not
+        // being persisted and the service is a different identity each time.
+        log(`Identity key written to ${identity.keyPath} — mount this path to keep it across restarts`);
+      }
+    } catch (err) {
+      // A missing identity must not stop a service from serving. It is recorded
+      // as absent rather than substituted with something that looks equivalent.
+      log(`Identity unavailable, continuing without one: ${err instanceof Error ? err.message : err}`);
+    }
+
     app.use(observabilityMiddleware({
       excludePaths: ['/health', '/health/live', '/health/ready', '/favicon.ico', ...(telemetry?.excludePaths || [])],
       slowRequestThresholdMs: 5000,
@@ -498,6 +527,9 @@ export function createSymbiaServer(config: ServerConfig): ServerInstance {
   return {
     app,
     httpServer,
+    // Present only when a key actually loaded. Absent is a state, not a
+    // failure to hide.
+    identity,
     io,
     telemetry: telemetry?.client,
     start,

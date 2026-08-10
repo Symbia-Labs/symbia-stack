@@ -26,3 +26,10 @@ export {
   verifyDocument,
   type Identity,
 } from './identity.js';
+
+export {
+  loadServiceIdentity,
+  describeServiceIdentity,
+  type ServiceIdentity,
+  type LoadServiceIdentityOptions,
+} from './service-identity.js';

@@ -13,6 +13,7 @@
     "test": "tsx scripts/test-registry.ts"
   },
   "dependencies": {
+    "@symbia/crypto": "file:../symbia-crypto",
     "@symbia/http": "file:../symbia-http",
     "@symbia/logging-client": "file:../symbia-logging-client",
     "@symbia/sys": "file:../symbia-sys",

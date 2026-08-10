@@ -20,9 +20,7 @@
     "typecheck": "tsc --noEmit",
     "test": "npx tsx scripts/test-lineage.ts"
   },
-  "dependencies": {
-    "@symbia/crypto": "*"
-  },
+  "dependencies": {},
   "devDependencies": {
     "@types/node": "^22.15.29",
     "typescript": "^5.8.3"

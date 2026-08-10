@@ -84,6 +84,17 @@ export interface ProvenanceEnvelope {
   hash: string;
 }
 
+// network/server/src/services/policy.ts refuses to start in production without
+// this, and seals with the identical construction. This file had no such guard,
+// so an unset variable meant production replies were sealed with a literal
+// published in this repository — a seal anyone reading the source could forge.
+// Same secret, same construction, so the same guard.
+if (!process.env.NETWORK_HASH_SECRET && process.env.NODE_ENV === 'production') {
+  throw new Error(
+    'NETWORK_HASH_SECRET is required in production — refusing to seal provenance ' +
+    'envelopes with the development literal'
+  );
+}
 const HASH_SECRET =
   process.env.NETWORK_HASH_SECRET || 'symbia-network-dev-only';
 

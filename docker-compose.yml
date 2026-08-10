@@ -87,6 +87,11 @@ services:
     depends_on:
       db-bootstrap:
         condition: service_completed_successfully
+    volumes:
+      # Service identity key. Without this a recreated container is a new
+      # identity each time — measured 10 Aug 2026: force-recreate changed
+      # directory from 7d9b4cf2... to d7366b1c...
+      - identity_identity:/app/.identity
     healthcheck:
       test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://127.0.0.1:5001/health/live"]
       interval: 30s
@@ -114,6 +119,11 @@ services:
         condition: service_healthy
       db-bootstrap:
         condition: service_completed_successfully
+    volumes:
+      # Service identity key. Without this a recreated container is a new
+      # identity each time — measured 10 Aug 2026: force-recreate changed
+      # directory from 7d9b4cf2... to d7366b1c...
+      - identity_logging:/app/.identity
     healthcheck:
       test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://127.0.0.1:5002/health/live"]
       interval: 30s
@@ -142,6 +152,11 @@ services:
         condition: service_healthy
       db-bootstrap:
         condition: service_completed_successfully
+    volumes:
+      # Service identity key. Without this a recreated container is a new
+      # identity each time — measured 10 Aug 2026: force-recreate changed
+      # directory from 7d9b4cf2... to d7366b1c...
+      - identity_catalog:/app/.identity
     healthcheck:
       test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://127.0.0.1:5003/health/live"]
       interval: 30s
@@ -171,6 +186,11 @@ services:
         condition: service_healthy
       db-bootstrap:
         condition: service_completed_successfully
+    volumes:
+      # Service identity key. Without this a recreated container is a new
+      # identity each time — measured 10 Aug 2026: force-recreate changed
+      # directory from 7d9b4cf2... to d7366b1c...
+      - identity_messaging:/app/.identity
     healthcheck:
       test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://127.0.0.1:5005/health/live"]
       interval: 30s
@@ -195,6 +215,11 @@ services:
     depends_on:
       identity:
         condition: service_healthy
+    volumes:
+      # Service identity key. Without this a recreated container is a new
+      # identity each time — measured 10 Aug 2026: force-recreate changed
+      # directory from 7d9b4cf2... to d7366b1c...
+      - identity_network:/app/.identity
     healthcheck:
       test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://127.0.0.1:5009/health/live"]
       interval: 30s
@@ -216,6 +241,11 @@ services:
     depends_on:
       identity:
         condition: service_healthy
+    volumes:
+      # Service identity key. Without this a recreated container is a new
+      # identity each time — measured 10 Aug 2026: force-recreate changed
+      # directory from 7d9b4cf2... to d7366b1c...
+      - identity_directory:/app/.identity
     healthcheck:
       test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://127.0.0.1:5010/health/live"]
       interval: 30s
@@ -245,6 +275,11 @@ services:
         condition: service_healthy
       db-bootstrap:
         condition: service_completed_successfully
+    volumes:
+      # Service identity key. Without this a recreated container is a new
+      # identity each time — measured 10 Aug 2026: force-recreate changed
+      # directory from 7d9b4cf2... to d7366b1c...
+      - identity_runtime:/app/.identity
     healthcheck:
       test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://127.0.0.1:5006/health/live"]
       interval: 30s
@@ -281,6 +316,11 @@ services:
         condition: service_healthy
       db-bootstrap:
         condition: service_completed_successfully
+    volumes:
+      # Service identity key. Without this a recreated container is a new
+      # identity each time — measured 10 Aug 2026: force-recreate changed
+      # directory from 7d9b4cf2... to d7366b1c...
+      - identity_assistants:/app/.identity
     healthcheck:
       test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://127.0.0.1:5004/health/live"]
       interval: 30s
@@ -311,6 +351,11 @@ services:
         condition: service_healthy
       network:
         condition: service_healthy
+    volumes:
+      # Service identity key. Without this a recreated container is a new
+      # identity each time — measured 10 Aug 2026: force-recreate changed
+      # directory from 7d9b4cf2... to d7366b1c...
+      - identity_integrations:/app/.identity
     healthcheck:
       test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://127.0.0.1:5007/health/live"]
       interval: 30s
@@ -337,6 +382,10 @@ services:
       HUGGINGFACE_TOKEN: ${HUGGINGFACE_TOKEN:-}
     volumes:
       - models_data:/data/models
+      # Service identity key. Without this a recreated container is a new
+      # identity each time — measured 10 Aug 2026: force-recreate changed
+      # directory from 7d9b4cf2... to d7366b1c...
+      - identity_models:/app/.identity
     depends_on:
       identity:
         condition: service_healthy
@@ -427,6 +476,16 @@ services:
 volumes:
   postgres_data:
   models_data:
+  identity_identity:
+  identity_logging:
+  identity_catalog:
+  identity_messaging:
+  identity_network:
+  identity_directory:
+  identity_runtime:
+  identity_assistants:
+  identity_integrations:
+  identity_models:
 
 networks:
   default:
