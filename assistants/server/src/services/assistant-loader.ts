@@ -167,6 +167,61 @@ export function getAllLoadedAssistants(): LoadedAssistant[] {
 }
 
 /**
+ * Resolve a name the way a person writes it — key or alias — to a loaded
+ * assistant.
+ *
+ * THIS IS THE ONLY PLACE THAT KNOWS HOW A NAME BECOMES AN ASSISTANT.
+ *
+ * There were three implementations of that question before this one, and two
+ * of them were wrong. `webhooks.ts` and `assistant-route.ts` each carried a
+ * hardcoded alias table mapping `logs`->`log-analyst`, `builder`->
+ * `assistants-assistant`, and five more targets that do not exist in the
+ * registry. Measured 10 Aug 2026: the ten loaded assistants are analyst,
+ * builder, calculator, code-runner, converter, coordinator, data-explainer,
+ * echo, intent-router, smart-calc. Six of that table's seven targets were
+ * fictional, and `builder` — a real assistant — was rewritten into a
+ * non-existent one, so routing to it could only ever fail.
+ *
+ * `webhooks.ts` survived because it fell through to a key and alias check
+ * afterwards. `assistant-route.ts` had no fallback and was simply broken for
+ * every alias and for `builder`.
+ *
+ * The alias is not a constant. It is `metadata.alias` on the catalog resource,
+ * which is the registry — the same place the key comes from. A table in a
+ * source file is a copy of the registry that cannot be updated by registering
+ * anything, which is the defect class this platform exists to prevent.
+ */
+export function resolveAssistant(nameOrAlias: string): LoadedAssistant | undefined {
+  const wanted = nameOrAlias.trim().replace(/^@/, '').toLowerCase();
+  if (!wanted) return undefined;
+
+  // Exact key first — the map is keyed on it, so this is the cheap path.
+  const byKey = loadedAssistants.get(wanted);
+  if (byKey) return byKey;
+
+  // Then alias, as declared on the resource.
+  for (const loaded of loadedAssistants.values()) {
+    if (loaded.alias?.toLowerCase() === wanted) return loaded;
+  }
+
+  return undefined;
+}
+
+/**
+ * The catalog key of a loaded assistant.
+ *
+ * `getAllLoadedAssistants()` returns the map's VALUES, so `config.key` is
+ * undefined on them — which is what the mention router printed when it said a
+ * mention "resolves to undefined". The key lives on the catalog resource as
+ * `assistants/<key>`, which is where the loader derived it from.
+ */
+export function loadedAssistantKey(loaded: LoadedAssistant): string | undefined {
+  const k = loaded.resource?.key;
+  if (!k) return undefined;
+  return k.includes('/') ? k.split('/').pop() : k;
+}
+
+/**
  * Load and register assistants from Catalog
  *
  * If Catalog is unavailable, logs an error and continues with no assistants.

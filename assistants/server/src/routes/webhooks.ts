@@ -15,7 +15,12 @@ import {
   type AssistantJustification,
 } from '@symbia/relay';
 import { defaultCoordinator } from '../engine/run-coordinator.js';
-import { getLoadedAssistant, getAllLoadedAssistants } from '../services/assistant-loader.js';
+import {
+  getLoadedAssistant,
+  getAllLoadedAssistants,
+  resolveAssistant,
+  loadedAssistantKey,
+} from '../services/assistant-loader.js';
 import type { TriggerType } from '../engine/types.js';
 import { TokenAuthError } from '../integrations-client.js';
 import { DEFAULT_ORG_IDS } from '@symbia/seed';
@@ -70,10 +75,80 @@ interface SDNMessagePayload {
  * The key lives on the catalog resource as "assistants/<key>", which is where
  * assistant-loader derives it from in the first place.
  */
-function loadedKey(loaded: { resource: { key?: string } }): string | undefined {
-  const k = loaded.resource?.key;
-  if (!k) return undefined;
-  return k.includes('/') ? k.split('/').pop() : k;
+const loadedKey = loadedAssistantKey as (loaded: { resource: { key?: string } }) => string | undefined;
+
+/**
+ * Flatten action results, descending into the container actions.
+ *
+ * A REPLY THAT NEVER LEAVES IS INDISTINGUISHABLE FROM AN ASSISTANT WITH
+ * NOTHING TO SAY.
+ *
+ * `message.send` does not send. It builds the message, seals the provenance
+ * envelope over the content, and RETURNS it; the caller below is what actually
+ * puts it on the bus. That caller scanned the rule's top-level
+ * `actionsExecuted` only.
+ *
+ * `condition`, `parallel` and `loop` run their child actions themselves and
+ * report them inside their own `output` — `output.results` for condition and
+ * parallel, `output.iterations` for loop. So a `message.send` inside any
+ * branch produced a message that nothing ever read, while `condition` returned
+ * `success: true` and the provenance step recorded `ok`. The operator saw
+ * silence with every log line green.
+ *
+ * The same omission swallowed `assistant.route`'s `suppressResponse`, which is
+ * the flag that keeps the coordinator quiet after it delegates. A branch that
+ * routed would have produced a delegation AND a coordinator reply talking over
+ * it.
+ *
+ * Measured 10 Aug 2026: all three container actions were registered in the
+ * handler map, and none of them could produce a reply. They had never had a
+ * caller, so nothing had found it.
+ */
+function flattenActionResults(actions: ActionResultLike[]): ActionResultLike[] {
+  const flat: ActionResultLike[] = [];
+
+  for (const action of actions) {
+    flat.push(action);
+
+    const output = action.output as
+      | { results?: unknown; iterations?: unknown }
+      | undefined;
+    if (!output || typeof output !== 'object') continue;
+
+    // condition: output.results — the branch that ran
+    // parallel:  output.results — every branch
+    // loop:      output.iterations — each pass, itself a list of results
+    const nested: ActionResultLike[] = [];
+    if (Array.isArray(output.results)) {
+      nested.push(...(output.results as ActionResultLike[]));
+    }
+    if (Array.isArray(output.iterations)) {
+      for (const iteration of output.iterations as unknown[]) {
+        if (Array.isArray(iteration)) {
+          nested.push(...(iteration as ActionResultLike[]));
+        } else if (
+          iteration &&
+          typeof iteration === 'object' &&
+          Array.isArray((iteration as { results?: unknown }).results)
+        ) {
+          nested.push(...((iteration as { results: ActionResultLike[] }).results));
+        }
+      }
+    }
+
+    if (nested.length > 0) {
+      flat.push(...flattenActionResults(nested));
+    }
+  }
+
+  return flat;
+}
+
+interface ActionResultLike {
+  success: boolean;
+  actionType: string;
+  output?: unknown;
+  error?: string;
 }
 
 /**
@@ -133,20 +208,16 @@ export async function handleSDNMessageNew(event: SandboxEvent): Promise<void> {
   const mentionMatch = messageContent.match(/^@([\w-]+)/);
   const mentionedAlias = mentionMatch ? mentionMatch[1].toLowerCase() : null;
 
-  // Build a set of aliases/keys that map to assistant keys
-  const aliasToKey: Record<string, string> = {
-    'logs': 'log-analyst',
-    'log': 'log-analyst',
-    'catalog': 'catalog-search',
-    'search': 'catalog-search',
-    'debug': 'run-debugger',
-    'debugger': 'run-debugger',
-    'usage': 'usage-reporter',
-    'welcome': 'onboarding',
-    'onboard': 'onboarding',
-    'builder': 'assistants-assistant',
-    'build': 'assistants-assistant',
-  };
+  // A DELIVERY ADDRESS BEATS A MENTION.
+  //
+  // This event carries an explicit recipient when it was produced by
+  // assistant.route — the coordinator already decided who should answer. The
+  // mention check below used to run first and OVERWRITE that decision, so a
+  // routed message whose text still began with "@something" was re-resolved by
+  // its own text and delivered somewhere else. The routing decision is the
+  // later and better-informed of the two; text is what it was derived from.
+  const isTargetedForward = Boolean(payload.assistants && payload.assistants.length > 0);
+  const routedFrom = (payload.message?.metadata as { routedFrom?: string } | undefined)?.routedFrom;
 
   // AN @MENTION IS A ROUTE, NOT A HINT.
   //
@@ -162,8 +233,7 @@ export async function handleSDNMessageNew(event: SandboxEvent): Promise<void> {
   // catch-all answering in its place. With docs as an explicit participant the
   // same message matched its help rule immediately, which is how the two paths
   // were told apart.
-  if (mentionedAlias) {
-    const resolvedKey = aliasToKey[mentionedAlias] || mentionedAlias;
+  if (mentionedAlias && !isTargetedForward) {
     // Resolve against ALL LOADED assistants, not just the ones in the payload.
     //
     // The payload contains the conversation's participants, and the console
@@ -171,14 +241,7 @@ export async function handleSDNMessageNew(event: SandboxEvent): Promise<void> {
     // assistants: [coordinator] and docs was never a candidate to narrow to.
     // Searching the payload alone made this fix a no-op in exactly the case it
     // was written for, which the first test caught.
-    const loadedMatch = getAllLoadedAssistants().find((l) => {
-      const key = loadedKey(l);
-      return (
-        key === resolvedKey ||
-        key === mentionedAlias ||
-        l.alias?.toLowerCase() === mentionedAlias
-      );
-    });
+    const loadedMatch = resolveAssistant(mentionedAlias);
     const matchKey = loadedMatch ? loadedKey(loadedMatch) : undefined;
     if (loadedMatch && matchKey) {
       console.log(`[SDN] @${mentionedAlias} resolves to ${matchKey} — routing there only`);
@@ -204,15 +267,9 @@ export async function handleSDNMessageNew(event: SandboxEvent): Promise<void> {
     // assistantsToNotify was narrowed to that one assistant above. It still
     // applies when a mention names something that is not a loaded assistant —
     // in that case the coordinator should get it, and the others should not.
-    const isTargetedForward = payload.assistants && payload.assistants.length > 0;
     if (!isTargetedForward && mentionedAlias && assistantsToNotify.length > 1) {
-      const mentionedKey = aliasToKey[mentionedAlias] || mentionedAlias;
-      // Check if this assistant matches the mention (by key, alias map, or configured alias)
-      const loadedAssistant = getLoadedAssistant(assistant.key);
-      const assistantAlias = loadedAssistant?.alias?.toLowerCase();
-      if (assistant.key === mentionedKey ||
-          assistant.key === mentionedAlias ||
-          assistantAlias === mentionedAlias) {
+      const mentioned = resolveAssistant(mentionedAlias);
+      if (mentioned && loadedKey(mentioned) === assistant.key) {
         console.log(`[SDN] Skipping ${assistant.key} - was @mentioned, coordinator will route`);
         continue;
       }
@@ -371,6 +428,13 @@ async function processMessageForAssistant(
           // codebase must not start doing.
           symbiaContext: (payload.message as { metadata?: { symbiaContext?: unknown } })
             .metadata?.symbiaContext,
+          // Carried so assistant.route can refuse a second hop. Without this
+          // the one-hop guard reads undefined on every message and two
+          // assistants routing to each other never stop.
+          routedFrom: (payload.message as { metadata?: { routedFrom?: string } })
+            .metadata?.routedFrom,
+          routeReason: (payload.message as { metadata?: { routeReason?: string } })
+            .metadata?.routeReason,
         },
       },
       user: {
@@ -496,7 +560,7 @@ async function processMessageForAssistant(
 
   for (const ruleResult of result.results) {
     if (!ruleResult.matched) continue;
-    for (const action of ruleResult.actionsExecuted) {
+    for (const action of flattenActionResults(ruleResult.actionsExecuted)) {
       if (action.success && action.output) {
         if (action.actionType === 'message.send') {
           const output = action.output as {

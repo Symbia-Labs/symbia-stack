@@ -14,7 +14,11 @@
 
 import { BaseActionHandler } from './base.js';
 import type { ActionConfig, ActionResult, ExecutionContext } from '../types.js';
-import { getLoadedAssistant } from '../../services/assistant-loader.js';
+import {
+  resolveAssistant,
+  getAllLoadedAssistants,
+  loadedAssistantKey,
+} from '../../services/assistant-loader.js';
 import { emitEvent } from '@symbia/relay';
 import { createMessagingClient } from '@symbia/messaging-client';
 
@@ -56,32 +60,60 @@ export class AssistantRouteHandler extends BaseActionHandler {
       return this.failure('No target assistant specified for routing', Date.now() - startTime);
     }
 
-    // Clean up the assistant key (remove @ prefix if present)
-    targetAssistant = targetAssistant.replace(/^@/, '').toLowerCase();
+    // Resolve by key OR alias, against the registry. The hardcoded alias table
+    // that used to sit here mapped six of its seven targets to assistants that
+    // do not exist, and rewrote the real 'builder' into 'assistants-assistant'.
+    // See resolveAssistant() in assistant-loader for the measurement.
+    const requested = targetAssistant;
+    const resolved = resolveAssistant(requested);
+    if (!resolved || !resolved.ruleSet) {
+      const known = getAllLoadedAssistants()
+        .map((l) => {
+          const k = loadedAssistantKey(l);
+          return l.alias && l.alias !== k ? `${k} (@${l.alias})` : k;
+        })
+        .filter(Boolean)
+        .sort()
+        .join(', ');
+      // Name what was asked for AND what exists. "Assistant 'x' not found" sent
+      // an operator looking for a broken assistant when the real answer was
+      // that the name was never a name.
+      console.log(`[AssistantRoute] '${requested}' does not resolve. Loaded: ${known}`);
+      return this.failure(
+        `No assistant named '${requested}'. Loaded assistants: ${known}`,
+        Date.now() - startTime
+      );
+    }
 
-    // Map common aliases
-    const aliasMap: Record<string, string> = {
-      'logs': 'log-analyst',
-      'log': 'log-analyst',
-      'catalog': 'catalog-search',
-      'search': 'catalog-search',
-      'debug': 'run-debugger',
-      'debugger': 'run-debugger',
-      'usage': 'usage-reporter',
-      'welcome': 'onboarding',
-      'onboard': 'onboarding',
-      'help': 'coordinator',
-      'builder': 'assistants-assistant',
-      'build': 'assistants-assistant',
-    };
+    targetAssistant = loadedAssistantKey(resolved)!;
+    const assistant = resolved;
 
-    targetAssistant = aliasMap[targetAssistant] || targetAssistant;
+    // A conversation is not a place to discover a cycle.
+    //
+    // assistant.route forwards a message.new event that re-enters
+    // handleSDNMessageNew. Routing to yourself re-triggers the same ruleset on
+    // the same message, matches the same rule, and routes again — an unbounded
+    // loop that costs a model call per iteration and is only visible as a
+    // climbing bill. Refuse it at the boundary rather than relying on every
+    // future ruleset to be written carefully.
+    const selfKey = (context.event?.data as { assistantKey?: string } | undefined)?.assistantKey;
+    if (selfKey && selfKey === targetAssistant) {
+      return this.failure(
+        `Refusing to route to self ('${targetAssistant}') — that is an unbounded loop, not a delegation`,
+        Date.now() - startTime
+      );
+    }
 
-    // Get target assistant configuration
-    const assistant = getLoadedAssistant(targetAssistant);
-    if (!assistant || !assistant.ruleSet) {
-      console.log(`[AssistantRoute] Target assistant '${targetAssistant}' not found or has no rules`);
-      return this.failure(`Assistant '${targetAssistant}' not found`, Date.now() - startTime);
+    // Second cycle guard: a message that arrived here BY routing does not get
+    // routed onward. One hop. Two assistants that each route to the other
+    // would otherwise ping-pong forever, and neither ruleset would look wrong
+    // on its own.
+    const alreadyRouted = (context.message?.metadata as { routedFrom?: string } | undefined)?.routedFrom;
+    if (alreadyRouted) {
+      return this.failure(
+        `Message was already routed by '${alreadyRouted}'; refusing a second hop`,
+        Date.now() - startTime
+      );
     }
 
     console.log(`[AssistantRoute] Routing message to ${targetAssistant} (reason: ${params.reason || 'user intent'})`);
