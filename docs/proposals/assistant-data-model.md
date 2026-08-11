@@ -35,8 +35,11 @@ an answer.
 
 ```jsonc
 {
-  "id": "ast-calculator",
-  "key": "assistants/calculator",
+  // Opaque. Never derived from the name, never typed by a person, never
+  // parsed. See §2.1 — the schema already defaults to this and the seed
+  // overrides it.
+  "id": "8f3c1a94-6e2b-4d17-9c05-0b7a2f1de4a3",
+  "key": "assistants/calculator",       // the addressable, stable NAME
   "name": "Calculator",
   "description": "…prose only…",
   "type": "assistant",
@@ -86,6 +89,39 @@ an answer.
   "currentVersion": 7
 }
 ```
+
+### 2.1 `id` is a GUID, and the schema already says so
+
+```ts
+// catalog/shared/schema.ts:296
+id:  varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+key: varchar("key", { length: 255 }).notNull().unique(),
+```
+
+**The default is already a UUID.** Every `ast-*` id exists only because
+`catalog/data/assistants-bootstrap.json` supplies one explicitly and overrides
+it. So `ast-calculator` is a seed artifact, not a design.
+
+It should go, and the reason is not tidiness:
+
+- **`ast-calculator` is a second name.** It duplicates `key` in a slightly
+  different dialect, so there are two ways to say one thing and they can
+  disagree — which they already do in the console, where `id: a.key` produces
+  `calculator` and every write would 404.
+- **A meaningful id invites parsing.** `ast-` is a type prefix on a field that
+  already sits beside `type: "assistant"`, and the moment something splits on
+  the hyphen, renaming an assistant becomes a migration.
+- **`key` is already the addressable name** — `.unique()`, type-prefixed, and
+  settled by the catalog ruling. It is what a person and a script should use.
+
+**Consequence, and it is the actionable part.** `scripts/simplify-roster.mjs`
+and `scripts/write-deterministic-routing.mts` both address `ast-coordinator`
+by id — that is, by a seed artifact. They should address by `key`, and the
+catalog has no route for it: `getResourceByKey` exists in storage and is used
+internally for uniqueness checks only.
+
+**So this needs `GET|PATCH /api/resources/by-key/:key`** before the ids can
+change, or every script breaks the day the seed stops supplying them.
 
 ### What moved and why
 
@@ -179,6 +215,9 @@ Additive first, destructive last, so nothing breaks in between.
 4. Add `routing.claims`, and report claim-vs-actual in the walk.
 5. Delete `curriculum*`, drop the redundant tags, fix `currentVersion`.
 6. Remove `metadata.routing` / `metadata.ruleSet`.
+7. **Add `by-key` routes, move every script off `ast-*`, then let ids be
+   UUIDs** (§2.1). In that order — the routes must exist before the ids
+   change, or the scripts break on the day the seed stops supplying them.
 
 ---
 
