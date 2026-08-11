@@ -136,9 +136,40 @@ export interface Resolution {
  * comes back unresolved and is refused downstream, which is correct: the
  * platform genuinely does not know what "that" means on the first turn.
  */
+/**
+ * "do that again" is a re-run, not a question about determinism.
+ *
+ * Read as a provenance question on the first browser test — `again` was in the
+ * `reproducible` aspect pattern — and answered with a receipt. The user asked
+ * for the work to be repeated and got an essay about whether it could be.
+ *
+ * Substituting the whole message with the previous EXPRESSION (not the result)
+ * re-runs it: "do that again" becomes `10^7`, which routes and computes exactly
+ * as it did the first time. Deterministic, and the receipt shows the same
+ * expression, which is the honest thing for a repeat to look like.
+ */
+const REPEAT = /^\s*(?:(?:do|run|try|say|calculate|compute)\s+(?:that|it|this)\s+)?again\b[\s!.?]*$|^\s*(?:same again|one more time|repeat that|do it again)\b[\s!.?]*$/i;
+
 export function resolveReferences(conversationId: string, text: string): Resolution {
   const raw = String(text ?? '');
   const previous = recall(conversationId);
+
+  if (REPEAT.test(raw)) {
+    if (!previous?.expression) {
+      return {
+        text: raw,
+        resolved: false,
+        substitutions: [],
+        reason: 'asked to repeat, but nothing in this conversation produced an expression to repeat',
+      };
+    }
+    return {
+      text: previous.expression,
+      resolved: true,
+      substitutions: [{ phrase: raw.trim(), value: previous.expression }],
+      fromMessageId: previous.messageId,
+    };
+  }
 
   const mentionsReference = BACK_REFERENCES.some((r) => {
     r.lastIndex = 0;

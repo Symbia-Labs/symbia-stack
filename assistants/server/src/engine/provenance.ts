@@ -193,7 +193,7 @@ export interface DelegationRecord {
    * canonical lane; classifier → model leaves it. A receipt with two values
    * cannot tell them apart.
    */
-  method?: 'declaration' | 'classifier' | 'model' | 'declined';
+  method?: 'addressed' | 'declaration' | 'classifier' | 'model' | 'declined';
   /** The coordinator's steps, in order, up to and including the route. */
   steps: ProvenanceStep[];
   /** Message that triggered the delegation. */
@@ -377,7 +377,13 @@ export function classify(
    * of it is telling half the truth confidently. So the arena holds and the
    * basis says so, in the same sentence, every time.
    */
-  const note = delegation
+  // `addressed` is not a choice anybody made on the user's behalf, so it does
+  // not get the sentence about one. Saying "coordinator chose it" when the
+  // person typed the name would be the receipt taking credit for their
+  // instruction.
+  const note = delegation?.method === 'addressed'
+    ? ` Reached this assistant because you named it. No routing decision was made, and there is nothing to reproduce.`
+    : delegation
     ? ` Reached this assistant because ${delegation.from} chose it` +
       `${delegation.decidedBy ? ` via ${delegation.decidedBy}` : ''}; that choice is recorded in ` +
       `this envelope's delegation and ` +

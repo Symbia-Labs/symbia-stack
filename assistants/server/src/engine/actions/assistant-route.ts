@@ -209,15 +209,21 @@ export class AssistantRouteHandler extends BaseActionHandler {
       // `declaration` and `classifier` are both recomputable; a generative
       // model is not. Reporting them with one flag was the error corrected in
       // docs/2026-08-11-lean-deterministic.md.
-      const tier: 'declaration' | 'classifier' | 'model' =
+      const tier: 'addressed' | 'declaration' | 'classifier' | 'model' =
         modelSteps.length > 0
           ? 'model'
-          : decision?.method === 'classifier'
-            ? 'classifier'
-            : 'declaration';
+          : decision?.method === 'addressed'
+            ? // Not an inference at all — the person named the assistant. The
+              // most reproducible routing there is, and it was being ignored.
+              'addressed'
+            : decision?.method === 'classifier'
+              ? 'classifier'
+              : 'declaration';
 
       const decidedBy =
-        tier === 'model'
+        tier === 'addressed'
+          ? `you did — ${decision?.matchedPattern ?? 'addressed by name'}`
+          : tier === 'model'
           ? modelSteps.map((s) => s.source).join(', ') || undefined
           : tier === 'classifier'
             ? `assistants.route (${decision?.matchedPattern ?? 'classifier'})`

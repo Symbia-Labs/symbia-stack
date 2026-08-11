@@ -105,6 +105,14 @@ const DECLARATIONS = {
       'two plus two',
       'what do I owe if we split the bill four ways',
       'take 10 percent off two hundred',
+      // Word operators, added after "ok what is 14 squared." reached
+      // Calculator and its tokenizer met `squared`.
+      'what is 14 squared',
+      '9 cubed',
+      '2 to the power of 10',
+      'square root of 144',
+      '30 percent of 90',
+      'solve the quadratic equation',
     ],
     patterns: [
       String.raw`\b(?:tip|discount|tax|interest|markup)\b`,
@@ -128,6 +136,10 @@ const DECLARATIONS = {
       // nowhere.
       String.raw`\b(?:multiply|divide|subtract|add|times|plus|minus|halve|double|triple|square)\b[^.]*\d`,
       String.raw`\d[^.]*\b(?:times|plus|minus|divided by|multiplied by|over)\b`,
+      // WORD OPERATORS. "ok what is 14 squared." went to Calculator, whose
+      // tokenizer has no idea what `squared` is. Arithmetic expressed as an
+      // English operator is Smart Calculator's whole job.
+      String.raw`\b(?:squared|cubed|to the power of|factorial|square root of|cube root of|percent of|per cent of)\b`,
     ],
   },
 };

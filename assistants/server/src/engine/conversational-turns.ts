@@ -71,7 +71,11 @@ export const PATTERNS: Array<[TurnKind, RegExp]> = [
   // cannot swallow a real request that happens to start "that is…".
   ['acknowledgement', /^\s*(?:that (?:was|is)|wow|damn|impressive|amazing|neat|nice one|well done|good job|you'?re (?:quick|fast))\b[^.?!]{0,24}[\s!.,?]*$/i],
 
-  ['capability', /\b(?:what can you do|what do you do|what are you (?:for|able to do)|how can you help|what can i ask|what are your (?:capabilities|skills)|who are you|what are you)\b/i],
+  // `what else can you do?` was refused because the pattern demanded
+  // `what can you do` with nothing between. One word in the middle and the
+  // system declined a question `help` answers two turns later — which reads as
+  // arbitrary rather than principled.
+  ['capability', /\b(?:what (?:else )?can you do|what (?:else )?do you do|what are you (?:for|able to do)|how (?:else )?can you help|what (?:else )?can i ask|anything else|what more can you|what are your (?:capabilities|skills)|who are you|what are you)\b/i],
 ];
 
 /**

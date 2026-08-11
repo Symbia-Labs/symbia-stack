@@ -13,7 +13,7 @@ import {
   loadedAssistantKey,
 } from '../../services/assistant-loader.js';
 import { resolveReferences, recall, countTurn } from '../conversation-memory.js';
-import { classifyTurn, replyFor, declineFor } from '../conversational-turns.js';
+import { classifyTurn, replyFor, declineFor, DECLINED } from '../conversational-turns.js';
 import { explain, aspectOf, type ExplainableEnvelope } from '../explain-provenance.js';
 import { intentClassifier } from '../intent-classifier.js';
 import { createHash } from 'node:crypto';
@@ -514,7 +514,10 @@ export class ToolInvokeHandler extends BaseActionHandler {
 
       switch (params.tool) {
         case 'math.evaluate':
-          result = this.executeMathEvaluate(input);
+          result = this.executeMathEvaluate(
+            input,
+            (context.event?.data as { assistantKey?: string } | undefined)?.assistantKey
+          );
           break;
 
         case 'convert.units':
@@ -609,12 +612,52 @@ export class ToolInvokeHandler extends BaseActionHandler {
     }
   }
 
-  private executeMathEvaluate(input: string): number {
+  /**
+   * A PARSE FAILURE IS A DECLINATION, NOT A MALFUNCTION.
+   *
+   * Three warning triangles in one browser session, all the same shape:
+   *
+   *     ok what is 14 squared.  -> Unexpected token: squared
+   *     \(e^{i\pi} + 1 = 0\),   -> Invalid character: \
+   *     ask @smartcalc to …     -> Invalid character: @
+   *
+   * Every one was a ROUTING error surfacing as a parser crash. The router sent
+   * work to a specialist that could not take it, and the specialist had no way
+   * to say "not mine" — it could only fail at the person, who then sees a
+   * malfunction for a fault that happened upstream.
+   *
+   * A real hand-back to the router is the right fix and is not built. This is
+   * the honest interim: say plainly that this is not something this specialist
+   * reads, and name the one that might. It removes the triangle, gives the
+   * person a next move, and does not pretend the routing was correct.
+   */
+  private executeMathEvaluate(input: string, runningAs?: string): number {
     if (!input || input.trim() === '') {
-      throw new Error('No expression provided');
+      throw new Error(`${DECLINED}I need an expression to evaluate — try \`2 + 2\`.`);
     }
 
-    const result = this.mathEvaluator.evaluate(normalizeMathInput(input));
+    let result: number;
+    try {
+      result = this.mathEvaluator.evaluate(normalizeMathInput(input));
+    } catch (err) {
+      const detail = err instanceof Error ? err.message : String(err);
+
+      // DO NOT RECOMMEND YOURSELF.
+      //
+      // Smart Calculator uses this same tool for the final arithmetic, so when
+      // its model produced something unevaluable the reply told the user to
+      // "ask @smartcalc" — which was Smart Calculator speaking. Advice that
+      // loops back to the speaker is worse than no advice; it reads as the
+      // system not knowing who it is.
+      const suggestion =
+        runningAs === 'smart-calc'
+          ? `I understood the request but could not turn it into arithmetic I can evaluate. Try rephrasing it with the numbers in it.`
+          : `I handle things like \`2+2\`, \`sqrt(16)\`, \`(10+5)*2\`. For arithmetic described in words — "15% tip on $47.50", "14 squared" — ask **@smartcalc**.`;
+
+      throw new Error(
+        `${DECLINED}I read expressions literally, and I cannot read that one (${detail}).\n\n${suggestion}`
+      );
+    }
 
     if (!isFinite(result)) {
       throw new Error('Result is not a finite number');
@@ -706,13 +749,44 @@ export class ToolInvokeHandler extends BaseActionHandler {
     matchedPattern: string;
     precedence: number;
     tieBroken: boolean;
-    method: 'declaration' | 'classifier';
+    method: 'declaration' | 'classifier' | 'addressed';
   } {
     // Strip filler BEFORE matching, so `ok, 2+2` reaches the same declaration
     // as `2+2`. Routing and evaluation must see the same string or the router
     // sends work to a specialist that will reject it.
     const text = stripFiller(message || '').trim();
     if (!text) throw new Error('No message to route');
+
+    // TIER 0 — BEING ASKED FOR BY NAME.
+    //
+    // "ask @smartcalc to solve the quadratic equation" went to Calculator,
+    // which then choked on the `@`. Naming a specialist is the clearest
+    // routing signal a person can give, and it was the one signal nothing
+    // read: `stripMentionPrefix` only handles a mention at the START of a
+    // message, for the assistant already being processed. The coordinator's
+    // router never looked.
+    //
+    // Checked before patterns and before the classifier, because an explicit
+    // instruction outranks an inference about one. Anywhere in the message —
+    // people write "ask @x to…" as often as "@x …".
+    for (const loaded of getAllLoadedAssistants()) {
+      const key = loadedAssistantKey(loaded);
+      if (!key) continue;
+      const names = [key, loaded.alias].filter(Boolean) as string[];
+      for (const name of names) {
+        const mention = new RegExp(`(?:^|\\s)@${name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'i');
+        if (mention.test(text)) {
+          return {
+            assistant: key,
+            alias: loaded.alias || key,
+            matchedPattern: `addressed as @${name}`,
+            precedence: Number.MAX_SAFE_INTEGER,
+            tieBroken: false,
+            method: 'addressed',
+          };
+        }
+      }
+    }
 
     const candidates: Array<{
       key: string;

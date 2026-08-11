@@ -494,7 +494,11 @@ async function main() {
   const delegated = withEnv.filter((e) => e.expectDelegated);
   const withRoute = delegated.filter((e) => e.steps.includes('assistant.route'));
   const withRecord = delegated.filter((e) => e.delegation && e.delegation.hash);
-  const disclosed = delegated.filter((e) => /chose it/.test(e.basis));
+  // "chose it" alone was wrong once `addressed` existed: when the user names
+  // the assistant, the basis deliberately says "you named it" and does NOT
+  // claim a decision was made on their behalf. The check was asserting the
+  // receipt should take credit for the user's instruction.
+  const disclosed = delegated.filter((e) => /chose it|you named it/.test(e.basis));
 
   console.log(`  P9   provenance.assistant present on ${namedAssistant.length}/${withEnv.length} replies`);
   console.log(`  P10  provenance.runId     present on ${withRunId.length}/${withEnv.length} replies`);

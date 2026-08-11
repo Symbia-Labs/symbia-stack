@@ -71,7 +71,15 @@ export const ASPECT_PATTERNS: Array<[RegExp, ExplainAspect]> = [
   // "are you sure?" and "what if I do not trust you" fell through to the router
   // and were answered by a specialist that could make nothing of them.
   [/\b(?:verify|check|prove|proof|trust|tamper|signature|signed|seal|are you sure|you sure|certain|is that (?:right|correct)|double ?check)\b/i, 'verify'],
-  [/\b(?:reproducib|deterministic|again|same answer|repeatable|every time)\b/i, 'reproducible'],
+  // `again` REMOVED, and this is the most dangerous defect the browser test
+  // found. "do that again!" was read as "is that reproducible?" and answered
+  // with a receipt — no error, a plausible reply, and completely the wrong
+  // question. Silently answering something else is worse than refusing, and it
+  // is the same failure as `add 15% tip first` being ignored.
+  //
+  // "again" in a conversation means DO IT AGAIN. It is a re-run, handled in
+  // conversation-memory, not a question about determinism.
+  [/\b(?:reproducib|deterministic|same answer|repeatable|every time|get the same)\b/i, 'reproducible'],
   [/\b(?:source|where.*(?:from|come)|what.*(?:used|consulted)|cite|citation)\b/i, 'source'],
   [/\bhow do you know|how did you (?:know|get|work)|show.*(?:receipt|provenance)|what arena|why did you (?:refuse|decline)|explain\b/i, 'full'],
 ];
