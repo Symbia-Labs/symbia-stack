@@ -128,6 +128,29 @@ const CASES = [
     arena: 'COMPOSED',
     note: 'rule was dead in the container only — (?i:) needs V8 12.x, container is Node 20',
   },
+  {
+    id: 'D7',
+    prompt: 'tell me a joke about snails',
+    // Nothing declares this, so Symbia refuses and names what it can reach.
+    // The model classifier would have picked something; refusing is OEP's
+    // prescribed rewrite for a claim the system cannot support.
+    by: 'coordinator',
+    reply: /not going to guess|can route to/i,
+    arena: 'REFUSED',
+  },
+  {
+    id: 'D8',
+    prompt: 'what is 20% of 80',
+    // FLAGGED AS A RISK IN THE PREDICTIONS, NOT PREDICTED.
+    //
+    // Calculator's lead-in pattern and Smart Calculator's percent pattern can
+    // both fire, and precedence (100 vs 50) would hand it to the strict
+    // parser, which cannot read "20% of 80". Asserting the CORRECT outcome so
+    // a wrong one is reported as a declaration defect rather than absorbed.
+    by: 'smart-calc',
+    reply: /\b16\b/,
+    arena: 'COMPOSED',
+  },
 ];
 
 // ---------------------------------------------------------------------------
@@ -242,7 +265,13 @@ function envelopeOf(message) {
 function verifySeal(content, env) {
   if (!env || !env.hash) return null; // nothing sealed — e.g. the error envelope
   const body = {
-    content,
+    // Mirrors seal(). When the rule emitted typed fields the hash covers the
+    // FIELDS and not the prose, so a template can be reworded without
+    // invalidating the receipt — and `sealedOver` is itself hashed so that
+    // answer cannot be altered either.
+    content: env.sealedOver === 'content' ? content : undefined,
+    fields: env.fields,
+    sealedOver: env.sealedOver,
     arena: env.arena,
     steps: (env.steps || []).map((s) => ({
       id: s.id,
