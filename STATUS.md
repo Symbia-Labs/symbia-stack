@@ -162,10 +162,34 @@ matters, and it is the top of §10.
    work. The build gate is effectively off.
 9. **No service survives a Postgres restart** — four crashed on an unhandled
    `error` event and stayed down. No reconnect, no restart policy.
-10. **MCP server cannot authenticate to identity** (401) — it can read the
-    runtime but not list assistants. This is why the 11 Aug catalog reads and
-    writes went through the console's own session instead.
-11. **C2:** the console opens with no login screen. Cause not investigated.
+9a. **`npm run seed` has never completed on this stack**, for two independent
+   reasons found 11 Aug while restoring the MCP probe account. `seed.ts` used
+   `import * as bcrypt` under `"type": "module"`, so `bcrypt.hash` was not
+   callable and **every agent identity silently failed to seed** —
+   `routes.ts:6` has always used the default import and always worked. And
+   `seedIdentityData` still fails on
+   `user_entitlements_user_id_fkey ... Key (user_id)=(650e8400-…-440001) is
+   not present in table "users"`: it seeds entitlements for default users
+   (ADMIN, MEMBER, VIEWER) that were never created. The bcrypt half is fixed
+   and agents now seed; **the entitlements half is open and lives in
+   `@symbia/seed`.** Stages are now independent, so one failure no longer
+   discards the rest — the same all-or-nothing shape as §6.1.
+10. ~~**MCP server cannot authenticate to identity** (401)~~ — **FIXED
+    11 Aug, and the cause was not the MCP server.** The account it logs in as,
+    `gap-probe@symbia.test`, did not exist. The identity database was
+    re-initialised on 9 Aug — `dev@example.com` is stamped `19:59:01` and was
+    the only user left — and nothing recreated the probe account, because
+    nothing had ever created it: it was made by hand once. Commit `5d94452`
+    had separately (and correctly) removed the shipped default password, so
+    the two changes together left a configured password with no account to
+    match. `symbia_stack_health` kept working throughout because `/health` is
+    unauthenticated, which made it read as a broken server rather than a
+    missing row. Now seeded in `identity/server/src/seed.ts`, so a reset
+    restores it; production must supply `MCP_PROBE_PASSWORD`.
+11. **C2:** the console opens with no login screen. **Cause found 11 Aug:**
+    `symbia-control-center/src/hooks/useAuth.ts` auto-logs-in as
+    `dev@example.com` when `DEBUG` is set. Not a missing login screen — a
+    hardcoded one. Still open as a defect; only the mystery is closed.
 
 ## 7. PAPER — designs and proposals, none built
 
