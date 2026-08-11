@@ -13,6 +13,22 @@ import {
   loadedAssistantKey,
 } from '../../services/assistant-loader.js';
 
+/**
+ * What an assistant declares about the work it accepts.
+ *
+ * Lives in the assistant's catalog manifest under `metadata.routing`, which
+ * makes it a public contract like the component manifest — and keeps the
+ * coordinator from holding a roster of its own.
+ */
+export interface RoutingDeclaration {
+  /** Regexes, matched case-insensitively against the message. */
+  patterns: string[];
+  /** Higher wins when several assistants match. Default 0. */
+  precedence?: number;
+  /** One line for the refusal message, in the user's terms. */
+  handles?: string;
+}
+
 export interface ToolInvokeParams {
   // Tool name (e.g., "math.evaluate", "convert.units")
   tool: string;
@@ -475,6 +491,10 @@ export class ToolInvokeHandler extends BaseActionHandler {
           result = this.getBootstrapAssistants();
           break;
 
+        case 'assistants.route':
+          result = this.routeDeterministically(input);
+          break;
+
         default:
           return this.failure(`Unknown tool: ${params.tool}`, Date.now() - start);
       }
@@ -530,6 +550,131 @@ export class ToolInvokeHandler extends BaseActionHandler {
    * The registry is `assistant-loader`. Reading it means a newly registered
    * assistant is routable the moment it loads, with nothing to update here.
    */
+  /**
+   * Decide which assistant handles a message, from declarations alone.
+   *
+   * ROUTING IS A TOOL, NOT A PROMPT, AND THAT IS THE POINT.
+   *
+   * The classifier this replaces was an `llm.invoke`. GKS puts classification
+   * in the Interpreter role, which is required to be non-generative, free of
+   * inference, and explicitly REPRODUCIBLE
+   * (`genesis-key-spec/spec/pipeline/interpreter.md` §2.1–2.3). A generative
+   * model in that slot violates all three by construction, and the violation
+   * was measured rather than argued: four passes of the same eight prompts
+   * disagreed with each other, and `2+2` — three characters — came back as an
+   * empty completion.
+   *
+   * Being a `tool.invoke` is not cosmetic. `classify()` already treats tool
+   * output as deterministic, so a routed reply lands in the canonical lane
+   * because it IS recomputable: the decision is a function of the message and
+   * the registry, with no model, no network, and no hidden state. Run it again
+   * on the same two inputs and it cannot answer differently.
+   *
+   * Assistants declare their own routing surface in their catalog manifest.
+   * That keeps the coordinator ignorant of the roster — the fifth copy of a
+   * team list this codebase has had to kill — and makes a newly registered
+   * assistant routable the moment it loads, with nothing to update here.
+   */
+  private routeDeterministically(message: string): {
+    assistant: string;
+    alias: string;
+    matchedPattern: string;
+    precedence: number;
+    tieBroken: boolean;
+    method: 'declaration';
+  } {
+    const text = (message || '').trim();
+    if (!text) throw new Error('No message to route');
+
+    const candidates: Array<{
+      key: string;
+      alias: string;
+      pattern: string;
+      precedence: number;
+    }> = [];
+
+    for (const loaded of getAllLoadedAssistants()) {
+      const key = loadedAssistantKey(loaded);
+      if (!key) continue;
+
+      const routing = (loaded.resource?.metadata as { routing?: RoutingDeclaration } | undefined)
+        ?.routing;
+      // No declaration means not a routing target. A coordinator must not be
+      // routable to — that is the unbounded loop assistant-route already
+      // refuses — and silence is the honest default rather than a guess.
+      if (!routing || !Array.isArray(routing.patterns)) continue;
+
+      for (const raw of routing.patterns) {
+        let re: RegExp;
+        try {
+          re = new RegExp(raw, 'i');
+        } catch (err) {
+          // Same rule as condition-evaluator: a pattern that does not compile
+          // is not a pattern that did not match. Say so, loudly, rather than
+          // letting an assistant silently become unreachable.
+          console.error(
+            `[assistants.route] INVALID ROUTING PATTERN on '${key}' — this assistant can never be routed to. ` +
+              `pattern=${JSON.stringify(raw)} error=${err instanceof Error ? err.message : String(err)}`
+          );
+          continue;
+        }
+        if (re.test(text)) {
+          candidates.push({
+            key,
+            alias: loaded.alias || key,
+            pattern: raw,
+            precedence: typeof routing.precedence === 'number' ? routing.precedence : 0,
+          });
+          break; // one match per assistant is enough; the pattern is recorded
+        }
+      }
+    }
+
+    if (candidates.length === 0) {
+      // REFUSE, AND SAY WHAT IS AVAILABLE.
+      //
+      // This throws, so the rule stops and the reply is sealed as a refusal
+      // with this text. That is OEP's prescribed rewrite for a claim the
+      // system cannot support — state the limit rather than guess a target.
+      // Guessing here is what the model was doing.
+      const roster = getAllLoadedAssistants()
+        .map((l) => {
+          const k = loadedAssistantKey(l);
+          const routing = (l.resource?.metadata as { routing?: RoutingDeclaration } | undefined)?.routing;
+          if (!k || !routing?.patterns?.length) return undefined;
+          return `@${l.alias || k} — ${routing.handles || l.resource?.description || ''}`;
+        })
+        .filter(Boolean)
+        .sort()
+        .join('\n');
+      throw new Error(
+        `No specialist declares this kind of request, so I am not going to guess.\n\n` +
+          `I can route to:\n${roster || '(nothing is registered with a routing declaration)'}`
+      );
+    }
+
+    // Deterministic ordering: highest precedence, then key ascending. The tie
+    // break is by name rather than by registry order because registry order is
+    // load order, which is not stable and would make routing depend on
+    // something no receipt records.
+    candidates.sort((a, b) => b.precedence - a.precedence || a.key.localeCompare(b.key));
+    const top = candidates[0];
+    const tieBroken =
+      candidates.length > 1 && candidates[1].precedence === top.precedence;
+
+    return {
+      assistant: top.key,
+      alias: top.alias,
+      matchedPattern: top.pattern,
+      precedence: top.precedence,
+      // Recorded, not hidden. Two assistants claiming the same request at the
+      // same precedence is a declaration defect, and the receipt should show
+      // that the answer depended on a tie break.
+      tieBroken,
+      method: 'declaration',
+    };
+  }
+
   private getBootstrapAssistants(): Array<{ alias: string; key: string; description: string }> {
     return getAllLoadedAssistants()
       .map((loaded) => {

@@ -1,12 +1,22 @@
 import { BaseActionHandler } from './base.js';
 import type { ActionConfig, ActionResult, ExecutionContext } from '../types.js';
 import { seal, type ProvenanceStep, type DelegationRecord } from '../provenance.js';
-import { interpolate } from '../template.js';
+import { interpolate, interpolateObject } from '../template.js';
 
 export interface MessageSendParams {
   content?: string;
   contentTemplate?: string;
   template?: string; // Alias for contentTemplate
+  /**
+   * The typed result this reply is about.
+   *
+   * A reply was a string, and the seal committed to the string — so the value
+   * could not be checked apart from the sentence around it, and rewording a
+   * template changed the hash of an identical computation. Declare the data
+   * here and let the template render it: the receipt seals these, the prose
+   * becomes presentation, and `sealedOver` on the envelope says which.
+   */
+  fields?: Record<string, unknown>;
   role?: 'assistant' | 'system' | 'agent';
   channel?: string;
   metadata?: Record<string, unknown>;
@@ -51,8 +61,15 @@ export class MessageSendHandler extends BaseActionHandler {
         context.message?.metadata as { symbia?: { delegation?: DelegationRecord } } | undefined
       )?.symbia?.delegation;
 
+      // The typed result, if the rule declared one. Interpolated like the
+      // template, so a field can reference a step: { result: "{{steps.x.result}}" }.
+      const fields = params.fields
+        ? (interpolateObject({ ...params.fields }, context) as Record<string, unknown>)
+        : undefined;
+
       const envelope = seal({
         content,
+        fields,
         steps,
         contentFromModel,
         delegation,

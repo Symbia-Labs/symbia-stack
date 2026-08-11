@@ -109,6 +109,16 @@ export interface DelegationRecord {
    * receipt names the thing whose output was not reproducible.
    */
   decidedBy?: string;
+  /**
+   * `declaration` — matched against what assistants declare they handle. A
+   * function of the message and the registry, so it is recomputable, and the
+   * reply it precedes stays in the canonical lane.
+   *
+   * `model` — a model chose. Not recomputable. `lanes only tighten` applies:
+   * a reply reached this way must not be presented as if the deterministic
+   * path had settled it.
+   */
+  method?: 'declaration' | 'model';
   /** The coordinator's steps, in order, up to and including the route. */
   steps: ProvenanceStep[];
   /** Message that triggered the delegation. */
@@ -120,6 +130,28 @@ export interface DelegationRecord {
 
 export interface ProvenanceEnvelope {
   arena: Arena;
+  /**
+   * The typed result this reply is about, when the rule emitted one.
+   *
+   * A reply used to be a string, and the seal committed to the string — so
+   * rewording a template produced a different hash for the same computation,
+   * and nothing could check the value independently of the sentence wrapped
+   * around it. `{ expression: "2+2", result: 4 }` is the thing that was
+   * computed; "= 4" is one way of saying it.
+   */
+  fields?: Record<string, unknown>;
+  /**
+   * WHICH HALF THE HASH COVERS. Never omit this.
+   *
+   * When `fields` are present the seal commits to the FIELDS and NOT to the
+   * rendered prose, so a template can be reworded without invalidating the
+   * receipt. That is the point, and it is also a limit: the display text is
+   * then NOT covered by this hash, and a receipt that let a reader assume
+   * otherwise would be the same narrative patching the delegation record was
+   * added to stop. So the envelope says which it is, in a field, rather than
+   * leaving it to be inferred from whether `fields` happens to be populated.
+   */
+  sealedOver: 'fields' | 'content';
   /** Why this arena and not another. Written for a human reading a receipt. */
   basis: string;
   /** In order. */
@@ -201,8 +233,14 @@ export function classify(
    */
   const note = delegation
     ? ` Reached this assistant because ${delegation.from} chose it` +
-      `${delegation.decidedBy ? ` via ${delegation.decidedBy}` : ''}` +
-      `; that choice is recorded in this envelope's delegation and is NOT reproducible.`
+      `${delegation.decidedBy ? ` via ${delegation.decidedBy}` : ''}; that choice is recorded in ` +
+      `this envelope's delegation and ` +
+      (delegation.method === 'declaration'
+        ? // Recomputable, so say so — the same claim COMPUTED makes about the
+          // arithmetic now holds for the routing that preceded it, and the
+          // whole chain is checkable rather than just the tail of it.
+          `is reproducible from the message and the registry.`
+        : `is NOT reproducible.`)
     : '';
   const withNote = (r: { arena: Arena; basis: string }) => ({
     arena: r.arena,
@@ -276,6 +314,7 @@ export function sealDelegation(input: {
   to: string;
   reason?: string;
   decidedBy?: string;
+  method?: 'declaration' | 'model';
   steps: ProvenanceStep[];
   causedBy?: string;
 }): DelegationRecord {
@@ -285,6 +324,7 @@ export function sealDelegation(input: {
     to: input.to,
     reason: input.reason,
     decidedBy: input.decidedBy,
+    method: input.method,
     steps: input.steps.map((s) => ({
       id: s.id,
       action: s.action,
@@ -305,6 +345,7 @@ export function sealDelegation(input: {
 /** Seal an envelope over the reply content and the recorded steps. */
 export function seal(input: {
   content: string;
+  fields?: Record<string, unknown>;
   steps: ProvenanceStep[];
   contentFromModel: boolean;
   rule?: string;
@@ -341,8 +382,15 @@ export function seal(input: {
   const { arena, basis } = classify(steps, input.contentFromModel, input.delegation);
   const timestamp = new Date().toISOString();
 
+  // Seal the data when there is data; seal the prose only when prose is all
+  // there is. `sealedOver` goes in the hashed body too, so the answer to
+  // "which half does this hash cover" cannot itself be altered.
+  const sealedOver: 'fields' | 'content' = input.fields ? 'fields' : 'content';
+
   const body = {
-    content: input.content,
+    content: sealedOver === 'content' ? input.content : undefined,
+    fields: input.fields,
+    sealedOver,
     arena,
     steps: steps.map((s) => ({
       id: s.id,
@@ -369,6 +417,8 @@ export function seal(input: {
 
   return {
     arena,
+    fields: input.fields,
+    sealedOver,
     basis,
     // The FULL chain, matching what was hashed. This returned `input.steps` —
     // the post-delegation half only — which would have put the envelope's
@@ -398,7 +448,9 @@ export function verify(
   // for delegation (`by` on each step, `delegation`), and omitting them here
   // would have made every delegated reply look tampered with.
   const body = {
-    content,
+    content: envelope.sealedOver === 'content' ? content : undefined,
+    fields: envelope.fields,
+    sealedOver: envelope.sealedOver,
     arena: envelope.arena,
     steps: envelope.steps.map((s) => ({
       id: s.id,
@@ -438,6 +490,7 @@ export function verifyDelegation(record: DelegationRecord): boolean {
     to: record.to,
     reason: record.reason,
     decidedBy: record.decidedBy,
+    method: record.method,
     steps: record.steps.map((s) => ({
       id: s.id,
       action: s.action,

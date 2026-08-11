@@ -159,13 +159,28 @@ export class AssistantRouteHandler extends BaseActionHandler {
         (context.metadata as { assistantKey?: string } | undefined)?.assistantKey ||
         'coordinator';
       const priorSteps = (context.provenance ?? []) as ProvenanceStep[];
-      const decidedBy = priorSteps.filter((s) => s.action === 'llm.invoke').map((s) => s.source).join(', ');
+
+      // NAME THE DECIDER, AND SAY WHETHER IT CAN BE RUN AGAIN.
+      //
+      // A declared match is a function of the message and the registry: no
+      // model, no network, recomputable. A model choosing is none of those.
+      // Both are legitimate; reporting them the same way is not, because the
+      // lane the reply travels in depends on which happened.
+      const decision = context.context[params.contextKey || 'routeTarget'] as
+        | { matchedPattern?: string; method?: string; tieBroken?: boolean }
+        | undefined;
+      const modelSteps = priorSteps.filter((s) => s.action === 'llm.invoke');
+      const deterministic = decision?.method === 'declaration' && modelSteps.length === 0;
+      const decidedBy = deterministic
+        ? `assistants.route (declared pattern ${JSON.stringify(decision?.matchedPattern ?? '')}${decision?.tieBroken ? ', TIE BROKEN BY NAME' : ''})`
+        : modelSteps.map((s) => s.source).join(', ') || undefined;
 
       const delegation = sealDelegation({
         from: selfName,
         to: targetAssistant,
         reason: params.reason,
         decidedBy: decidedBy || undefined,
+        method: deterministic ? 'declaration' : 'model',
         causedBy: context.message?.id,
         steps: [
           ...priorSteps,
