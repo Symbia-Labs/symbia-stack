@@ -21,6 +21,7 @@ import {
 } from '../../services/assistant-loader.js';
 import { emitEvent } from '@symbia/relay';
 import { createMessagingClient } from '@symbia/messaging-client';
+import { sealDelegation, type ProvenanceStep } from '../provenance.js';
 
 interface AssistantRouteParams {
   // Target assistant key (e.g., 'log-analyst')
@@ -140,6 +141,44 @@ export class AssistantRouteHandler extends BaseActionHandler {
       // This triggers the target assistant to process the message and respond directly
       console.log(`[AssistantRoute] Forwarding message to ${targetAssistant} via SDN`);
 
+      // SEAL THE DECISION HERE, BECAUSE THERE IS NOWHERE ELSE.
+      //
+      // A reply is sealed inside message.send. This assistant will not send
+      // one — that is the whole point of delegating — so `suppressResponse`
+      // returns before any seal and `context.provenance` is discarded with the
+      // context. The specialist then starts a fresh ExecutionContext with an
+      // empty array. This is the only moment the decision exists.
+      //
+      // The steps recorded so far are the classifier's: whatever fetched the
+      // roster, and the model call that chose. The route itself is appended
+      // because rule-executor records a step only AFTER its handler returns,
+      // so at this instant the action doing the routing is not yet in its own
+      // provenance.
+      const selfName =
+        selfKey ||
+        (context.metadata as { assistantKey?: string } | undefined)?.assistantKey ||
+        'coordinator';
+      const priorSteps = (context.provenance ?? []) as ProvenanceStep[];
+      const decidedBy = priorSteps.filter((s) => s.action === 'llm.invoke').map((s) => s.source).join(', ');
+
+      const delegation = sealDelegation({
+        from: selfName,
+        to: targetAssistant,
+        reason: params.reason,
+        decidedBy: decidedBy || undefined,
+        causedBy: context.message?.id,
+        steps: [
+          ...priorSteps,
+          {
+            id: (config as { id?: string }).id || 'assistant.route',
+            action: 'assistant.route',
+            source: `${selfName} -> ${targetAssistant}`,
+            ok: true,
+            by: selfName,
+          },
+        ],
+      });
+
       const forwardPayload = {
         conversationId: context.conversationId,
         message: {
@@ -149,8 +188,15 @@ export class AssistantRouteHandler extends BaseActionHandler {
           content: context.message?.content,
           created_at: new Date().toISOString(),
           metadata: {
-            routedFrom: 'coordinator',
+            // Was the literal string 'coordinator' regardless of who routed,
+            // so the one surviving breadcrumb would have lied the moment
+            // anything else delegated.
+            routedFrom: selfName,
             routeReason: params.reason,
+            // The sealed decision travels with the message it caused. The
+            // specialist cannot have forged it and does not need to be trusted
+            // to describe it.
+            symbia: { delegation },
           },
         },
         // Target this specific assistant

@@ -435,6 +435,14 @@ async function processMessageForAssistant(
             .metadata?.routedFrom,
           routeReason: (payload.message as { metadata?: { routeReason?: string } })
             .metadata?.routeReason,
+          // The sealed delegation that caused this message to arrive here.
+          //
+          // Carried through so message.send can put it inside the reply's
+          // hashed body. Without this the specialist has no way to know it was
+          // chosen rather than addressed, and the reply seals a chain that
+          // begins halfway through what actually happened.
+          symbia: (payload.message as { metadata?: { symbia?: unknown } })
+            .metadata?.symbia,
         },
       },
       user: {

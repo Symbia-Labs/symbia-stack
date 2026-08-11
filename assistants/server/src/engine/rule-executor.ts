@@ -131,7 +131,7 @@ export class RuleExecutor {
         provenance.push({
           id: (actionConfig as { id?: string }).id || actionConfig.type,
           action: actionConfig.type,
-          source: describeSource(actionConfig),
+          source: describeSource(actionConfig, result.output),
           ok: result.success,
           ms: result.durationMs,
           outputDigest: result.success ? digest(result.output) : undefined,
@@ -181,20 +181,37 @@ export const ruleExecutor = new RuleExecutor();
  * receipt that says "llm.invoke" tells you nothing you could go and verify;
  * "anthropic/claude-sonnet-5" tells you where to look.
  */
-function describeSource(action: { type: string; params?: Record<string, unknown> }): string {
+function describeSource(
+  action: { type: string; params?: Record<string, unknown> },
+  output?: unknown
+): string {
   const p = (action.params || {}) as Record<string, unknown>;
   switch (action.type) {
+    // WHAT ACTUALLY ANSWERED, NOT WHAT WAS CONFIGURED.
+    //
+    // The note below said the resolved provider "is recorded by llm-invoke
+    // itself when it differs". It never was. Almost no rule configures a
+    // provider — resolveUsableProvider picks whichever has a credential — so
+    // in practice every model step in every envelope read
+    // "llm (provider resolved at call time)", which names nothing anyone
+    // could go and check. A receipt whose source field is a description of
+    // its own uncertainty is not a source field.
+    //
+    // llm-invoke has returned `output.model` all along. This reads it, so a
+    // delegation can say WHICH model made a choice that is not reproducible.
+    case 'llm.invoke': {
+      const resolved = (output as { model?: string } | undefined)?.model;
+      if (resolved) return p.provider ? `${p.provider}/${resolved}` : resolved;
+      return p.provider ? `${p.provider}/${p.model ?? 'default'}` : 'llm (provider unresolved — the call did not report a model)';
+    }
     case 'tool.invoke':
       return String(p.tool ?? 'tool');
     case 'service.call':
       return `${p.service ?? 'service'} ${String(p.method ?? 'GET')} ${p.path ?? ''}`.trim();
     case 'integration.invoke':
       return String(p.operation ?? 'integration');
-    case 'llm.invoke':
-      // Provider/model are often resolved at call time rather than configured,
-      // so this is the CONFIGURED value. The resolved one is recorded by
-      // llm-invoke itself when it differs.
-      return p.provider ? `${p.provider}/${p.model ?? 'default'}` : 'llm (provider resolved at call time)';
+    case 'assistant.route':
+      return `route -> ${p.targetAssistant ?? (p.fromContext ? `(from context.${p.contextKey ?? 'routeTarget'})` : 'unspecified')}`;
     case 'message.send':
       return 'message.send';
     default:

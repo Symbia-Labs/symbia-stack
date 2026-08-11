@@ -151,13 +151,97 @@ three aliases. This is the only edit made to a registered prediction.
    rulesets at boot. A diagnostic patched into the catalog appeared to have no
    effect and nearly sent this session after a phantom template bug.
 
-## Next
+## Pass 4 — the routing decision is in the envelope
 
-1. **Record the routing decision.** Not as a step in a list — the step already
-   exists and is discarded. Sealing happens inside `message.send`, and the
-   coordinator's job is to send nothing, so `suppressResponse` returns before
-   anything seals and the array dies with the context. Provenance is scoped to
-   one rule execution; a delegation spans two.
-2. **The classifier returns empty on short prompts.** `2+2` fails consistently.
-3. **`classify([])` should not be `REFUSED`.** A static answer is not a
-   declined one.
+```
+P9   provenance.assistant present on 8/8 replies
+P10  provenance.runId     present on 8/8 replies
+P11a routing step in the chain      5/5 delegated replies
+P11b sealed delegation record       5/5 delegated replies
+P11c basis discloses the delegation 5/5 delegated replies
+P12  seal verifies from the envelope alone  8/8 sealed replies
+7/8 predictions held.
+```
+
+A delegated reply's chain now reads across both assistants:
+
+```
+steps=[tool.invoke, llm.invoke, assistant.route, tool.invoke]
+delegation: coordinator -> calculator  decidedBy=claude-sonnet-5  hash=1d043692a174…
+```
+
+**Two envelopes, bound by hash.** The coordinator seals the decision at the
+moment it decides — the only moment it exists, since it will never reply — and
+the sealed record travels on the forwarded message. The specialist's reply
+puts the delegation's *hash* inside its own hashed body, so the reply commits
+to a decision it did not make and could not have forged, without becoming a
+second copy of it. Either half verifies alone. This is the spyglass's
+per-track chains bound by a close event, applied to a conversation.
+
+**The arena does not move, and the basis says why.** Calculator's `= 4` is
+still `COMPUTED`: a model chose *who* answered, not *what* the answer was, and
+demoting it to `COMPOSED` would claim a model touched a number that no model
+touched. But the basis now ends, on every delegated reply:
+
+> Reached this assistant because coordinator chose it via claude-sonnet-5;
+> that choice is recorded in this envelope's delegation and is NOT
+> reproducible.
+
+That sentence is the whole point. The lane stays honest about the arithmetic
+and stops being silent about the non-deterministic step upstream of it — the
+one that, measured across three passes, gave different answers to the same
+question.
+
+### Two defects found by doing it
+
+**`describeSource` never named the model.** Its comment said the resolved
+provider "is recorded by llm-invoke itself when it differs". It never was, and
+almost no rule configures a provider, so every model step in every envelope
+read `llm (provider resolved at call time)` — a source field containing a
+description of its own uncertainty. `llm-invoke` had returned `output.model`
+all along. `decidedBy=claude-sonnet-5` is that fix.
+
+**Every non-delegated reply failed its own verification.** `seal()` hashed
+`input.steps` and handed the *same array reference* back on the envelope —
+`context.provenance`, which `rule-executor` was still appending to. So
+`message.send`'s own step landed in the array after the hash was computed, the
+envelope displayed a chain one step longer than the one it had sealed, and
+`verify()` got a different digest. It failed in the direction that looks like
+tampering.
+
+It was found by inconsistency, not by suspicion: delegated replies build a new
+array and so are a snapshot, and their step lists had no `message.send` while
+undelegated ones did. The half that looked right was the broken half.
+
+### A third instrument failure
+
+P12 first reported **0 of 8**. The seal was fine; the script was using the
+development default for `NETWORK_HASH_SECRET` while the container has a real
+one set. With the container's secret: 8 of 8.
+
+That is the third time in one session that a measuring instrument was wrong
+rather than the thing measured — after minified comment markers, and after
+P7's assertion demanding a key where the roster correctly renders aliases.
+Every one of them pointed at working code and said "broken". It is the exact
+failure that got the ITT suite deleted on 10 August, and the reason the rule is
+that blank beats green: an instrument that reports a pass it did not earn is
+worse than one that reports nothing.
+
+## Still open
+
+1. **The classifier is not reproducible.** `2+2` and `15% tip` each held in
+   some passes and broke in others, with no change between them, and the
+   failure mode is an empty completion on a short prompt. The decision is now
+   *recorded*; it is not yet *reliable*, and the envelope says so in as many
+   words.
+2. **`classify([])` should not be `REFUSED`.** A static answer is not a
+   declined one. `help` stopped exhibiting it by accident — it gained a
+   `tool.invoke` step — and the misclassification is untouched underneath.
+3. **`seal()` uses `JSON.stringify`, not RFC 8785**, while `@symbia/crypto`
+   implements canonical JSON and the assistants service does not import it.
+   Key-order dependence means any store that reorders keys breaks verification
+   and it looks like forgery. The construction is also `sha256(body ‖ secret)`
+   rather than HMAC, and it is copy-shared with
+   `network/server/src/services/policy.ts` — one defect in two places, and now
+   three, since `sealDelegation` follows the same pattern deliberately rather
+   than inventing a second one.

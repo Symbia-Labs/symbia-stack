@@ -29,7 +29,11 @@
 const MESSAGING = process.env.MESSAGING_URL || 'http://localhost:5005';
 const EMAIL = process.env.SYMBIA_EMAIL || 'dev@example.com';
 const PASSWORD = process.env.SYMBIA_PASSWORD;
+import { createHash } from 'node:crypto';
+
 const COORDINATOR_USER_ID = 'assistant:coordinator';
+/** Same default as engine/provenance.ts. Dev stacks seal with the literal. */
+const HASH_SECRET = process.env.NETWORK_HASH_SECRET || 'symbia-network-dev-only';
 /** Org whose credential the assistants should resolve. See scripts/setup-test-org.mjs. */
 const ORG_ID = process.env.SYMBIA_ORG_ID || '';
 
@@ -222,6 +226,46 @@ function envelopeOf(message) {
   return md.symbia?.provenance || null;
 }
 
+/**
+ * Recompute the seal from the envelope's own visible contents.
+ *
+ * The platform's claim is that a reply carries a record of how it was arrived
+ * at AND that the record is checkable. Reading `arena` off an envelope tests
+ * the first half only. This tests the second, from outside the service, with
+ * no access to anything but the message a client receives — which is the
+ * position anyone verifying a reply is actually in.
+ *
+ * Mirrors seal() in assistants/server/src/engine/provenance.ts. If that adds a
+ * field and this does not, every reply reads as tampered — so a mismatch here
+ * means "these two disagree", not "someone forged it".
+ */
+function verifySeal(content, env) {
+  if (!env || !env.hash) return null; // nothing sealed — e.g. the error envelope
+  const body = {
+    content,
+    arena: env.arena,
+    steps: (env.steps || []).map((s) => ({
+      id: s.id,
+      action: s.action,
+      source: s.source,
+      ok: s.ok,
+      outputDigest: s.outputDigest,
+      by: s.by,
+    })),
+    rule: env.rule,
+    assistant: env.assistant,
+    runId: env.runId,
+    causedBy: env.causedBy,
+    delegation: env.delegation?.hash,
+    timestamp: env.timestamp,
+  };
+  const expected = createHash('sha256')
+    .update(JSON.stringify(body))
+    .update(HASH_SECRET)
+    .digest('hex');
+  return expected === env.hash;
+}
+
 // ---------------------------------------------------------------------------
 
 async function main() {
@@ -260,6 +304,15 @@ async function main() {
         runId: env?.runId ?? undefined,
         steps: (env?.steps || []).map((s) => s.action),
         hash: env?.hash ?? null,
+        // P11 as built: the routing decision reaches the reply as a sealed
+        // delegation record AND as a step in the reply's own chain. Checking
+        // both because either alone can pass while the other is broken — the
+        // record could ride along without being inside the hashed body, or a
+        // step could be present with nothing sealed behind it.
+        delegation: env?.delegation ?? null,
+        basis: env?.basis ?? '',
+        expectDelegated: Boolean(c.by && c.by !== 'coordinator'),
+        sealValid: verifySeal(row.replyText, env),
       });
 
       if (!c.reply.test(row.replyText)) {
@@ -304,12 +357,37 @@ async function main() {
   const withEnv = envelopeEvidence.filter((e) => e.hash !== null || e.steps.length > 0);
   const namedAssistant = withEnv.filter((e) => e.assistant !== undefined);
   const withRunId = withEnv.filter((e) => e.runId !== undefined);
-  const withRoute = withEnv.filter((e) => e.steps.includes('assistant.route'));
+
+  // Only replies that were REACHED BY DELEGATION can carry one. Counting
+  // against every reply would make the number look broken while the platform
+  // was right — the same mistake P7's assertion made.
+  const delegated = withEnv.filter((e) => e.expectDelegated);
+  const withRoute = delegated.filter((e) => e.steps.includes('assistant.route'));
+  const withRecord = delegated.filter((e) => e.delegation && e.delegation.hash);
+  const disclosed = delegated.filter((e) => /chose it/.test(e.basis));
 
   console.log(`  P9   provenance.assistant present on ${namedAssistant.length}/${withEnv.length} replies`);
   console.log(`  P10  provenance.runId     present on ${withRunId.length}/${withEnv.length} replies`);
-  console.log(`  P11  a routing step in    steps on ${withRoute.length}/${withEnv.length} replies`);
-  if (VERBOSE) for (const e of envelopeEvidence) console.log(`       ${e.id}  steps=[${e.steps.join(', ')}]`);
+  console.log(`  P11a routing step in the chain      ${withRoute.length}/${delegated.length} delegated replies`);
+  console.log(`  P11b sealed delegation record       ${withRecord.length}/${delegated.length} delegated replies`);
+  console.log(`  P11c basis discloses the delegation ${disclosed.length}/${delegated.length} delegated replies`);
+
+  // P12 — the seal, recomputed from outside the service.
+  const sealed = withEnv.filter((e) => e.sealValid !== null);
+  const good = sealed.filter((e) => e.sealValid === true);
+  console.log(
+    `  P12  seal verifies from the envelope alone  ${good.length}/${sealed.length} sealed replies` +
+      (good.length === sealed.length ? '' : `  <-- ${sealed.filter((e) => !e.sealValid).map((e) => e.id).join(', ')}`)
+  );
+  if (VERBOSE)
+    for (const e of envelopeEvidence) {
+      console.log(`       ${e.id}  steps=[${e.steps.join(', ')}]`);
+      if (e.delegation)
+        console.log(
+          `             delegation: ${e.delegation.from} -> ${e.delegation.to}` +
+            `  decidedBy=${e.delegation.decidedBy ?? '?'}  hash=${String(e.delegation.hash).slice(0, 12)}…`
+        );
+    }
 
   const broken = rows.filter((r) => r.failures.length > 0);
   console.log(

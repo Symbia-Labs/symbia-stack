@@ -1,6 +1,6 @@
 import { BaseActionHandler } from './base.js';
 import type { ActionConfig, ActionResult, ExecutionContext } from '../types.js';
-import { seal, type ProvenanceStep } from '../provenance.js';
+import { seal, type ProvenanceStep, type DelegationRecord } from '../provenance.js';
 import { interpolate } from '../template.js';
 
 export interface MessageSendParams {
@@ -42,10 +42,20 @@ export class MessageSendHandler extends BaseActionHandler {
         .map((st) => st.id);
       const contentFromModel = modelStepIds.some((id) => template.includes(id));
 
+      // Was this assistant chosen, or addressed?
+      //
+      // If chosen, the coordinator's sealed decision rode in on the message
+      // that triggered this run. It goes into the envelope here — the only
+      // place that has both the decision and the answer it produced.
+      const delegation = (
+        context.message?.metadata as { symbia?: { delegation?: DelegationRecord } } | undefined
+      )?.symbia?.delegation;
+
       const envelope = seal({
         content,
         steps,
         contentFromModel,
+        delegation,
         rule: context.provenanceRule as string | undefined,
         assistant: (context.metadata as Record<string, unknown> | undefined)?.assistantKey as string | undefined,
         runId: (context.metadata as Record<string, unknown> | undefined)?.runId as string | undefined,
