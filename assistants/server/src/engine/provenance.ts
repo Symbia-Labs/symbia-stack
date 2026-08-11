@@ -329,7 +329,9 @@ export function digest(value: unknown): string {
 export function classify(
   steps: ProvenanceStep[],
   contentFromModel: boolean,
-  delegation?: DelegationRecord
+  delegation?: DelegationRecord,
+  /** The rule that produced the reply — cited when the content is authored. */
+  rule?: string
 ): {
   arena: Arena;
   basis: string;
@@ -367,10 +369,30 @@ export function classify(
     arena: r.arena,
     basis: r.basis + note,
   });
-  return withNote(classifyContent(steps, contentFromModel));
+  return withNote(classifyContent(steps, contentFromModel, rule));
 }
 
-function classifyContent(steps: ProvenanceStep[], contentFromModel: boolean): {
+/**
+ * Actions that can put CONTENT in a reply.
+ *
+ * Routing, waiting, state transitions and context updates are things that
+ * happen on the way to an answer; none of them is where the words come from.
+ * Separating them is what lets a reply with steps but no content-producing
+ * step be recognised as authored rather than as a failure.
+ */
+const CONTENT_ACTIONS = new Set([
+  'tool.invoke',
+  'code.tool.invoke',
+  'service.call',
+  'integration.invoke',
+  'llm.invoke',
+]);
+
+function classifyContent(
+  steps: ProvenanceStep[],
+  contentFromModel: boolean,
+  rule?: string
+): {
   arena: Arena;
   basis: string;
 } {
@@ -384,7 +406,38 @@ function classifyContent(steps: ProvenanceStep[], contentFromModel: boolean): {
     };
   }
 
-  const deterministic = ok.filter((s) => s.action === 'tool.invoke');
+  // AUTHORED TEXT IS NOT A REFUSAL.
+  //
+  // A rule whose reply is a fixed template — help, a canned explanation, a
+  // greeting — produces no content-producing step, and every such reply fell
+  // through every branch below to `REFUSED: no step produced content`. **The
+  // system answered and the seal said it declined.** Every help reply this
+  // platform has ever sent carried a refusal.
+  //
+  // It is RETRIEVED, and the definition fits exactly: returned verbatim from a
+  // named source, quotable. The source is the rule, which lives in the catalog
+  // under a key anyone can fetch and compare against — a stronger citation
+  // than most things this arena is used for.
+  //
+  // `help` stopped exhibiting this on 11 Aug by accident, when it gained a
+  // `tool.invoke` step for the live roster. The misclassification underneath
+  // was untouched; this is the fix.
+  const contentSteps = ok.filter((s) => CONTENT_ACTIONS.has(s.action));
+  if (!contentFromModel && contentSteps.length === 0) {
+    return {
+      arena: 'RETRIEVED',
+      basis:
+        `content returned verbatim from the rule${rule ? ` "${rule}"` : ''}` +
+        ` — authored text, not a computed value. No step produced it because none was needed.` +
+        (failed.length > 0
+          ? ` Note: ${failed.length} step(s) failed on the way here (${failed.map((f) => f.action).join(', ')}), and the reply does not depend on them.`
+          : ''),
+    };
+  }
+
+  const deterministic = ok.filter(
+    (s) => s.action === 'tool.invoke' || s.action === 'code.tool.invoke'
+  );
   const retrieved = ok.filter(
     (s) => s.action === 'service.call' || s.action === 'integration.invoke'
   );
@@ -420,7 +473,13 @@ function classifyContent(steps: ProvenanceStep[], contentFromModel: boolean): {
     };
   }
 
-  return { arena: 'REFUSED', basis: 'no step produced content' };
+  // Reachable only when the template referenced a model step that did not
+  // succeed. Genuinely a refusal: the reply was supposed to carry something a
+  // model produced, and it does not.
+  return {
+    arena: 'REFUSED',
+    basis: 'the reply was built from a model step that did not produce content',
+  };
 }
 
 /**
@@ -553,7 +612,25 @@ export function seal(input: {
       ]
     : input.steps.map((s) => ({ ...s }));
 
-  const { arena, basis } = classify(steps, input.contentFromModel, input.delegation);
+  // CLASSIFY ON THIS REPLY'S OWN STEPS, NOT THE WHOLE CHAIN.
+  //
+  // The arena answers "how was this content produced". The chain answers "how
+  // did this reply come to exist", which includes the router's work. Those are
+  // different questions and merging them gets both wrong.
+  //
+  // Measured 11 Aug: `@calc help` — a single static template with no steps at
+  // all — classified COMPUTED, because the DELEGATION's steps (`context.resolve`
+  // and `assistants.route`, both `tool.invoke`) counted as content-producing.
+  // The router's bookkeeping was being credited with writing the reply.
+  //
+  // The envelope still carries and hashes the full chain; only the arena
+  // narrows. The delegation is already disclosed separately in `basis`.
+  const { arena, basis } = classify(
+    input.steps,
+    input.contentFromModel,
+    input.delegation,
+    input.rule
+  );
   const timestamp = new Date().toISOString();
 
   // Seal the data when there is data; seal the prose only when prose is all

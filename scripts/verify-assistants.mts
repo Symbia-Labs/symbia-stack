@@ -105,10 +105,40 @@ const CASES = [
     prompt: 'help',
     by: 'coordinator',
     reply: /symbia|team|specialist/i,
-    arena: 'REFUSED',
-    predictedWrong:
-      'A static message.send produces zero steps, and classify([]) falls through to ' +
-      'REFUSED "no step produced content". The system answered; the seal says it declined.',
+    // ASSERTION CHANGED 11 Aug, AND THE REASON IS THE POINT.
+    //
+    // P6 originally predicted REFUSED, was recorded as "held, and the
+    // behaviour is still wrong", and stayed the single outstanding failure all
+    // day. The defect is now fixed: a reply built from an authored template is
+    // RETRIEVED — returned verbatim from a named source, the rule, which lives
+    // in the catalog under a fetchable key.
+    //
+    // So the prediction is broken BY THE FIX, which is the honest outcome and
+    // the second registered prediction edited today. Recorded here and in the
+    // results rather than quietly applied.
+    // COMPUTED, not RETRIEVED: Symbia's help gained a `tool.invoke` step when
+    // it started reading the roster from the registry, so its content IS
+    // produced by a step. That accident is exactly why it stopped exhibiting
+    // the bug without the bug being fixed — and why proving the fix needs a
+    // reply that is still genuinely authored. See D9.
+    arena: 'COMPUTED',
+  },
+  {
+    id: 'D9',
+    prompt: '@calc help',
+    // THE PROOF FOR P6's UNDERLYING DEFECT.
+    //
+    // Addressing a specialist directly reaches Calculator's own help rule,
+    // which is a single static `message.send` with no steps at all — the exact
+    // shape that fell through every branch of classify() to
+    // `REFUSED: no step produced content`.
+    //
+    // It must now be RETRIEVED: authored text returned verbatim from a named
+    // source, the rule, which is fetchable from the catalog. If this reads
+    // REFUSED, the fix did not land.
+    by: 'calculator',
+    reply: /calculator|expressions|sqrt/i,
+    arena: 'RETRIEVED',
   },
   {
     id: 'P7',
