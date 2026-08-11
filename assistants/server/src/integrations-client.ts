@@ -228,7 +228,28 @@ export async function resolveUsableProvider(
       `${INTEGRATIONS_SERVICE_URL}/api/integrations/capabilities`,
       { headers }
     );
-    if (!response.ok) return null;
+
+    // "I COULD NOT ASK" IS NOT "THE ANSWER IS NONE".
+    //
+    // This returned null on any non-2xx, and the caller renders null as "No
+    // LLM provider has a usable credential. Add an API key in Settings." So a
+    // 400 from our own malformed request — no org context — reached the person
+    // in the chat window as a statement about THEIR configuration, and sent
+    // them to Settings to add a key that was already there.
+    //
+    // Measured 11 Aug 2026: an agent token with no X-Org-Id gets 400 from
+    // integrations, and the operator is told they have no API key.
+    //
+    // Throwing separates the two. A failed request is an error with a status
+    // on it; `null` now means only what it says — the service answered, and
+    // no provider reported a credential.
+    if (!response.ok) {
+      throw new Error(
+        `Could not ask Integrations which providers are usable: ` +
+          `${response.status} ${response.statusText}. This is a request failure, ` +
+          `not a statement about configured credentials.`
+      );
+    }
 
     const data = (await response.json()) as {
       providers?: Array<{ provider: string; status?: string; defaultModel?: string }>;
@@ -253,11 +274,18 @@ export async function resolveUsableProvider(
       provider: usable.provider,
       model: DEFAULT_MODEL[usable.provider] || usable.defaultModel || 'gpt-4o-mini',
     };
-  } catch {
-    // Returning null rather than a guess. The caller reports "no usable
-    // provider", which is true, instead of failing later against a provider
-    // nobody chose.
-    return null;
+  } catch (error) {
+    // The throw above is deliberate and must not be swallowed here — this
+    // `catch` existed to turn a guess into a null, and it would quietly undo
+    // the distinction it was just given.
+    //
+    // Anything else (the service unreachable, a malformed body) is also a
+    // failure to ASK, not an answer of "none". Both propagate, so the chat
+    // window says what actually went wrong instead of blaming the operator's
+    // Settings page.
+    throw error instanceof Error
+      ? error
+      : new Error(`Could not reach Integrations to resolve a provider: ${String(error)}`);
   }
 }
 

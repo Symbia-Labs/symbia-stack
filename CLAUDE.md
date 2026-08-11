@@ -1,4 +1,11 @@
-# symbia-stack
+# symbia-stacK
+
+LOAD TOOLS: DESKTOP COMMANDER, SYMBIA MCP SERVER, CLAUDE IN CHROME
+
+1. VERIFY STACK IS RUNNING LOCALLY. CHECK ENDPOINT STATUS
+2. VERIFY SYMBIA MCP SERVER IS AVAILABLE
+3. VERIFY YOU HAVE CONTROL CENTER ACCESS VIA CLAUDE IN CHROME
+4. VERIFY REST API AVAILABILITY
 
 **Read `/STATUS.md` first.** It says what is built, what is wired, and what
 is only written down. `docs/` holds dated findings; `docs/proposals/` holds

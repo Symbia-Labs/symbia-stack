@@ -1,146 +1,163 @@
 # Three assistants — results
 
-**Measured 11 August 2026** against a running stack, by
-`scripts/verify-assistants.mjs`, after the roster change in `812e716`.
-Predictions were registered in `docs/2026-08-11-three-assistant-predictions.md`
-and committed before any of this was run. Nothing below has been edited to
-agree with the outcome.
+**Measured 11 August 2026** against a running stack by
+`scripts/verify-assistants.mjs`. Predictions were registered in
+`docs/2026-08-11-three-assistant-predictions.md` and committed before any of
+this was run.
 
-**1 of 8 predictions held.** The one that held describes behaviour that is
-wrong.
+Three passes are recorded: the first before the credential path was fixed, then
+two consecutive runs after. The second and third disagree with each other, and
+that disagreement is the most important thing in this document.
 
-## What the change itself did — worked
+## Pass 1 — 1 of 8 held
 
-- The roster is three. `[Assistant Loader] Found 3 assistant(s) in Catalog` /
-  `Loaded 3 assistant(s) total`, against ten before.
-- **`status` is now a gate.** Setting seven resources to `draft` removed them
-  from the roster, from routing, and from `assistants.list`. Before the loader
-  change the same write would have changed nothing observable.
-- The coordinator is `Symbia`, and `rule-compute-first` is gone.
-- **Both dead rules now fire.** `coord-team` and `rule-platform-status` had
-  never matched anything; both matched on the first attempt after the inline
-  modifiers were stripped. P7 also came back with arena `COMPUTED`, as
-  predicted.
+Every delegation failed with `No LLM provider has a usable credential`.
+`coord-orchestrate` is roster → classify → route, and the classifier is step
+two, so P1–P5 never reached a specialist.
 
-## What broke, and it is mostly one thing
+**Deleting `rule-compute-first` did not break this — it revealed it.** That
+rule computed bare arithmetic with no model, so `2+2` worked while everything
+needing the classifier did not. Reducing the roster to three removed the thing
+that was hiding it.
 
-Five of the seven broken predictions have a single upstream cause:
+## The credential — three separate problems
 
-```
-[SDN] Action llm.invoke failed: No LLM provider has a usable credential.
-```
+Established by measurement, not inference:
 
-`coord-orchestrate` is `tool.invoke` (roster) → `llm.invoke` (classify) →
-`condition` (route). The classifier is step two, so **no delegation happens at
-all.** P1–P5 never reached Calculator or Smart Calculator; Symbia answered each
-with the error text, sealed `REFUSED`. P8 failed the same way at its
-`step-answer`.
+1. **The stored Anthropic key is personal** — `org_id NULL, is_org_wide false`,
+   owned by `dev@example.com`. An assistant is a different principal and
+   `getCredentialForUserOrOrg` cannot reach it, correctly. There is a supported
+   org-wide path and nothing was using it. Fixed by
+   `scripts/setup-test-org.mjs`, through `POST /api/credentials` with an
+   `X-Org-Id` header — the platform's own audit-logged endpoint, no SQL writes.
 
-### This was hidden until today
+2. **`integrations` dropped the resolved org before the handler saw it.**
+   `authMiddleware` resolves `orgId` header > token > fallback, uses it for
+   RLS, and never wrote it back onto `req.user` — while six call sites in
+   `routes.ts` read `user.orgId` to look up a credential. For a human this is
+   invisible: their token names their org, so the two agree. For an agent it is
+   fatal and silent — a bootstrap assistant registers with `orgId: null,
+   organizations: []` (measured against `/api/auth/agent/me`), so `user.orgId`
+   was null no matter what the caller said. `resolveUsableProvider` sends
+   `X-Org-Id` precisely to say which org to look in; the header arrived, was
+   used for RLS, and was dropped. **No assistant in this platform could resolve
+   an org credential.** This is the same shape as the raw-token defect
+   documented immediately above it in the same function.
 
-`rule-compute-first` computed bare arithmetic without a model, so `2+2` worked
-while every path that needed the classifier did not. Deleting that rule did not
-break delegation — it **revealed** that delegation has been resting on a model
-call that currently cannot happen. STATUS §5a records orchestration as RUNS,
-verified in a browser on 11 August. Both can be true: this is a credential
-state, not a code path, and credential state is exactly the kind of thing a
-one-off browser check cannot pin down. That is an argument for the script.
+3. **A failed request was reported as a missing key.**
+   `resolveUsableProvider` returned `null` on any non-2xx, and the caller
+   renders `null` as *"Add an API key in Settings."* So a 400 caused by our own
+   missing org context reached the person in the chat window as a statement
+   about their configuration, and sent them to add a key that was already
+   there. "I could not ask" now throws; `null` means only "I asked, and the
+   answer was none."
 
-### The credential exists. The assistant cannot see it.
+## Pass 2 and 3 — and they disagree
 
-Observed, not inferred:
-
-| caller | `GET /api/integrations/capabilities` | result |
+| | run A | run B |
 |---|---|---|
-| user token (`dev@example.com`) | 200 | `anthropic:available` |
-| user token + `X-Org-Id` | 200 | `anthropic:available` |
-| the assistant, via `llm.invoke` | — | `resolveUsableProvider` returned null |
+| P1 `2+2` → Calculator, `COMPUTED` | **BROKEN** | **BROKEN** |
+| P2 `what is 2+2?` → Calculator, `COMPUTED` | HELD | HELD |
+| P3 `sqrt(16)` → Calculator, `COMPUTED` | HELD | HELD |
+| P4 `15% tip on $47.50` → Smart Calc, `COMPOSED` | HELD | **BROKEN** |
+| P5 `split $120 between 4` → Smart Calc, `COMPOSED` | HELD | HELD |
+| P6 `help` | BROKEN | BROKEN |
+| P7 `who is on the team` | HELD | HELD |
+| P8 `is the stack healthy` → `COMPOSED` | HELD | HELD |
+| | 6/8 | 5/8 |
 
-So an Anthropic credential is configured and reachable, and the org header
-makes no difference to whether it is found. The assistant still cannot resolve
-it.
+**P4 held in one run and broke in the next, with no change between them.**
 
-**Inferred, and NOT established.** Two candidates, and this measurement does
-not separate them:
+### This is the finding
 
-1. The assistant calls with an *agent* token from `getAssistantToken`, not a
-   user token. If that principal lacks the entitlement or org membership that
-   `capabilities` filters on, it would see nothing while a user sees Anthropic.
-   This is the same family as STATUS §6.5, where `assistant.route`'s join
-   returns 401 for the same principal.
-2. The SDN path — the live one — passes `metadata: { token: currentToken }`
-   at `webhooks.ts:392` and **omits `rawOrgId`**, which the other path at
-   `:1181` passes. `resolveUsableProvider` only sets `X-Org-Id` when it has an
-   orgId. The table above weakens this one: the header changed nothing for a
-   user token. It does not eliminate it, because it may matter for an agent.
-
-Deciding between these needs an agent token driven through the same call. That
-was attempted and the agent-login endpoint guessed wrong (404). Left open
-rather than asserted.
-
-## The other two failures
-
-**P7 — the rule fired, the template did not.** `who is on the team` matched,
-ran `assistants.list`, and sealed `COMPUTED` exactly as predicted. The reply:
+The routing decision is a model call. It is not reproducible, and it leaves no
+trace. P1 fails with:
 
 ```
-**Available Team Members:**
-
-- **@** -
+LLM returned an empty response (provider=resolved, model=claude-sonnet-5,
+promptChars=3). Nothing was sent.
 ```
 
-One row, all fields empty. `{{#each steps.step-roster.result}}` iterated, so
-the block helper exists and the result reached it, but the per-item fields
-resolved to nothing. This was flagged as a risk in the predictions and is a
-**new defect**, not a miss: the roster tool now reads the registry correctly
-and the template cannot render what it returns. Also note the row count — one
-row for three assistants.
+A three-character prompt gets an empty completion, so `2+2` — the simplest
+input the platform accepts — is the one delegation cannot reliably classify.
 
-**P6 held, and the behaviour is wrong.** `help` came back sealed `REFUSED`.
-A static `message.send` produces zero provenance steps, and `classify([])`
-falls through every branch to `{ arena: 'REFUSED', basis: 'no step produced
-content' }`. The system answered; the seal says it declined. Every help reply
-in this platform currently carries a refusal.
+Set that beside P11, which is now **measured rather than read from code**:
+delegation genuinely occurred for P2–P5, and **0 of 7 replies carried any
+record of it**. So the least reliable step in the chain is also the only
+unrecorded one, and every step after it is sealed. A reply that says `COMPUTED`
+and names `math.evaluate` is telling the truth about the arithmetic while
+saying nothing about the non-deterministic choice that decided whose
+arithmetic it was.
 
-## The envelope — P9, P10, P11
+That is STATUS §6.3, and it is worse than that entry states. It is not that a
+step is missing from a list. It is that the platform seals the reproducible
+half of its own pipeline and stays silent about the half that is not.
 
-| | claim | measured |
-|---|---|---|
-| P9 | `provenance.assistant` names the replier | **0 of 2** |
-| P10 | `provenance.runId` correlates with the wrapper | **0 of 2** |
-| P11 | a delegated reply records the routing step | **0 of 2** |
+## What is fixed and holding
 
-All three predicted to fail, and all three failed.
+- **The pair works as designed.** `2+2` → Calculator → `= 4` → `COMPUTED`, no
+  model. `15% tip on $47.50` → Smart Calculator → `**Understood:**
+  47.50 * 0.15 / **Answer:** 7.125` → `COMPOSED`. One variable different, two
+  arenas, both correct.
+- **`normalizeMathInput` works.** `what is 2+2?` returns `= 4`. STATUS §6.2 is
+  closed for Calculator.
+- **P9 and P10 went from 0/8 to 7/7.** Envelopes now name the assistant and the
+  run. `message.ts` sealed `context.metadata.assistantKey` and `runId`, and
+  neither was ever set — `assistantKey` lives on `event.data`, and the runId
+  was generated inside `RuleExecutor` and never written back. Both were
+  `undefined`, so `JSON.stringify` dropped them and **the seal committed to
+  their absence**.
+- **`{{#each}}` exists.** The roster rule was authored against a block helper
+  the template language did not have, so every tag resolved to undefined and
+  rendered one empty row. Implemented in `@symbia/sys` — not in the assistants
+  service, which would have made `{{#each}}` mean something in one consumer and
+  nothing in the others. Supports `{{this.x}}` and `{{x}}` as the same thing,
+  which cost a second round: the first version handled `this` exactly and
+  resolved `this.alias` as a path into a field called `this`.
+- **The last hardcoded roster is gone.** `coord-help` was static prose naming
+  ten assistants, seven now unpublished. It reads the registry.
 
-**n = 2, and that is the honest number.** Only two replies carried a sealed
-envelope at all; the other six were the synthesised error envelope with
-`hash: null`, which has no steps to inspect. P11 in particular is untested by
-this run — no delegation occurred, so no reply could have carried a routing
-step whether the code recorded one or not. It is recorded as failed on the
-basis of reading the code, not on the basis of this measurement, and it should
-be re-run once the classifier works.
+## P6 — read this one carefully
 
-## Untested
+P6 predicted `help` would seal `REFUSED`, and in pass 1 it did. It now seals
+`COMPUTED`, so the prediction is **broken**.
 
-`normalizeMathInput` — the fix for `what is 2+2?` (STATUS §6.2) — was never
-reached. P2 died at the classifier before any tool ran. The unit behaviour is
-in the running bundle (`work out` is present in `dist/index.mjs`), but the
-platform behaviour is unmeasured.
+**The defect is not fixed.** `classify([])` still falls through every branch to
+`REFUSED: no step produced content`, and any zero-step static reply still
+carries a refusal. `help` simply stopped being zero-step — it runs
+`assistants.list` now, so it has a deterministic step to stand on. The
+behaviour improved by accident of an unrelated change, and the underlying
+misclassification is untouched. A static `message.send` in any rule will still
+be sealed as a refusal.
 
-## A correction to the verification discipline
+## One prediction was edited, and it should be said plainly
 
-`CLAUDE.md` says to grep a unique marker in the running bundle before trusting
-it. That was done, and it reported the changes missing — because the build sets
-`minify: true` and every marker chosen was a comment. The changes were present
-the whole time; the instrument was wrong.
+P7 asserted `/calculator/i`. The roster renders **aliases** — `@calc`,
+`@symbia`, `@smartcalc` — because that is what a person types. The key never
+appears. So P7 reported broken while the platform was correct: the prediction
+was wrong about the platform, not the reverse. The assertion now requires all
+three aliases. This is the only edit made to a registered prediction.
 
-**A marker must be a string literal or an identifier that survives
-minification.** Confirmed here with `work out` (a regex literal) and
-`URLSearchParams`.
+## Two corrections to the verification discipline
+
+1. **A marker must survive minification.** `CLAUDE.md` says to grep a unique
+   marker in the running bundle. Done, and it reported the changes missing —
+   `build.ts` sets `minify: true` and every marker chosen was a comment. The
+   changes were present the whole time. Worse, the second attempt grepped
+   `#each` and matched seed data rather than the implementation. Use a string
+   literal that only the new code could produce.
+
+2. **Rule changes need a service restart.** The assistants service caches
+   rulesets at boot. A diagnostic patched into the catalog appeared to have no
+   effect and nearly sent this session after a phantom template bug.
 
 ## Next
 
-1. Establish which of the two credential candidates is real, with an agent
-   token. Everything else is behind it.
-2. Fix the roster template (P7).
-3. Re-run this script. P11 has not actually been measured.
+1. **Record the routing decision.** Not as a step in a list — the step already
+   exists and is discarded. Sealing happens inside `message.send`, and the
+   coordinator's job is to send nothing, so `suppressResponse` returns before
+   anything seals and the array dies with the context. Provenance is scoped to
+   one rule execution; a delegation spans two.
+2. **The classifier returns empty on short prompts.** `2+2` fails consistently.
+3. **`classify([])` should not be `REFUSED`.** A static answer is not a
+   declined one.

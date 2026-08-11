@@ -496,8 +496,92 @@ export function resolveRef(
  * @param ctx - Resolution context
  * @returns Interpolated string
  */
+/**
+ * `{{#each <path>}} … {{/each}}` — iterate a list.
+ *
+ * THIS IS ADDED BECAUSE A RULE ALREADY USED IT AND NOTHING IMPLEMENTED IT.
+ *
+ * The coordinator's team-roster rule was authored as
+ * `{{#each steps.step-roster.result}}- **@{{alias}}** - {{description}}{{/each}}`.
+ * There was no block helper, so `{{#each …}}`, `{{alias}}`, `{{description}}`
+ * and `{{/each}}` were each treated as an ordinary reference, every one of
+ * them resolved to undefined, and formatValue turned undefined into ''. The
+ * reply was:
+ *
+ *     **Available Team Members:**
+ *
+ *     - **@** -
+ *
+ * One row for three assistants, every field blank — measured 11 Aug 2026.
+ * Nothing errored. The rule reported success, the tool.invoke step before it
+ * genuinely succeeded, and the envelope sealed it COMPUTED, which was true:
+ * the content came from a deterministic step. It was correctly attributed
+ * nonsense.
+ *
+ * It goes HERE, in @symbia/sys, and not in the assistants service. The
+ * template language is one language; implementing a block helper in one
+ * consumer would make `{{#each}}` mean something in assistants and nothing in
+ * runtime or integrations, which is the forked-concern defect this codebase
+ * already names.
+ *
+ * Deliberately small. Inside a block, `{{this}}` is the item, a bare name is a
+ * field of the item, and `{{@index}}` is the position. No nesting, no `else`,
+ * no filters — a non-array or empty list renders nothing, which is honest and
+ * is what a roster of zero should look like.
+ */
+const EACH_BLOCK = /\{\{#each\s+([^}]+?)\s*\}\}([\s\S]*?)\{\{\/each\}\}/g;
+
+function interpolateEach(template: string, ctx: ResolutionContext): string {
+  return template.replace(EACH_BLOCK, (_match, rawPath: string, body: string) => {
+    const path = rawPath.trim();
+    const list = path.startsWith('@')
+      ? (() => {
+          const r = resolveRef(path, ctx);
+          return r.success ? r.value : undefined;
+        })()
+      : getNestedValue(ctx, path.split('.'));
+
+    if (!Array.isArray(list) || list.length === 0) return '';
+
+    return list
+      .map((item, index) =>
+        body.replace(INTERPOLATION_PATTERN, (_m, content: string) => {
+          let key = String(content).trim();
+          if (key === 'this' || key === '.') return formatValue(item);
+          if (key === '@index') return String(index);
+          if (key === '@number') return String(index + 1);
+
+          // `{{this.alias}}` and `{{alias}}` mean the same thing.
+          //
+          // Both spellings are in use — the coordinator's roster rule was
+          // authored with `this.`, and dropping the prefix is the commoner
+          // habit. Supporting only the bare form resolved `this.alias` as a
+          // two-segment path into the item, found no field called `this`, and
+          // rendered blank: three rows, every field empty, and nothing to
+          // indicate the template had been read at all. Measured 11 Aug 2026,
+          // on the first template this helper ever ran.
+          if (key === 'this' || key.startsWith('this.')) key = key.slice(5);
+
+          // A field of the current item. Dotted paths walk into it, so
+          // {{model.name}} works on an item that has a nested object.
+          if (item !== null && typeof item === 'object') {
+            const value = getNestedValue(item as Record<string, unknown>, key.split('.'));
+            if (value !== undefined) return formatValue(value);
+          }
+          // Not a field of the item — fall through to the outer context, so a
+          // block can still reference something outside the loop.
+          return formatValue(getNestedValue(ctx, key.split('.')));
+        })
+      )
+      .join('');
+  });
+}
+
 export function interpolate(template: string, ctx: ResolutionContext): string {
-  return template.replace(INTERPOLATION_PATTERN, (_, content) => {
+  // Blocks first: the body of an `{{#each}}` is rendered per item, against the
+  // item. Running the scalar pass first would consume `{{alias}}` against the
+  // outer context and blank it before the loop ever saw it.
+  return interpolateEach(template, ctx).replace(INTERPOLATION_PATTERN, (_, content) => {
     const trimmed = content.trim();
 
     // Handle @ref syntax

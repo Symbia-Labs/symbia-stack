@@ -167,6 +167,49 @@ async function main() {
   const regexChanges = [];
   for (const rule of ruleSet.rules) repairConditions(rule.conditions, regexChanges, rule.id);
 
+  /**
+   * The help text was the last hardcoded roster.
+   *
+   * `coord-help` was static prose listing ten assistants by name — `@echo`,
+   * `@convert`, `@run` — seven of which are now unpublished and none of which
+   * it would ever notice changing. That is the fifth copy of a roster this
+   * codebase has had to kill: `assistants.list` returned a literal array, the
+   * orchestrate prompt embedded a snapshot, and two alias tables named
+   * assistants that did not exist.
+   *
+   * It now reads the registry through the same `assistants.list` the roster
+   * rule uses, and renders it with `{{#each}}` — which had to be implemented
+   * in @symbia/sys first, because the team rule was already written against a
+   * block helper the template language did not have.
+   */
+  const help = ruleSet.rules.find((r) => r.id === 'coord-help');
+  let helpRewritten = false;
+  if (help) {
+    help.actions = [
+      {
+        id: 'step-roster',
+        type: 'tool.invoke',
+        params: { tool: 'assistants.list', resultKey: 'roster' },
+      },
+      {
+        type: 'message.send',
+        params: {
+          template:
+            '**Symbia**\n\n' +
+            'I coordinate a team. Ask me anything and I hand it to whichever ' +
+            'specialist fits; they answer you directly and I stay out of it.\n\n' +
+            '**The team, live from the registry:**\n\n' +
+            '{{#each steps.step-roster.result}}- **@{{alias}}** — {{description}}\n{{/each}}\n' +
+            'Every reply carries a provenance envelope saying how it was ' +
+            'arrived at: `COMPUTED` when a deterministic tool produced it and ' +
+            'no model touched it, `COMPOSED` when a model wrote over material ' +
+            'it was given.',
+        },
+      },
+    ];
+    helpRewritten = true;
+  }
+
   console.log(`  rules ${before.length} -> ${ruleSet.rules.length}${removed.length ? `  (removed ${removed.join(', ')})` : ''}`);
   for (const c of regexChanges) console.log(`  regex  ${JSON.stringify(c.from)}\n      -> ${JSON.stringify(c.to)}`);
   if (regexChanges.length === 0) console.log('  regex  (no inline modifiers found)');
@@ -178,7 +221,8 @@ async function main() {
   await patch(
     COORDINATOR,
     { name: 'Symbia', metadata },
-    `name -> Symbia, ${removed.length} rule(s) removed, ${regexChanges.length} regex(es) repaired`
+    `name -> Symbia, ${removed.length} rule(s) removed, ${regexChanges.length} regex(es) repaired` +
+      (helpRewritten ? ', help reads the registry' : '')
   );
 
   // ---- 3. Verify from the catalog, not from what we just sent ------------

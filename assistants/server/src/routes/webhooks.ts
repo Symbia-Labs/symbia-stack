@@ -445,6 +445,24 @@ async function processMessageForAssistant(
       metadata: {
         token: currentToken,
         rawOrgId: orgId, // Original org ID for credential lookup
+        // THE ENVELOPE SEALS THESE. THEY HAVE ALWAYS BEEN UNDEFINED.
+        //
+        // message.ts reads `context.metadata.assistantKey` and
+        // `context.metadata.runId` when it seals a reply. Neither was ever
+        // set here: `assistantKey` lives on `event.data` (where
+        // assistant-route's self-loop guard correctly reads it) and the runId
+        // was generated inside RuleExecutor.execute() and never written back.
+        //
+        // Because both were `undefined`, JSON.stringify dropped them from the
+        // hashed body — so the seal committed to their ABSENCE, and every
+        // provenance envelope this platform has produced is unable to say
+        // which assistant wrote the reply or which run produced it. The
+        // comment in provenance.ts about correlating with the SDN wrapper
+        // described something that had never happened.
+        //
+        // Measured 11 Aug 2026: 0 of 2 sealed replies carried either field.
+        assistantKey,
+        runId,
       },
     });
   };

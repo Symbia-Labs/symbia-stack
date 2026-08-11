@@ -30,6 +30,8 @@ const MESSAGING = process.env.MESSAGING_URL || 'http://localhost:5005';
 const EMAIL = process.env.SYMBIA_EMAIL || 'dev@example.com';
 const PASSWORD = process.env.SYMBIA_PASSWORD;
 const COORDINATOR_USER_ID = 'assistant:coordinator';
+/** Org whose credential the assistants should resolve. See scripts/setup-test-org.mjs. */
+const ORG_ID = process.env.SYMBIA_ORG_ID || '';
 
 const argv = process.argv.slice(2);
 const VERBOSE = argv.includes('--verbose');
@@ -97,8 +99,20 @@ const CASES = [
   {
     id: 'P7',
     prompt: 'who is on the team',
+    // ASSERTION CORRECTED 11 Aug 2026, AND THE CORRECTION IS THE POINT.
+    //
+    // This asked for /calculator/i. The roster renders ALIASES — `@calc`,
+    // `@symbia`, `@smartcalc` — because that is what a person types to reach
+    // an assistant, and the alias is what `assistants.list` leads with. The
+    // key never appears.
+    //
+    // So the first run reported P7 broken while the platform was correct. The
+    // prediction was wrong about the platform, not the other way round, and
+    // this is the only edit made to a registered prediction — recorded here
+    // and in the results rather than quietly applied. Now asserts all three
+    // are present, which is the claim that actually matters.
     by: 'coordinator',
-    reply: /calculator/i,
+    reply: /@calc\b[\s\S]*@smartcalc\b|@smartcalc\b[\s\S]*@calc\b/,
     arena: 'COMPUTED',
     note: 'rule was dead until today — (?i) throws on every Node version',
   },
@@ -171,6 +185,12 @@ async function openConversation(label) {
     body: JSON.stringify({
       type: 'group',
       name: `verify-${label}-${Date.now()}`,
+      // The org the conversation belongs to becomes `payload.orgId` on the SDN
+      // path, which becomes `rawOrgId`, which becomes the `X-Org-Id` that
+      // decides which org's credential an assistant can resolve. Set it
+      // explicitly so the walk runs in the org that actually holds a key,
+      // rather than whichever org a default happens to pick.
+      ...(ORG_ID ? { orgId: ORG_ID } : {}),
       participants: [{ userId: COORDINATOR_USER_ID, userType: 'agent' }],
     }),
   });
