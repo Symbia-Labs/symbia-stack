@@ -162,15 +162,26 @@ export interface DelegationRecord {
    */
   decidedBy?: string;
   /**
-   * `declaration` — matched against what assistants declare they handle. A
-   * function of the message and the registry, so it is recomputable, and the
-   * reply it precedes stays in the canonical lane.
+   * HOW the choice was made, at the granularity that decides the lane.
    *
-   * `model` — a model chose. Not recomputable. `lanes only tighten` applies:
-   * a reply reached this way must not be presented as if the deterministic
-   * path had settled it.
+   * `declaration` — an exact pattern match against what an assistant declares.
+   *   Recomputable from the message and the registry.
+   * `classifier`  — a trained discriminative model, argmax, no sampling.
+   *   ALSO RECOMPUTABLE, and this is the distinction the first version of this
+   *   field got wrong by having only two values. Pinned weights plus argmax
+   *   are as reproducible as a regex; what breaks reproducibility is sampling,
+   *   not machine learning. The source names the training digest so anyone
+   *   holding the same declarations can re-derive the decision.
+   * `model`       — a generative model chose. NOT recomputable. This is the
+   *   step that actually drops the lane, and `lanes only tighten` applies.
+   * `declined`    — nothing was confident enough and the system refused rather
+   *   than guessing.
+   *
+   * Two escalations, not one: declaration → classifier stays inside the
+   * canonical lane; classifier → model leaves it. A receipt with two values
+   * cannot tell them apart.
    */
-  method?: 'declaration' | 'model';
+  method?: 'declaration' | 'classifier' | 'model' | 'declined';
   /** The coordinator's steps, in order, up to and including the route. */
   steps: ProvenanceStep[];
   /** Message that triggered the delegation. */
@@ -317,7 +328,12 @@ export function classify(
           // arithmetic now holds for the routing that preceded it, and the
           // whole chain is checkable rather than just the tail of it.
           `is reproducible from the message and the registry.`
-        : `is NOT reproducible.`)
+        : delegation.method === 'classifier'
+          ? // Also recomputable. Trained weights with argmax decoding are as
+            // reproducible as a pattern; the training digest in the source
+            // says which weights, so a third party can re-derive the choice.
+            `is reproducible from the message and the classifier's training digest.`
+          : `is NOT reproducible.`)
     : '';
   const withNote = (r: { arena: Arena; basis: string }) => ({
     arena: r.arena,

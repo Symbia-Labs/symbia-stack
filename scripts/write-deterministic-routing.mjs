@@ -47,6 +47,24 @@ const DECLARATIONS = {
   'ast-calculator': {
     precedence: 100,
     handles: 'arithmetic written as an expression — `2+2`, `sqrt(16)`, `(10+5)*2`',
+    // Tier 2 training. Deliberately narrow: Calculator's job is expressions
+    // that are ALREADY arithmetic, so its examples must not teach the
+    // classifier to claim prose. Anything wordy belongs to Smart Calculator,
+    // which can actually parse it.
+    examples: [
+      '2+2',
+      '7*8',
+      '100/4',
+      'sqrt(16)',
+      '(10+5)*2',
+      '2^10',
+      '12 * 12',
+      'what is 45/9',
+      'calculate 99-33',
+      'pi * 2',
+      '3.14159 * 2',
+      '17%5',
+    ],
     patterns: [
       // A bare expression, optionally wrapped in a polite phrase that
       // normalizeMathInput will strip anyway. Anchored, so a sentence
@@ -60,6 +78,28 @@ const DECLARATIONS = {
   'ast-smart-calc': {
     precedence: 50,
     handles: 'arithmetic described in words — tips, splits, percentages, totals',
+    // Tier 2 training. This is where paraphrase lives, so the examples are
+    // conversational on purpose — including the phrasings that motivated the
+    // tier at all ("work out the tip on this for me would you"), which no
+    // pattern list would ever have enumerated.
+    examples: [
+      "what's 15% tip on $47.50",
+      'split $120 between 4 people',
+      'work out the tip on this for me would you',
+      'can you figure out the tip',
+      'how much is 3 dozen eggs',
+      'what is 20% of 80',
+      '20% off $80',
+      'add 8.5% tax to $50',
+      'if I drive 65mph for 2.5 hours how far',
+      'now multiply that by 10',
+      'divide it by 4',
+      'half of 250',
+      'a third of 99',
+      'two plus two',
+      'what do I owe if we split the bill four ways',
+      'take 10 percent off two hundred',
+    ],
     patterns: [
       String.raw`\b(?:tip|discount|tax|interest|markup)\b`,
       String.raw`\bsplit\b.*\b(?:between|among|across|by)\b`,
@@ -163,7 +203,11 @@ async function main() {
       }
     }
 
-    await patch(id, { metadata }, `${decl.patterns.length} patterns, precedence ${decl.precedence}${typedNote}`);
+    await patch(
+      id,
+      { metadata },
+      `${decl.patterns.length} patterns, ${decl.examples?.length ?? 0} training examples, precedence ${decl.precedence}${typedNote}`
+    );
   }
 
   // ---- 2. The coordinator stops asking a model ----------------------------

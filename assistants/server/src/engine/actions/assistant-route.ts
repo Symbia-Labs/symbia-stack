@@ -188,17 +188,31 @@ export class AssistantRouteHandler extends BaseActionHandler {
         | { matchedPattern?: string; method?: string; tieBroken?: boolean }
         | undefined;
       const modelSteps = priorSteps.filter((s) => s.action === 'llm.invoke');
-      const deterministic = decision?.method === 'declaration' && modelSteps.length === 0;
-      const decidedBy = deterministic
-        ? `assistants.route (declared pattern ${JSON.stringify(decision?.matchedPattern ?? '')}${decision?.tieBroken ? ', TIE BROKEN BY NAME' : ''})`
-        : modelSteps.map((s) => s.source).join(', ') || undefined;
+
+      // Two escalations, and only one of them leaves the canonical lane.
+      // `declaration` and `classifier` are both recomputable; a generative
+      // model is not. Reporting them with one flag was the error corrected in
+      // docs/2026-08-11-lean-deterministic.md.
+      const tier: 'declaration' | 'classifier' | 'model' =
+        modelSteps.length > 0
+          ? 'model'
+          : decision?.method === 'classifier'
+            ? 'classifier'
+            : 'declaration';
+
+      const decidedBy =
+        tier === 'model'
+          ? modelSteps.map((s) => s.source).join(', ') || undefined
+          : tier === 'classifier'
+            ? `assistants.route (${decision?.matchedPattern ?? 'classifier'})`
+            : `assistants.route (declared pattern ${JSON.stringify(decision?.matchedPattern ?? '')}${decision?.tieBroken ? ', TIE BROKEN BY NAME' : ''})`;
 
       const delegation = sealDelegation({
         from: selfName,
         to: targetAssistant,
         reason: params.reason,
         decidedBy: decidedBy || undefined,
-        method: deterministic ? 'declaration' : 'model',
+        method: tier,
         causedBy: context.message?.id,
         conversationId: context.conversationId,
         steps: [

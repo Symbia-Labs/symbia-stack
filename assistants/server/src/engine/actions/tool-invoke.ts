@@ -13,6 +13,8 @@ import {
   loadedAssistantKey,
 } from '../../services/assistant-loader.js';
 import { resolveReferences } from '../conversation-memory.js';
+import { intentClassifier } from '../intent-classifier.js';
+import { createHash } from 'node:crypto';
 
 /**
  * What an assistant declares about the work it accepts.
@@ -22,8 +24,22 @@ import { resolveReferences } from '../conversation-memory.js';
  * coordinator from holding a roster of its own.
  */
 export interface RoutingDeclaration {
-  /** Regexes, matched case-insensitively against the message. */
+  /** Regexes, matched case-insensitively against the message. Tier 1. */
   patterns: string[];
+  /**
+   * Example phrasings. Tier 2 — the classifier trains on these.
+   *
+   * One declaration feeds both tiers, deliberately. Separate lists for "what
+   * I match" and "what I sound like" would be two sources of truth for one
+   * fact, which is the defect this codebase has produced five times.
+   */
+  examples?: string[];
+  /**
+   * Phrasings this deployment handles NOWHERE. Trained as the out-of-domain
+   * class, so the classifier can decline instead of being forced to pick a
+   * winner among assistants that all fit badly.
+   */
+  negativeExamples?: string[];
   /** Higher wins when several assistants match. Default 0. */
   precedence?: number;
   /** One line for the refusal message, in the user's terms. */
@@ -583,13 +599,49 @@ export class ToolInvokeHandler extends BaseActionHandler {
    * team list this codebase has had to kill — and makes a newly registered
    * assistant routable the moment it loads, with nothing to update here.
    */
+  /**
+   * Retrain when the registry has changed.
+   *
+   * Keyed on the declarations themselves rather than on a load event, so an
+   * assistant published or unpublished mid-run produces a new classifier —
+   * and a new `trainingDigest`, which makes the change visible in every
+   * receipt rather than silent.
+   */
+  private ensureClassifierTrained(): void {
+    const declarations = getAllLoadedAssistants()
+      .map((l) => {
+        const key = loadedAssistantKey(l);
+        const routing = (l.resource?.metadata as { routing?: RoutingDeclaration } | undefined)?.routing;
+        if (!key || !routing?.examples?.length) return undefined;
+        return { key, examples: routing.examples };
+      })
+      .filter((d): d is { key: string; examples: string[] } => Boolean(d));
+
+    const digest = createHash('sha256')
+      .update(JSON.stringify([...declarations].sort((a, b) => a.key.localeCompare(b.key))))
+      .digest('hex')
+      .slice(0, 16);
+
+    const negatives = getAllLoadedAssistants().flatMap((l) => {
+      const routing = (l.resource?.metadata as { routing?: RoutingDeclaration } | undefined)?.routing;
+      return routing?.negativeExamples ?? [];
+    });
+
+    if (digest !== intentClassifier.trainingDigest) {
+      intentClassifier.train(declarations, negatives);
+      console.log(
+        `[assistants.route] classifier trained on ${declarations.length} assistant(s), digest=${intentClassifier.trainingDigest}`
+      );
+    }
+  }
+
   private routeDeterministically(message: string): {
     assistant: string;
     alias: string;
     matchedPattern: string;
     precedence: number;
     tieBroken: boolean;
-    method: 'declaration';
+    method: 'declaration' | 'classifier';
   } {
     const text = (message || '').trim();
     if (!text) throw new Error('No message to route');
@@ -639,6 +691,31 @@ export class ToolInvokeHandler extends BaseActionHandler {
     }
 
     if (candidates.length === 0) {
+      // TIER 2 — the classifier, before refusing.
+      //
+      // Patterns cannot enumerate phrasing. "work out the tip on this for me
+      // would you" is plainly Smart Calculator's and matches no declaration,
+      // and adding a production per phrasing is the maintenance cost that
+      // makes grammars brittle.
+      //
+      // This tier is still CANONICAL: trained weights, argmax decoding, no
+      // sampling, and a training digest anyone holding the same declarations
+      // can re-derive. It is a different tier from the grammar, not a
+      // different lane, and the receipt says which one answered.
+      this.ensureClassifierTrained();
+      const guess = intentClassifier.classify(text);
+      if (guess) {
+        const loaded = getAllLoadedAssistants().find((l) => loadedAssistantKey(l) === guess.assistant);
+        return {
+          assistant: guess.assistant,
+          alias: loaded?.alias || guess.assistant,
+          matchedPattern: `classifier@${guess.trainingDigest} (p=${guess.confidence}, margin=${guess.margin})`,
+          precedence: -1,
+          tieBroken: false,
+          method: 'classifier',
+        };
+      }
+
       // REFUSE, AND SAY WHAT IS AVAILABLE.
       //
       // This throws, so the rule stops and the reply is sealed as a refusal
