@@ -1,8 +1,8 @@
 # STATUS
 
 **What exists, what runs, and what is only written down.**
-Last verified: 10 August 2026, against a running stack and the code on
-`fix/2026-08-06-api-gaps` at `b007437`.
+Last verified: 11 August 2026, against a running stack and the code on
+`fix/2026-08-06-api-gaps` at `ea87e6d`.
 
 This file exists because the project outgrew anyone's ability to hold it in
 their head. Read this before anything else. If a claim here is wrong, that is a
@@ -98,22 +98,74 @@ caller.
   promise that their envelopes are mutually checkable.
 - Service identity volumes, so a recreated container is not a new identity.
 
+## 5a. Conversation orchestration — RUNS, and is invisible
+
+Added 11 Aug. The coordinator delegates: a message classifies against the live
+roster, routes to one specialist via `assistant.route`, the specialist answers,
+and the coordinator stays silent. Verified in a browser, not by curl —
+`convert 100 kilometers to miles` reaches Converter and is labelled Converter.
+
+`assistant.route`, `handoff.*`, `condition`, `parallel` and `loop` had all been
+registered in the handler map and had **never had a caller**. Giving one of them
+a caller found five defects in the path, including three that made it
+structurally impossible for `condition`, `parallel` or `loop` to produce any
+reply at all. Full record: `docs/2026-08-10-orchestration-results.md`.
+
+**What it does not do:** nothing in the transcript or the provenance envelope
+records that a delegation happened, who decided, or why. A model chooses which
+assistant answers, and that choice is absent from the chain while every step
+after it is sealed. This is the platform's own claim failing at the point it
+matters, and it is the top of §10.
+
 ## 6. Open defects — ranked
 
-1. **Catalog bootstrap aborts on a duplicate primary key**, silently leaving
-   every later bootstrap file unapplied. A fix committed this morning
-   (`52f7aa2`) is not in effect in the running system. *This one makes other
-   fixes unreal, so it is first.*
+1. **There is no path from an edited bootstrap file to a running database.**
+   *Corrected 11 Aug — the earlier entry described a mechanism that does not
+   exist.* `seedFromDataFiles()` merges the snapshot and every bootstrap file
+   into an in-memory `Map`, then makes **one** `INSERT` of 38 rows with no
+   upsert. The per-file `✓ 0 added, 10 updated` lines are merge counts printed
+   before anything touches the database; they are not writes and there is no
+   per-file application to be "unapplied". It is all-or-nothing, and it is
+   nothing. `markBootstrapCompleted()` sits after the insert that throws, so the
+   once-ever flag is never set and the identical failure repeats every boot.
+
+   The live `ast-coordinator` resource is dated `2026-08-09T19:59:12Z`, four
+   hours before the commit that edited the file. Editing bootstrap JSON has
+   never reached this database. **The working path is a gated catalog write**
+   (`scripts/write-coordinator-orchestrate.mjs`), which is what the architecture
+   ruling requires anyway.
+
+   Related: `catalog/server/src/seed.ts` (`npm run seed`) is a second
+   implementation that loads *only* the snapshot, ignores every
+   `*-bootstrap.json`, and calls `db.delete(resources)` first. Running it
+   silently reverts the coordinator to the January ruleset.
 2. **Calc passes raw message text to the evaluator** — `what is 2+2?` refuses
-   with `Invalid character: ?`; `2+2` computes.
-3. **Spyglass gesture interference** (§2).
-4. **`npm run check` fails with 159 TypeScript errors** (49 recorded on 6 Aug).
-   None from code added today. The build gate is effectively off.
-5. **No service survives a Postgres restart** — four crashed on an unhandled
+   with `Invalid character: ?`; `2+2` computes. Converter has the same defect,
+   found 11 Aug: `convert 100 kilometers to miles` refuses with
+   `Invalid format. Use "10 km to miles"`.
+3. **A routing decision leaves no trace in the provenance envelope** (§5a).
+   The model that chooses the specialist is the least recorded step in the
+   chain, and every step after it is sealed.
+4. **`rule-platform-status` can never match, and now the cause is known.**
+   Its pattern uses inline `(?i:…)` groups, which JavaScript does not support.
+   `[ConditionEval] INVALID REGEX in condition — this rule can never match`.
+   Open as "does not match its own regex" since 7 Aug.
+5. **`assistant.route`'s join to the conversation returns 401**, so a specialist
+   answers a conversation it is not a participant in. Routing works anyway
+   because the SDN forward does not require participation. Consequences for a
+   follow-up message are not established.
+6. **The first chat message after a page load does not appear.** Reproduced
+   twice, 11 Aug. Sent again on the settled page, it works. Not investigated.
+7. **Spyglass gesture interference** (§2).
+8. **`npm run check` fails with 159 TypeScript errors** (49 recorded on 6 Aug).
+   The assistants service alone accounts for 19, unchanged by this session's
+   work. The build gate is effectively off.
+9. **No service survives a Postgres restart** — four crashed on an unhandled
    `error` event and stayed down. No reconnect, no restart policy.
-6. **MCP server cannot authenticate to identity** (401) — it can read the
-   runtime but not list assistants.
-7. **C2:** the console opens with no login screen. Cause not investigated.
+10. **MCP server cannot authenticate to identity** (401) — it can read the
+    runtime but not list assistants. This is why the 11 Aug catalog reads and
+    writes went through the console's own session instead.
+11. **C2:** the console opens with no login screen. Cause not investigated.
 
 ## 7. PAPER — designs and proposals, none built
 
@@ -146,13 +198,24 @@ the GKS Lineage grounding, all describing shipped behaviour. Then
 
 ## 10. What I would do next
 
-See `docs/2026-08-11-plan.md`. In short:
+*Rewritten late on 10 Aug after the orchestration session. `docs/2026-08-11-plan.md`
+was written before it and its §1 rests on a diagnosis §6.1 now corrects.*
 
-1. Fix the catalog bootstrap (§6.1) — until then, changes to bootstrap data are
-   not real, and the canary is the calc suffix that has never taken effect.
-2. Calc accepts natural language.
-3. Spyglass gesture interference.
-4. Two decisions that are not the assistant's: `@symbia/lineage` gets a caller
+1. **Put the routing decision in the provenance envelope** (§6.3). The envelope
+   already carries `steps`; a classification is a step. Right now the platform
+   seals what the specialist computed and says nothing about who chose the
+   specialist, which is sealing the wrong half.
+2. **Decide what a bootstrap file is for** (§6.1). Either a gated catalog write
+   is the only way to change a resource and the JSON files are a first-run seed
+   that stops pretending otherwise, or file→DB reconciliation gets built
+   deliberately. It is currently neither, and `npm run seed` will silently undo
+   a day's work.
+3. **Assistants accept natural language at their boundary.** Calc and Converter
+   both hand raw message text to a strict parser. Delegation makes this worse,
+   not better: routing now works, so the user reaches a specialist and *then*
+   gets refused on phrasing.
+4. Spyglass gesture interference.
+5. Two decisions that are not the assistant's: `@symbia/lineage` gets a caller
    or gets parked, and `main` is 122 commits behind reality.
 
 Everything else can wait.
