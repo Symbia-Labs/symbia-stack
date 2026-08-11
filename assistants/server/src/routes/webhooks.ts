@@ -104,6 +104,22 @@ const loadedKey = loadedAssistantKey as (loaded: { resource: { key?: string } })
  * handler map, and none of them could produce a reply. They had never had a
  * caller, so nothing had found it.
  */
+/**
+ * Did the assistant CHOOSE this outcome, or did something break?
+ *
+ * A deliberate refusal is already written for the person who will read it —
+ * `assistants.route` names the roster it could reach. Wrapping it in an
+ * apology for a fault adds a lie to a correct answer.
+ *
+ * Matched on the refusals this platform raises on purpose, not on a general
+ * notion of politeness, so a genuine crash keeps its warning.
+ */
+function isDeclination(message: string): boolean {
+  return /not going to guess|No specialist declares|I only understand|Refusing to route|refusing a second hop/i.test(
+    message
+  );
+}
+
 function flattenActionResults(actions: ActionResultLike[]): ActionResultLike[] {
   const flat: ActionResultLike[] = [];
 
@@ -360,6 +376,56 @@ async function processMessageForAssistant(
     token = await getAssistantToken(assistantUserId, assistantKey);
   }
 
+  /**
+   * ONE MESSAGE, ONE ANSWER.
+   *
+   * `assistant.route` adds the target as a participant, and it never leaves.
+   * So from the second turn onward messaging fanned every message out to the
+   * coordinator AND to every specialist ever routed to, and each of them
+   * answered independently.
+   *
+   * Measured 11 Aug 2026 on the first multi-turn conversation ever run here:
+   *
+   *     turn 2  "now multiply that by 10"
+   *       coordinator  REFUSED  "No specialist declares this kind of request"
+   *       calculator   REFUSED  "Unexpected token: nowmultiplythatby10"
+   *
+   * Two claims were emitted, both "won claim", both replied. `suppressResponse`
+   * keeps the COORDINATOR quiet after it delegates; nothing kept a specialist
+   * quiet once it was in the room. The turn-taking machinery ran and arbitrated
+   * nothing.
+   *
+   * Worse than the noise: those replies carried NO DELEGATION RECORD, because
+   * no routing decision was made. A conversation was honest about routing for
+   * exactly one turn, which is STATUS §6.3 returning by a different door.
+   *
+   * A specialist is an assistant that declares what it handles
+   * (`metadata.routing`). It answers when it was ROUTED to, or when it was
+   * ADDRESSED by name. Otherwise it stays silent and lets the front door route
+   * the turn — so every answered turn has a routing decision behind it, not
+   * just the first.
+   *
+   * The coordinator declares no routing patterns and is therefore not a
+   * specialist: it always processes, which is what makes it the front door.
+   */
+  const routing = (assistant.resource?.metadata as { routing?: { patterns?: unknown[] } } | undefined)
+    ?.routing;
+  const isSpecialist = Array.isArray(routing?.patterns) && routing!.patterns!.length > 0;
+
+  if (isSpecialist) {
+    const routedFrom = (payload.message as { metadata?: { routedFrom?: string } }).metadata?.routedFrom;
+    const addressed =
+      stripMentionPrefix(payload.message.content, assistantKey, assistant.alias) !==
+      payload.message.content.trim();
+
+    if (!routedFrom && !addressed) {
+      console.log(
+        `[SDN] ${assistantKey} is a specialist and this message was neither routed to it nor addressed to it — staying silent`
+      );
+      return;
+    }
+  }
+
   // Load catalog resources
   const catalog = await getCatalogResources();
 
@@ -600,10 +666,23 @@ async function processMessageForAssistant(
           const env = output.message?.metadata?.symbia?.provenance;
           if (env) provenance = env;
         }
-        if (action.actionType === 'llm.invoke') {
-          const output = action.output as { response?: string };
-          if (output.response) responseContent = output.response;
-        }
+        // AN INTERMEDIATE STEP IS NOT AN ANSWER.
+        //
+        // This promoted any llm.invoke output to the user-visible reply. In a
+        // rule shaped llm.invoke -> tool.invoke -> message.send, that means the
+        // MODEL'S WORKING is emitted whenever the tool afterwards fails —
+        // unsealed, because only message.send seals.
+        //
+        // Measured 11 Aug 2026: "and what's 15% of the result?" reached Smart
+        // Calculator, the model produced the expression `x * 0.15`,
+        // math.evaluate refused it, and `x * 0.15` was sent to the person as
+        // the answer with NO PROVENANCE ENVELOPE AT ALL. Not a wrong arena —
+        // none. A reply this platform can say nothing about is the one thing
+        // it exists to prevent, and it was being produced by the error path.
+        //
+        // A reply now comes from message.send or it does not come. If no
+        // message.send produced content, that is a refusal, and the refusal
+        // path below says so with a sealed envelope.
         // Check if routing action indicates we should suppress this assistant's response
         if (action.actionType === 'assistant.route') {
           const output = action.output as { suppressResponse?: boolean; routed?: boolean; targetAssistant?: string };
@@ -625,17 +704,52 @@ async function processMessageForAssistant(
     return;
   }
 
-  // Format error as response if no response generated
+  // A REFUSAL IS NOT A MALFUNCTION.
+  //
+  // Every failed action was wrapped in "I encountered an error … Please check
+  // my configuration", including deliberate ones. When routing declines
+  // because nothing declares a request, the system did not encounter an
+  // error — it made a decision and stated its limit, which is the behaviour
+  // the deterministic router was built for. Dressing that as a fault undoes
+  // the honesty it was built to provide, and in a browser it reads as a crash.
+  //
+  // Same misattribution as telling an operator to add an API key they already
+  // had. The distinction is whether the assistant CHOSE this outcome.
   if (!responseContent && errorMessage) {
-    responseContent = `⚠️ I encountered an error while processing your request:\n\n\`${errorMessage}\`\n\nPlease check my configuration or try again.`;
-    // A failure is a REFUSED answer, not an absence of one. It carries an
-    // envelope like any other reply, so the console can show that the system
-    // declined and why, rather than rendering an unattributed apology.
+    const declined = isDeclination(errorMessage);
+    responseContent = declined
+      ? errorMessage
+      : `⚠️ I ran into a problem and stopped rather than guessing:\n\n\`${errorMessage}\``;
+    // Either way it is a REFUSED answer and carries an envelope, so the
+    // console can show that the system declined and why, rather than
+    // rendering an unattributed apology.
+    // A REFUSAL DOES NOT UNMAKE THE DELEGATION THAT REACHED IT.
+    //
+    // This envelope is built here rather than by seal(), so it dropped the
+    // delegation the message arrived with. Measured 11 Aug: "what's 15% of the
+    // result?" was routed to Smart Calculator, which refused — and the reply
+    // said NO DELEGATION, losing the record of who sent it there. Failure was
+    // the one path where attribution disappeared, which is the path where it
+    // matters most.
+    const inboundDelegation = (
+      payload.message as { metadata?: { symbia?: { delegation?: unknown } } }
+    ).metadata?.symbia?.delegation;
+
     provenance = {
       arena: 'REFUSED',
-      basis: errorMessage,
+      basis: declined
+        ? `declined deliberately: ${errorMessage}`
+        : `could not complete: ${errorMessage}`,
       steps: [],
+      delegation: inboundDelegation,
+      assistant: assistantKey,
+      runId,
+      causedBy: payload.message.id,
       timestamp: new Date().toISOString(),
+      // Still unsealed, and still saying so. The reply envelope's seal is
+      // computed inside message.send; a rule that never reached one has
+      // nothing to seal. `hash: null` is the honest marker for that, and the
+      // console renders it as "unsealed".
       hash: null,
     };
   }

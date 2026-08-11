@@ -419,7 +419,28 @@ export function sealDelegation(input: {
 
   const scope = input.conversationId ?? 'unscoped';
   const previous = chainHeads.get(scope) ?? GENESIS;
-  const digest = sha256Hex(canonicalJson(payload as never));
+
+  // THE DIGEST MUST COMMIT TO WHERE THE EVENT SITS, NOT ONLY TO WHAT IT SAYS.
+  //
+  // This hashed the payload alone. Two identical delegations — same decider,
+  // same target, same matched pattern — therefore produced the SAME chain
+  // value in unrelated conversations. Measured 11 Aug 2026: turn 1 of two
+  // different conversations both checksummed `sha256:45b4fdbae…`. The events
+  // differed in `event_id` and `parent_links`; the checksum did not, so it was
+  // identifying content rather than a position in a chain, which is the one
+  // job it has.
+  //
+  // Including the causing message and the timestamp makes the digest specific
+  // to this occurrence. `previous` still enters through advance(), so ordering
+  // is unaffected.
+  const digest = sha256Hex(
+    canonicalJson({
+      payload,
+      causedBy: input.causedBy ?? null,
+      timestamp,
+      conversationId: input.conversationId ?? null,
+    } as never)
+  );
   const chain = advance(previous, digest);
   chainHeads.set(scope, chain);
 
