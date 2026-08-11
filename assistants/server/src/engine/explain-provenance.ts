@@ -47,14 +47,42 @@ export interface ExplainableEnvelope {
 /** Which facet of the receipt the question is asking about. */
 export type ExplainAspect = 'full' | 'source' | 'model' | 'router' | 'verify' | 'reproducible';
 
-const ASPECT_PATTERNS: Array<[RegExp, ExplainAspect]> = [
-  [/\b(?:who|what) (?:decided|chose|picked|routed|sent)\b|\bwhy (?:you|did you) answer\b/i, 'router'],
-  [/\b(?:model|ai|llm|guess(?:ed)?|made (?:it|that) up|hallucinat)\b/i, 'model'],
-  [/\b(?:verify|check|prove|proof|trust|tamper|signature|signed|seal)\b/i, 'verify'],
-  [/\b(?:reproducib|deterministic|again|same answer|repeatable)\b/i, 'reproducible'],
+/**
+ * THE SINGLE SOURCE OF TRUTH for "is this a question about the last answer".
+ *
+ * These were duplicated: this list, and ten hand-written conditions on the
+ * `coord-explain` rule. The two drifted immediately — `can I verify that`
+ * reached the rule and `are you sure?` did not, though both are obviously the
+ * same question. Two sources of truth for one fact is the defect this codebase
+ * has now killed five times, and it reappeared inside the feature built to make
+ * the platform honest about itself.
+ *
+ * `scripts/write-deterministic-routing.mts` imports this array and GENERATES
+ * the rule's conditions from it, so broadening coverage happens here, once.
+ *
+ * Ordered: the most specific aspect wins, `full` last as the catch-all.
+ */
+export const ASPECT_PATTERNS: Array<[RegExp, ExplainAspect]> = [
+  [/\b(?:who|what) (?:decided|chose|picked|routed|sent)\b|\bwhy (?:you|did you) answer\b|\bwhy did (?:calc|calculator|smart|symbia)\b/i, 'router'],
+  // "did you use a calculator or just know it" — the phrasing that motivated
+  // widening this. `calculator` and `work (it|that) out` were both missing.
+  [/\b(?:model|ai|llm|guess(?:ed)?|made (?:it|that) up|hallucinat|calculator|work(?:ed)? (?:it|that) out|just know)\b/i, 'model'],
+  // `sure`, `certain`, `right`, `correct` and `trust you` were all missing, so
+  // "are you sure?" and "what if I do not trust you" fell through to the router
+  // and were answered by a specialist that could make nothing of them.
+  [/\b(?:verify|check|prove|proof|trust|tamper|signature|signed|seal|are you sure|you sure|certain|is that (?:right|correct)|double ?check)\b/i, 'verify'],
+  [/\b(?:reproducib|deterministic|again|same answer|repeatable|every time)\b/i, 'reproducible'],
   [/\b(?:source|where.*(?:from|come)|what.*(?:used|consulted)|cite|citation)\b/i, 'source'],
-  [/\bhow do you know|how did you (?:know|get|work)|show.*(?:receipt|provenance)|what arena|explain\b/i, 'full'],
+  [/\bhow do you know|how did you (?:know|get|work)|show.*(?:receipt|provenance)|what arena|why did you (?:refuse|decline)|explain\b/i, 'full'],
 ];
+
+/**
+ * The rule conditions, derived. Consumed by the catalog write script so the
+ * rule and the tool can never disagree about what counts as the question.
+ */
+export const PROVENANCE_QUESTION_PATTERNS: string[] = ASPECT_PATTERNS.map(
+  ([re]) => re.source
+);
 
 export function aspectOf(question: string): ExplainAspect {
   for (const [re, aspect] of ASPECT_PATTERNS) if (re.test(question)) return aspect;

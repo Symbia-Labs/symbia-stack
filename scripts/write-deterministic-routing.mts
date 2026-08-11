@@ -27,6 +27,11 @@
  * Usage: node scripts/write-deterministic-routing.mjs [--dry-run]
  */
 
+// IMPORTED, NOT RESTATED. The rule's conditions are generated from the same
+// array the tool matches on, so `are you sure?` cannot reach one and not the
+// other — which is exactly what happened while these were two hand-kept lists.
+import { PROVENANCE_QUESTION_PATTERNS } from '../assistants/server/src/engine/explain-provenance.js';
+
 const CATALOG = process.env.CATALOG_URL || 'http://localhost:5003';
 const DRY = process.argv.includes('--dry-run');
 const headers = {
@@ -285,18 +290,13 @@ async function main() {
     priority: 190,
     conditions: {
       logic: 'or',
-      conditions: [
-        { field: 'message.content', operator: 'matches', value: 'how do you know' },
-        { field: 'message.content', operator: 'matches', value: 'how did you (know|get|work)' },
-        { field: 'message.content', operator: 'matches', value: '(show|see).*(receipt|provenance)' },
-        { field: 'message.content', operator: 'matches', value: 'who (decided|chose|picked|routed|sent)' },
-        { field: 'message.content', operator: 'matches', value: '(was|did).*(that|it).*(computed|calculated|guessed|a model|ai)' },
-        { field: 'message.content', operator: 'matches', value: 'can i (verify|check|trust|prove)' },
-        { field: 'message.content', operator: 'matches', value: '(is|was) (that|it) reproducible' },
-        { field: 'message.content', operator: 'matches', value: 'what arena' },
-        { field: 'message.content', operator: 'matches', value: 'where did (that|it) come from' },
-        { field: 'message.content', operator: 'matches', value: 'why did you (refuse|decline)' },
-      ],
+      // GENERATED from ASPECT_PATTERNS. Ten hand-written conditions used to
+      // live here and had already drifted from the tool that answers them.
+      conditions: PROVENANCE_QUESTION_PATTERNS.map((value) => ({
+        field: 'message.content',
+        operator: 'matches',
+        value,
+      })),
     },
     actions: [
       {
