@@ -12,7 +12,8 @@ import {
   getAllLoadedAssistants,
   loadedAssistantKey,
 } from '../../services/assistant-loader.js';
-import { resolveReferences, recall } from '../conversation-memory.js';
+import { resolveReferences, recall, countTurn } from '../conversation-memory.js';
+import { classifyTurn, replyFor, declineFor } from '../conversational-turns.js';
 import { explain, aspectOf, type ExplainableEnvelope } from '../explain-provenance.js';
 import { intentClassifier } from '../intent-classifier.js';
 import { createHash } from 'node:crypto';
@@ -89,8 +90,31 @@ export interface ToolInvokeParams {
 const MATH_LEAD_IN =
   /^\s*(?:please\s+)?(?:what(?:'s|s| is| does)|how much(?: is)?|calculate|compute|evaluate|solve|work out)\s+/i;
 
+/**
+ * Conversational filler at the start of a turn.
+ *
+ * Measured 11 Aug: `ok, 2+2` and `fine, whats 12*12` both failed. Two words of
+ * politeness and the arithmetic was unreachable — Calculator's anchored pattern
+ * rejected the string, the classifier routed it to Calculator anyway, and the
+ * strict parser then choked on `ok,`. The tier that exists to absorb phrasing
+ * had routed to the tier that cannot.
+ *
+ * People start sentences this way constantly and mean nothing by it. Stripped
+ * before both routing and evaluation, so the same string reaches both.
+ */
+export const CONVERSATIONAL_FILLER =
+  /^\s*(?:ok(?:ay)?|fine|so|right|alright|well|and|then|now|hmm+|umm+|yeah|yep|cool|great)\b[\s,:;–—-]*/i;
+
+/** Filler and back-reference removal, before anything tries to match. */
+export function stripFiller(raw: string): string {
+  const out = String(raw ?? '').replace(CONVERSATIONAL_FILLER, '');
+  // Never strip a message down to nothing — a bare "ok" is an acknowledgement
+  // and is handled as one, not turned into an empty routing input.
+  return out.trim() === '' ? String(raw ?? '') : out;
+}
+
 export function normalizeMathInput(raw: string): string {
-  let s = raw.trim();
+  let s = stripFiller(raw).trim();
   s = s.replace(MATH_LEAD_IN, '');
   // Trailing conversational punctuation, and a dangling `=` from "2+2 =".
   s = s.replace(/[\s?!.=]+$/, '');
@@ -510,8 +534,29 @@ export class ToolInvokeHandler extends BaseActionHandler {
           break;
 
         case 'assistants.route':
-          result = this.routeDeterministically(input);
+          result = this.routeDeterministically(input, context.conversationId);
           break;
+
+        case 'conversation.turn': {
+          // Greeting, closing, acknowledgement, capability — the turns a
+          // conversation contains that are not requests for work. Deterministic
+          // and free; a system that needs a GPU to answer "thanks" has
+          // misallocated something.
+          const turn = classifyTurn(input);
+          if (turn.kind === 'work' || turn.kind === 'correction') {
+            throw new Error(
+              `Not a conversational turn (${turn.kind}) — this rule should not have matched.`
+            );
+          }
+          const seen = countTurn(context.conversationId, turn.kind);
+          result = {
+            kind: turn.kind,
+            matched: turn.matched,
+            seen,
+            reply: replyFor(turn.kind, seen),
+          };
+          break;
+        }
 
         case 'provenance.explain': {
           // Deterministic: renders a structure that is already sealed. Using a
@@ -655,7 +700,7 @@ export class ToolInvokeHandler extends BaseActionHandler {
     }
   }
 
-  private routeDeterministically(message: string): {
+  private routeDeterministically(message: string, conversationId = ''): {
     assistant: string;
     alias: string;
     matchedPattern: string;
@@ -663,7 +708,10 @@ export class ToolInvokeHandler extends BaseActionHandler {
     tieBroken: boolean;
     method: 'declaration' | 'classifier';
   } {
-    const text = (message || '').trim();
+    // Strip filler BEFORE matching, so `ok, 2+2` reaches the same declaration
+    // as `2+2`. Routing and evaluation must see the same string or the router
+    // sends work to a specialist that will reject it.
+    const text = stripFiller(message || '').trim();
     if (!text) throw new Error('No message to route');
 
     const candidates: Array<{
@@ -752,9 +800,15 @@ export class ToolInvokeHandler extends BaseActionHandler {
         .filter(Boolean)
         .sort()
         .join('\n');
+      // ESCALATING, NOT REPEATED. Four identical refusals — roster and all —
+      // arrived in one conversation on 11 Aug. The first decline should be
+      // useful; the second is briefer; the third stops pretending the menu is
+      // new information to someone who has now read it twice.
       throw new Error(
-        `No specialist declares this kind of request, so I am not going to guess.\n\n` +
-          `I can route to:\n${roster || '(nothing is registered with a routing declaration)'}`
+        declineFor(
+          countTurn(conversationId, 'decline'),
+          roster || '(nothing is registered with a routing declaration)'
+        )
       );
     }
 

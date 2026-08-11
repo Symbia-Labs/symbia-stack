@@ -180,3 +180,24 @@ export function resolveReferences(conversationId: string, text: string): Resolut
 export function memorySize(): number {
   return memory.size;
 }
+
+/**
+ * How many times a kind of turn has already happened here.
+ *
+ * Only so a reply can escalate — the second decline shorter than the first,
+ * the third not repeating the roster. Counting is the cheapest possible way to
+ * stop sounding like a machine that is not listening, and it needs no model.
+ */
+const turnCounts = new Map<string, Map<string, number>>();
+
+export function countTurn(conversationId: string, kind: string): number {
+  if (!conversationId) return 0;
+  let counts = turnCounts.get(conversationId);
+  if (!counts) {
+    counts = new Map();
+    turnCounts.set(conversationId, counts);
+  }
+  const seen = counts.get(kind) ?? 0;
+  counts.set(kind, seen + 1);
+  return seen;
+}

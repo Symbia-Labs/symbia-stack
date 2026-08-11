@@ -262,6 +262,34 @@ export interface ProvenanceEnvelope {
   signature?: string | null;
   /** Which key signed. Fetch it from `GET /api/provenance/key`. */
   signedBy?: string;
+  /**
+   * How the answer was WORDED, kept apart from what the answer IS.
+   *
+   * Symbia is becoming the single voice: specialists produce substance and the
+   * coordinator relays it in natural language. That puts a model back in the
+   * user-facing path, and the whole of today's work exists because a model in
+   * the path with no trace is the failure this platform must not have.
+   *
+   * BUILT BEFORE THE ORNAMENTATION IT RECORDS, deliberately. The delegation
+   * record was a defect all day for the opposite order — routing shipped, the
+   * trace came later, and in between every reply was sealed while a model-made
+   * choice sat unrecorded in the middle of it.
+   *
+   * `raw` is the pre-humanized form: exactly what the specialist produced
+   * before anything rephrased it. Sealed alongside the fields, so "you can
+   * always inspect what was actually computed" is checkable rather than
+   * asserted — and rewording still cannot change the hash of the value,
+   * because `sealedOver: 'fields'` already put the value beyond the reach of
+   * prose.
+   */
+  presentation?: {
+    /** What the substance layer produced, before any rephrasing. */
+    raw: string;
+    /** The model that wrote the wording. Absent when nothing rephrased it. */
+    ornamentedBy?: string;
+    /** Which assistant did the relaying. */
+    relayedBy?: string;
+  };
   /** Why this arena and not another. Written for a human reading a receipt. */
   basis: string;
   /** In order. */
@@ -579,6 +607,7 @@ export function sealDelegation(input: {
 export function seal(input: {
   content: string;
   fields?: Record<string, unknown>;
+  presentation?: { raw: string; ornamentedBy?: string; relayedBy?: string };
   steps: ProvenanceStep[];
   contentFromModel: boolean;
   rule?: string;
@@ -625,12 +654,25 @@ export function seal(input: {
   //
   // The envelope still carries and hashes the full chain; only the arena
   // narrows. The delegation is already disclosed separately in `basis`.
-  const { arena, basis } = classify(
-    input.steps,
-    input.contentFromModel,
-    input.delegation,
-    input.rule
-  );
+  const classified = classify(input.steps, input.contentFromModel, input.delegation, input.rule);
+  const arena = classified.arena;
+
+  // THE ARENA DESCRIBES THE VALUE. THE BASIS MUST DISCLOSE THE WORDING.
+  //
+  // A relayed reply keeps its arena — if `math.evaluate` produced the number,
+  // no rephrasing makes a model responsible for it, and demoting COMPUTED
+  // would claim a model touched a value it never saw. But a receipt that says
+  // COMPUTED over prose a model wrote, without saying so, is the same silence
+  // the delegation record was added to end.
+  //
+  // So the value keeps its lane and the sentence says who chose the words.
+  const basis =
+    classified.basis +
+    (input.presentation?.ornamentedBy
+      ? ` The wording you are reading was written by ${input.presentation.ornamentedBy}` +
+        `${input.presentation.relayedBy ? ` relaying for ${input.presentation.relayedBy}` : ''}` +
+        `; it is not what produced the value. The pre-humanised form is in this envelope's presentation.raw.`
+      : '');
   const timestamp = new Date().toISOString();
 
   // Seal the data when there is data; seal the prose only when prose is all
@@ -641,6 +683,10 @@ export function seal(input: {
   const body = {
     content: sealedOver === 'content' ? input.content : undefined,
     fields: input.fields,
+    // Inside the hashed body. The raw form is only worth anything if it cannot
+    // be swapped after the fact — an inspectable "before" that a rephraser
+    // could edit would be theatre.
+    presentation: input.presentation,
     sealedOver,
     arena,
     steps: steps.map((s) => ({
@@ -688,6 +734,7 @@ export function seal(input: {
   return {
     arena,
     fields: input.fields,
+    presentation: input.presentation,
     sealedOver,
     signature,
     // Names the key, so a verifier knows which one to ask for. Absent when the
@@ -726,6 +773,7 @@ export function verify(
   const body = {
     content: envelope.sealedOver === 'content' ? content : undefined,
     fields: envelope.fields,
+    presentation: envelope.presentation,
     sealedOver: envelope.sealedOver,
     arena: envelope.arena,
     steps: envelope.steps.map((s) => ({

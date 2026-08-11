@@ -311,6 +311,63 @@ async function main() {
     ],
   };
 
+  /**
+   * The turns a conversation contains that are not work.
+   *
+   * Priority 195: above explain and orchestrate, below help. A greeting must
+   * never reach the router, because the router's only honest answer to "hey"
+   * is a refusal — and refusing a greeting was 4 of the 14 declined turns
+   * measured on 11 Aug.
+   *
+   * Deterministic and free. A system that needs a model to answer "thanks" has
+   * misallocated something.
+   */
+  const CONVERSATION_RULE = {
+    id: 'coord-conversation',
+    name: 'Conversational turn',
+    description:
+      'Greetings, closings, acknowledgements and capability questions — answered directly, varying with repetition.',
+    enabled: true,
+    trigger: 'message.received',
+    priority: 195,
+    conditions: {
+      logic: 'or',
+      conditions: [
+        { field: 'message.content', operator: 'matches', value: '^\\s*(hey|hi|hello|yo|hiya|howdy|morning|good morning|good afternoon|good evening|greetings)\\b[\\s!.,?]*$' },
+        { field: 'message.content', operator: 'matches', value: '^\\s*(hey|hi|hello)\\b.{0,20}\\b(how are you|whats up|what\'s up|hows it going)\\b' },
+        { field: 'message.content', operator: 'matches', value: '^\\s*(bye|goodbye|see ya|see you|later|good ?night|that\'?s all|we\'?re done|i\'?m done|im done)\\b[\\s!.,?]*$' },
+        { field: 'message.content', operator: 'matches', value: '^\\s*(thanks|thank you|ta|cheers|nice|great|perfect|lovely|cool|ok|okay|got it|understood|makes sense|brilliant|excellent|awesome|sweet)\\b[\\s!.,?]*$' },
+        { field: 'message.content', operator: 'matches', value: '(what can you do|what do you do|what are you for|how can you help|what can i ask|what are your (capabilities|skills)|who are you)' },
+      ],
+    },
+    actions: [
+      {
+        id: 'step-turn',
+        type: 'tool.invoke',
+        params: { tool: 'conversation.turn', input: '{{message.content}}', resultKey: 'turn' },
+      },
+      {
+        type: 'message.send',
+        params: {
+          template: '{{steps.step-turn.result.reply}}',
+          // Typed, so the receipt records WHICH kind of turn this was and how
+          // many times it has happened — the escalation is auditable rather
+          // than a mysterious change of wording.
+          fields: {
+            turnKind: '{{steps.step-turn.result.kind}}',
+            matched: '{{steps.step-turn.result.matched}}',
+            timesSeen: '{{steps.step-turn.result.seen}}',
+          },
+        },
+      },
+    ],
+  };
+
+  const existingConv = rules.findIndex((r) => r.id === 'coord-conversation');
+  if (existingConv >= 0) rules[existingConv] = CONVERSATION_RULE;
+  else rules.push(CONVERSATION_RULE);
+  console.log(`  coord-conversation: ${existingConv >= 0 ? 'updated' : 'added'} (priority 195)`);
+
   const existingExplain = rules.findIndex((r) => r.id === 'coord-explain');
   if (existingExplain >= 0) rules[existingExplain] = EXPLAIN_RULE;
   else rules.push(EXPLAIN_RULE);

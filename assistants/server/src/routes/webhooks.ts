@@ -16,6 +16,7 @@ import {
 } from '@symbia/relay';
 import { defaultCoordinator } from '../engine/run-coordinator.js';
 import { remember } from '../engine/conversation-memory.js';
+import { DECLINED } from '../engine/conversational-turns.js';
 import {
   getLoadedAssistant,
   getAllLoadedAssistants,
@@ -116,9 +117,20 @@ const loadedKey = loadedAssistantKey as (loaded: { resource: { key?: string } })
  * notion of politeness, so a genuine crash keeps its warning.
  */
 function isDeclination(message: string): boolean {
-  return /not going to guess|No specialist declares|I only understand|Refusing to route|refusing a second hop/i.test(
-    message
-  );
+  // STRUCTURAL, NOT LEXICAL.
+  //
+  // This matched the refusal's WORDING, which worked exactly until the wording
+  // started varying to stop sounding robotic — and then the first escalated
+  // decline came back wrapped in "⚠️ I ran into a problem", because "Still
+  // outside what my team covers" was not in the list. Coupling a structural
+  // fact to a phrase breaks the moment the phrase does its job.
+  if (message.startsWith(DECLINED)) return true;
+  return /I only understand|Refusing to route|refusing a second hop/i.test(message);
+}
+
+/** Strip the inter-layer marker so it never reaches a person. */
+function presentableDeclination(message: string): string {
+  return message.startsWith(DECLINED) ? message.slice(DECLINED.length) : message;
 }
 
 function flattenActionResults(actions: ActionResultLike[]): ActionResultLike[] {
@@ -719,7 +731,7 @@ async function processMessageForAssistant(
   if (!responseContent && errorMessage) {
     const declined = isDeclination(errorMessage);
     responseContent = declined
-      ? errorMessage
+      ? presentableDeclination(errorMessage)
       : `⚠️ I ran into a problem and stopped rather than guessing:\n\n\`${errorMessage}\``;
     // Either way it is a REFUSED answer and carries an envelope, so the
     // console can show that the system declined and why, rather than
