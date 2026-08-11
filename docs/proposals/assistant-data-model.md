@@ -123,6 +123,65 @@ internally for uniqueness checks only.
 **So this needs `GET|PATCH /api/resources/by-key/:key`** before the ids can
 change, or every script breaks the day the seed stops supplying them.
 
+### 2.2 Yes, `key` is the standard — and there is a second one it collides with
+
+**`key` is settled and `assistants/calculator` conforms.**
+`docs/2026-08-09-catalog-roadmap.md` §7.3 records the ruling in full: option
+(a), *type-prefixed path* `<type-plural>/<name...>`, normalized — plural prefix
+always, name the only free segment, nesting where earned, domain vocabulary in
+tags never in keys, and the write gate validating key-prefix ⇄ type-column
+agreement. Chosen partly because **a key is an MQTT topic**: `graphs/#` and
+`integrations/ai/+/models/#` give type subscription filters for free. Dissent
+on record for (d), opaque slug.
+
+So the field name and the format are not up for grabs. What is genuinely
+unresolved is that **an assistant can be addressed three ways and nothing
+reconciles them**:
+
+| form | example | who resolves it |
+|---|---|---|
+| catalog key | `assistants/calculator` | catalog, `.unique()` |
+| short key | `calculator` | **derived** by `loadedAssistantKey()` — last path segment |
+| alias | `@calc` | `resolveAssistant()`, and the router's tier-0 mention check |
+
+And there is a **fourth** naming system beside it: Symbia Script refs,
+`@namespace.path` — `@context`, `@message`, `@user`, `@org`, `@var`, `@env`,
+`@catalog`, `@service`, `@integration`, `@entity`, `@mention`, `@component`
+(`docs/SYMBIA-SCRIPT-QUICKSTART.md` §2).
+
+**There is no `@assistant` namespace.** `@mention` exists and does not resolve;
+`@component` has no `case` at all and falls through to default.
+
+#### The collision I introduced today
+
+Tier-0 mention routing — added this afternoon so `ask @smartcalc to…` reaches
+Smart Calculator — makes `@smartcalc` look exactly like a Symbia Script
+reference. It is not one. It is a regex scan in `assistants.route` over
+`key` and `alias`, resolved by an entirely different mechanism, in a system
+that already reserves `@` for a grammar with twelve namespaces.
+
+That is a naming collision in a codebase whose recurring defect is one fact in
+two places, and I made it without noticing.
+
+**Options, and I do not think this should be decided in passing:**
+
+- **(i) Make it real Symbia Script.** Add an `@assistant` namespace resolving
+  against the registry, so `@calc` is a ref like `@user.displayName` is. One
+  grammar, autocomplete and colour-coding for free (`SymbiaScriptInput.tsx`
+  already does both), and `@mention` finally means something.
+- **(ii) Keep them separate and rename one.** Mentions are a *chat* convention
+  with decades of precedent; refs are a *template* convention. Same character,
+  different worlds — but then the docs must say so, loudly.
+- **(iii) Do nothing and accept the ambiguity.** Cheapest today, and it is
+  exactly how `energy.graph.pue` happened.
+
+#### And the short key is still derived
+
+`assistants/math/calculator` and `assistants/finance/calculator` both reduce to
+`calculator`. Nesting is explicitly permitted by the ruling; the collision is
+not checked anywhere. Either the short key gets stored, or the loader refuses
+to register a second assistant reducing to a name it already holds.
+
 ### What moved and why
 
 - **`routing` and `behaviour` out of `metadata`.** They are contracts, read at
@@ -235,3 +294,8 @@ Additive first, destructive last, so nothing breaks in between.
    routing is plausible; the reverse is stranger.
 5. **`orgId`** — still unanswered from the spec doc, and it now matters more,
    because a composed configuration is composed *for someone*.
+6. **`@calc` — chat mention or Symbia Script ref?** (§2.2) One character,
+   two grammars, and I put the second one there today without noticing the
+   first. This wants deciding before more of the product leans on `@`.
+7. **Does the short key get stored, or does the loader refuse collisions?**
+   (§2.2) Nesting is permitted and the reduction is unguarded.
