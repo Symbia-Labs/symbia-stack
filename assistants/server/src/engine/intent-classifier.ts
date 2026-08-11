@@ -84,6 +84,26 @@ const DEFAULT_NEGATIVES = [
   'recommend a restaurant',
   'tell me a story',
   'what is the capital of france',
+  // REACTIONS. Praise is a turn type, and it was missing.
+  //
+  // Found in the browser, 11 Aug: "that was fast1" — an acknowledgement with a
+  // typo'd digit — matched no pattern, fell to the classifier, and with only
+  // calculator and smart-calc to choose from the stray `1` made it look like
+  // arithmetic. Calculator then choked on `wasfast1`.
+  //
+  // The classifier was not wrong so much as cornered: a conversational turn
+  // with no conversational class to put it in. Same lesson as `tell me a joke`
+  // going to Calculator, one category further out.
+  'that was fast',
+  'that was quick',
+  'that was easy',
+  'wow that was fast',
+  'impressive',
+  'nice one',
+  'well done',
+  'good job',
+  'you are quick',
+  'that worked',
 ];
 
 /**

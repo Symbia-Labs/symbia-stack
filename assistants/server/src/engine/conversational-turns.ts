@@ -37,7 +37,20 @@ export interface TurnClassification {
   matched: string;
 }
 
-const PATTERNS: Array<[TurnKind, RegExp]> = [
+/**
+ * THE SINGLE SOURCE OF TRUTH for what counts as a conversational turn.
+ *
+ * `scripts/write-deterministic-routing.mts` generates the `coord-conversation`
+ * rule's conditions from this array. It did not, at first: the reaction pattern
+ * was added here and the rule kept its own hand-written copy, so
+ * "that was fast1" was recognised by the tool and never reached it.
+ *
+ * That is the third time today one fact lived in two lists — after the roster
+ * and after the explain rule's conditions, the latter fixed one hour earlier
+ * with this exact remedy and not applied here. Writing it down because the
+ * pattern is evidently not obvious enough to stay fixed by intention.
+ */
+export const PATTERNS: Array<[TurnKind, RegExp]> = [
   // A correction is checked FIRST. "actually make it 20%" contains no
   // greeting and no thanks, but it does contain arithmetic, so anything that
   // looked for work first would route it and answer the wrong question — which
@@ -51,9 +64,27 @@ const PATTERNS: Array<[TurnKind, RegExp]> = [
   ['closing', /^\s*(?:bye|goodbye|see ya|see you|later|good ?night|that'?s all|that will be all|we'?re done|im done|i'?m done)\b[\s!.,?]*$/i],
 
   ['acknowledgement', /^\s*(?:thanks|thank you|ta|cheers|nice|great|perfect|lovely|cool|ok|okay|got it|understood|makes sense|brilliant|excellent|awesome|sweet|👍)\b[\s!.,?]*$/i],
+  // REACTIONS, which are acknowledgements that do not begin with a thank-you.
+  //
+  // "that was fast1" begins with `that`, so every anchored acknowledgement
+  // missed it and the router had to guess. Bounded to a short tail so it
+  // cannot swallow a real request that happens to start "that is…".
+  ['acknowledgement', /^\s*(?:that (?:was|is)|wow|damn|impressive|amazing|neat|nice one|well done|good job|you'?re (?:quick|fast))\b[^.?!]{0,24}[\s!.,?]*$/i],
 
   ['capability', /\b(?:what can you do|what do you do|what are you (?:for|able to do)|how can you help|what can i ask|what are your (?:capabilities|skills)|who are you|what are you)\b/i],
 ];
+
+/**
+ * Rule conditions, derived.
+ *
+ * `correction` is excluded: a correction must NOT be answered by the
+ * conversational rule — it needs the referent revised and the work re-run, and
+ * that is not built. Matching it here would swallow it silently, which is worse
+ * than the current behaviour of routing it and failing visibly.
+ */
+export const CONVERSATIONAL_TURN_PATTERNS: string[] = PATTERNS.filter(
+  ([kind]) => kind !== 'correction'
+).map(([, re]) => re.source);
 
 export function classifyTurn(text: string): TurnClassification {
   const t = String(text ?? '');

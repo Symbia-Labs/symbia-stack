@@ -31,6 +31,7 @@
 // array the tool matches on, so `are you sure?` cannot reach one and not the
 // other — which is exactly what happened while these were two hand-kept lists.
 import { PROVENANCE_QUESTION_PATTERNS } from '../assistants/server/src/engine/explain-provenance.js';
+import { CONVERSATIONAL_TURN_PATTERNS } from '../assistants/server/src/engine/conversational-turns.js';
 
 const CATALOG = process.env.CATALOG_URL || 'http://localhost:5003';
 const DRY = process.argv.includes('--dry-run');
@@ -332,13 +333,16 @@ async function main() {
     priority: 195,
     conditions: {
       logic: 'or',
-      conditions: [
-        { field: 'message.content', operator: 'matches', value: '^\\s*(hey|hi|hello|yo|hiya|howdy|morning|good morning|good afternoon|good evening|greetings)\\b[\\s!.,?]*$' },
-        { field: 'message.content', operator: 'matches', value: '^\\s*(hey|hi|hello)\\b.{0,20}\\b(how are you|whats up|what\'s up|hows it going)\\b' },
-        { field: 'message.content', operator: 'matches', value: '^\\s*(bye|goodbye|see ya|see you|later|good ?night|that\'?s all|we\'?re done|i\'?m done|im done)\\b[\\s!.,?]*$' },
-        { field: 'message.content', operator: 'matches', value: '^\\s*(thanks|thank you|ta|cheers|nice|great|perfect|lovely|cool|ok|okay|got it|understood|makes sense|brilliant|excellent|awesome|sweet)\\b[\\s!.,?]*$' },
-        { field: 'message.content', operator: 'matches', value: '(what can you do|what do you do|what are you for|how can you help|what can i ask|what are your (capabilities|skills)|who are you)' },
-      ],
+      // GENERATED from PATTERNS in conversational-turns.ts, for the reason the
+      // explain rule's conditions are generated: a hand-kept copy drifted from
+      // the tool within an hour. "that was fast1" was recognised by the tool
+      // and never reached it, because the reaction pattern was added in one
+      // place and not the other.
+      conditions: CONVERSATIONAL_TURN_PATTERNS.map((value) => ({
+        field: 'message.content',
+        operator: 'matches',
+        value,
+      })),
     },
     actions: [
       {

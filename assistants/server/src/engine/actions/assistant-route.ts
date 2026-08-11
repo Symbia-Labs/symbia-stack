@@ -125,7 +125,23 @@ export class AssistantRouteHandler extends BaseActionHandler {
       );
     }
 
-    console.log(`[AssistantRoute] Routing message to ${targetAssistant} (reason: ${params.reason || 'user intent'})`);
+    // SAY WHICH TIER DECIDED, NOT WHAT THE RULE HOPED.
+    //
+    // `reason` is a fixed string in the rule ("declared match"), so the log and
+    // the delegation's human-readable reason claimed a pattern match even when
+    // the classifier had decided. Found by reading the logs on 11 Aug:
+    // "Routing message to calculator (reason: declared match)" for a message no
+    // pattern matched.
+    //
+    // The structured `method` was right the whole time. A prose field
+    // disagreeing with the machine-readable field beside it is the defect this
+    // entire day has been about, and it was sitting in the routing log.
+    const tierReason =
+      (context.context[params.contextKey || 'routeTarget'] as { method?: string } | undefined)
+        ?.method === 'classifier'
+        ? 'classifier match'
+        : params.reason || 'declared match';
+    console.log(`[AssistantRoute] Routing message to ${targetAssistant} (reason: ${tierReason})`);
 
     try {
       const targetUserId = `assistant:${targetAssistant}`;
@@ -210,7 +226,7 @@ export class AssistantRouteHandler extends BaseActionHandler {
       const delegation = sealDelegation({
         from: selfName,
         to: targetAssistant,
-        reason: params.reason,
+        reason: tierReason,
         decidedBy: decidedBy || undefined,
         method: tier,
         causedBy: context.message?.id,
