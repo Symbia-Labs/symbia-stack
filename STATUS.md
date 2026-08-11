@@ -71,7 +71,46 @@ identity), and `spyglass-agent`.
 identities. They exist and are logged at boot; that is all. Envelope signing is
 PAPER (§6).
 
-## 4. @symbia/lineage — BUILT, UNWIRED
+## 4. @symbia/lineage — RUNS, as of 11 August
+
+**It has a caller.** `sealDelegation` in
+`assistants/server/src/engine/provenance.ts` emits every delegation as a GKS
+Lineage event: chained per conversation with `advance()`, parent-linked to the
+message that caused it, and signed with the assistants service identity.
+Measured on a live reply:
+
+```
+actor=assistant:coordinator  type=assistant.delegation
+checksum=sha256:45b4fdbaea93d…  parent=["7b442e90-…"]  signature=ed25519:jQuTAyYVqW…
+```
+
+This also gives the **service identities their first signing use**.
+`symbia-http` has loaded one per service since 10 Aug under a comment saying
+*"Nothing is signed yet. This exists so that when envelopes start carrying
+signatures there is already a durable identity to sign with."* That is now
+false in the good direction, for one artifact.
+
+And it closes the canonical-JSON gap for that artifact: `signEvent` goes
+through `@symbia/crypto`, so the delegation is RFC 8785 canonical JSON with
+ed25519 over the whole event — GKS Lineage §9's missing serialization profile,
+actually used. **The reply envelope still uses `JSON.stringify` and a shared
+secret; only the delegation is on the good construction.**
+
+Two defects found by giving it a caller, both of which had survived because it
+had none:
+
+- **`@symbia/lineage` declared no dependencies at all**, while importing
+  `@symbia/crypto`. Nothing had ever tried to consume it, so nothing had ever
+  discovered it could not be consumed. Now a peer dependency, plus an explicit
+  link in `assistants/Dockerfile` because the base image's `npm ci` cannot
+  install what is absent from the committed lockfile.
+- The chain heads are **in memory**, so a restart makes a conversation's next
+  delegation link to GENESIS again. Honest, but not continuity. Persisting them
+  is not built.
+
+*Historical, kept because the reasoning still applies elsewhere:*
+
+## 4a. @symbia/lineage — the case it was in until today
 
 Chain, `Observation`, the claims vocabulary, attestation levels, and a retrieval
 observer that fetches a URL and records TLS, redirects and content digests.

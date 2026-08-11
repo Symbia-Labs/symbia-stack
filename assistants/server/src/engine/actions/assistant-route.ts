@@ -182,6 +182,7 @@ export class AssistantRouteHandler extends BaseActionHandler {
         decidedBy: decidedBy || undefined,
         method: deterministic ? 'declaration' : 'model',
         causedBy: context.message?.id,
+        conversationId: context.conversationId,
         steps: [
           ...priorSteps,
           {

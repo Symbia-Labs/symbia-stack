@@ -19,6 +19,18 @@ COPY assistants/ ./assistants/
 # Link to pre-built libraries from base image
 COPY --from=symbia-base /symbia-libs/symbia-sys ./symbia-sys
 COPY --from=symbia-base /symbia-libs/symbia-crypto ./symbia-crypto
+COPY --from=symbia-base /symbia-libs/symbia-lineage ./symbia-lineage
+# @symbia/lineage imports @symbia/crypto and declared no dependency on it —
+# undeclared for as long as the library had no callers, because nothing ever
+# tried to consume it. esbuild bundles @symbia/* rather than externalising them,
+# so it follows into symbia-lineage/dist and resolves imports from THERE, where
+# there is no node_modules to find crypto in.
+#
+# Declared as a peerDependency now (the honest statement of the requirement),
+# and linked here because the base image's `npm ci` cannot install a dependency
+# that is not in the committed lockfile.
+RUN mkdir -p symbia-lineage/node_modules/@symbia \
+    && ln -sfn /app/symbia-crypto symbia-lineage/node_modules/@symbia/crypto
 COPY --from=symbia-base /symbia-libs/symbia-auth ./symbia-auth
 COPY --from=symbia-base /symbia-libs/symbia-db ./symbia-db
 COPY --from=symbia-base /symbia-libs/symbia-http ./symbia-http

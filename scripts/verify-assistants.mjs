@@ -411,11 +411,23 @@ async function main() {
   if (VERBOSE)
     for (const e of envelopeEvidence) {
       console.log(`       ${e.id}  steps=[${e.steps.join(', ')}]`);
-      if (e.delegation)
+      if (e.delegation) {
         console.log(
           `             delegation: ${e.delegation.from} -> ${e.delegation.to}` +
-            `  decidedBy=${e.delegation.decidedBy ?? '?'}  hash=${String(e.delegation.hash).slice(0, 12)}…`
+            `  method=${e.delegation.method ?? '?'}  decidedBy=${e.delegation.decidedBy ?? '?'}`
         );
+        // The GKS Lineage event. Printed because "it uses the library" is a
+        // claim about an import until the event's own fields are visible:
+        // actor, chain checksum, parent link, and whether it is signed.
+        const ev = e.delegation.event;
+        console.log(
+          ev
+            ? `             lineage: actor=${ev.actor_identity} type=${ev.event_type} ` +
+              `checksum=${String(ev.checksum).slice(0, 20)}… parent=${JSON.stringify(ev.parent_links)} ` +
+              `signature=${ev.signature ? `${String(ev.signature).slice(0, 18)}…` : 'NONE'}`
+            : `             lineage: NO EVENT — the delegation is not a lineage record`
+        );
+      }
     }
 
   const broken = rows.filter((r) => r.failures.length > 0);

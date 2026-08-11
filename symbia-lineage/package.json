@@ -21,6 +21,9 @@
     "test": "npx tsx scripts/test-lineage.ts"
   },
   "dependencies": {},
+  "peerDependencies": {
+    "@symbia/crypto": "*"
+  },
   "devDependencies": {
     "@types/node": "^22.15.29",
     "typescript": "^5.8.3"

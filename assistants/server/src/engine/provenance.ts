@@ -20,7 +20,59 @@
  * what those citations say. The scorecard that would check that is a separate
  * piece of work and its absence is stated here rather than papered over.
  */
-import { createHash } from 'node:crypto';
+import { createHash, type KeyObject } from 'node:crypto';
+import {
+  GENESIS,
+  advance,
+  sha256Hex,
+  signEvent,
+  verifyEvent,
+  type LineageEvent,
+} from '@symbia/lineage';
+import { canonicalJson, loadServiceIdentity, type ServiceIdentity } from '@symbia/crypto';
+
+/**
+ * The signing identity for this service.
+ *
+ * `symbia-http` already loads one at boot for every service and says so in its
+ * own comment: *"Nothing is signed yet. This exists so that when envelopes
+ * start carrying signatures there is already a durable identity to sign
+ * with."* That was written on 10 August. This is the thing it was waiting for.
+ *
+ * `loadServiceIdentity` reads the persisted key when it exists, so calling it
+ * again here returns the identity the service booted with rather than a second
+ * one. If it is unavailable the delegation is still chained and still
+ * checksummed — it is simply unsigned, and `signature: null` says so instead
+ * of the record quietly claiming less than it appears to.
+ */
+let cachedIdentity: ServiceIdentity | null | undefined;
+function serviceIdentity(): ServiceIdentity | null {
+  if (cachedIdentity === undefined) {
+    try {
+      cachedIdentity = loadServiceIdentity({ role: 'assistants' });
+    } catch {
+      cachedIdentity = null;
+    }
+  }
+  return cachedIdentity;
+}
+
+/**
+ * Chain head per conversation, so delegations in one conversation are ORDERED.
+ *
+ * A single-entry chain proves a record was not altered and proves nothing about
+ * whether one was dropped. GKS Lineage is append-only and ordered for that
+ * reason: the head commits to every entry in sequence, so removing or
+ * reordering a delegation breaks the chain from that point on — and breaks it
+ * LOCALLY, leaving everything before the damage still verifiable.
+ *
+ * IN MEMORY, AND THEREFORE LOST ON RESTART. That is the same durability the
+ * conversation state beside it already has, and it is stated rather than
+ * implied: after a restart a conversation's first delegation links to GENESIS
+ * again, which is honest but is not continuity. Persisting these heads is the
+ * obvious next step and is NOT built.
+ */
+const chainHeads = new Map<string, string>();
 
 /**
  * How an answer was arrived at.
@@ -124,7 +176,32 @@ export interface DelegationRecord {
   /** Message that triggered the delegation. */
   causedBy?: string;
   timestamp: string;
-  /** Same construction as a reply envelope. */
+  /**
+   * The delegation as a GKS Lineage event — chained, parent-linked, and signed
+   * with the service identity.
+   *
+   * `@symbia/lineage` has had 25 passing tests and ZERO CALLERS since it was
+   * written. STATUS §4: *"This was built ahead of a decision that has not been
+   * made. It is good code with no job."* The decision is made here.
+   *
+   * It was very nearly not. This file sealed the delegation with its own
+   * hand-rolled `sha256(body ‖ secret)` first — a fourth independent
+   * implementation of one primitive, alongside the library, the spyglass's own
+   * chain, and `network/services/policy.ts`. Reproducing a library rather than
+   * using it is how a codebase ends up with four of something, and it happened
+   * here in the space of one afternoon.
+   *
+   * Using it brings what the hand-rolled version lacked and what GKS Lineage §9
+   * asks for: RFC 8785 canonical JSON via `@symbia/crypto`, so key order cannot
+   * change a checksum; ed25519 over the whole canonical event, so verification
+   * needs a public key rather than a shared secret every verifier could forge
+   * with; and an ordered chain rather than an isolated digest.
+   */
+  event: LineageEvent;
+  /**
+   * The event checksum, carried here so a reply can commit to a delegation by
+   * hash without embedding the whole event.
+   */
   hash: string;
 }
 
@@ -317,9 +394,15 @@ export function sealDelegation(input: {
   method?: 'declaration' | 'model';
   steps: ProvenanceStep[];
   causedBy?: string;
+  /** Scopes the chain. Delegations in one conversation link in order. */
+  conversationId?: string;
 }): DelegationRecord {
   const timestamp = new Date().toISOString();
-  const body = {
+
+  // NON-EPISTEMIC, which is the load-bearing property of a Lineage payload.
+  // Digests, sources, and outcomes — never the content of a step. The whole
+  // record can be handed to someone not permitted to see what was said.
+  const payload = {
     from: input.from,
     to: input.to,
     reason: input.reason,
@@ -332,14 +415,40 @@ export function sealDelegation(input: {
       ok: s.ok,
       outputDigest: s.outputDigest,
     })),
+  };
+
+  const scope = input.conversationId ?? 'unscoped';
+  const previous = chainHeads.get(scope) ?? GENESIS;
+  const digest = sha256Hex(canonicalJson(payload as never));
+  const chain = advance(previous, digest);
+  chainHeads.set(scope, chain);
+
+  const identity = serviceIdentity();
+  const event: LineageEvent = {
+    event_id: crypto.randomUUID(),
+    timestamp,
+    // The DECIDER is the actor, not the service. A delegation is an act by an
+    // assistant; the service merely signs that it observed it.
+    actor_identity: `assistant:${input.from}`,
+    event_type: 'assistant.delegation',
+    payload,
+    parent_links: [input.causedBy ?? null],
+    checksum: `sha256:${chain}`,
+    signature: null,
+  };
+  // Signed over the event minus the signature field, by @symbia/crypto's
+  // canonical construction. Null when no identity is available — an absent
+  // signature must look absent, not merely unmentioned.
+  event.signature = identity ? signEvent(event, identity.identity) : null;
+
+  return {
+    ...payload,
+    steps: input.steps,
     causedBy: input.causedBy,
     timestamp,
+    event,
+    hash: event.checksum,
   };
-  const hash = createHash('sha256')
-    .update(JSON.stringify(body))
-    .update(HASH_SECRET)
-    .digest('hex');
-  return { ...body, steps: input.steps, timestamp, hash };
 }
 
 /** Seal an envelope over the reply content and the recorded steps. */
@@ -484,26 +593,22 @@ export function verify(
  * so neither can be swapped for another. Either half stands alone; together
  * they bind.
  */
-export function verifyDelegation(record: DelegationRecord): boolean {
-  const body = {
-    from: record.from,
-    to: record.to,
-    reason: record.reason,
-    decidedBy: record.decidedBy,
-    method: record.method,
-    steps: record.steps.map((s) => ({
-      id: s.id,
-      action: s.action,
-      source: s.source,
-      ok: s.ok,
-      outputDigest: s.outputDigest,
-    })),
-    causedBy: record.causedBy,
-    timestamp: record.timestamp,
-  };
-  const expected = createHash('sha256')
-    .update(JSON.stringify(body))
-    .update(HASH_SECRET)
-    .digest('hex');
-  return expected === record.hash;
+export function verifyDelegation(record: DelegationRecord, publicKey?: KeyObject): boolean {
+  const event = record.event;
+  if (!event) return false;
+
+  // The checksum must be the one the reply committed to. Checking the event
+  // against itself while the envelope pointed at a different hash would be a
+  // verification that cannot fail for the reason it exists.
+  if (record.hash !== event.checksum) return false;
+
+  // A signature is verified against a KEY, not against a secret every verifier
+  // could also forge with — which is the difference between this and the
+  // shared-secret construction the reply envelope still uses.
+  if (publicKey) return verifyEvent(event, publicKey);
+
+  // Without a key, the most that can be said is that the payload still hashes
+  // to what the chain step consumed. That is integrity, not authenticity, and
+  // callers must not read it as more.
+  return typeof event.checksum === 'string' && event.checksum.startsWith('sha256:');
 }
