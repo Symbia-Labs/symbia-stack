@@ -15,6 +15,7 @@ import {
   type AssistantJustification,
 } from '@symbia/relay';
 import { defaultCoordinator } from '../engine/run-coordinator.js';
+import { remember } from '../engine/conversation-memory.js';
 import {
   getLoadedAssistant,
   getAllLoadedAssistants,
@@ -752,6 +753,28 @@ async function processMessageForAssistant(
       // console renders it as "unsealed".
       hash: null,
     };
+  }
+
+  // REMEMBER THE VALUE, NOT THE PROSE.
+  //
+  // What a follow-up refers back to is the typed result the envelope sealed —
+  // `fields.result` — not the sentence around it. Storing the text would mean
+  // parsing "= 4" back into 4 later, which is re-deriving something already
+  // known. This is where typed replies pay for themselves.
+  //
+  // `remember()` ignores turns with no result, so a refusal cannot overwrite
+  // the last real answer.
+  const sealedFields = (provenance as { fields?: Record<string, unknown> } | null)?.fields;
+  if (sealedFields?.result !== undefined) {
+    remember(payload.conversationId, {
+      result: sealedFields.result as number | string,
+      expression: sealedFields.expression as string | undefined,
+      assistant: assistantKey,
+      messageId: payload.message.id,
+    });
+    console.log(
+      `[SDN] ${assistantKey} remembered result=${String(sealedFields.result)} for conversation ${payload.conversationId}`
+    );
   }
 
   // Send response via SDN

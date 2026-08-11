@@ -68,6 +68,20 @@ const DECLARATIONS = {
       String.raw`\b(?:how much|how many|how far|how long)\b`,
       String.raw`\bdozen\b|\beach\b.*\bcost\b`,
       String.raw`\b\d+\s*(?:mph|kph|km/h)\b`,
+      // ARITHMETIC AS A VERB.
+      //
+      // Added 11 Aug once memory landed. "now multiply that by 10" resolved
+      // correctly to "now multiply 4 by 10" and then matched nothing — the
+      // referent was found and no specialist claimed the sentence. A
+      // declaration gap, not a routing failure, and the honest fix is to
+      // declare it rather than reach for a model to cover the hole. This is
+      // the maintenance cost that docs/2026-08-11-lean-deterministic.md says
+      // determinism moves rather than deletes, arriving on schedule.
+      //
+      // A digit is required in every one, so "multiply the vibes" still routes
+      // nowhere.
+      String.raw`\b(?:multiply|divide|subtract|add|times|plus|minus|halve|double|triple|square)\b[^.]*\d`,
+      String.raw`\d[^.]*\b(?:times|plus|minus|divided by|multiplied by|over)\b`,
     ],
   },
 };
@@ -167,11 +181,28 @@ async function main() {
     'Refuses rather than guessing when nothing matches.';
   orchestrate.actions = [
     {
+      // Resolve back-references BEFORE routing.
+      //
+      // "now multiply that by 10" declares nothing and is refused. Once "that"
+      // becomes the last sealed result it contains a number, matches a
+      // declaration, and routes like any other turn. Deterministic — the
+      // referent is a value this platform already holds, not something to be
+      // inferred — and recorded as a step, so the receipt shows the question
+      // that was actually answered.
+      id: 'step-resolve',
+      type: 'tool.invoke',
+      params: {
+        tool: 'context.resolve',
+        input: '{{message.content}}',
+        resultKey: 'resolved',
+      },
+    },
+    {
       id: 'step-route',
       type: 'tool.invoke',
       params: {
         tool: 'assistants.route',
-        input: '{{message.content}}',
+        input: '{{steps.step-resolve.result.text}}',
         resultKey: 'routeDecision',
       },
     },
@@ -181,6 +212,7 @@ async function main() {
       params: {
         fromContext: true,
         contextKey: 'routeDecision',
+        contentKey: 'resolved',
         reason: 'declared match',
       },
     },

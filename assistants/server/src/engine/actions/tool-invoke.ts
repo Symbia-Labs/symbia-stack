@@ -12,6 +12,7 @@ import {
   getAllLoadedAssistants,
   loadedAssistantKey,
 } from '../../services/assistant-loader.js';
+import { resolveReferences } from '../conversation-memory.js';
 
 /**
  * What an assistant declares about the work it accepts.
@@ -493,6 +494,13 @@ export class ToolInvokeHandler extends BaseActionHandler {
 
         case 'assistants.route':
           result = this.routeDeterministically(input);
+          break;
+
+        case 'context.resolve':
+          // Deterministic, and a STEP — so the substitution is in the receipt.
+          // A reply that silently rewrote what the person asked would be
+          // answering a different question without saying so.
+          result = resolveReferences(context.conversationId, input);
           break;
 
         default:

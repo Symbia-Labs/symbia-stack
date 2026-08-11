@@ -32,6 +32,14 @@ interface AssistantRouteParams {
   fromContext?: boolean;
   // Context key to read target from (default: 'routeTarget')
   contextKey?: string;
+  /**
+   * Context key holding the message text to forward, when it differs from what
+   * the person typed — e.g. after `context.resolve` substituted a
+   * back-reference. The specialist must receive the RESOLVED text, or it is
+   * handed "multiply that by 10" and refuses for the reason the resolution
+   * just removed.
+   */
+  contentKey?: string;
 }
 
 export class AssistantRouteHandler extends BaseActionHandler {
@@ -154,6 +162,16 @@ export class AssistantRouteHandler extends BaseActionHandler {
       // because rule-executor records a step only AFTER its handler returns,
       // so at this instant the action doing the routing is not yet in its own
       // provenance.
+      // What the specialist actually receives. Falls back to what the person
+      // typed, so a rule that does no resolution behaves exactly as before.
+      const resolved = params.contentKey
+        ? (context.context[params.contentKey] as { text?: string; resolved?: boolean } | undefined)
+        : undefined;
+      const forwardedContent =
+        resolved?.resolved && typeof resolved.text === 'string'
+          ? resolved.text
+          : context.message?.content;
+
       const selfName =
         selfKey ||
         (context.metadata as { assistantKey?: string } | undefined)?.assistantKey ||
@@ -201,9 +219,14 @@ export class AssistantRouteHandler extends BaseActionHandler {
           id: context.message?.id,
           sender_id: context.user?.id,
           sender_type: 'user' as const,
-          content: context.message?.content,
+          content: forwardedContent,
           created_at: new Date().toISOString(),
           metadata: {
+            // Carried so the specialist's reply can show that the question it
+            // answered is not word-for-word the question that was asked.
+            ...(forwardedContent !== context.message?.content
+              ? { resolvedFrom: context.message?.content }
+              : {}),
             // Was the literal string 'coordinator' regardless of who routed,
             // so the one surviving breadcrumb would have lied the moment
             // anything else delegated.
