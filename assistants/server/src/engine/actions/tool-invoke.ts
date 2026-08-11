@@ -8,13 +8,18 @@
 import { BaseActionHandler } from './base.js';
 import type { ActionConfig, ActionResult, ExecutionContext } from '../types.js';
 import { interpolate } from '../template.js';
+import {
+  getAllLoadedAssistants,
+  loadedAssistantKey,
+} from '../../services/assistant-loader.js';
 
 export interface ToolInvokeParams {
   // Tool name (e.g., "math.evaluate", "convert.units")
   tool: string;
 
-  // Input expression or value
-  input: string;
+  // Input expression. A STRING — it is run through interpolate(), which calls
+  // .replace() on it. Tools that take no input (assistants.list) omit it.
+  input?: string;
 
   // Additional parameters for specific tools
   options?: Record<string, unknown>;
@@ -383,6 +388,25 @@ export class ToolInvokeHandler extends BaseActionHandler {
         return this.failure('No tool specified', Date.now() - start);
       }
 
+      // `input` IS A STRING. SAY SO HERE RATHER THAN CRASHING INSIDE
+      // interpolate().
+      //
+      // interpolate() calls .replace() on what it is given, so an object —
+      // which is what the config format looks like it should take, and what
+      // every author has reached for — threw `t.replace is not a function`
+      // three frames down, and webhooks.ts rendered that string to the person
+      // in the chat window. It cost a debugging round on 7 Aug 2026, was
+      // written into a commit message as a warning, and then cost another one
+      // on 10 Aug because a warning in a commit message is not a guard.
+      if (params.input !== undefined && typeof params.input !== 'string') {
+        return this.failure(
+          `Tool '${params.tool}' was given a ${Array.isArray(params.input) ? 'array' : typeof params.input} for 'input'; it must be a string. ` +
+            `Got ${JSON.stringify(params.input).slice(0, 120)}. ` +
+            `Tools that take no input should omit the field.`,
+          Date.now() - start
+        );
+      }
+
       // Interpolate input
       const input = interpolate(params.input || '', context);
 
@@ -449,16 +473,34 @@ export class ToolInvokeHandler extends BaseActionHandler {
     return Math.round(result * 1e10) / 1e10;
   }
 
-  private getBootstrapAssistants(): Array<{ alias: string; description: string }> {
-    return [
-      { alias: 'echo', description: 'Simple echo (Level 1)' },
-      { alias: 'calc', description: 'Math calculations (Level 2)' },
-      { alias: 'convert', description: 'Unit conversion (Level 2)' },
-      { alias: 'explain', description: 'Data analysis + explanation (Level 3)' },
-      { alias: 'run', description: 'Code execution + explanation (Level 3)' },
-      { alias: 'smartcalc', description: 'Natural language math (Level 4)' },
-      { alias: 'router', description: 'Intent classification (Level 4)' },
-      { alias: 'coordinator', description: 'Team coordinator (Level 5)' },
-    ];
+  /**
+   * The roster, from the registry.
+   *
+   * THIS USED TO BE A LITERAL ARRAY IN THIS FILE.
+   *
+   * A tool called `assistants.list` that returns eight hardcoded names is not a
+   * list of assistants; it is a fifth copy of a roster that also lived in the
+   * coordinator's help text, its orchestrate prompt, and two alias tables. It
+   * was wrong in both directions at once — it named `coordinator` as something
+   * to delegate to, which is a loop, and it omitted `analyst` and `builder`,
+   * which are registered and published. An assistant registered through the
+   * catalog could never appear here, which defeats the point of registering it.
+   *
+   * The registry is `assistant-loader`. Reading it means a newly registered
+   * assistant is routable the moment it loads, with nothing to update here.
+   */
+  private getBootstrapAssistants(): Array<{ alias: string; key: string; description: string }> {
+    return getAllLoadedAssistants()
+      .map((loaded) => {
+        const key = loadedAssistantKey(loaded);
+        if (!key) return undefined;
+        return {
+          key,
+          alias: loaded.alias || key,
+          description: loaded.resource?.description || '',
+        };
+      })
+      .filter((a): a is { alias: string; key: string; description: string } => Boolean(a))
+      .sort((a, b) => a.key.localeCompare(b.key));
   }
 }

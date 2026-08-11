@@ -108,7 +108,23 @@ export class LLMInvokeHandler extends BaseActionHandler {
     prompt: string,
     context: ExecutionContext
   ): Promise<{ content: string; model: string; usage: { promptTokens: number; completionTokens: number } }> {
-    const systemPrompt = params.systemPrompt || 'You are a helpful assistant.';
+    // THE SYSTEM PROMPT IS A TEMPLATE TOO.
+    //
+    // It was passed to the provider raw while userPrompt went through
+    // interpolate(), so a systemPrompt containing {{roster}} reached the model
+    // as the literal seven characters "{{roster}}". The model behaved
+    // correctly on what it was shown — it reported that no specialist was
+    // available — and the rule looked like a classification failure rather
+    // than a plumbing one.
+    //
+    // Nothing marked the two fields as different. Both are prose with braces
+    // in a JSON rule; one was a template and one was not, and the only way to
+    // find out was to read this file. Measured 10 Aug 2026, on the first rule
+    // that ever put data in a system prompt.
+    const systemPrompt = interpolate(
+      params.systemPrompt || 'You are a helpful assistant.',
+      context
+    );
 
     // Verify Integrations service is available
     const integrationsAvailable = await isIntegrationsAvailable();
