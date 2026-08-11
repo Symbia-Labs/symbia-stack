@@ -29,6 +29,47 @@ export interface ToolInvokeParams {
 }
 
 /**
+ * Strip the politeness off an expression before a strict parser sees it.
+ *
+ * THE PARSER IS NOT THE BOUNDARY. THE BOUNDARY IS WHERE A PERSON TYPES.
+ *
+ * `math.evaluate` was handed raw message text, so `what is 2+2?` refused with
+ * `Invalid character: ?` while `2+2` computed — recorded as STATUS §6.2 on
+ * 6 Aug 2026 and still open on 11 Aug. Delegation made it sharper rather than
+ * softer: once routing worked, a user reached the right specialist and *then*
+ * got refused on phrasing, which reads as the platform being broken rather
+ * than picky.
+ *
+ * This is deliberately LEXICAL, not clever. It removes a leading phrase from a
+ * closed list and trailing punctuation, so whatever survives is a strict
+ * SUBSTRING of what the user typed. It cannot invent an operand, reorder a
+ * term, or change a number. Anything it does not recognise it leaves alone,
+ * and the evaluator refuses exactly as before.
+ *
+ * Understanding an ambiguous request — "15% tip on $47.50" — is NOT this
+ * function's job and must not become it. That is Smart Calculator's, where a
+ * model does the interpreting and the provenance envelope says so. The whole
+ * point of the pair is that Calculator's answer stands on no model; a fuzzy
+ * matcher here would quietly make that false.
+ */
+const MATH_LEAD_IN =
+  /^\s*(?:please\s+)?(?:what(?:'s|s| is| does)|how much(?: is)?|calculate|compute|evaluate|solve|work out)\s+/i;
+
+export function normalizeMathInput(raw: string): string {
+  let s = raw.trim();
+  s = s.replace(MATH_LEAD_IN, '');
+  // Trailing conversational punctuation, and a dangling `=` from "2+2 =".
+  s = s.replace(/[\s?!.=]+$/, '');
+  // A leading `=`, as typed by anyone who lives in spreadsheets.
+  s = s.replace(/^=\s*/, '');
+  const stripped = s.trim();
+  // Never hand back nothing: if stripping consumed the whole string, the
+  // original was the expression and the evaluator should say so about the
+  // original, not about an empty string.
+  return stripped === '' ? raw.trim() : stripped;
+}
+
+/**
  * Safe math expression evaluator
  * Supports: +, -, *, /, ^, **, parentheses, and common functions
  */
@@ -464,7 +505,7 @@ export class ToolInvokeHandler extends BaseActionHandler {
       throw new Error('No expression provided');
     }
 
-    const result = this.mathEvaluator.evaluate(input);
+    const result = this.mathEvaluator.evaluate(normalizeMathInput(input));
 
     if (!isFinite(result)) {
       throw new Error('Result is not a finite number');

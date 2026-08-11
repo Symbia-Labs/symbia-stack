@@ -95,15 +95,28 @@ export interface LoadedAssistant {
  */
 async function fetchFromCatalog(
   type: string,
-  options: { maxRetries?: number; retryDelayMs?: number } = {}
+  options: { maxRetries?: number; retryDelayMs?: number; status?: string } = {}
 ): Promise<CatalogResource[]> {
-  const { maxRetries = 5, retryDelayMs = 2000 } = options;
+  const { maxRetries = 5, retryDelayMs = 2000, status } = options;
   const catalogEndpoint = getCatalogEndpoint();
 
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
     try {
-      // Load both published and bootstrap assistants
-      const response = await fetch(`${catalogEndpoint}/resources?type=${type}`, {
+      // STATUS IS A GATE, NOT A LABEL.
+      //
+      // This asked for `?type=assistant` and nothing else, so every assistant
+      // in the catalog loaded regardless of its status — an unpublished one
+      // still got a router, still appeared in `assistants.list`, and was still
+      // a legal routing target. `status` was decoration: the catalog has
+      // supported `?status=` since catalog/server/src/routes.ts:423, and the
+      // one consumer that would give the field meaning never passed it.
+      //
+      // Measured 11 Aug 2026 while reducing the roster to three: setting a
+      // resource to `draft` changed nothing observable, which is the worst
+      // kind of control — one an operator believes they have used.
+      const query = new URLSearchParams({ type });
+      if (status) query.set('status', status);
+      const response = await fetch(`${catalogEndpoint}/resources?${query}`, {
         headers: { 'Content-Type': 'application/json' },
       });
 
@@ -237,6 +250,9 @@ export async function loadAssistants(app: Express): Promise<void> {
   const catalogAssistants = await fetchFromCatalog('assistant', {
     maxRetries: 5,
     retryDelayMs: 2000,
+    // Only published assistants become routable. Unpublishing is how the
+    // roster shrinks without destroying the resource.
+    status: 'published',
   });
 
   if (catalogAssistants.length === 0) {
