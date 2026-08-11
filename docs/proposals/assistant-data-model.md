@@ -31,41 +31,51 @@ an answer.
 
 ---
 
-## 2. The proposed shape
+## 2. The proposed shape — a definition and an instance
+
+**Corrected 11 Aug after review.** The first draft put `status`, `orgId`,
+`tags`, `accessPolicy` and *identity* in one object and called only the
+configuration ephemeral. That is wrong, and `docs/APP-MODEL.md` (settled
+6 Aug) already says why:
+
+> The **app** is the artifact: versioned, immutable once published, shareable,
+> deployable many times. The **installation** is one deployment of that
+> artifact into an org on a particular stack. Everything that is *specific to
+> running* belongs to the installation, never the artifact.
+>
+> *"Bake an org id … into the artifact and it can only ever be installed once,
+> in one place."*
+
+An assistant built from the catalog on the fly and put to work in a
+conversation or a graph **is an installation**. So the split is not
+identity-versus-config. It is:
+
+| | **definition** — the artifact | **instance** — put to work |
+|---|---|---|
+| lives in | catalog | runtime, scoped to a conversation or graph run |
+| portable | yes | no, by construction |
+| lifetime | versioned, immutable once published | the conversation, the run, or less |
+| org | **none** | the conversation's org |
+| identity | none | a principal, for this instance |
+| capability | required *schema* | resolved credentials and bindings |
+
+### 2a. Definition — the catalog resource
 
 ```jsonc
 {
-  // Opaque. Never derived from the name, never typed by a person, never
-  // parsed. See §2.1 — the schema already defaults to this and the seed
-  // overrides it.
-  "id": "8f3c1a94-6e2b-4d17-9c05-0b7a2f1de4a3",
-  "key": "assistants/calculator",       // the addressable, stable NAME
+  "id":   "8f3c1a94-6e2b-4d17-9c05-0b7a2f1de4a3",  // opaque, never parsed (§2.1)
+  "key":  "assistants/calculator",                  // the addressable name (§2.2)
   "name": "Calculator",
   "description": "…prose only…",
   "type": "assistant",
-  "status": "published",              // the roster gate
-  "orgId": "…",
-  "tags": ["math"],                   // domain only
-  "accessPolicy": { … },
+  "status": "published",        // may this be instantiated at all
+  "tags": ["math"],             // domain only
+  "accessPolicy": { … },        // who may READ AND EDIT THE DEFINITION
 
-  // ─── identity: stable, rarely changes, never composed ───────────────
-  "identity": {
-    "principalId":   "assistant:calculator",
-    "principalType": "assistant",
-    "alias":         "calc",
-    "authMode":      "shared" | "own"     // replaces isBootstrap
-  },
-
-  // ─── configuration: the part that can be ephemeral ──────────────────
   "config": {
-    "digest": "sha256:…",               // content address of everything below
+    "digest": "sha256:…",       // content address of everything below
     "source": "declared" | "composed" | "mixed",
-    "composedBy": {                     // present only when not fully declared
-      "by":    "model:sha256:…" | "assistant:builder",
-      "at":    "2026-08-11T…Z",
-      "from":  "…the request it was composed from…",
-      "parts": ["routing", "behaviour"] // which parts are not authored
-    },
+    "composedBy": { "by": …, "at": …, "from": …, "parts": [ … ] },
 
     "routing": {
       "handles":          "arithmetic written as an expression",
@@ -73,22 +83,86 @@ an answer.
       "examples":         [ … ],        // tier 2, classifier training
       "negativeExamples": [ … ],
       "precedence":       100,
-      "claims":           ["COMPUTED"]  // NEW — see §4
+      "claims":           ["COMPUTED"]  // §4
     },
 
-    "behaviour": {                      // was metadata.ruleSet
-      "rules": [ … ]
-    },
+    "behaviour": { "rules": [ … ] },
 
     "capability": {
-      "tools": ["math.evaluate"],       // ENFORCED, not decorative
-      "llm":   null                     // null = no model available to it
+      "tools":    ["math.evaluate"],    // REQUIRED, enforced at instantiation
+      "requires": { "llm": false }      // schema, not values
     }
   },
 
   "currentVersion": 7
 }
 ```
+
+**No `orgId`. No `principalId`. No credentials.** A definition that names an
+org can be instantiated once, in one place — which is the whole failure
+`APP-MODEL` was written to prevent.
+
+`alias` is the interesting edge: `@calc` is part of what the artifact *is*, but
+two definitions could claim it in one stack. **Proposed:** the alias is
+declared on the definition and *bound* at instantiation, so a collision is an
+installation-time failure rather than a catalog-time one.
+
+### 2b. Instance — created to do work
+
+```jsonc
+{
+  "id": "9c1e…",                        // guid
+  "definition": {
+    "key":    "assistants/calculator",
+    "digest": "sha256:…"                // EXACTLY which configuration
+  },
+  "scope": { "kind": "conversation" | "graphRun", "id": "…" },
+  "orgId": "…",                         // from the scope, never the artifact
+
+  "principal": {
+    "principalId": "assistant:calculator@9c1e…",
+    "authMode":    "shared" | "own"     // replaces isBootstrap
+  },
+
+  "binding": {
+    "alias":       "calc",              // resolved here; collisions fail here
+    "llm":         "model:sha256:…" | null,
+    "credentials": [ … ]                // resolved, org-scoped
+  },
+
+  "lifetime": { "createdAt": …, "endsAt": … | null, "endedAt": … | null }
+}
+```
+
+### What this buys
+
+1. **Ephemeral is the normal case, not a special one.** Every assistant at work
+   is an instance; instances end. A *composed* definition is then just a
+   definition that was never written down — one axis, not two.
+2. **`orgId` stops being an open question.** It was never a property of the
+   artifact. That is why every assistant has `orgId: null` today and why
+   credential resolution had to borrow the conversation's org: the model was
+   right by accident and undocumented.
+3. **`capability` splits cleanly** into *required* (artifact) and *resolved*
+   (instance) — the same schema/values split `APP-MODEL` already draws for
+   config.
+4. **Graph and conversation are the same shape.** "Put to work in a graph" and
+   "put to work in a conversation" differ only in `scope.kind`.
+
+### Open, and sharper than before
+
+- **Is the instance persisted at all, or purely in-memory?** Today's
+  equivalents — conversation memory, lineage chain heads — are in-process and
+  die on restart, which is recorded as a defect. If instances are real objects,
+  that defect becomes a schema.
+- **Does `status` gate instantiation, or the roster?** Today `published` gates
+  the roster. Under this split it should gate *may this be instantiated*, and
+  the roster becomes a query over live instances — which is a different and
+  more honest list.
+- **What is `RunningServices` for assistants?** The stack already distinguishes
+  registered from running (`server` is registered with nothing behind it).
+  Definition-versus-instance is the same distinction, and the platform has
+  precedent for how to report it.
 
 ### 2.1 `id` is a GUID, and the schema already says so
 
@@ -215,6 +289,12 @@ Then:
    `assistantConfig: "sha256:…"` — inside the hashed body, beside `assistant`
    and `delegation`. A receipt then answers *"which version of this assistant
    produced this?"* forever, whether or not that configuration still exists.
+
+   **The digest, not the instance id.** Under §2's split the instance is
+   ephemeral by construction, so citing `instance:9c1e…` would name something
+   guaranteed to be gone. The digest names *what ran*; the instance id is
+   useful for correlating a conversation and belongs in the envelope only as
+   `runId` already is.
 2. **Ephemeral configuration becomes safe.** A composed config need not
    persist, because every reply it produced already commits to its digest. If
    you also retain the config body, the receipt is fully re-derivable; if you
@@ -292,8 +372,9 @@ Additive first, destructive last, so nothing breaks in between.
    `@symbia/lineage` already has attested vs self-attested for this.
 4. **Is `mixed` a real state or a smell?** Authored behaviour with composed
    routing is plausible; the reverse is stranger.
-5. **`orgId`** — still unanswered from the spec doc, and it now matters more,
-   because a composed configuration is composed *for someone*.
+5. ~~**`orgId`**~~ — **answered by §2.** It belongs to the instance and was
+   never a property of the artifact. Every assistant carrying `orgId: null`
+   today was the model being right by accident.
 6. **`@calc` — chat mention or Symbia Script ref?** (§2.2) One character,
    two grammars, and I put the second one there today without noticing the
    first. This wants deciding before more of the product leans on `@`.
