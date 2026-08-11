@@ -30,6 +30,13 @@ const MESSAGING = process.env.MESSAGING_URL || 'http://localhost:5005';
 const EMAIL = process.env.SYMBIA_EMAIL || 'dev@example.com';
 const PASSWORD = process.env.SYMBIA_PASSWORD;
 import { createHash } from 'node:crypto';
+// IMPORTED, NOT RE-STATED.
+//
+// The walk checks OEP compliance by calling the platform's own implementation.
+// Re-implementing the rules here would produce a suite that agrees with itself
+// and says nothing about the product — which is precisely how the ITT suite
+// managed 388 passing assertions while testing a February architecture.
+import { checkReply, summarise } from '../assistants/server/src/engine/oep.js';
 
 const COORDINATOR_USER_ID = 'assistant:coordinator';
 /** Same default as engine/provenance.ts. Dev stacks seal with the literal. */
@@ -342,6 +349,11 @@ async function main() {
         basis: env?.basis ?? '',
         expectDelegated: Boolean(c.by && c.by !== 'coordinator'),
         sealValid: verifySeal(row.replyText, env),
+        // OEP is Layer 0 — what may be claimed. Checked on the reply a person
+        // actually receives, not on a fixture.
+        oep: env?.arena
+          ? summarise(checkReply({ content: row.replyText, arena: env.arena }))
+          : null,
       });
 
       if (!c.reply.test(row.replyText)) {
@@ -408,6 +420,17 @@ async function main() {
     `  P12  seal verifies from the envelope alone  ${good.length}/${sealed.length} sealed replies` +
       (good.length === sealed.length ? '' : `  <-- ${sealed.filter((e) => !e.sealValid).map((e) => e.id).join(', ')}`)
   );
+
+  // ---- P13 — OEP Layer 0, on real replies ---------------------------------
+  const checked = envelopeEvidence.filter((e) => e.oep);
+  const clean = checked.filter((e) => e.oep!.compliant);
+  console.log(
+    `  P13  OEP enforcement rules hold            ${clean.length}/${checked.length} replies`
+  );
+  for (const e of checked) {
+    for (const v of e.oep!.violations) console.log(`         ${e.id}  VIOLATION ${v.rule}: ${v.detail}`);
+    for (const u of e.oep!.unknowns) console.log(`         ${e.id}  UNDECIDED ${u.rule}: ${u.detail}`);
+  }
   if (VERBOSE)
     for (const e of envelopeEvidence) {
       console.log(`       ${e.id}  steps=[${e.steps.join(', ')}]`);
