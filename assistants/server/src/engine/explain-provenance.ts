@@ -31,6 +31,8 @@ export interface ExplainableEnvelope {
   assistant?: string;
   runId?: string;
   hash?: string | null;
+  signature?: string | null;
+  signedBy?: string;
   steps?: Array<{ id: string; action: string; source: string; ok: boolean; by?: string }>;
   delegation?: {
     from?: string;
@@ -128,13 +130,22 @@ function describeSeal(env: ExplainableEnvelope): string[] {
     env.sealedOver === 'fields'
       ? 'The seal covers the **typed fields**, not the wording — so rephrasing the sentence does not change the hash, and the value can be checked apart from the prose.'
       : 'The seal covers the **reply text**.';
-  return [
-    `Sealed: \`${String(env.hash).slice(0, 24)}…\``,
-    over,
-    // Stated, not hidden. This is the weakest link in the chain and the person
-    // asking "can I verify this" deserves to know its limit.
-    'Honest limit: this seal uses a **shared secret**, so anyone who can verify it could also forge it. The routing decision above is signed with a key and does not have that weakness — the reply envelope has not caught up yet.',
-  ];
+
+  const lines = [`Sealed: \`${String(env.hash).slice(0, 24)}…\``, over];
+
+  if (env.signature) {
+    lines.push(
+      `Signed by \`${env.signedBy ?? 'this service'}\` (ed25519 over RFC 8785 canonical JSON).`,
+      'You can check it yourself: the digest needs **no secret at all**, and the signature needs only the public key from `GET /api/provenance/key` — which lets you verify and **not** forge.'
+    );
+  } else {
+    // Still stated rather than glossed. An unsigned envelope is a weaker claim
+    // and the person asking "can I verify this" is entitled to the limit.
+    lines.push(
+      'Honest limit: this envelope is **unsigned** — the service had no identity available when it was sealed. The digest still proves the contents have not changed, but nothing proves who produced them.'
+    );
+  }
+  return lines;
 }
 
 /**

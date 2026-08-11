@@ -29,7 +29,10 @@
 const MESSAGING = process.env.MESSAGING_URL || 'http://localhost:5005';
 const EMAIL = process.env.SYMBIA_EMAIL || 'dev@example.com';
 const PASSWORD = process.env.SYMBIA_PASSWORD;
-import { createHash } from 'node:crypto';
+import { createHash, createPublicKey } from 'node:crypto';
+import { canonicalJson, sha256Hex, verifyDocument } from '@symbia/crypto';
+
+const ASSISTANTS_URL = process.env.ASSISTANTS_URL || 'http://localhost:5004';
 // IMPORTED, NOT RE-STATED.
 //
 // The walk checks OEP compliance by calling the platform's own implementation.
@@ -272,6 +275,10 @@ function envelopeOf(message) {
 function verifySeal(content, env) {
   if (!env || !env.hash) return null; // nothing sealed — e.g. the error envelope
   const body = {
+    // NOTE THE ABSENCE. This function no longer takes NETWORK_HASH_SECRET.
+    // Integrity is now checkable by anyone holding nothing at all — which is
+    // the whole point of dropping the shared secret, and the reason this
+    // verifier is now a fair model of an outside party rather than an insider.
     // Mirrors seal(). When the rule emitted typed fields the hash covers the
     // FIELDS and not the prose, so a template can be reworded without
     // invalidating the receipt — and `sealedOver` is itself hashed so that
@@ -295,11 +302,54 @@ function verifySeal(content, env) {
     delegation: env.delegation?.hash,
     timestamp: env.timestamp,
   };
-  const expected = createHash('sha256')
-    .update(JSON.stringify(body))
-    .update(HASH_SECRET)
-    .digest('hex');
-  return expected === env.hash;
+  return sha256Hex(canonicalJson(body)) === env.hash;
+}
+
+/**
+ * Authenticity, with a key fetched over HTTP like any third party would.
+ *
+ * Deliberately fetched rather than read from disk: if the endpoint does not
+ * serve a usable key, the signature is unverifiable in practice regardless of
+ * how correct it is in principle, and that should fail here.
+ */
+async function fetchSigningKey(): Promise<{ key: any; id: string } | null> {
+  try {
+    const r = await fetch(`${ASSISTANTS_URL}/api/provenance/key`);
+    if (!r.ok) return null;
+    const j = await r.json();
+    if (!j.publicKeyPem) return null;
+    return { key: createPublicKey(j.publicKeyPem), id: j.id };
+  } catch {
+    return null;
+  }
+}
+
+function verifySignature(env, publicKey) {
+  if (!env?.signature) return null;
+  const { signature, basis, steps, fields, ...rest } = env;
+  // seal() signs the same body it hashes, so reconstruct that, not the
+  // envelope — `basis` is prose regenerated at seal time and is not in it.
+  const body = {
+    content: env.sealedOver === 'content' ? env.__content : undefined,
+    fields: env.fields,
+    sealedOver: env.sealedOver,
+    arena: env.arena,
+    steps: (env.steps || []).map((s) => ({
+      id: s.id,
+      action: s.action,
+      source: s.source,
+      ok: s.ok,
+      outputDigest: s.outputDigest,
+      by: s.by,
+    })),
+    rule: env.rule,
+    assistant: env.assistant,
+    runId: env.runId,
+    causedBy: env.causedBy,
+    delegation: env.delegation?.hash,
+    timestamp: env.timestamp,
+  };
+  return verifyDocument({ ...body, signature }, publicKey);
 }
 
 // ---------------------------------------------------------------------------
@@ -307,6 +357,13 @@ function verifySeal(content, env) {
 async function main() {
   console.log(`Messaging: ${MESSAGING}   user: ${EMAIL}\n`);
   const myUserId = await login();
+
+  const signingKey = await fetchSigningKey();
+  console.log(
+    signingKey
+      ? `Signing key: ${signingKey.id} (fetched over HTTP, no secret held)\n`
+      : 'Signing key: NOT AVAILABLE from /api/provenance/key — signatures cannot be checked\n'
+  );
 
   const cases = ONLY ? CASES.filter((c) => c.id === ONLY) : CASES;
   const rows = [];
@@ -349,6 +406,8 @@ async function main() {
         basis: env?.basis ?? '',
         expectDelegated: Boolean(c.by && c.by !== 'coordinator'),
         sealValid: verifySeal(row.replyText, env),
+        signed: env?.signature ? true : false,
+        sigValid: signingKey ? verifySignature({ ...env, __content: row.replyText }, signingKey.key) : null,
         // OEP is Layer 0 — what may be claimed. Checked on the reply a person
         // actually receives, not on a fixture.
         oep: env?.arena
@@ -419,6 +478,14 @@ async function main() {
   console.log(
     `  P12  seal verifies from the envelope alone  ${good.length}/${sealed.length} sealed replies` +
       (good.length === sealed.length ? '' : `  <-- ${sealed.filter((e) => !e.sealValid).map((e) => e.id).join(', ')}`)
+  );
+
+  // ---- P14 — authenticity, not just integrity ------------------------------
+  const signedReplies = withEnv.filter((e) => e.signed);
+  const sigOk = signedReplies.filter((e) => e.sigValid === true);
+  console.log(
+    `  P14  signature verifies with the public key ${sigOk.length}/${signedReplies.length} signed replies` +
+      (signedReplies.length === withEnv.length ? '' : `  (${withEnv.length - signedReplies.length} unsigned)`)
   );
 
   // ---- P13 — OEP Layer 0, on real replies ---------------------------------

@@ -29,7 +29,13 @@ import {
   verifyEvent,
   type LineageEvent,
 } from '@symbia/lineage';
-import { canonicalJson, loadServiceIdentity, type ServiceIdentity } from '@symbia/crypto';
+import {
+  canonicalJson,
+  loadServiceIdentity,
+  signDocument,
+  verifyDocument,
+  type ServiceIdentity,
+} from '@symbia/crypto';
 
 /**
  * The signing identity for this service.
@@ -46,6 +52,12 @@ import { canonicalJson, loadServiceIdentity, type ServiceIdentity } from '@symbi
  * of the record quietly claiming less than it appears to.
  */
 let cachedIdentity: ServiceIdentity | null | undefined;
+
+/** Exposed so `/api/provenance/key` serves the key that actually signs. */
+export function provenanceSigningIdentity(): ServiceIdentity | null {
+  return serviceIdentity();
+}
+
 function serviceIdentity(): ServiceIdentity | null {
   if (cachedIdentity === undefined) {
     try {
@@ -240,6 +252,16 @@ export interface ProvenanceEnvelope {
    * leaving it to be inferred from whether `fields` happens to be populated.
    */
   sealedOver: 'fields' | 'content';
+  /**
+   * ed25519 over the canonical body. Null when the service has no identity.
+   *
+   * `hash` gives integrity to anyone, with no secret. This gives authenticity
+   * to anyone holding the public key — and, unlike a shared secret, holding it
+   * does not confer the ability to forge.
+   */
+  signature?: string | null;
+  /** Which key signed. Fetch it from `GET /api/provenance/key`. */
+  signedBy?: string;
   /** Why this arena and not another. Written for a human reading a receipt. */
   basis: string;
   /** In order. */
@@ -268,19 +290,25 @@ export interface ProvenanceEnvelope {
   hash: string;
 }
 
-// network/server/src/services/policy.ts refuses to start in production without
-// this, and seals with the identical construction. This file had no such guard,
-// so an unset variable meant production replies were sealed with a literal
-// published in this repository — a seal anyone reading the source could forge.
-// Same secret, same construction, so the same guard.
-if (!process.env.NETWORK_HASH_SECRET && process.env.NODE_ENV === 'production') {
-  throw new Error(
-    'NETWORK_HASH_SECRET is required in production — refusing to seal provenance ' +
-    'envelopes with the development literal'
-  );
-}
-const HASH_SECRET =
-  process.env.NETWORK_HASH_SECRET || 'symbia-network-dev-only';
+// THE SHARED SECRET IS GONE FROM THIS FILE.
+//
+// It used to guard `NETWORK_HASH_SECRET` in production, because an unset
+// variable meant replies were sealed with a literal published in this
+// repository. That guard was correct for the construction it defended, and the
+// construction was the problem: a shared secret makes every verifier a
+// potential forger, so the strongest possible key management still leaves
+// "who could have produced this?" unanswerable.
+//
+// Replaced by sha256 over RFC 8785 canonical JSON — public, no secret to leak
+// or rotate — plus an ed25519 signature from the service identity, verifiable
+// with a public key that confers no ability to sign. There is nothing left
+// here to guard.
+//
+// **`network/server/src/services/policy.ts` still uses the old construction**,
+// so the two are no longer sealing the same way. That is a deliberate
+// divergence, not an oversight: one of them had to move first. Envelopes from
+// assistants can no longer be checked by the network service's method, and
+// network's should follow.
 
 /** Short digest of an arbitrary value. */
 export function digest(value: unknown): string {
@@ -556,15 +584,39 @@ export function seal(input: {
     timestamp,
   };
 
-  const hash = createHash('sha256')
-    .update(JSON.stringify(body))
-    .update(HASH_SECRET)
-    .digest('hex');
+  // THE SEAL NO LONGER USES A SHARED SECRET.
+  //
+  // This was `sha256(JSON.stringify(body) ‖ HASH_SECRET)`. Two problems, and
+  // the platform was telling people about the second one out loud once it
+  // could explain its own receipts:
+  //
+  //  1. `JSON.stringify` is key-order dependent, so any store that reorders
+  //     keys broke verification — and the failure was indistinguishable from
+  //     tampering.
+  //  2. A shared secret means **anyone able to verify is able to forge**. The
+  //     delegation beside it was already signed with a key; the weaker receipt
+  //     was on the more important artifact.
+  //
+  // Now: RFC 8785 canonical JSON, a plain sha256 digest anyone can recompute
+  // with no secret at all, and an ed25519 signature over the same canonical
+  // body. Integrity is public; authenticity needs the public key and nothing
+  // else. Same construction as the delegation, which is the point — one way of
+  // sealing things, not two.
+  const canonical = canonicalJson(body as never);
+  const hash = sha256Hex(canonical);
+
+  const identity = serviceIdentity();
+  const signature = identity ? signDocument(body as never, identity.identity) : null;
 
   return {
     arena,
     fields: input.fields,
     sealedOver,
+    signature,
+    // Names the key, so a verifier knows which one to ask for. Absent when the
+    // service has no identity, and `signature: null` says so rather than the
+    // envelope implying a guarantee it does not carry.
+    signedBy: identity?.id,
     basis,
     // The FULL chain, matching what was hashed. This returned `input.steps` —
     // the post-delegation half only — which would have put the envelope's
@@ -584,7 +636,8 @@ export function seal(input: {
 /** Recompute and compare. Used by anything that receives a sealed reply. */
 export function verify(
   content: string,
-  envelope: ProvenanceEnvelope
+  envelope: ProvenanceEnvelope,
+  publicKey?: KeyObject
 ): boolean {
   // MUST MIRROR seal() FIELD FOR FIELD, INCLUDING ORDER.
   //
@@ -614,12 +667,18 @@ export function verify(
     timestamp: envelope.timestamp,
   };
 
-  const expected = createHash('sha256')
-    .update(JSON.stringify(body))
-    .update(HASH_SECRET)
-    .digest('hex');
+  // Integrity, available to anyone, with no secret to hold.
+  if (sha256Hex(canonicalJson(body as never)) !== envelope.hash) return false;
 
-  return expected === envelope.hash;
+  // Authenticity, when a key is offered. Without one this reports only that
+  // the contents match the digest — which is a weaker claim, and callers must
+  // not read it as more. With a shared secret the two were indistinguishable,
+  // and that was the flaw.
+  if (publicKey) {
+    if (!envelope.signature) return false;
+    return verifyDocument({ ...body, signature: envelope.signature } as never, publicKey);
+  }
+  return true;
 }
 
 /**
