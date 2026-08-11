@@ -12,7 +12,8 @@ import {
   getAllLoadedAssistants,
   loadedAssistantKey,
 } from '../../services/assistant-loader.js';
-import { resolveReferences } from '../conversation-memory.js';
+import { resolveReferences, recall } from '../conversation-memory.js';
+import { explain, aspectOf, type ExplainableEnvelope } from '../explain-provenance.js';
 import { intentClassifier } from '../intent-classifier.js';
 import { createHash } from 'node:crypto';
 
@@ -511,6 +512,25 @@ export class ToolInvokeHandler extends BaseActionHandler {
         case 'assistants.route':
           result = this.routeDeterministically(input);
           break;
+
+        case 'provenance.explain': {
+          // Deterministic: renders a structure that is already sealed. Using a
+          // model here would make the account of how an answer was produced
+          // itself an unverifiable claim.
+          const last = recall(context.conversationId);
+          const text = explain(
+            last?.envelope as ExplainableEnvelope | undefined,
+            last?.content,
+            input
+          );
+          if (!text) {
+            throw new Error(
+              'I have not answered anything in this conversation yet, so there is no receipt to explain.'
+            );
+          }
+          result = { explanation: text, aspect: aspectOf(input) };
+          break;
+        }
 
         case 'context.resolve':
           // Deterministic, and a STEP — so the substitution is in the receipt.

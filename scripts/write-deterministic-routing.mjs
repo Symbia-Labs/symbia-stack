@@ -262,6 +262,60 @@ async function main() {
     },
   ];
 
+  /**
+   * Symbia answers questions about its own receipts.
+   *
+   * Every reply already seals arena, basis, steps with sources, the delegation
+   * and the hash. None of it could be ASKED about — the only way to see a
+   * receipt was to read JSON out of message metadata, which means the receipt
+   * was unusable by the person it is for.
+   *
+   * Priority 190: above orchestrate so "how do you know that?" is not routed to
+   * a calculator, below help. Deterministic end to end — it renders a structure
+   * that is already sealed, so the explanation cannot drift from the thing it
+   * describes.
+   */
+  const EXPLAIN_RULE = {
+    id: 'coord-explain',
+    name: 'Explain the last answer',
+    description:
+      "Answer questions about the previous reply's provenance from its sealed envelope. No model.",
+    enabled: true,
+    trigger: 'message.received',
+    priority: 190,
+    conditions: {
+      logic: 'or',
+      conditions: [
+        { field: 'message.content', operator: 'matches', value: 'how do you know' },
+        { field: 'message.content', operator: 'matches', value: 'how did you (know|get|work)' },
+        { field: 'message.content', operator: 'matches', value: '(show|see).*(receipt|provenance)' },
+        { field: 'message.content', operator: 'matches', value: 'who (decided|chose|picked|routed|sent)' },
+        { field: 'message.content', operator: 'matches', value: '(was|did).*(that|it).*(computed|calculated|guessed|a model|ai)' },
+        { field: 'message.content', operator: 'matches', value: 'can i (verify|check|trust|prove)' },
+        { field: 'message.content', operator: 'matches', value: '(is|was) (that|it) reproducible' },
+        { field: 'message.content', operator: 'matches', value: 'what arena' },
+        { field: 'message.content', operator: 'matches', value: 'where did (that|it) come from' },
+        { field: 'message.content', operator: 'matches', value: 'why did you (refuse|decline)' },
+      ],
+    },
+    actions: [
+      {
+        id: 'step-explain',
+        type: 'tool.invoke',
+        params: { tool: 'provenance.explain', input: '{{message.content}}', resultKey: 'explanation' },
+      },
+      {
+        type: 'message.send',
+        params: { template: '{{steps.step-explain.result.explanation}}' },
+      },
+    ],
+  };
+
+  const existingExplain = rules.findIndex((r) => r.id === 'coord-explain');
+  if (existingExplain >= 0) rules[existingExplain] = EXPLAIN_RULE;
+  else rules.push(EXPLAIN_RULE);
+  console.log(`  coord-explain: ${existingExplain >= 0 ? 'updated' : 'added'} (priority 190)`);
+
   console.log(`  coord-orchestrate: [${before.join(', ')}] -> [${orchestrate.actions.map((a) => a.type).join(', ')}]`);
   const stillModel = orchestrate.actions.some((a) => a.type === 'llm.invoke');
   console.log(`  llm.invoke in the routing path: ${stillModel ? 'STILL PRESENT' : 'none'}`);

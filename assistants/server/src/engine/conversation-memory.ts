@@ -27,31 +27,66 @@ export interface RememberedTurn {
   result?: number | string;
   /** The expression that produced it, for `again`. */
   expression?: string;
-  /** Who answered. */
+  /** Who produced the last result. */
   assistant?: string;
-  /** Message id of the reply, so a resolution can name its source. */
+  /** Message id the result came from, so a resolution can name its source. */
   messageId?: string;
+  /**
+   * The last reply's sealed envelope, whatever it was.
+   *
+   * SEPARATE FROM `result` ON PURPOSE. "What was the last value" and "what was
+   * the last answer" are different questions with different lifetimes: a
+   * refusal has no value to refer back to but is absolutely something a person
+   * may ask about. Collapsing them would mean either forgetting refusals — so
+   * "why not?" cannot be answered — or letting a refusal overwrite the number
+   * that "that" points at.
+   */
+  envelope?: unknown;
+  /** The reply text the envelope belongs to. */
+  content?: string;
+  /** Who produced the last reply, result or not. */
+  lastAssistant?: string;
   at: string;
 }
 
 const memory = new Map<string, RememberedTurn>();
 
 /**
- * Record a turn, but only when there is something worth referring back to.
+ * Record a turn, merging rather than replacing.
  *
- * A refusal must NOT overwrite the last real answer. Otherwise:
+ * The envelope and reply text are updated every turn; `result` is updated only
+ * when the turn produced one. So:
  *
- *     2+2            -> 4
- *     tell me a joke -> refused
- *     multiply that by 10
+ *     2+2            -> 4          result = 4,  envelope = COMPUTED
+ *     tell me a joke -> refused    result = 4,  envelope = REFUSED
+ *     multiply that by 10          "that" is still 4
+ *     why did you refuse?          explains the REFUSED envelope
  *
- * would find a refusal as the referent and fail, when a person plainly means
- * 4. Refusals are turns; they are not results.
+ * Both questions stay answerable, and neither clobbers the other.
  */
 export function remember(conversationId: string, turn: Omit<RememberedTurn, 'at'>): void {
   if (!conversationId) return;
-  if (turn.result === undefined || turn.result === null || turn.result === '') return;
-  memory.set(conversationId, { ...turn, at: new Date().toISOString() });
+  const existing = memory.get(conversationId);
+
+  const hasResult = turn.result !== undefined && turn.result !== null && turn.result !== '';
+
+  memory.set(conversationId, {
+    ...existing,
+    // Only a turn that produced a value moves the referent.
+    ...(hasResult
+      ? {
+          result: turn.result,
+          expression: turn.expression,
+          assistant: turn.assistant,
+          messageId: turn.messageId,
+        }
+      : {}),
+    // Every reply is the most recent reply, including a refusal.
+    ...(turn.envelope !== undefined ? { envelope: turn.envelope } : {}),
+    ...(turn.content !== undefined ? { content: turn.content } : {}),
+    ...(turn.lastAssistant !== undefined ? { lastAssistant: turn.lastAssistant } : {}),
+    at: new Date().toISOString(),
+  });
 }
 
 export function recall(conversationId: string): RememberedTurn | undefined {

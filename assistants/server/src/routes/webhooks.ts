@@ -765,16 +765,50 @@ async function processMessageForAssistant(
   // `remember()` ignores turns with no result, so a refusal cannot overwrite
   // the last real answer.
   const sealedFields = (provenance as { fields?: Record<string, unknown> } | null)?.fields;
-  if (sealedFields?.result !== undefined) {
+
+  /**
+   * AN EXPLANATION MUST NOT BECOME THE THING EXPLAINED.
+   *
+   * Explaining a receipt produces a reply, which carries its own receipt. If
+   * that is remembered, the next question explains the previous EXPLANATION
+   * rather than the answer:
+   *
+   *     2+2                          -> = 4
+   *     how do you know that?        -> "It was computed…"        (correct)
+   *     who decided you should answer -> "About my last answer:
+   *                                       > About my last answer:"  (wrong)
+   *
+   * Measured 11 Aug 2026 on the first run of this feature. A meta reply is
+   * commentary on the conversation, not a move in it, so it leaves the
+   * referent where it was and a person can ask several questions about one
+   * answer.
+   *
+   * Detected structurally — did a step consult `provenance.explain` — rather
+   * than by matching the rule's name, which would break the moment somebody
+   * renamed it.
+   */
+  const isMetaReply = ((provenance as { steps?: Array<{ source?: string }> } | null)?.steps ?? []).some(
+    (s) => s.source === 'provenance.explain'
+  );
+
+  if (!isMetaReply && (provenance || responseContent)) {
     remember(payload.conversationId, {
-      result: sealedFields.result as number | string,
-      expression: sealedFields.expression as string | undefined,
-      assistant: assistantKey,
-      messageId: payload.message.id,
+      // The referent moves only when a value was produced.
+      ...(sealedFields?.result !== undefined
+        ? {
+            result: sealedFields.result as number | string,
+            expression: sealedFields.expression as string | undefined,
+            assistant: assistantKey,
+            messageId: payload.message.id,
+          }
+        : {}),
+      // The envelope is kept EVERY turn, refusals included, so "why did you
+      // refuse?" is answerable. Explaining an answer and referring back to a
+      // value are different questions with different lifetimes.
+      envelope: provenance ?? undefined,
+      content: responseContent ?? undefined,
+      lastAssistant: assistantKey,
     });
-    console.log(
-      `[SDN] ${assistantKey} remembered result=${String(sealedFields.result)} for conversation ${payload.conversationId}`
-    );
   }
 
   // Send response via SDN
