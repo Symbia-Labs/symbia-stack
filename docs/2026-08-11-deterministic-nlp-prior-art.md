@@ -84,31 +84,98 @@ receipt say `computedBy: grammar` instead of naming a model.
 $80"* has a reproduction and a production to fix. A model that mis-parses it
 has a temperature.
 
-## 5. Where prior art does not save us
+## 5. The era this document skipped, and it is the closest one
 
-Being fair to the reason the field moved on:
+Everything above is 1970–1995. That leaves out the decade that actually solved
+this commercially: **intent classification and slot filling, roughly 2010–2019**,
+which was lean deterministic before the phrase existed.
+
+| system | year | what it did |
+|---|---|---|
+| **Duckling** (Wit.ai) | ~2014 | rule-based extraction of numbers, currency, distance, duration, temperature, across languages |
+| **Dialogflow / api.ai, LUIS, Alexa Skills Kit** | 2014–2016 | intents + slots + entity types as the standard interface; slot elicitation and form filling |
+| **Snips NLU** | 2017–2019 | on-device, published, and architecturally the thing being proposed here |
+| **Rasa** | 2016– | `RegexFeaturizer`, `EntityRuler`, `RulePolicy`, forms — explicit rule tier alongside a learned one |
+| **spaCy** `Matcher` / `EntityRuler` | 2015– | token and dependency pattern matching, deterministic at inference |
+| **DSTC** (dialogue state tracking challenges) | 2013–2019 | formal treatment of exactly what `conversation-memory.ts` does badly |
+
+**Snips is the sharpest.** Its pipeline tried a `DeterministicIntentParser` —
+built from the training phrases, exact and regex-based — and fell back to a
+probabilistic parser only when that missed. Deterministic first, statistical
+escalation, running on a device with no network.
+
+That is the escalation architecture proposed in §4, shipped in 2017. This
+platform's `method: 'declaration' | 'model'` is the same idea with two tiers
+instead of three and a worse first tier.
+
+### And "deterministic" is not "rule-based"
+
+This is the correction that matters most, and today's work has the distinction
+wrong throughout.
+
+`docs/2026-08-11-lean-deterministic.md` treats *model* as a synonym for
+*not reproducible*. **That is only true of sampled generative models.** A
+trained discriminative classifier — CRF, logistic regression, SVM, a small
+fixed-weight neural net with argmax decoding — is **exactly as reproducible as
+a regex**: same input, same weights, same output, every time, with a digest you
+can pin the weights to.
+
+What broke reproducibility was *sampling from a generative model*, not machine
+learning. Conflating the two threw away the entire middle tier:
+
+| tier | reproducible | robust to paraphrase | cost |
+|---|---|---|---|
+| grammar / regex | yes | **no** | ~0 |
+| **trained discriminative classifier** | **yes** | **yes** | ~0 after training |
+| sampled generative model | no | yes | high |
+
+The middle row is what 2015 NLU was, and it is missing from every design
+written here today.
+
+## 6. Where prior art does not save us
+
+Being fair to why the field moved on — and narrower than it looked before §5:
 
 - Semantic grammars are **brittle at the edges**. LUNAR answered moon-rock
   questions superbly and nothing else. Coverage is bought one production at a
-  time, and every one is human attention — the cost lean-deterministic says
-  determinism *moves* rather than deletes.
-- Coverage of open-domain paraphrase is where models genuinely win. "work out
-  the tip on this for me would you" is not worth a production.
-- So the target is not a 1975 parser instead of a model. It is **a parser for
-  the covered fragment, a model for the rest, and a receipt that says which
-  ran.** That is the escalation boundary, and it remains the real design
-  problem.
+  time, in human attention.
+- **But brittleness is an argument against the grammar tier, not against
+  determinism.** A trained intent classifier absorbs paraphrase without a
+  production per phrasing and stays reproducible, which is precisely the gap
+  §5 identifies. "work out the tip on this for me would you" needs no grammar
+  rule and no generative model — it needs a classifier and a slot filler.
+- What genuinely requires a generative model is narrower than assumed: novel
+  compositional requests outside any trained intent, and open-domain language.
+  Arithmetic in words is not that. It is one of the most thoroughly solved
+  slot-filling problems there is.
+- So the target is **a grammar for the exact fragment, a discriminative model
+  for paraphrase, a generative model only for genuine novelty, and a receipt
+  saying which ran.** Three tiers, not two. The escalation boundary is still
+  the real design problem; there are just two of them.
 
-## 6. What to do
+## 7. What to do
 
-1. Before writing another routing pattern, evaluate **SRGS/JSGF** as the
-   declaration format. If it fits, `metadata.routing` becomes a standard
-   artifact rather than a bespoke one.
-2. Replace Smart Calculator's parse step with **extractor + small grammar**,
-   model as fallback, and measure the escalation rate — the metric
-   lean-deterministic already specifies and nothing yet reports.
-3. Republish Converter on **`units(1)`** semantics rather than the hand-built
+1. **Correct `lean-deterministic.md`.** It equates *model* with *not
+   reproducible*, which is wrong and is steering every design decision after
+   it. A discriminative classifier with pinned weights and argmax decoding
+   belongs in the canonical lane. This is the highest-value change here because
+   it is an error in the principle, not in an implementation.
+2. **Study Snips' pipeline before designing ours.** Deterministic parser first,
+   probabilistic second, on-device, published. It is the three-tier design
+   arrived at here, shipped in 2017, and it will have hit problems we have not
+   thought of.
+3. Before writing another routing pattern, evaluate **SRGS/JSGF** as the
+   declaration format, so `metadata.routing` becomes a standard artifact rather
+   than a bespoke one.
+4. Replace Smart Calculator's parse step with **extractor + small grammar**,
+   then a **discriminative intent/slot tier**, generative model last. Record
+   which tier answered in `method`, which already exists and currently has two
+   values where it needs four (`grammar`, `classifier`, `model`, `declined`).
+5. Measure the **escalation rate** per tier — the metric lean-deterministic
+   specifies and nothing yet reports. Without it, "the model is only a
+   fallback" is an intention.
+6. Republish Converter on **`units(1)`** semantics rather than the hand-built
    table it currently carries.
-4. Read `conversation-memory.ts` against Centering and decide deliberately
-   which of Cf, plurality and operation history are in scope. Right now their
-   absence is an accident, not a decision.
+7. Read `conversation-memory.ts` against **Centering and the DSTC line of
+   work**, and decide deliberately which of Cf, plurality and operation history
+   are in scope. Right now their absence is an accident, not a decision.

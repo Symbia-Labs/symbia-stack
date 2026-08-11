@@ -14,6 +14,35 @@ Not "eliminate the model." **Entirely deterministic is a false idol** — every
 real system, including every human one, integrates the two. The aim is the
 ratio, not the absolute.
 
+### Correction, same day: "model" is not a synonym for "not reproducible"
+
+**This document originally treated any model call as apocryphal. That is wrong,
+and it was steering design decisions before it was caught.**
+
+It is true only of **sampled generative** models. A trained *discriminative*
+model — CRF, logistic regression, SVM, a fixed-weight classifier with argmax
+decoding — is exactly as reproducible as a regex: same input, same weights,
+same output, with a digest to pin the weights to. What broke reproducibility
+was sampling, not machine learning.
+
+Conflating the two deleted the middle tier, which is the one that does most of
+the work:
+
+| tier | reproducible | robust to paraphrase | cost |
+|---|---|---|---|
+| grammar / pattern | yes | **no** | ~0 |
+| **discriminative classifier** | **yes** | **yes** | ~0 after training |
+| sampled generative model | no | yes | high |
+
+The middle row is what industrial NLU was from roughly 2010 to 2019 — intent
+classification and slot filling — and Snips shipped exactly this escalation
+on-device in 2017. See
+`docs/2026-08-11-deterministic-nlp-prior-art.md`.
+
+So the principle is unchanged and its application widens: **deterministic
+methods include trained ones.** Brittleness is an argument against the grammar
+tier, not against determinism.
+
 ### Why it is not primarily an epistemic argument
 
 The epistemic case is real but secondary: a deterministic step is recomputable,
@@ -108,6 +137,13 @@ So the rule is not "deterministic everywhere". It is **deterministic where the
 declaration is cheap to maintain, escalate where it is not, and record the lane
 drop** — which is what `method: 'declaration' | 'model'` exists for. The
 escalation boundary is the design problem. Determinism is not.
+
+**And per the correction above there are two boundaries, not one.** Pattern →
+classifier is a step within the canonical lane, because a pinned discriminative
+model is still recomputable. Classifier → generative is the step that actually
+drops the lane. `method` needs four values (`grammar`, `classifier`, `model`,
+`declined`) where it currently has two, or the receipt cannot tell the two
+escalations apart.
 
 `conditional` in the port lanes already encodes this correctly and per
 invocation: *decided by the data; `laneNote` must say by what*.
