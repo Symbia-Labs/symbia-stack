@@ -109,6 +109,11 @@ instance exists. See §2.2 for the ruling and its consequences.
 
 ### 2b. Instance — created to do work
 
+**Substrate-neutral by construction.** Addressed by one identifier, read whole,
+written whole — which an in-memory `Map`, a Redis hash, a retained MQTT message
+and an AMQP queue all support identically. Nothing below requires a query, and
+that is the property that keeps *where instances live* a deployment decision.
+
 ```jsonc
 {
   "id": "9c1e…",                        // guid
@@ -152,10 +157,44 @@ instance exists. See §2.2 for the ruling and its consequences.
 
 ### Open, and sharper than before
 
-- **Is the instance persisted at all, or purely in-memory?** Today's
-  equivalents — conversation memory, lineage chain heads — are in-process and
-  die on restart, which is recorded as a defect. If instances are real objects,
-  that defect becomes a schema.
+- ~~**Is the instance persisted at all, or purely in-memory?**~~ — **wrong
+  question.** It should not matter: runtime configuration could live in MQTT,
+  AMQP, Redis or a process map, and the shape above applies to all of them
+  unchanged. Where an instance lives is a **deployment** decision, not a data
+  model one, and the model is only correct if it stays neutral about it.
+
+  That neutrality has to be earned rather than assumed, so: the shape holds
+  **only if it never depends on query.** It is addressed by one identifier,
+  read whole, and written whole — which a key-value store, a retained MQTT
+  message, a Redis hash and an in-memory `Map` all satisfy. The moment the
+  design wants *"all instances where X"*, it has silently chosen a database.
+
+  It also lines up with a ruling already made. The catalog chose type-prefixed
+  keys partly because **a key is an MQTT topic** — `graphs/#`,
+  `integrations/ai/+/models/#` give type filters for free
+  (`docs/2026-08-09-catalog-roadmap.md` §7.3). Instances are the same idea one
+  layer down:
+
+  ```
+  instances/<scope-kind>/<scope-id>/<definition-key>
+
+  instances/conversation/9c1e…/#        every assistant at work in this conversation
+  instances/graphRun/7b44…/#            every assistant in this run
+  ```
+
+  Lifetime maps as cleanly: a retained message that is cleared, a TTL, a stream
+  entry that expires. "Ended" needs no separate flag on a bus — the absence of
+  a retained message *is* the fact.
+
+  **One real tension, and it is worth solving before choosing a transport.**
+  Catalog keys nest freely (`integrations/ai/openai/models/gpt-4o` is the
+  precedent), so a definition key embedded in a topic has **variable depth**,
+  and MQTT's single-level `+` cannot skip a variable number of levels. So
+  `instances/+/+/assistants/calculator` — *every instance of Calculator
+  anywhere* — is expressible only if the key sits last and you use `#`, which
+  then cannot be followed by anything else. Either the definition is addressed
+  in the topic by a fixed-shape id rather than a nesting key, or that query is
+  answered some other way.
 - **Does `status` gate instantiation, or the roster?** Today `published` gates
   the roster. Under this split it should gate *may this be instantiated*, and
   the roster becomes a query over live instances — which is a different and
