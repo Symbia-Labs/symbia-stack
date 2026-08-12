@@ -96,3 +96,78 @@ Logged but not fixed today:
 - **Federation F1–F5 re-verification.** Today's commits claim measurements; this run did not re-run the harness.
 - **Test suites other than `symbia-sys`.** Only `symbia-sys` tests were executed (56 pass).
 - **Whether `.ec2-last-sync` should be tracked or ignored.** Left untouched.
+
+---
+
+## Update — 19:05, second close run
+
+A second session-close run fired at 19:04, seven minutes after this document was
+committed (`02ed9b6`, 18:57). It re-ran every measurement independently rather
+than trusting the table above. Nothing in the repository changed between the two
+runs, so this is a verification pass, not a new report.
+
+### Tree state at 19:05
+
+| | |
+|---|---|
+| Branch | `fix/2026-08-06-api-gaps` (unchanged) |
+| Upstream | **ahead 2** — `c7ea3ac`, `02ed9b6` |
+| `origin/main` | `a8426bc` (unchanged) |
+| Tracked files | 952 |
+| Working tree | 1 untracked: `.ec2-last-sync` |
+
+The "ahead 1 / 951 tracked" figures above were measured before this document was
+itself committed. The delta of one commit and one file is this document. `git
+fetch origin` succeeded. No commits landed after `02ed9b6`.
+
+### Measurements re-run
+
+- **Typecheck, all ten services** — identical exit codes and identical error
+  counts to the table above: 4 / 75 / 1 / 20 / 1 / 0 / 0 / 11 / 1 / 0. No drift.
+- **Port surface** — `npx tsx scripts/check-ports.ts` exit 0, "No drift."
+  Default surface `9000`; dev overlay adds 5001–5010, 5432, 8000; `server 5000`
+  reserved, not running. Identical.
+- **Dangling links** — 54 relative links, 6 dangling, the same six.
+- **Open defects** — `docs/API-MEASUREMENTS.md` still carries exactly two
+  `**Open**` entries, D9 and D10, unchanged.
+
+### Two corrections to the table above
+
+The module names in the "first error" column were recorded imprecisely:
+
+| Service | Recorded above | Actually reported |
+|---|---|---|
+| identity | `bcrypt` | `bcryptjs` — `server/src/index.ts(12,20)` |
+| logging | `express` | `express-session` — `server/src/auth.ts(11,43)` |
+
+Counts and exit codes were correct in both cases. The substantive claim — that
+these are missing `@types/*` declarations rather than faults in the services'
+own code — holds.
+
+### `.git/index.lock` — present, stale, not removable from this sandbox
+
+Observation: `.git/index.lock` exists, zero bytes, owned by the sandbox user,
+timestamped 19:04 — created by this run's own `git status`. No `.git/rebase-*`
+directory and no `.git/MERGE_HEAD`, so by the usual test it is stale rather than
+a live operation.
+
+It was not deleted. A write probe shows the sandbox can create files under
+`.git/` but cannot unlink them (`rm: Operation not permitted`), which is also why
+git left the lock behind: `git status` reported `warning: unable to unlink
+.git/index.lock`. This is a sandbox mount permission, not a repository fault, and
+it blocks `git add` from the sandbox. **Consequence: this update section was
+written to disk but could not be committed by the sandbox run.** Nothing was
+staged, reset, cleaned or deleted.
+
+### Not checked by this run
+
+Everything in the **Not checked** list above still stands — none of it was
+retried. Additionally not checked:
+
+- **Whether the two module-name corrections change any downstream conclusion.**
+  Only the first-error lines were re-read; the remaining 111 errors were not
+  re-examined individually.
+- **Any runtime behaviour.** No stack was started, no endpoint called, no
+  container booted. Docker was not available.
+- **Whether `.git/index.lock` clears on its own outside the sandbox.** Left in
+  place for Brian to inspect.
