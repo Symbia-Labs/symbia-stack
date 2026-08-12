@@ -6,7 +6,7 @@ import { randomUUID } from 'crypto';
 import { createSymbiaServer } from '@symbia/http';
 import { createTelemetryClient } from '@symbia/logging-client';
 import { initServiceRelay, shutdownRelay, emitEvent, type SandboxEvent } from '@symbia/relay';
-import { ServiceId } from '@symbia/sys';
+import { ServiceId, traceIdFromRunId } from '@symbia/sys';
 import { config } from './config.js';
 import { initDatabase, exportToFile, isMemory, pool } from './database.js';
 import { join } from 'path';
@@ -298,9 +298,19 @@ async function handleAssistantResponse(event: SandboxEvent): Promise<void> {
       // IMPORTANT: MessageModel.create expects camelCase field names
       // Note: run_id and trace_id columns are UUID type, so we can't pass string prefixes
       // Only pass runId/traceId if they are valid UUIDs (not prefixed strings)
+      // A prefixed runId such as `run_msg_<uuid>` fails isValidUUID and was
+      // previously written as undefined. Dropping a trace ID is the worst
+      // outcome available: downstream the trace looks like it ended rather
+      // than like it failed to persist. traceIdFromRunId recovers the embedded
+      // UUID deterministically, returning null only when there is genuinely
+      // none (or the nil UUID, which W3C defines as invalid).
       const isValidUUID = (str: string) => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(str);
-      const runId = event.wrapper.runId && isValidUUID(event.wrapper.runId) ? event.wrapper.runId : undefined;
-      const traceId = event.wrapper.id && isValidUUID(event.wrapper.id) ? event.wrapper.id : undefined;
+      const asUuid = (hex: string | null): string | undefined =>
+        hex ? `${hex.slice(0,8)}-${hex.slice(8,12)}-${hex.slice(12,16)}-${hex.slice(16,20)}-${hex.slice(20)}` : undefined;
+      const runId = event.wrapper.runId && isValidUUID(event.wrapper.runId)
+        ? event.wrapper.runId : asUuid(traceIdFromRunId(event.wrapper.runId));
+      const traceId = event.wrapper.id && isValidUUID(event.wrapper.id)
+        ? event.wrapper.id : asUuid(traceIdFromRunId(event.wrapper.id));
 
       return await MessageModel.create({
         conversationId: conversationId,

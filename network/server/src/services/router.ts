@@ -15,6 +15,7 @@ import type {
   RoutingPolicy,
   PolicyCondition,
 } from '../types.js';
+import { eventHeaders, contextForEvent, traceHeaders } from '@symbia/sys';
 import { config } from '../config.js';
 import * as registry from './registry.js';
 import * as policy from './policy.js';
@@ -363,12 +364,25 @@ async function deliverToNode(event: SandboxEvent, node: { socketId?: string; end
 
   // Otherwise, try HTTP delivery
   try {
+    // Promote routing/trust fields into headers so intermediaries (proxies,
+    // gateways, WAFs) can enforce policy without deserializing the body.
+    // `boundary` is the load-bearing one: intra/inter/extra is a trust
+    // decision, and it was previously readable only after a full JSON parse.
+    //
+    // The receiving side MUST validate these against the body — see
+    // validateEventHeaders. Promoting without validating creates two sources
+    // of truth and lets an attacker pick which one each hop believes.
+    const { context } = contextForEvent({
+      runId: event.wrapper.runId,
+      inboundTraceparent: null,
+    });
+
     const response = await fetch(node.endpoint, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'X-Symbia-Event-Id': event.wrapper.id,
-        'X-Symbia-Run-Id': event.wrapper.runId,
+        ...eventHeaders(event.wrapper),
+        ...traceHeaders(context),
       },
       body: JSON.stringify(event),
     });
