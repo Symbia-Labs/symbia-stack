@@ -227,7 +227,44 @@ And there is a **fourth** naming system beside it: Symbia Script refs,
 **There is no `@assistant` namespace.** `@mention` exists and does not resolve;
 `@component` has no `case` at all and falls through to default.
 
-#### The collision I introduced today
+#### Correction — the collision is mostly imaginary
+
+*Challenged 11 Aug: is the problem just the `@`, given that 99% of use goes
+through interfaces with typeahead? Checked, and the answer is no — I
+overstated it.*
+
+```js
+// symbia-sys/src/script.ts:167
+const INTERPOLATION_PATTERN = /\{\{([^}]+)\}\}/g;
+```
+
+**Refs only resolve inside `{{ }}`.** A bare `@calc` in a chat message is never
+parsed as a reference; it is text, scanned by the mention router. `{{@user.id}}`
+in a rule template is a reference and is never a mention. Two different
+syntactic contexts, and nothing ever has to decide between them — which is the
+argument *before* typeahead, and typeahead is a second reason on top.
+
+So `@calc` in chat alongside `{{@assistant.calc}}` in script is not the
+"two spellings of one handle" defect I called it. It is closer to `#tag` and
+`#comment`: the same character, unambiguous by position.
+
+What survives the correction is **not disambiguation but capability** — and one
+of the three is the challenge turned around:
+
+1. **Typeahead needs a source.** `getRefSuggestions()` and `getNamespaces()`
+   can only offer what is a namespace. With no `@assistant`, autocomplete
+   cannot offer assistants *at all* — so "99% through typeahead" is an argument
+   **for** the namespace, not against it.
+2. **Referencing beats copying.** `{{@assistant.calc.routing.handles}}` lets a
+   rule read another assistant's declared capability instead of holding a copy.
+   That is the fifth roster-copy defect closed by grammar rather than
+   discipline.
+3. Validation and colour-coding come free from machinery that already exists.
+
+The section below is kept because the history is worth having, and because
+`@mention` and `@component` sitting unwired is still a real observation.
+
+#### The thing I actually introduced today
 
 Tier-0 mention routing — added this afternoon so `ask @smartcalc to…` reaches
 Smart Calculator — makes `@smartcalc` look exactly like a Symbia Script
@@ -235,8 +272,10 @@ reference. It is not one. It is a regex scan in `assistants.route` over
 `key` and `alias`, resolved by an entirely different mechanism, in a system
 that already reserves `@` for a grammar with twelve namespaces.
 
-That is a naming collision in a codebase whose recurring defect is one fact in
-two places, and I made it without noticing.
+I called that a naming collision. Per the correction above it is not one — the
+contexts do not overlap. What it *is*, is a second resolver for the same handle
+(`resolveAssistant` by key-or-alias, plus a fresh regex scan in
+`assistants.route`), which is a smaller and more ordinary kind of duplication.
 
 **Options:**
 
@@ -293,11 +332,10 @@ addressable in script the way `@catalog` is, so a rule can reference another
 assistant's declared capability rather than a copy of it. **That is the fifth
 roster-copy defect solved by grammar rather than by discipline.**
 
-Which leaves the chat form to decide: does a person type `@calc` or
-`@assistant.calc` in a conversation? Bare `@calc` in chat and `@assistant.calc`
-in script is the pragmatic answer — the mention router already resolves key or
-alias and can keep doing so — but it is two spellings of one handle, which is
-the shape of defect this codebase keeps producing. **Flagged, not decided.**
+Which leaves the chat form: bare `@calc` in a conversation, `{{@assistant.calc}}`
+in script. **That is fine**, per the correction above — different contexts, no
+ambiguity, and the shorter form is what a person types while the longer one is
+what a builder writes with autocomplete. Not a defect; a register difference.
 
 #### And the short key is still derived
 
@@ -425,10 +463,10 @@ Additive first, destructive last, so nothing breaks in between.
 5. ~~**`orgId`**~~ — **answered by §2.** It belongs to the instance and was
    never a property of the artifact. Every assistant carrying `orgId: null`
    today was the model being right by accident.
-6. ~~**`@calc` — chat mention or Symbia Script ref?**~~ — **ruled (i) in §2.2:
-   a Symbia Script ref.** The audience decided it: alias is for people
-   *building*. What remains open is only the chat spelling — bare `@calc` in a
-   conversation versus `@assistant.calc` in script is two spellings of one
-   handle, which is the defect shape this codebase keeps producing.
+6. ~~**`@calc` — chat mention or Symbia Script ref?**~~ — **closed.** Ruled (i)
+   in §2.2, and the ambiguity I worried about does not exist: refs resolve only
+   inside `{{ }}`. The case for `@assistant` is capability, not
+   disambiguation — chiefly that typeahead cannot offer what is not a
+   namespace.
 7. **Does the short key get stored, or does the loader refuse collisions?**
    (§2.2) Nesting is permitted and the reduction is unguarded.
