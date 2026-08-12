@@ -299,13 +299,16 @@ the GKS Lineage grounding, all describing shipped behaviour. Then
 
 ## 9. Git
 
-- Working branch `fix/2026-08-06-api-gaps`, **~140 commits ahead of `main`**
-  (18 added 11 Aug; count with `git rev-list --count main..HEAD`).
+- Working branch `fix/2026-08-06-api-gaps`, **176 commits ahead of `main`**
+  (measured, not estimated: `git rev-list --count main..HEAD`. The figure here
+  read 122 all day and I first replaced it with an estimate of ~140, which was
+  wrong by 36 — this file does not get to carry guesses.)
   `main` is 69 behind and every GitHub release (`v1.0.0`–`v1.2.0`, Jan–Feb 2026)
   predates the rebuild.
 - `work/2026-08-05-energy-and-honesty-repairs` — **stranded**, 25 commits never
   merged forward.
-- Local tree clean, nothing unpushed.
+- Local tree clean. **47 commits unpushed** — this line claimed "nothing
+  unpushed" until 11 Aug. Today's work exists on one laptop.
 
 ## 10. What I would do next
 
