@@ -143,6 +143,32 @@ This is the instrument sharing the assumptions of what it measures — the failu
 mode that removed the ITT suite (STATUS §11) and the argument for making the
 harness roster-driven before the roster grows.
 
+### Fixed, and it found something on the first run
+
+Absent replies now stay in the sample and denominators are counts of what was
+*expected*. The walk still reports 11/11 predictions — and now also reports:
+
+```
+1 of 11 produced no envelope (D7) — counted as failing every claim below
+P12  seal verifies from the envelope alone  10/11 replies  <-- D7
+P14  signature verifies with the public key 10/11 replies  <-- D7
+```
+
+**D7 is a refusal.** `tell me a joke about snails` → `arena: REFUSED`, which is
+the predicted and correct behaviour, so the prediction holds. But the envelope
+has no hash, no steps and no signature. It is a label, not a receipt.
+
+It was invisible because `P12` filtered on `sealValid !== null` and `P14` on
+`e.signed`. An unsealed reply drops out of both denominators, so both read
+10/10 while one reply in eleven carried no verifiable provenance.
+
+`REFUSED` is the arena OEP prescribes when a claim cannot be supported — the
+reply most load-bearing for the platform's honesty claim, and the only one that
+could not be checked. Logged as STATUS §6.1a.
+
+**The first thing the fixed instrument measured was a defect the old one was
+structurally unable to see.**
+
 ---
 
 ## 5. Standing after this session

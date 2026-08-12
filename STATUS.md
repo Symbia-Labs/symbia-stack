@@ -222,6 +222,20 @@ a defect). Records: `docs/2026-08-11-*.md`, `docs/proposals/assistant-data-model
    implementation that loads *only* the snapshot, ignores every
    `*-bootstrap.json`, and calls `db.delete(resources)` first. Running it
    silently reverts the coordinator to the January ruleset.
+1a. **Refusals are not sealed.** Found 12 Aug, the moment the walk stopped
+   excluding failures from its own denominators. A refusal carries
+   `arena: REFUSED` and nothing else — no hash, no steps, no signature. It is a
+   label, not a receipt.
+
+   `REFUSED` is one of the five arenas and the one OEP prescribes when a claim
+   cannot be supported, so it is the reply most load-bearing for the honesty
+   claim and the only one that cannot be verified. An unsealed refusal can be
+   altered or forged and nothing detects it.
+
+   Hidden because `P12` counted `sealValid !== null` and `P14` counted
+   `e.signed` — an unsealed reply drops out of both denominators, so the walk
+   read 10/10 and 10/10 while one reply in eleven had no receipt at all. Now
+   10/11, named.
 2. ~~**Calc passes raw message text to the evaluator**~~ — **FIXED 11 Aug.**
    `normalizeMathInput` and `stripFiller` in `tool-invoke.ts` handle the
    phrasing; `what is 2+2?`, `whats 15% tip on $47.50` and `split $120 between

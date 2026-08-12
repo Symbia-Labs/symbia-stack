@@ -47,6 +47,37 @@ const HASH_SECRET = process.env.NETWORK_HASH_SECRET || 'symbia-network-dev-only'
 /** Org whose credential the assistants should resolve. See scripts/setup-test-org.mjs. */
 const ORG_ID = process.env.SYMBIA_ORG_ID || '';
 
+const CATALOG_URL = process.env.CATALOG_URL || 'http://localhost:5003';
+
+/** Counts roster/prediction disagreements. Non-zero fails the run. */
+let rosterProblems = 0;
+
+/**
+ * The published assistant roster, read from the catalog at run time.
+ *
+ * Read rather than assumed so that growing the roster cannot silently weaken
+ * this walk. An instrument that shares the assumptions of what it measures is
+ * the failure mode that got the ITT suite deleted (STATUS §11); hardcoding the
+ * three assistant keys was the same mistake in miniature.
+ */
+async function liveRoster() {
+  const r = await fetch(`${CATALOG_URL}/api/resources?type=assistant`, {
+    headers: {
+      'content-type': 'application/json',
+      'x-service-auth': process.env.CATALOG_INTERNAL_SERVICE_TOKEN || 'internal',
+    },
+  });
+  if (!r.ok) {
+    throw new Error(
+      `Could not read the roster from the catalog: ${r.status} ${r.statusText}. ` +
+        `This is a request failure, not a statement that the roster is empty.`
+    );
+  }
+  const body = await r.json();
+  const all = Array.isArray(body) ? body : body.resources || [];
+  return all.filter((a) => a.status === 'published');
+}
+
 const argv = process.argv.slice(2);
 const VERBOSE = argv.includes('--verbose');
 const ONLY = argv.includes('--case') ? argv[argv.indexOf('--case') + 1] : null;
@@ -397,6 +428,47 @@ async function main() {
 
   const cases = ONLY ? CASES.filter((c) => c.id === ONLY) : CASES;
   const rows = [];
+  // ---- Reconcile against the live roster BEFORE measuring anything ---------
+  //
+  // Every case below names the assistant it expects to answer. Those names
+  // were hardcoded, so the walk could not tell the difference between "the
+  // roster is what I assume" and "the roster changed and I am now testing
+  // something else". Adding a published assistant left it silently untested;
+  // unpublishing one would have produced a confusing reply mismatch rather
+  // than the plain statement that the assistant is gone.
+  //
+  // This does not generate cases from the roster — a prediction has to be
+  // written by someone willing to be wrong about it. It reconciles: every
+  // assistant a case names must be published, and every published assistant
+  // must be named by at least one case.
+  const roster = await liveRoster();
+  const published = new Set(roster.map((a) => a.key.replace(/^assistants\//, '')));
+  const named = new Set(cases.map((c) => c.by).filter(Boolean));
+
+  console.log(`\nRoster: ${roster.length} published — ${[...published].sort().join(', ')}`);
+
+  const namedButNotPublished = [...named].filter((k) => !published.has(k));
+  const publishedButUntested = [...published].filter((k) => !named.has(k));
+
+  if (namedButNotPublished.length) {
+    console.log(
+      `  ROSTER MISMATCH: cases expect ${namedButNotPublished.join(', ')}, ` +
+        `which ${namedButNotPublished.length === 1 ? 'is' : 'are'} not published. ` +
+        `Every case naming ${namedButNotPublished.length === 1 ? 'it' : 'them'} will fail for that reason alone.`
+    );
+    rosterProblems += namedButNotPublished.length;
+  }
+  if (publishedButUntested.length) {
+    console.log(
+      `  UNCOVERED: ${publishedButUntested.join(', ')} ${publishedButUntested.length === 1 ? 'is' : 'are'} published ` +
+        `and named by no prediction. The walk says nothing about ${publishedButUntested.length === 1 ? 'it' : 'them'}.`
+    );
+    rosterProblems += publishedButUntested.length;
+  }
+  if (!namedButNotPublished.length && !publishedButUntested.length) {
+    console.log(`  roster and predictions agree — ${published.size} published, all covered`);
+  }
+
   // Envelope-level claims, checked across every reply (P9-P11).
   const envelopeEvidence = [];
 
@@ -411,6 +483,39 @@ async function main() {
 
       if (!reply) {
         row.failures.push(`no reply within ${REPLY_TIMEOUT_MS}ms`);
+        // A MISSING REPLY STAYS IN THE SAMPLE.
+        //
+        // This used to `continue` before pushing evidence, so a turn that
+        // produced nothing vanished from every envelope check below. The
+        // denominators are counts of replies observed, so failures SHRANK them.
+        //
+        // Measured 12 Aug: with four turns silent, the report read
+        //   P12 6/6   P14 6/6   P13 8/8
+        // — three perfect scores, while the walk was at 7/11. After the
+        // underlying fix the same lines read 10/10, 10/10, 11/11.
+        //
+        // A denominator that shrinks with failures reports improvement as the
+        // system degrades. That is the instrument sharing the assumptions of
+        // what it measures — the exact failure that got the ITT suite deleted,
+        // reproduced inside the suite written to replace it.
+        //
+        // Absent replies now count against every envelope claim, because a
+        // reply that never arrived satisfies none of them.
+        envelopeEvidence.push({
+          id: c.id,
+          absent: true,
+          assistant: undefined,
+          runId: undefined,
+          steps: [],
+          hash: null,
+          delegation: null,
+          basis: '',
+          expectDelegated: Boolean(c.by && c.by !== 'coordinator'),
+          sealValid: false,
+          signed: false,
+          sigValid: false,
+          oep: null,
+        });
         rows.push(row);
         console.log('NO REPLY');
         continue;
@@ -423,6 +528,7 @@ async function main() {
 
       envelopeEvidence.push({
         id: c.id,
+        absent: false,
         assistant: env?.assistant ?? undefined,
         runId: env?.runId ?? undefined,
         steps: (env?.steps || []).map((s) => s.action),
@@ -484,7 +590,15 @@ async function main() {
   console.log('\n' + '='.repeat(78));
   console.log('THE ENVELOPE ITSELF  (predicted to fail)');
   console.log('='.repeat(78));
-  const withEnv = envelopeEvidence.filter((e) => e.hash !== null || e.steps.length > 0);
+  // DENOMINATORS ARE WHAT WAS EXPECTED, NOT WHAT CAME BACK.
+  //
+  // `withEnv` used to filter to replies that HAD an envelope, which quietly
+  // made every rate below conditional on success. Every case in this walk is
+  // expected to produce a reply carrying an envelope, so the denominator is
+  // the number of cases attempted. An absent or envelope-less reply is a
+  // failure of these claims, not an exclusion from them.
+  const withEnv = envelopeEvidence;
+  const missingEnv = withEnv.filter((e) => e.absent || (e.hash === null && e.steps.length === 0));
   const namedAssistant = withEnv.filter((e) => e.assistant !== undefined);
   const withRunId = withEnv.filter((e) => e.runId !== undefined);
 
@@ -506,28 +620,38 @@ async function main() {
   console.log(`  P11b sealed delegation record       ${withRecord.length}/${delegated.length} delegated replies`);
   console.log(`  P11c basis discloses the delegation ${disclosed.length}/${delegated.length} delegated replies`);
 
+  if (missingEnv.length) {
+    console.log(
+      `       ${missingEnv.length} of ${withEnv.length} produced no envelope ` +
+        `(${missingEnv.map((e) => e.id).join(', ')}) — counted as failing every claim below`
+    );
+  }
+
   // P12 — the seal, recomputed from outside the service.
-  const sealed = withEnv.filter((e) => e.sealValid !== null);
-  const good = sealed.filter((e) => e.sealValid === true);
+  const good = withEnv.filter((e) => e.sealValid === true);
   console.log(
-    `  P12  seal verifies from the envelope alone  ${good.length}/${sealed.length} sealed replies` +
-      (good.length === sealed.length ? '' : `  <-- ${sealed.filter((e) => !e.sealValid).map((e) => e.id).join(', ')}`)
+    `  P12  seal verifies from the envelope alone  ${good.length}/${withEnv.length} replies` +
+      (good.length === withEnv.length ? '' : `  <-- ${withEnv.filter((e) => e.sealValid !== true).map((e) => e.id).join(', ')}`)
   );
 
   // ---- P14 — authenticity, not just integrity ------------------------------
-  const signedReplies = withEnv.filter((e) => e.signed);
-  const sigOk = signedReplies.filter((e) => e.sigValid === true);
+  const sigOk = withEnv.filter((e) => e.signed && e.sigValid === true);
   console.log(
-    `  P14  signature verifies with the public key ${sigOk.length}/${signedReplies.length} signed replies` +
-      (signedReplies.length === withEnv.length ? '' : `  (${withEnv.length - signedReplies.length} unsigned)`)
+    `  P14  signature verifies with the public key ${sigOk.length}/${withEnv.length} replies` +
+      (sigOk.length === withEnv.length
+        ? ''
+        : `  <-- ${withEnv.filter((e) => !(e.signed && e.sigValid === true)).map((e) => e.id).join(', ')}`)
   );
 
   // ---- P13 — OEP Layer 0, on real replies ---------------------------------
-  const checked = envelopeEvidence.filter((e) => e.oep);
-  const clean = checked.filter((e) => e.oep!.compliant);
+  const clean = envelopeEvidence.filter((e) => e.oep && e.oep.compliant);
   console.log(
-    `  P13  OEP enforcement rules hold            ${clean.length}/${checked.length} replies`
+    `  P13  OEP enforcement rules hold            ${clean.length}/${withEnv.length} replies` +
+      (clean.length === withEnv.length
+        ? ''
+        : `  <-- ${envelopeEvidence.filter((e) => !(e.oep && e.oep.compliant)).map((e) => e.id).join(', ')}`)
   );
+  const checked = envelopeEvidence.filter((e) => e.oep);
   for (const e of checked) {
     for (const v of e.oep!.violations) console.log(`         ${e.id}  VIOLATION ${v.rule}: ${v.detail}`);
     for (const u of e.oep!.unknowns) console.log(`         ${e.id}  UNDECIDED ${u.rule}: ${u.detail}`);
@@ -559,12 +683,18 @@ async function main() {
     `\n${rows.length - broken.length}/${rows.length} predictions held.` +
       (broken.length ? `  BROKEN: ${broken.map((b) => b.id).join(', ')}` : '')
   );
+  if (rosterProblems) {
+    console.log(
+      `${rosterProblems} roster problem(s) — see the top of this run. A green walk ` +
+        `over a roster the predictions do not describe is not evidence.`
+    );
+  }
   console.log(
     '\nRecord these in docs/2026-08-11-three-assistant-results.md as measured,\n' +
       'including the ones that held while describing behaviour that is wrong.'
   );
 
-  process.exitCode = broken.length ? 1 : 0;
+  process.exitCode = broken.length || rosterProblems ? 1 : 0;
 }
 
 main().catch((e) => {
