@@ -73,6 +73,30 @@ Consequences, each verified rather than inferred:
   has a credential. Under ruling (6) that guess is a **defect, not a fallback**:
   the assistant is supposed to have a declared answer.
 
+### Correction, found while implementing — the cause is worse than §1 said
+
+The text above says the resolved config reaches nothing *because no rule uses
+`embedding.route`*. That is true and it is not the reason.
+
+**`ExecutionContext.llmConfig` was never assigned by anything.**
+`RunCoordinator.processEvent` builds every ExecutionContext in this codebase and
+did not set the field; measured by grep, zero assignments across all routes. So
+`embedding-route.ts` — the only reader anywhere — has always evaluated
+`if (context.llmConfig && …)` against `undefined` and taken its fallback path.
+
+Even if a rule *had* used `embedding.route`, it would still have read nothing.
+The original diagnosis would have had me wire up a rule and watch it change
+nothing.
+
+Same grep found a second one: **`ExecutionContext.assistant` is never assigned
+and never read.** A wholly dead field. It is left in place rather than
+populated — populating a field nothing reads is how the other three got here.
+
+**This is left standing rather than rewritten**, because the corrected cause is
+the more useful record: the first diagnosis was right about the symptom and
+wrong about the mechanism, and it was wrong in the direction of a plausible fix
+that would have proved nothing.
+
 **This is the `onError` pattern again**, and at larger scale. A configuration
 layer that appears to work and changes nothing is worse than an absent one,
 because it hides the need for the mechanism it represents. `onError` cost us a

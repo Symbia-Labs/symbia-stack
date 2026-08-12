@@ -151,6 +151,19 @@ export interface RuleSet {
    * Individual actions can override specific settings.
    */
   llmConfig?: AssistantLLMConfigRef;
+  /**
+   * The above, resolved once at load time.
+   *
+   * Resolved on the ruleset rather than per message because the inputs —
+   * preset, authored overrides, system defaults — cannot change between
+   * messages without a reload. Resolving per event would be the same answer
+   * computed thousands of times.
+   *
+   * This is the field that carries configuration to the executor. Before
+   * 12 Aug there was no such field, and `ExecutionContext.llmConfig` was
+   * declared but never assigned by anything — see the note there.
+   */
+  resolvedLLMConfig?: ResolvedLLMConfig;
 }
 
 /**
@@ -161,6 +174,20 @@ export interface AssistantLLMConfigRef {
   preset?: 'routing' | 'conversational' | 'code' | 'reasoning' | 'custom';
   /** Inline configuration overrides (merged with preset if specified) */
   overrides?: {
+    /**
+     * Which provider serves this assistant.
+     *
+     * Added 12 Aug. Its absence is why an assistant could not express the one
+     * thing every live assistant actually declares: `metadata.llmConfig` on
+     * every resource in the catalog carries a `provider`, and there was no
+     * override slot to carry it into the resolved config — so it was dropped
+     * on load and the provider was chosen at call time by asking which
+     * credential happened to exist.
+     */
+    provider?: {
+      type?: string;
+      baseUrl?: string;
+    };
     // Generation settings
     generation?: {
       model?: string;
@@ -237,10 +264,26 @@ export interface ExecutionContext {
    * Resolved LLM configuration for the current assistant.
    * This is the merged result of preset + overrides + org defaults.
    * Actions should use this config unless they have explicit overrides.
+   *
+   * DECLARED SINCE JANUARY AND NEVER ONCE ASSIGNED, until 12 Aug 2026.
+   * `RunCoordinator.processEvent` builds every ExecutionContext in this
+   * codebase and did not set this field; measured by grep, zero assignments in
+   * any route. So `embedding-route.ts` — the only reader anywhere — has always
+   * evaluated `if (context.llmConfig && …)` against `undefined` and skipped.
+   *
+   * The resolver behind it (409 lines, four presets, full system defaults) ran
+   * on every assistant load and produced a value that reached nothing. This is
+   * the `onError` pattern a third time: a feature that appears to work,
+   * changes nothing, and hides the need for the mechanism it represents.
    */
   llmConfig?: ResolvedLLMConfig;
   /**
-   * Assistant metadata for routing decisions
+   * Assistant metadata for routing decisions.
+   *
+   * DEAD FIELD as of 12 Aug 2026: never assigned, and — unlike `llmConfig`
+   * above — never read either. Left in place rather than populated, because
+   * populating a field nothing reads is how the previous three of these got
+   * here. Delete it or give it a caller; do not "fix" it by assigning to it.
    */
   assistant?: {
     key: string;
@@ -257,6 +300,21 @@ export interface ResolvedLLMConfig {
   provider: {
     type: string;
     baseUrl?: string;
+    /**
+     * True when a human wrote this provider down; false when it fell out of
+     * SYSTEM_DEFAULTS.
+     *
+     * NECESSARY BECAUSE A RESOLVED CONFIG IS ALWAYS FULLY POPULATED — that is
+     * its job — so "is provider set?" is always yes and cannot distinguish
+     * `anthropic` chosen by an author from `openai` arrived at by default.
+     * Without this flag, wiring the resolved config into `llm.invoke` makes
+     * every unconfigured assistant claim to have declared openai, skip the
+     * credential probe, and hard-fail on an org whose only key is anthropic.
+     *
+     * I wrote that regression before catching it. The flag is the difference
+     * between a value and a decision.
+     */
+    declared?: boolean;
   };
   // Generation
   generation: {

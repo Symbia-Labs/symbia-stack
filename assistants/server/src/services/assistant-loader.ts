@@ -282,6 +282,48 @@ export async function loadAssistants(app: Express): Promise<void> {
       capabilities: extractCapabilities(ruleSet),
     };
 
+    // RESOLVE CONFIGURATION BEFORE THE RULESET IS HANDED OUT.
+    //
+    // `createRuleBasedAssistantRouter` passes this exact object to
+    // `setRuleSet`, which is what `RunCoordinator` later reads to build every
+    // ExecutionContext. Resolving after that call would attach the config to an
+    // object the executor already holds by reference — it would work, by
+    // accident, and break the first time anything clones the ruleset. Order it
+    // deliberately instead.
+    //
+    // The authored `metadata.llmConfig` is folded in as overrides rather than
+    // read separately. Every live resource carries one — the coordinator's says
+    // anthropic / claude-3-5-sonnet-20241022 / 0.7 / 1500 — and until today none
+    // of it reached a model, because the resolver only ever saw a preset name.
+    const authored = (resource.metadata?.llmConfig ?? {}) as {
+      provider?: string;
+      model?: string;
+      temperature?: number;
+      maxTokens?: number;
+    };
+    const llmConfigPreset = resource.metadata?.llmConfigPreset || 'conversational';
+    const llmConfigRef: AssistantLLMConfigRef = {
+      preset: llmConfigPreset,
+      overrides: {
+        ...(authored.provider ? { provider: { type: authored.provider } } : {}),
+        generation: {
+          ...(authored.model ? { model: authored.model } : {}),
+          ...(authored.temperature !== undefined ? { temperature: authored.temperature } : {}),
+          ...(authored.maxTokens !== undefined ? { maxTokens: authored.maxTokens } : {}),
+        },
+      },
+    };
+    const resolvedLLMConfig = resolveLLMConfig(llmConfigRef);
+    ruleSet.llmConfig = llmConfigRef;
+    ruleSet.resolvedLLMConfig = resolvedLLMConfig;
+
+    console.log(
+      `[Assistant Loader] ${assistantKey} llm: preset=${llmConfigPreset} ` +
+        `provider=${resolvedLLMConfig.provider.type} model=${resolvedLLMConfig.generation.model} ` +
+        `temp=${resolvedLLMConfig.generation.temperature} maxTokens=${resolvedLLMConfig.generation.maxTokens}` +
+        `${authored.model || authored.provider ? ' (authored overrides applied)' : ''}`
+    );
+
     // Create rule-based router
     const router = createRuleBasedAssistantRouter({
       key: assistantKey,
@@ -304,11 +346,6 @@ export async function loadAssistants(app: Express): Promise<void> {
     // Extract legacy LLM config from rules (for display)
     const llmConfigLegacy = extractLlmConfig(ruleSet);
 
-    // Resolve full LLM configuration based on preset
-    const llmConfigPreset = resource.metadata?.llmConfigPreset || 'conversational';
-    const llmConfigRef: AssistantLLMConfigRef = { preset: llmConfigPreset };
-    const resolvedLLMConfig = resolveLLMConfig(llmConfigRef);
-
     // Get alias from metadata
     const alias = resource.metadata?.alias as string | undefined;
 
@@ -319,7 +356,19 @@ export async function loadAssistants(app: Express): Promise<void> {
           ...resource.metadata,
           routines,
           llm: llmConfigLegacy,
-          llmConfig: resolvedLLMConfig,
+          // THE AUTHORED CONFIG SURVIVES, UNDER ITS OWN NAME.
+          //
+          // This line used to read `llmConfig: resolvedLLMConfig`, overwriting
+          // what the resource actually declared with the preset-derived value.
+          // The console therefore displayed a configuration nobody had written,
+          // in the field where the authored one belonged — so the operator saw
+          // the discrepancy already resolved rather than seeing that one
+          // existed. A UI that hides a disagreement between two configs is
+          // worse than one that shows neither.
+          //
+          // `llmConfig` is now what the resource says. `llmConfigResolved` is
+          // what it resolves to. Both are visible, and they can be compared.
+          llmConfigResolved: resolvedLLMConfig,
         },
       },
       config,

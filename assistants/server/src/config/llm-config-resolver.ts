@@ -244,6 +244,22 @@ export function resolveLLMConfig(
   if (configRef.overrides) {
     const overrides = configRef.overrides;
 
+    // PROVIDER OVERRIDES, AND THE FLAG THAT MAKES THEM MEAN SOMETHING.
+    //
+    // `declared` is set only on this path — when an author actually wrote a
+    // provider down. A resolved config is fully populated by construction, so
+    // without this there is no way to tell `anthropic` chosen by a human from
+    // `openai` inherited from SYSTEM_DEFAULTS, and callers that need to know
+    // whether to trust the value have to guess.
+    if (overrides.provider?.type) {
+      resolved.provider = {
+        ...resolved.provider,
+        type: overrides.provider.type,
+        ...(overrides.provider.baseUrl ? { baseUrl: overrides.provider.baseUrl } : {}),
+        declared: true,
+      };
+    }
+
     // Generation overrides
     if (overrides.generation) {
       resolved.generation = {

@@ -3,6 +3,7 @@ import type { ActionConfig, ActionResult, ExecutionContext } from '../types.js';
 import { invokeLLM, isIntegrationsAvailable, resolveUsableProvider, TokenAuthError } from '../../integrations-client.js';
 import { interpolate } from '../template.js';
 import { buildAttachmentBlock } from './attachments.js';
+import { getActionConfig } from '../../config/llm-config-resolver.js';
 
 // Re-export for consumers
 export { TokenAuthError };
@@ -141,12 +142,43 @@ export class LLMInvokeHandler extends BaseActionHandler {
     // Get rawOrgId for credential lookup (not the composite key)
     const rawOrgId = (context.metadata as Record<string, unknown>)?.rawOrgId as string | undefined;
 
-    // Explicit configuration wins. Otherwise ASK which provider has a
-    // credential rather than assuming openai — see resolveUsableProvider.
-    let provider = params.provider;
-    let model = params.model;
+    // ONE MERGED CONFIGURATION, WITH ACTION PARAMS STILL WINNING.
+    //
+    // Until 12 Aug this read `params.*` directly and never consulted the
+    // assistant's configuration, because `context.llmConfig` was undefined on
+    // every execution — nothing assigned it. So an assistant declaring
+    // temperature 0.7 sent no temperature at all, and every generation ran at
+    // whatever the provider defaults to.
+    //
+    // getActionConfig has implemented exactly this precedence since January
+    // and had no caller. Precedence is unchanged from what it already encoded:
+    //
+    //   action params  >  assistant config  >  preset  >  system defaults
+    //
+    // so no rule that sets a value explicitly changes behaviour. What changes
+    // is rules that set nothing and previously meant nothing.
+    const merged = context.llmConfig
+      ? getActionConfig(context.llmConfig, params as unknown as Record<string, unknown>)
+      : undefined;
 
-    if (!provider) {
+    let provider = params.provider ?? merged?.provider;
+    let model = params.model ?? merged?.model;
+
+    // WHY THE CREDENTIAL PROBE STAYS.
+    //
+    // Wiring the merged config in naively makes every unconfigured assistant
+    // resolve to SYSTEM_DEFAULTS — openai / gpt-4o-mini — then hard-fail on an
+    // org whose only credential is anthropic. That is a regression introduced
+    // by a change whose entire purpose is making configuration honest, and I
+    // wrote it before catching it: `provider.type` is ALWAYS populated in a
+    // resolved config, so "is it set?" cannot answer "did anyone choose it?".
+    //
+    // `declared` is set only when an author wrote a provider down. A declared
+    // provider is used as declared; an undeclared one still asks which
+    // credential exists, exactly as before.
+    const providerWasDeclared = Boolean(params.provider || context.llmConfig?.provider?.declared);
+
+    if (!providerWasDeclared) {
       const usable = await resolveUsableProvider(token, rawOrgId);
       if (!usable) {
         throw new Error(
@@ -155,8 +187,10 @@ export class LLMInvokeHandler extends BaseActionHandler {
         );
       }
       provider = usable.provider;
-      model = model || usable.model;
-      console.log(`[llm.invoke] no provider configured; resolved to ${provider} (${model})`);
+      model = params.model ?? usable.model;
+      console.log(
+        `[llm.invoke] provider not declared; resolved by credential to ${provider} (${model})`
+      );
     }
 
     const response = await invokeLLM(token, {
@@ -166,8 +200,8 @@ export class LLMInvokeHandler extends BaseActionHandler {
         { role: 'system', content: systemPrompt },
         { role: 'user', content: prompt },
       ],
-      temperature: params.temperature,
-      maxTokens: params.maxTokens,
+      temperature: params.temperature ?? merged?.temperature,
+      maxTokens: params.maxTokens ?? merged?.maxTokens,
       orgId: rawOrgId,
     });
 

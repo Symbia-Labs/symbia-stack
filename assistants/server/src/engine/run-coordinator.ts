@@ -70,6 +70,17 @@ export class RunCoordinator {
       user: event.user,
       context: conversationContext,
       metadata: event.metadata || {},
+      // THE LINE THAT MAKES LLM CONFIGURATION REAL.
+      //
+      // `ExecutionContext.llmConfig` has been declared since January and was
+      // never assigned here — this is the only place every ExecutionContext in
+      // the codebase is built, so "never assigned here" means never assigned at
+      // all. Everything downstream that consulted it was therefore reading
+      // `undefined` and silently taking its fallback path.
+      //
+      // Resolved at load time and carried on the ruleset, so this is a
+      // reference copy rather than work repeated per message.
+      llmConfig: ruleSet.resolvedLLMConfig,
     };
     
     const result = await ruleExecutor.execute(executionContext, ruleSet);
