@@ -19,6 +19,17 @@ export const config = {
    */
   joinSecret: process.env.DIRECTORY_JOIN_SECRET || '',
 
+  /**
+   * Event classes this installation offers to receive from peers, stated on
+   * GET /api/offer. Empty would mean "offers nothing" — the default is the
+   * one boring class the first seam crossing uses (topology mirroring), per
+   * docs/2026-08-12-federation-predictions.md ruling 4.
+   */
+  offerAccepts: (process.env.DIRECTORY_OFFER_ACCEPTS || 'network.topology')
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean),
+
   /** How often expired foreign-node registrations are swept. */
   evictIntervalMs: parseInt(process.env.DIRECTORY_EVICT_INTERVAL_MS || '15000', 10),
 

@@ -6,12 +6,36 @@
  * relays. No event ever passes through this service.
  */
 import { Router, type Request, type Response } from 'express';
+import { loadServiceIdentity } from '@symbia/crypto';
 import * as registry from './registry.js';
 import { checkAdmission } from './admission.js';
 import { config } from './config.js';
 
 export function createRouter(): Router {
   const router = Router();
+
+  // --- Offer (the read side of declaration-based discovery) ----------------
+  //
+  // Deliberately public and deliberately passive: this states what the
+  // installation IS and what event classes it is willing to receive. Reading
+  // an offer admits nothing — admission stays on POST /peers and nowhere
+  // else. Discovery is declaration (docs/2026-08-12-federation-predictions.md
+  // ruling 2): a peer reads this, then both sides write peer entries on
+  // purpose. Identical-as-app peers are distinguished here by installation
+  // id, which is the disk-persisted service identity, stable across restarts.
+
+  router.get('/offer', (_req: Request, res: Response) => {
+    // Same file-backed identity the HTTP server loads at boot; loading it
+    // again here reads the persisted key rather than holding a second copy.
+    const identity = loadServiceIdentity({ role: 'directory' });
+    res.json({
+      installation: identity.id,
+      fingerprint: identity.fingerprint,
+      publicKeyPem: identity.publicKeyPem,
+      accepts: config.offerAccepts,
+      service: 'directory',
+    });
+  });
 
   // --- Stats (for the console tile) ---------------------------------------
 

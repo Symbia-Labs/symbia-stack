@@ -37,6 +37,7 @@ const server = createSymbiaServer({
         version: '1.0.0',
         description: 'Federation directory (control plane): peer directory (BDT), foreign-node table (FDT), admission',
         endpoints: {
+          offer: '/api/offer',
           peers: '/api/peers',
           foreignNodes: '/api/foreign-nodes',
         },
