@@ -126,6 +126,17 @@ export interface Resolution {
   /** Message the value came from, so the step names a checkable source. */
   fromMessageId?: string;
   reason?: string;
+  /**
+   * What sort of follow-up this is.
+   *
+   * `continuation` operates on the last VALUE; `correction` revises the last
+   * EXPRESSION. They are written with the same pronouns and mean opposite
+   * things, which is how "actually make it 20%" produced 20% of the tip
+   * instead of 20% of the bill.
+   */
+  kind?: 'continuation' | 'correction' | 'repeat';
+  /** For a correction: the expression being revised, unsubstituted. */
+  revises?: string;
 }
 
 /**
@@ -150,6 +161,39 @@ export interface Resolution {
  */
 const REPEAT = /^\s*(?:(?:do|run|try|say|calculate|compute)\s+(?:that|it|this)\s+)?again\b[\s!.?]*$|^\s*(?:same again|one more time|repeat that|do it again)\b[\s!.?]*$/i;
 
+/**
+ * A CORRECTION IS NOT A CONTINUATION, AND THEY USE THE SAME PRONOUNS.
+ *
+ * This is the distinction the whole file was missing. Both of these contain a
+ * back-reference and they mean opposite things:
+ *
+ *   "now multiply that by 10"   -> operate on the RESULT      (continuation)
+ *   "actually make it 20%"      -> revise the EXPRESSION      (correction)
+ *
+ * Treating the second as the first is not a near miss. Measured 12 Aug 2026:
+ *
+ *   turn 1  "whats 15% tip on $47.50"  ->  47.50 * 0.15 = 7.125   correct
+ *   turn 3  "actually make it 20%"     ->  7.125 * 0.20 = 1.425   WRONG
+ *
+ * The right answer is 9.50. `it` was bound to the tip instead of the bill, and
+ * the reply carried arena COMPOSED — an honest receipt on a wrong answer, which
+ * is the failure this platform exists to prevent. Nothing in the envelope was
+ * false; the referent was.
+ *
+ * The ingredient was already here: `expression` is stored for `again`. A
+ * correction revises that, rather than rebinding a pronoun to the last value.
+ */
+const CORRECTIONS = [
+  /\bactually\b/i,
+  /\binstead\b/i,
+  /^\s*no[,\s]+(?:make|do|use|try)\b/i,
+  /\b(?:make|change|set) (?:it|that|the \w+) (?:to|into)\b/i,
+  /\bmake it\b/i,
+  /\b(?:first|before that)\b[\s!.?]*$/i,
+  /\bi meant\b/i,
+  /\bshould (?:have )?be\b/i,
+];
+
 export function resolveReferences(conversationId: string, text: string): Resolution {
   const raw = String(text ?? '');
   const previous = recall(conversationId);
@@ -168,6 +212,50 @@ export function resolveReferences(conversationId: string, text: string): Resolut
       resolved: true,
       substitutions: [{ phrase: raw.trim(), value: previous.expression }],
       fromMessageId: previous.messageId,
+    };
+  }
+
+  // CORRECTIONS ARE CHECKED BEFORE BACK-REFERENCES, because they contain them.
+  //
+  // "actually make it 20%" matches `\bit\b`. If back-reference substitution
+  // runs first the pronoun is bound to the last VALUE and the correction is
+  // silently applied to the wrong operand — see the note on CORRECTIONS.
+  const isCorrection = CORRECTIONS.some((r) => r.test(raw));
+  if (isCorrection) {
+    if (!previous?.expression) {
+      return {
+        text: raw,
+        resolved: false,
+        kind: 'correction',
+        substitutions: [],
+        reason:
+          'this revises a previous calculation, and nothing in this conversation produced one to revise',
+      };
+    }
+    // The expression is handed back UNSUBSTITUTED, with the correction beside
+    // it. Revising `47.50 * 0.15` given "make it 20%" is a rewrite, not an
+    // arithmetic step, so it goes to whatever can rewrite — and the arithmetic
+    // that follows stays exact, which is the whole shape of Smart Calculator.
+    // THE EXPRESSION HAS TO TRAVEL WITH THE CORRECTION.
+    //
+    // Only `text` is forwarded to the specialist — the coordinator hands over
+    // `resolved.text` and nothing else. Returning the raw correction alone
+    // would leave Smart Calculator reading "actually make it 20%" with no idea
+    // what to revise, which is a refusal at best and an invention at worst.
+    //
+    // Stated rather than substituted: the previous expression is quoted and
+    // named as the thing being revised, so what the model receives says
+    // plainly what it is being asked to do. The arithmetic afterwards is still
+    // exact.
+    const text = `Revise this calculation: \`${previous.expression}\` — ${raw.trim()}`;
+    return {
+      text,
+      resolved: true,
+      kind: 'correction',
+      revises: previous.expression,
+      substitutions: [{ phrase: raw.trim(), value: text }],
+      fromMessageId: previous.messageId,
+      reason: `revises the previous calculation \`${previous.expression}\` rather than operating on its result`,
     };
   }
 
