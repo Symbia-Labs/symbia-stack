@@ -41,6 +41,17 @@ export type ActionType =
   | 'embedding.search'    // Search by semantic similarity
   | 'custom';
 
+/**
+ * Deterministic assistants compute; probabilistic ones generate.
+ *
+ * The distinction is not decorative — it decides what happens when a step
+ * fails. A deterministic assistant that retries is not deterministic: the same
+ * input would produce a different number of attempts, and a reply that
+ * succeeded on the third try is not the same claim as one that succeeded on
+ * the first. So it refuses instead, and says so.
+ */
+export type AssistantKind = 'deterministic' | 'probabilistic';
+
 export type ConversationState =
   | 'idle'
   | 'ai_active'
@@ -151,6 +162,22 @@ export interface RuleSet {
    * Individual actions can override specific settings.
    */
   llmConfig?: AssistantLLMConfigRef;
+  /**
+   * What kind of thing this assistant is, and therefore how it fails.
+   *
+   * Ruling 12 Aug: "Deterministic assistants default to inherit or refuse.
+   * Probabilistic assistants default to try again."
+   *
+   * DEFAULTS TO `deterministic`, which is the conservative reading. A wrong
+   * guess of `probabilistic` spends tokens on retries nobody asked for and can
+   * turn a reproducible failure into an intermittent one — the worst kind to
+   * debug. A wrong guess of `deterministic` produces a clear refusal. Between a
+   * failure that is loud and one that is expensive and hidden, the default
+   * should be loud.
+   */
+  kind?: AssistantKind;
+  /** How many attempts a probabilistic assistant gets. Ignored when deterministic. */
+  maxAttempts?: number;
   /**
    * The above, resolved once at load time.
    *

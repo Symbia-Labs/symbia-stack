@@ -317,6 +317,35 @@ export async function loadAssistants(app: Express): Promise<void> {
     ruleSet.llmConfig = llmConfigRef;
     ruleSet.resolvedLLMConfig = resolvedLLMConfig;
 
+    // HOW THIS ASSISTANT FAILS, DECLARED RATHER THAN GUESSED.
+    //
+    // Ruling 12 Aug: deterministic assistants refuse, probabilistic ones try
+    // again. Read from `metadata.config.kind`.
+    //
+    // NOT DERIVED FROM TAGS, though it could be — `calculator` is tagged
+    // `deterministic` and `smart-calc` `hybrid`. Deriving would make a tag,
+    // which is a search aid anyone can edit, silently control whether the
+    // platform spends tokens retrying. The tags stay descriptive; this is a
+    // declaration.
+    //
+    // Defaults to `deterministic` when absent. A wrong guess of `probabilistic`
+    // spends tokens on retries nobody asked for and turns a reproducible
+    // failure into an intermittent one; a wrong guess of `deterministic`
+    // produces a clear refusal. Between a loud failure and an expensive hidden
+    // one, default to loud.
+    const declaredConfig = (resource.metadata?.config ?? {}) as {
+      kind?: 'deterministic' | 'probabilistic';
+      retries?: { max?: number };
+    };
+    ruleSet.kind = declaredConfig.kind ?? 'deterministic';
+    ruleSet.maxAttempts = declaredConfig.retries?.max ?? 3;
+
+    console.log(
+      `[Assistant Loader] ${assistantKey} kind=${ruleSet.kind}` +
+        (ruleSet.kind === 'probabilistic' ? ` maxAttempts=${ruleSet.maxAttempts}` : ' (refuses, never retries)') +
+        (declaredConfig.kind ? '' : ' [DEFAULTED — nothing declared]')
+    );
+
     console.log(
       `[Assistant Loader] ${assistantKey} llm: preset=${llmConfigPreset} ` +
         `provider=${resolvedLLMConfig.provider.type} model=${resolvedLLMConfig.generation.model} ` +

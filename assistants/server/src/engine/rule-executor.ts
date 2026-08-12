@@ -1,5 +1,6 @@
 import type {
   ActionConfig,
+  AssistantKind,
   Rule,
   RuleSet,
   ExecutionContext,
@@ -12,6 +13,9 @@ import { digest, type ProvenanceStep } from './provenance.js';
 import { evaluateConditions } from './condition-evaluator.js';
 import { getActionHandler } from './actions/index.js';
 import { TokenAuthError } from './actions/llm-invoke.js';
+// The marker that distinguishes a decision from a malfunction. One definition,
+// in conversational-turns.ts, read here and by webhooks.ts.
+import { DECLINED } from './conversational-turns.js';
 
 export class RuleExecutor {
   async execute(context: ExecutionContext, ruleSet: RuleSet): Promise<RunResult> {
@@ -49,7 +53,12 @@ export class RuleExecutor {
 
     for (const rule of applicableRules) {
       console.log(`[RuleExecutor] Evaluating rule: ${rule.name} (priority: ${rule.priority})`);
-      const ruleResult = await this.executeRule(rule, context);
+      const ruleResult = await this.executeRule(
+        rule,
+        context,
+        ruleSet.kind ?? 'deterministic',
+        ruleSet.maxAttempts ?? 3
+      );
       results.push(ruleResult);
 
       console.log(`[RuleExecutor] Rule "${rule.name}" matched: ${ruleResult.matched}, conditionsEvaluated: ${ruleResult.conditionsEvaluated}`);
@@ -134,7 +143,9 @@ export class RuleExecutor {
   
   private async executeRule(
     rule: Rule,
-    context: ExecutionContext
+    context: ExecutionContext,
+    kind: AssistantKind = 'deterministic',
+    ruleSetMaxAttempts = 3
   ): Promise<RuleExecutionResult> {
     const start = Date.now();
     
@@ -178,18 +189,102 @@ export class RuleExecutor {
           continue;
         }
         
-        const result = await handler.execute(actionConfig, context);
-        actionResults.push(result);
+        // DETERMINISTIC REFUSES. PROBABILISTIC TRIES AGAIN. EVERY ATTEMPT IS
+        // RECORDED.
+        //
+        // Ruling 12 Aug, both halves. The second half is the one that needed a
+        // decision beyond "retry": an answer that succeeded on the third
+        // attempt is NOT the same claim as one that succeeded on the first, and
+        // a receipt that cannot tell them apart is hiding the thing most worth
+        // knowing about a probabilistic reply.
+        //
+        // So each attempt becomes its own step. A reply that took three tries
+        // carries three steps, two of them `ok: false`, and the envelope seals
+        // all of them. Silent retries would have made a flaky answer and a
+        // clean one identical in the record — which is what a transport-level
+        // retry does, and why this is not one.
+        const maxAttempts =
+          kind === 'probabilistic' ? Math.max(1, ruleSetMaxAttempts) : 1;
+        let result!: ActionResult;
+        let attempt = 0;
 
-        provenance.push({
-          id: (actionConfig as { id?: string }).id || actionConfig.type,
-          action: actionConfig.type,
-          source: describeSource(actionConfig, result.output),
-          ok: result.success,
-          ms: result.durationMs,
-          outputDigest: result.success ? digest(result.output) : undefined,
-          error: result.success ? undefined : result.error,
-        });
+        while (attempt < maxAttempts) {
+          attempt++;
+          result = await handler.execute(actionConfig, context);
+
+          provenance.push({
+            // THE ID IS AN IDENTITY, NOT A LABEL. DO NOT DECORATE IT.
+            //
+            // This appended `#${attempt}` so repeated attempts were
+            // distinguishable. It cost four predictions: other code KEYS on
+            // this id. Templates resolve `{{steps.step-answer.response}}`, and
+            // message.send matches the reply's content back to the step that
+            // produced it to decide `contentFromModel`.
+            //
+            // With the suffix that match failed, so a reply a model had written
+            // classified as RETRIEVED — authored text — instead of COMPOSED.
+            // The reply was right and its receipt said the wrong thing about
+            // where it came from, which on this platform is the worse failure.
+            //
+            // Attempt number lives in `attempt`, which was added for exactly
+            // this and which nothing keys on.
+            id: (actionConfig as { id?: string }).id || actionConfig.type,
+            action: actionConfig.type,
+            source: describeSource(actionConfig, result.output),
+            ok: result.success,
+            ms: result.durationMs,
+            outputDigest: result.success ? digest(result.output) : undefined,
+            error: result.success ? undefined : result.error,
+            // Present only when retrying was possible, so a deterministic
+            // assistant's receipt is not cluttered with `attempt: 1` on every
+            // step it was never going to repeat.
+            attempt: maxAttempts > 1 ? attempt : undefined,
+          });
+
+          if (result.success) break;
+
+          // A REFUSAL IS NOT A MALFUNCTION, SO IT IS NOT RETRIED.
+          //
+          // webhooks.ts already states this rule for the reply path. I did not
+          // apply it here, and the first run cost five predictions: the
+          // coordinator's `assistants.route` refuses deliberately when nothing
+          // declares a request, and the retry loop read that decision as a
+          // failed attempt.
+          //
+          // It was worse than a wasted call. Declinations ESCALATE by design —
+          // `declineFor` varies the wording by how many times it has been seen —
+          // so three attempts consumed the entire escalation ladder inside a
+          // single turn:
+          //
+          //   attempt 1  "That is not something any of my specialists declares…"
+          //   attempt 2  "Still outside what my team covers, I am afraid."
+          //   attempt 3  "Also no — arithmetic is genuinely all I have people for."
+          //
+          // The user asked once and was refused three times, each more curtly.
+          //
+          // Retrying is for a step that MIGHT succeed next time. A decision
+          // will not, and repeating it only makes the system look like it is
+          // arguing with itself.
+          if (result.error?.startsWith(DECLINED)) {
+            console.log(
+              `[RuleExecutor] ${actionConfig.type} declined deliberately — not retrying a decision`
+            );
+            break;
+          }
+
+          if (attempt < maxAttempts) {
+            console.log(
+              `[RuleExecutor] ${actionConfig.type} failed on attempt ${attempt}/${maxAttempts} ` +
+                `(${result.error}) — probabilistic assistant, trying again`
+            );
+          } else if (maxAttempts > 1) {
+            console.log(
+              `[RuleExecutor] ${actionConfig.type} failed on all ${maxAttempts} attempts — giving up`
+            );
+          }
+        }
+
+        actionResults.push(result);
 
         if (!result.success) {
           // ── the failure path, which until today did not exist ────────────
