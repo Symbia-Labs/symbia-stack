@@ -151,13 +151,17 @@ timestamped 19:04 — created by this run's own `git status`. No `.git/rebase-*`
 directory and no `.git/MERGE_HEAD`, so by the usual test it is stale rather than
 a live operation.
 
-It was not deleted. A write probe shows the sandbox can create files under
-`.git/` but cannot unlink them (`rm: Operation not permitted`), which is also why
-git left the lock behind: `git status` reported `warning: unable to unlink
-.git/index.lock`. This is a sandbox mount permission, not a repository fault, and
-it blocks `git add` from the sandbox. **Consequence: this update section was
-written to disk but could not be committed by the sandbox run.** Nothing was
-staged, reset, cleaned or deleted.
+A write probe shows the sandbox can create files under `.git/` but cannot unlink
+them (`rm: Operation not permitted`), which is why git left the lock behind:
+`git status` reported `warning: unable to unlink .git/index.lock`. That is a
+sandbox mount permission, not a repository fault, and it made `git add` fail from
+the sandbox with `fatal: Unable to create ... index.lock: File exists`.
+
+Checked again on the host filesystem before acting: still zero bytes, owned by
+`briangilmore`, no `rebase-*`, no `MERGE_HEAD`, and `ps` shows no git process. On
+that evidence the lock was removed from the host and the commit made there. Only
+this document was staged (`git add docs/2026-08-12-session-close.md`). Nothing
+else was staged, reset, cleaned or deleted, and nothing was pushed.
 
 ### Not checked by this run
 
