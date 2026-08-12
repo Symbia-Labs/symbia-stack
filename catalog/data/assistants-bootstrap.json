@@ -5,7 +5,7 @@
     "name": "Echo",
     "description": "The simplest assistant - mirrors your input back. Perfect for understanding basic message handling.",
     "type": "assistant",
-    "status": "published",
+    "status": "draft",
     "isBootstrap": true,
     "tags": [
       "assistant",
@@ -219,7 +219,7 @@
               {
                 "type": "message.send",
                 "params": {
-                  "content": "**Calculator** (Level 2)\n\nI evaluate mathematical expressions with precision.\n\n**Supported operations:**\n- Basic: `+` `-` `*` `/`\n- Powers: `^` or `**`\n- Parentheses: `(` `)`\n- Functions: `sqrt()`, `sin()`, `cos()`, `log()`\n- Constants: `pi`, `e`\n\n**Examples:**\n- `2 + 2` \u2192 4\n- `(10 + 5) * 2` \u2192 30\n- `sqrt(16)` \u2192 4\n- `pi * 2` \u2192 6.283...\n\n**Why this matters:**\nThis shows deterministic tool execution - the math engine always returns exact results, unlike LLM approximations."
+                  "content": "**Calculator** (Level 2)\n\nI evaluate mathematical expressions with precision.\n\n**Supported operations:**\n- Basic: `+` `-` `*` `/`\n- Powers: `^` or `**`\n- Parentheses: `(` `)`\n- Functions: `sqrt()`, `sin()`, `cos()`, `log()`\n- Constants: `pi`, `e`\n\n**Examples:**\n- `2 + 2` → 4\n- `(10 + 5) * 2` → 30\n- `sqrt(16)` → 4\n- `pi * 2` → 6.283...\n\n**Why this matters:**\nThis shows deterministic tool execution - the math engine always returns exact results, unlike LLM approximations."
                 }
               }
             ]
@@ -310,7 +310,7 @@
     "name": "Converter",
     "description": "Converts between units, currencies, and formats. Shows lookup tables and transformation logic.",
     "type": "assistant",
-    "status": "published",
+    "status": "draft",
     "isBootstrap": true,
     "tags": [
       "assistant",
@@ -473,7 +473,7 @@
     "name": "Data Explainer",
     "description": "Computes statistics on data, then uses AI to explain what the numbers mean in plain language.",
     "type": "assistant",
-    "status": "published",
+    "status": "draft",
     "isBootstrap": true,
     "tags": [
       "assistant",
@@ -619,7 +619,7 @@
     "name": "Code Runner",
     "description": "Executes code snippets safely, then uses AI to explain what happened and why.",
     "type": "assistant",
-    "status": "published",
+    "status": "draft",
     "isBootstrap": true,
     "tags": [
       "assistant",
@@ -915,7 +915,7 @@
     "name": "Intent Router",
     "description": "Uses AI to understand what the user wants, then routes to the correct deterministic tool or assistant.",
     "type": "assistant",
-    "status": "published",
+    "status": "draft",
     "isBootstrap": true,
     "tags": [
       "assistant",
@@ -994,7 +994,7 @@
               {
                 "type": "message.send",
                 "params": {
-                  "content": "**Intent Router** (Level 4 - Hybrid)\n\nI figure out what you need and route you to the right assistant.\n\n**How it works:**\n1. You send any message\n2. AI classifies your intent (LLM)\n3. I route to the correct specialist (deterministic)\n\n**Detected intents:**\n- `CALCULATE` \u2192 @calc\n- `CONVERT` \u2192 @convert\n- `ANALYZE` \u2192 @explain\n- `CODE` \u2192 @run\n- `BUILD` \u2192 @builder\n- `HELP` \u2192 shows guidance\n\n**Examples:**\n- \"What's 25 times 4?\" \u2192 routes to calculator\n- \"Convert 100km to miles\" \u2192 routes to converter\n- \"Run this Python code\" \u2192 routes to code runner\n\n**Why this matters:**\nAI handles fuzzy intent detection, but routing is deterministic and predictable."
+                  "content": "**Intent Router** (Level 4 - Hybrid)\n\nI figure out what you need and route you to the right assistant.\n\n**How it works:**\n1. You send any message\n2. AI classifies your intent (LLM)\n3. I route to the correct specialist (deterministic)\n\n**Detected intents:**\n- `CALCULATE` → @calc\n- `CONVERT` → @convert\n- `ANALYZE` → @explain\n- `CODE` → @run\n- `BUILD` → @builder\n- `HELP` → shows guidance\n\n**Examples:**\n- \"What's 25 times 4?\" → routes to calculator\n- \"Convert 100km to miles\" → routes to converter\n- \"Run this Python code\" → routes to code runner\n\n**Why this matters:**\nAI handles fuzzy intent detection, but routing is deterministic and predictable."
                 }
               }
             ]
@@ -1082,7 +1082,7 @@
   {
     "id": "ast-coordinator",
     "key": "assistants/coordinator",
-    "name": "Coordinator",
+    "name": "Symbia",
     "description": "The team lead. Orchestrates multiple specialists to solve complex problems collaboratively.",
     "type": "assistant",
     "status": "published",
@@ -1136,41 +1136,6 @@
         "id": "ruleset-coordinator",
         "name": "Coordinator Rules",
         "rules": [
-          {
-            "id": "rule-compute-first",
-            "name": "Compute First",
-            "actions": [
-              {
-                "id": "step-calc",
-                "type": "tool.invoke",
-                "params": {
-                  "tool": "math.evaluate",
-                  "input": "{{message.content}}",
-                  "resultKey": "calc"
-                }
-              },
-              {
-                "id": "step-say",
-                "type": "message.send",
-                "params": {
-                  "content": "{{steps.step-calc.result}}\n\n_computed by math.evaluate \u2014 no model call_"
-                }
-              }
-            ],
-            "enabled": true,
-            "trigger": "message.received",
-            "priority": 220,
-            "conditions": {
-              "logic": "and",
-              "conditions": [
-                {
-                  "field": "message.content",
-                  "value": "^\\s*(?:what(?:'s| is)\\s+)?[-+(]*\\s*\\d[\\d\\s.,()+\\-*/^%x\u00d7\u00f7]*\\d\\s*[)?]*\\s*$",
-                  "operator": "matches"
-                }
-              ]
-            }
-          },
           {
             "id": "coord-help",
             "name": "Help Command",
@@ -1232,17 +1197,17 @@
               "conditions": [
                 {
                   "field": "message.content",
-                  "value": "(?i)who.*team",
+                  "value": "who.*team",
                   "operator": "matches"
                 },
                 {
                   "field": "message.content",
-                  "value": "(?i)list.*assistant",
+                  "value": "list.*assistant",
                   "operator": "matches"
                 },
                 {
                   "field": "message.content",
-                  "value": "(?i)available.*specialist",
+                  "value": "available.*specialist",
                   "operator": "matches"
                 }
               ]
@@ -1309,7 +1274,7 @@
               "conditions": [
                 {
                   "field": "message.content",
-                  "value": ".*(?i:health|status|services|topology|how many|what is symbia).*",
+                  "value": ".*(health|status|services|topology|how many|what is symbia).*",
                   "operator": "matches"
                 }
               ]
@@ -1362,7 +1327,7 @@
     "name": "Analyst",
     "description": "Research and data specialist. Gathers information, analyzes patterns, and provides insights.",
     "type": "assistant",
-    "status": "published",
+    "status": "draft",
     "isBootstrap": true,
     "tags": [
       "assistant",
@@ -1491,7 +1456,7 @@
     "name": "Builder",
     "description": "Creates new assistants from natural language descriptions. The meta-assistant that builds other assistants.",
     "type": "assistant",
-    "status": "published",
+    "status": "draft",
     "isBootstrap": true,
     "tags": [
       "assistant",
@@ -1599,7 +1564,7 @@
                 "type": "llm.invoke",
                 "id": "step-design",
                 "params": {
-                  "systemPrompt": "You are the Builder, a meta-assistant that helps users create new assistants on the Symbia platform.\n\n**Your process:**\n1. **Understand the goal** - What should this assistant do?\n2. **Determine complexity** - Which level fits best?\n3. **Design the rules** - What triggers, conditions, and actions?\n4. **Choose capabilities** - What tools and integrations?\n5. **Generate spec** - Produce the complete configuration\n\n**Assistant Levels (use as reference):**\n\n*Level 1 (Pure Deterministic):*\n- No LLM, just rules\n- Example: Echo (mirrors input)\n- Use when: Simple, predictable responses\n\n*Level 2 (Deterministic + Tools):*\n- Rules + tool calls\n- Example: Calculator, Converter\n- Use when: Precise computation needed\n\n*Level 3 (Tools \u2192 AI):*\n- Run tool, then LLM explains\n- Example: Data Explainer, Code Runner\n- Use when: Need human-friendly explanations of tool output\n\n*Level 4 (AI \u2192 Tools):*\n- LLM understands intent, tool executes\n- Example: Smart Calculator, Intent Router\n- Use when: Natural language input needs precise execution\n\n*Level 5 (Multi-Agent):*\n- Coordinates with other assistants\n- Example: Coordinator, Analyst\n- Use when: Complex tasks need multiple specialists\n\n**Guidelines:**\n- Start simple - suggest lowest complexity that works\n- Ask clarifying questions if requirements are vague\n- When ready, generate a complete assistant spec in JSON\n- Explain your design choices\n\n**Response format:**\nFor initial discussions, use plain text. When generating the final spec, wrap it in ```json blocks.",
+                  "systemPrompt": "You are the Builder, a meta-assistant that helps users create new assistants on the Symbia platform.\n\n**Your process:**\n1. **Understand the goal** - What should this assistant do?\n2. **Determine complexity** - Which level fits best?\n3. **Design the rules** - What triggers, conditions, and actions?\n4. **Choose capabilities** - What tools and integrations?\n5. **Generate spec** - Produce the complete configuration\n\n**Assistant Levels (use as reference):**\n\n*Level 1 (Pure Deterministic):*\n- No LLM, just rules\n- Example: Echo (mirrors input)\n- Use when: Simple, predictable responses\n\n*Level 2 (Deterministic + Tools):*\n- Rules + tool calls\n- Example: Calculator, Converter\n- Use when: Precise computation needed\n\n*Level 3 (Tools → AI):*\n- Run tool, then LLM explains\n- Example: Data Explainer, Code Runner\n- Use when: Need human-friendly explanations of tool output\n\n*Level 4 (AI → Tools):*\n- LLM understands intent, tool executes\n- Example: Smart Calculator, Intent Router\n- Use when: Natural language input needs precise execution\n\n*Level 5 (Multi-Agent):*\n- Coordinates with other assistants\n- Example: Coordinator, Analyst\n- Use when: Complex tasks need multiple specialists\n\n**Guidelines:**\n- Start simple - suggest lowest complexity that works\n- Ask clarifying questions if requirements are vague\n- When ready, generate a complete assistant spec in JSON\n- Explain your design choices\n\n**Response format:**\nFor initial discussions, use plain text. When generating the final spec, wrap it in ```json blocks.",
                   "userPrompt": "User wants to create an assistant: {{message.content}}\n\nHelp them design it. Ask questions if needed, or if you have enough info, generate the specification."
                 }
               },

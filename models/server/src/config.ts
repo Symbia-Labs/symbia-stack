@@ -12,6 +12,16 @@ export const config = {
     process.env.IDENTITY_SERVICE_URL || "http://localhost:5001",
   catalogServiceUrl:
     process.env.CATALOG_SERVICE_URL || "http://localhost:5003",
+  /**
+   * Integrations holds the credentials, and keeps holding them.
+   *
+   * Ruling 12 Aug: this service brokers model exchanges; it does NOT become a
+   * second vault. Remote execution is delegated so secret handling stays in one
+   * place. This URL is for asking integrations what it can reach and, from
+   * stage 1, for handing it calls to run.
+   */
+  integrationsServiceUrl:
+    process.env.INTEGRATIONS_SERVICE_URL || "http://localhost:5007",
 
   // Models storage
   modelsPath: process.env.MODELS_PATH || "./data/models",

@@ -14,6 +14,7 @@
   },
   "dependencies": {
     "@symbia/auth": "file:../symbia-auth",
+    "@symbia/crypto": "file:../symbia-crypto",
     "@symbia/db": "file:../symbia-db",
     "@symbia/http": "file:../symbia-http",
     "@symbia/logging-client": "file:../symbia-logging-client",

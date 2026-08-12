@@ -27,7 +27,15 @@
  */
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useAuthStore } from '@/stores/authStore';
-import { GraphFlowPreview, type GraphDefinition } from './catalog/GraphFlowPreview';
+import {
+  GraphFlowPreview,
+  type GraphDefinition,
+  type ComponentPorts,
+} from './catalog/GraphFlowPreview';
+import { OperationDiagram } from './catalog/OperationDiagram';
+import { RoutineFlowPreview } from './catalog/type-sections/RoutineFlowPreview';
+import type { Routine } from './catalog/type-sections/RoutineEditor';
+import { getDefaultRoutines } from './catalog/type-sections/defaultRoutines';
 
 type Tab = 'registry' | 'contracts' | 'hygiene';
 /** What you can do with one object once you have found it. */
@@ -148,6 +156,28 @@ export function CatalogPanel() {
     return c;
   }, [resources]);
 
+  /**
+   * Published ports by component key, so a node drawn inside a graph uses the
+   * same contract the catalog shows when that component is inspected alone.
+   * This is the lookup that makes "the same object" literal rather than a
+   * resemblance.
+   */
+  const manifests = useMemo(() => {
+    const m = new Map<string, ComponentPorts>();
+    for (const r of resources ?? []) {
+      const man = r.metadata?.manifest;
+      if (r.type === 'component' && man?.key) {
+        m.set(man.key, {
+          inputs: man.inputs ?? [],
+          outputs: man.outputs ?? [],
+          version: man.version,
+          implementation: man.implementation,
+        });
+      }
+    }
+    return m;
+  }, [resources]);
+
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
     return (resources ?? []).filter(
@@ -245,6 +275,7 @@ export function CatalogPanel() {
           setQuery={setQuery}
           selected={selected}
           setSelectedId={setSelectedId}
+          manifests={manifests}
         />
       )}
       {resources && tab === 'contracts' && (
@@ -269,8 +300,9 @@ function RegistryView(props: {
   setQuery: (q: string) => void;
   selected: Resource | null;
   setSelectedId: (id: string | null) => void;
+  manifests: Map<string, ComponentPorts>;
 }) {
-  const { counts, total, filtered, typeFilter, setTypeFilter, query, setQuery, selected, setSelectedId } =
+  const { counts, total, filtered, typeFilter, setTypeFilter, query, setQuery, selected, setSelectedId, manifests } =
     props;
 
   const groups = useMemo(() => {
@@ -367,7 +399,11 @@ function RegistryView(props: {
         {!selected ? (
           <EmptyDetail counts={counts} typeFilter={typeFilter} onPick={setTypeFilter} />
         ) : (
-          <ResourceDetail resource={selected} onClose={() => setSelectedId(null)} />
+          <ResourceDetail
+            resource={selected}
+            manifests={manifests}
+            onClose={() => setSelectedId(null)}
+          />
         )}
       </div>
     </div>
@@ -446,7 +482,15 @@ function Fact({ label, children }: { label: string; children: React.ReactNode })
   );
 }
 
-function ResourceDetail({ resource: r, onClose }: { resource: Resource; onClose: () => void }) {
+function ResourceDetail({
+  resource: r,
+  manifests,
+  onClose,
+}: {
+  resource: Resource;
+  manifests: Map<string, ComponentPorts>;
+  onClose: () => void;
+}) {
   const [rawOpen, setRawOpen] = useState(false);
   const [mode, setMode] = useState<Mode>('inspect');
   const manifest = r.metadata?.manifest;
@@ -457,6 +501,19 @@ function ResourceDetail({ resource: r, onClose }: { resource: Resource; onClose:
   const m = (r.metadata ?? {}) as Record<string, unknown>;
   const definition = (m.definition ?? m.graph ?? m) as GraphDefinition;
   const isGraph = r.type === 'graph' && Array.isArray(definition?.nodes);
+
+  // An assistant's routines are its graph. They render on the live assistant
+  // views and in the editable catalog config, but the read-only inspect view
+  // drew nothing for them — components get an Operation diagram (from their
+  // manifest) and graphs get a flow preview, while assistants fell through.
+  // Draw the same routine flow the live views use. Derive routines exactly as
+  // AssistantConfigSection does: stored routines if present, otherwise the
+  // defaults for this assistant's alias — seeded assistants (e.g. Intent
+  // Router) carry no stored routines and render defaults on the live views.
+  const assistantAlias = (m.alias as string) || r.key.split('/').pop() || '';
+  const storedRoutines = (Array.isArray(m.routines) ? m.routines : []) as Routine[];
+  const routines = storedRoutines.length > 0 ? storedRoutines : getDefaultRoutines(assistantAlias);
+  const isAssistant = r.type === 'assistant' && routines.some((rt) => (rt?.steps?.length ?? 0) > 0);
 
   return (
     <article className="p-8 max-w-4xl">
@@ -504,9 +561,22 @@ function ResourceDetail({ resource: r, onClose }: { resource: Resource; onClose:
           <h3 className="text-lg text-slate-200 mb-1">Behaviour</h3>
           <p className="text-slate-500 mb-4">
             {(definition.nodes ?? []).length} nodes, {(definition.edges ?? []).length} edges.
-            Branch ports are labelled; a refusal path is drawn amber.
+            Each node is the same object the catalog draws on its own — edges attach to the named
+            port they leave from, and a refusal path is drawn amber.
           </p>
-          <GraphFlowPreview definition={definition} />
+          <GraphFlowPreview definition={definition} manifests={manifests} />
+        </section>
+      )}
+
+      {isAssistant && (
+        <section className="mt-7">
+          <h3 className="text-lg text-slate-200 mb-1">Behaviour</h3>
+          <p className="text-slate-500 mb-4">
+            {routines.reduce((sum, rt) => sum + (rt.steps?.length ?? 0), 0)} steps across{' '}
+            {routines.length} routine{routines.length !== 1 ? 's' : ''}. The same routine flow the
+            live assistant views draw.
+          </p>
+          <RoutineFlowPreview routines={routines} />
         </section>
       )}
 
@@ -534,19 +604,30 @@ function ResourceDetail({ resource: r, onClose }: { resource: Resource; onClose:
       )}
 
       {manifest && (
-        <section className="mt-8 pt-7 border-t border-scc-border">
-          <h3 className="text-lg text-slate-200">Contract</h3>
-          <p className="text-slate-500 mt-1">
-            v{manifest.version} · {manifest.implementation}
-            {manifest.capability && <> · requires {manifest.capability}</>}
-          </p>
-          <div className="mt-5">
-            <Lanes ports={manifest.outputs} />
-          </div>
-          <div className="mt-6">
+        <>
+          <section className="mt-8 pt-7 border-t border-scc-border">
+            <h3 className="text-lg text-slate-200 mb-1">Operation</h3>
+            <p className="text-slate-500 mb-4">
+              One operation, its named ports, and the provenance lane each output carries.
+            </p>
+            <OperationDiagram
+              componentKey={manifest.key}
+              inputs={manifest.inputs ?? []}
+              outputs={manifest.outputs ?? []}
+              implementation={manifest.implementation}
+              capability={manifest.capability}
+              version={manifest.version}
+            />
+          </section>
+
+          <section className="mt-8 pt-7 border-t border-scc-border">
+            <h3 className="text-lg text-slate-200 mb-1">Configuration</h3>
+            <p className="text-slate-500 mb-4">
+              Declared so a graph node can be checked against it before it runs.
+            </p>
             <ConfigTable config={manifest.config} />
-          </div>
-        </section>
+          </section>
+        </>
       )}
 
       <section className="mt-8 pt-7 border-t border-scc-border">

@@ -244,6 +244,17 @@ export function resolveLLMConfig(
   if (configRef.overrides) {
     const overrides = configRef.overrides;
 
+    // Provider overrides — carried so the console can show what a resource
+    // declares beside what resolves. Nothing acts on this value; model
+    // selection belongs to the models service.
+    if (overrides.provider?.type) {
+      resolved.provider = {
+        ...resolved.provider,
+        type: overrides.provider.type,
+        ...(overrides.provider.baseUrl ? { baseUrl: overrides.provider.baseUrl } : {}),
+      };
+    }
+
     // Generation overrides
     if (overrides.generation) {
       resolved.generation = {

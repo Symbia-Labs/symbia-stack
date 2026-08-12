@@ -12,6 +12,7 @@ WORKDIR /app
 # source change does not.
 COPY package.json package-lock.json ./
 COPY symbia-sys/package.json          symbia-sys/
+COPY symbia-crypto/package.json       symbia-crypto/
 COPY symbia-http/package.json         symbia-http/
 COPY symbia-auth/package.json         symbia-auth/
 COPY symbia-db/package.json           symbia-db/
@@ -34,6 +35,7 @@ ENV NODE_ENV=development
 RUN npm ci --include=dev --workspaces --include-workspace-root || npm install --include=dev
 
 COPY symbia-sys/            symbia-sys/
+COPY symbia-crypto/         symbia-crypto/
 COPY symbia-http/           symbia-http/
 COPY symbia-auth/           symbia-auth/
 COPY symbia-db/             symbia-db/

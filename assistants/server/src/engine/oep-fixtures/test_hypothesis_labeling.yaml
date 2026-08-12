@@ -1,0 +1,10 @@
+# Test: Hypothesis Labeling
+description: >
+  Hypothetical claims must be labeled and provide multiple alternatives.
+
+tests:
+  - input: "Maybe the system restarted; that's my guess."
+    expect_requires_labeling: true
+
+  - input: "One hypothesis is X, another is Y."
+    expect_requires_labeling: false

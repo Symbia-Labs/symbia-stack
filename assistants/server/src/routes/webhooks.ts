@@ -15,7 +15,15 @@ import {
   type AssistantJustification,
 } from '@symbia/relay';
 import { defaultCoordinator } from '../engine/run-coordinator.js';
-import { getLoadedAssistant, getAllLoadedAssistants } from '../services/assistant-loader.js';
+import { remember } from '../engine/conversation-memory.js';
+import { DECLINED } from '../engine/conversational-turns.js';
+import { seal, type ProvenanceStep, type DelegationRecord } from '../engine/provenance.js';
+import {
+  getLoadedAssistant,
+  getAllLoadedAssistants,
+  resolveAssistant,
+  loadedAssistantKey,
+} from '../services/assistant-loader.js';
 import type { TriggerType } from '../engine/types.js';
 import { TokenAuthError } from '../integrations-client.js';
 import { DEFAULT_ORG_IDS } from '@symbia/seed';
@@ -70,10 +78,107 @@ interface SDNMessagePayload {
  * The key lives on the catalog resource as "assistants/<key>", which is where
  * assistant-loader derives it from in the first place.
  */
-function loadedKey(loaded: { resource: { key?: string } }): string | undefined {
-  const k = loaded.resource?.key;
-  if (!k) return undefined;
-  return k.includes('/') ? k.split('/').pop() : k;
+const loadedKey = loadedAssistantKey as (loaded: { resource: { key?: string } }) => string | undefined;
+
+/**
+ * Flatten action results, descending into the container actions.
+ *
+ * A REPLY THAT NEVER LEAVES IS INDISTINGUISHABLE FROM AN ASSISTANT WITH
+ * NOTHING TO SAY.
+ *
+ * `message.send` does not send. It builds the message, seals the provenance
+ * envelope over the content, and RETURNS it; the caller below is what actually
+ * puts it on the bus. That caller scanned the rule's top-level
+ * `actionsExecuted` only.
+ *
+ * `condition`, `parallel` and `loop` run their child actions themselves and
+ * report them inside their own `output` — `output.results` for condition and
+ * parallel, `output.iterations` for loop. So a `message.send` inside any
+ * branch produced a message that nothing ever read, while `condition` returned
+ * `success: true` and the provenance step recorded `ok`. The operator saw
+ * silence with every log line green.
+ *
+ * The same omission swallowed `assistant.route`'s `suppressResponse`, which is
+ * the flag that keeps the coordinator quiet after it delegates. A branch that
+ * routed would have produced a delegation AND a coordinator reply talking over
+ * it.
+ *
+ * Measured 10 Aug 2026: all three container actions were registered in the
+ * handler map, and none of them could produce a reply. They had never had a
+ * caller, so nothing had found it.
+ */
+/**
+ * Did the assistant CHOOSE this outcome, or did something break?
+ *
+ * A deliberate refusal is already written for the person who will read it —
+ * `assistants.route` names the roster it could reach. Wrapping it in an
+ * apology for a fault adds a lie to a correct answer.
+ *
+ * Matched on the refusals this platform raises on purpose, not on a general
+ * notion of politeness, so a genuine crash keeps its warning.
+ */
+function isDeclination(message: string): boolean {
+  // STRUCTURAL, NOT LEXICAL.
+  //
+  // This matched the refusal's WORDING, which worked exactly until the wording
+  // started varying to stop sounding robotic — and then the first escalated
+  // decline came back wrapped in "⚠️ I ran into a problem", because "Still
+  // outside what my team covers" was not in the list. Coupling a structural
+  // fact to a phrase breaks the moment the phrase does its job.
+  if (message.startsWith(DECLINED)) return true;
+  return /I only understand|Refusing to route|refusing a second hop/i.test(message);
+}
+
+/** Strip the inter-layer marker so it never reaches a person. */
+function presentableDeclination(message: string): string {
+  return message.startsWith(DECLINED) ? message.slice(DECLINED.length) : message;
+}
+
+function flattenActionResults(actions: ActionResultLike[]): ActionResultLike[] {
+  const flat: ActionResultLike[] = [];
+
+  for (const action of actions) {
+    flat.push(action);
+
+    const output = action.output as
+      | { results?: unknown; iterations?: unknown }
+      | undefined;
+    if (!output || typeof output !== 'object') continue;
+
+    // condition: output.results — the branch that ran
+    // parallel:  output.results — every branch
+    // loop:      output.iterations — each pass, itself a list of results
+    const nested: ActionResultLike[] = [];
+    if (Array.isArray(output.results)) {
+      nested.push(...(output.results as ActionResultLike[]));
+    }
+    if (Array.isArray(output.iterations)) {
+      for (const iteration of output.iterations as unknown[]) {
+        if (Array.isArray(iteration)) {
+          nested.push(...(iteration as ActionResultLike[]));
+        } else if (
+          iteration &&
+          typeof iteration === 'object' &&
+          Array.isArray((iteration as { results?: unknown }).results)
+        ) {
+          nested.push(...((iteration as { results: ActionResultLike[] }).results));
+        }
+      }
+    }
+
+    if (nested.length > 0) {
+      flat.push(...flattenActionResults(nested));
+    }
+  }
+
+  return flat;
+}
+
+interface ActionResultLike {
+  success: boolean;
+  actionType: string;
+  output?: unknown;
+  error?: string;
 }
 
 /**
@@ -133,20 +238,16 @@ export async function handleSDNMessageNew(event: SandboxEvent): Promise<void> {
   const mentionMatch = messageContent.match(/^@([\w-]+)/);
   const mentionedAlias = mentionMatch ? mentionMatch[1].toLowerCase() : null;
 
-  // Build a set of aliases/keys that map to assistant keys
-  const aliasToKey: Record<string, string> = {
-    'logs': 'log-analyst',
-    'log': 'log-analyst',
-    'catalog': 'catalog-search',
-    'search': 'catalog-search',
-    'debug': 'run-debugger',
-    'debugger': 'run-debugger',
-    'usage': 'usage-reporter',
-    'welcome': 'onboarding',
-    'onboard': 'onboarding',
-    'builder': 'assistants-assistant',
-    'build': 'assistants-assistant',
-  };
+  // A DELIVERY ADDRESS BEATS A MENTION.
+  //
+  // This event carries an explicit recipient when it was produced by
+  // assistant.route — the coordinator already decided who should answer. The
+  // mention check below used to run first and OVERWRITE that decision, so a
+  // routed message whose text still began with "@something" was re-resolved by
+  // its own text and delivered somewhere else. The routing decision is the
+  // later and better-informed of the two; text is what it was derived from.
+  const isTargetedForward = Boolean(payload.assistants && payload.assistants.length > 0);
+  const routedFrom = (payload.message?.metadata as { routedFrom?: string } | undefined)?.routedFrom;
 
   // AN @MENTION IS A ROUTE, NOT A HINT.
   //
@@ -162,8 +263,7 @@ export async function handleSDNMessageNew(event: SandboxEvent): Promise<void> {
   // catch-all answering in its place. With docs as an explicit participant the
   // same message matched its help rule immediately, which is how the two paths
   // were told apart.
-  if (mentionedAlias) {
-    const resolvedKey = aliasToKey[mentionedAlias] || mentionedAlias;
+  if (mentionedAlias && !isTargetedForward) {
     // Resolve against ALL LOADED assistants, not just the ones in the payload.
     //
     // The payload contains the conversation's participants, and the console
@@ -171,14 +271,7 @@ export async function handleSDNMessageNew(event: SandboxEvent): Promise<void> {
     // assistants: [coordinator] and docs was never a candidate to narrow to.
     // Searching the payload alone made this fix a no-op in exactly the case it
     // was written for, which the first test caught.
-    const loadedMatch = getAllLoadedAssistants().find((l) => {
-      const key = loadedKey(l);
-      return (
-        key === resolvedKey ||
-        key === mentionedAlias ||
-        l.alias?.toLowerCase() === mentionedAlias
-      );
-    });
+    const loadedMatch = resolveAssistant(mentionedAlias);
     const matchKey = loadedMatch ? loadedKey(loadedMatch) : undefined;
     if (loadedMatch && matchKey) {
       console.log(`[SDN] @${mentionedAlias} resolves to ${matchKey} — routing there only`);
@@ -204,15 +297,9 @@ export async function handleSDNMessageNew(event: SandboxEvent): Promise<void> {
     // assistantsToNotify was narrowed to that one assistant above. It still
     // applies when a mention names something that is not a loaded assistant —
     // in that case the coordinator should get it, and the others should not.
-    const isTargetedForward = payload.assistants && payload.assistants.length > 0;
     if (!isTargetedForward && mentionedAlias && assistantsToNotify.length > 1) {
-      const mentionedKey = aliasToKey[mentionedAlias] || mentionedAlias;
-      // Check if this assistant matches the mention (by key, alias map, or configured alias)
-      const loadedAssistant = getLoadedAssistant(assistant.key);
-      const assistantAlias = loadedAssistant?.alias?.toLowerCase();
-      if (assistant.key === mentionedKey ||
-          assistant.key === mentionedAlias ||
-          assistantAlias === mentionedAlias) {
+      const mentioned = resolveAssistant(mentionedAlias);
+      if (mentioned && loadedKey(mentioned) === assistant.key) {
         console.log(`[SDN] Skipping ${assistant.key} - was @mentioned, coordinator will route`);
         continue;
       }
@@ -303,6 +390,56 @@ async function processMessageForAssistant(
     token = await getAssistantToken(assistantUserId, assistantKey);
   }
 
+  /**
+   * ONE MESSAGE, ONE ANSWER.
+   *
+   * `assistant.route` adds the target as a participant, and it never leaves.
+   * So from the second turn onward messaging fanned every message out to the
+   * coordinator AND to every specialist ever routed to, and each of them
+   * answered independently.
+   *
+   * Measured 11 Aug 2026 on the first multi-turn conversation ever run here:
+   *
+   *     turn 2  "now multiply that by 10"
+   *       coordinator  REFUSED  "No specialist declares this kind of request"
+   *       calculator   REFUSED  "Unexpected token: nowmultiplythatby10"
+   *
+   * Two claims were emitted, both "won claim", both replied. `suppressResponse`
+   * keeps the COORDINATOR quiet after it delegates; nothing kept a specialist
+   * quiet once it was in the room. The turn-taking machinery ran and arbitrated
+   * nothing.
+   *
+   * Worse than the noise: those replies carried NO DELEGATION RECORD, because
+   * no routing decision was made. A conversation was honest about routing for
+   * exactly one turn, which is STATUS §6.3 returning by a different door.
+   *
+   * A specialist is an assistant that declares what it handles
+   * (`metadata.routing`). It answers when it was ROUTED to, or when it was
+   * ADDRESSED by name. Otherwise it stays silent and lets the front door route
+   * the turn — so every answered turn has a routing decision behind it, not
+   * just the first.
+   *
+   * The coordinator declares no routing patterns and is therefore not a
+   * specialist: it always processes, which is what makes it the front door.
+   */
+  const routing = (assistant.resource?.metadata as { routing?: { patterns?: unknown[] } } | undefined)
+    ?.routing;
+  const isSpecialist = Array.isArray(routing?.patterns) && routing!.patterns!.length > 0;
+
+  if (isSpecialist) {
+    const routedFrom = (payload.message as { metadata?: { routedFrom?: string } }).metadata?.routedFrom;
+    const addressed =
+      stripMentionPrefix(payload.message.content, assistantKey, assistant.alias) !==
+      payload.message.content.trim();
+
+    if (!routedFrom && !addressed) {
+      console.log(
+        `[SDN] ${assistantKey} is a specialist and this message was neither routed to it nor addressed to it — staying silent`
+      );
+      return;
+    }
+  }
+
   // Load catalog resources
   const catalog = await getCatalogResources();
 
@@ -371,6 +508,21 @@ async function processMessageForAssistant(
           // codebase must not start doing.
           symbiaContext: (payload.message as { metadata?: { symbiaContext?: unknown } })
             .metadata?.symbiaContext,
+          // Carried so assistant.route can refuse a second hop. Without this
+          // the one-hop guard reads undefined on every message and two
+          // assistants routing to each other never stop.
+          routedFrom: (payload.message as { metadata?: { routedFrom?: string } })
+            .metadata?.routedFrom,
+          routeReason: (payload.message as { metadata?: { routeReason?: string } })
+            .metadata?.routeReason,
+          // The sealed delegation that caused this message to arrive here.
+          //
+          // Carried through so message.send can put it inside the reply's
+          // hashed body. Without this the specialist has no way to know it was
+          // chosen rather than addressed, and the reply seals a chain that
+          // begins halfway through what actually happened.
+          symbia: (payload.message as { metadata?: { symbia?: unknown } })
+            .metadata?.symbia,
         },
       },
       user: {
@@ -381,6 +533,24 @@ async function processMessageForAssistant(
       metadata: {
         token: currentToken,
         rawOrgId: orgId, // Original org ID for credential lookup
+        // THE ENVELOPE SEALS THESE. THEY HAVE ALWAYS BEEN UNDEFINED.
+        //
+        // message.ts reads `context.metadata.assistantKey` and
+        // `context.metadata.runId` when it seals a reply. Neither was ever
+        // set here: `assistantKey` lives on `event.data` (where
+        // assistant-route's self-loop guard correctly reads it) and the runId
+        // was generated inside RuleExecutor.execute() and never written back.
+        //
+        // Because both were `undefined`, JSON.stringify dropped them from the
+        // hashed body — so the seal committed to their ABSENCE, and every
+        // provenance envelope this platform has produced is unable to say
+        // which assistant wrote the reply or which run produced it. The
+        // comment in provenance.ts about correlating with the SDN wrapper
+        // described something that had never happened.
+        //
+        // Measured 11 Aug 2026: 0 of 2 sealed replies carried either field.
+        assistantKey,
+        runId,
       },
     });
   };
@@ -493,10 +663,12 @@ async function processMessageForAssistant(
   let provenance: unknown = null;
   let errorMessage: string | null = null;
   let suppressResponse = false;
+  /** Every action this run executed, for the refusal path to seal over. */
+  const refusalSteps: ProvenanceStep[] = [];
 
   for (const ruleResult of result.results) {
     if (!ruleResult.matched) continue;
-    for (const action of ruleResult.actionsExecuted) {
+    for (const action of flattenActionResults(ruleResult.actionsExecuted)) {
       if (action.success && action.output) {
         if (action.actionType === 'message.send') {
           const output = action.output as {
@@ -510,10 +682,23 @@ async function processMessageForAssistant(
           const env = output.message?.metadata?.symbia?.provenance;
           if (env) provenance = env;
         }
-        if (action.actionType === 'llm.invoke') {
-          const output = action.output as { response?: string };
-          if (output.response) responseContent = output.response;
-        }
+        // AN INTERMEDIATE STEP IS NOT AN ANSWER.
+        //
+        // This promoted any llm.invoke output to the user-visible reply. In a
+        // rule shaped llm.invoke -> tool.invoke -> message.send, that means the
+        // MODEL'S WORKING is emitted whenever the tool afterwards fails —
+        // unsealed, because only message.send seals.
+        //
+        // Measured 11 Aug 2026: "and what's 15% of the result?" reached Smart
+        // Calculator, the model produced the expression `x * 0.15`,
+        // math.evaluate refused it, and `x * 0.15` was sent to the person as
+        // the answer with NO PROVENANCE ENVELOPE AT ALL. Not a wrong arena —
+        // none. A reply this platform can say nothing about is the one thing
+        // it exists to prevent, and it was being produced by the error path.
+        //
+        // A reply now comes from message.send or it does not come. If no
+        // message.send produced content, that is a refusal, and the refusal
+        // path below says so with a sealed envelope.
         // Check if routing action indicates we should suppress this assistant's response
         if (action.actionType === 'assistant.route') {
           const output = action.output as { suppressResponse?: boolean; routed?: boolean; targetAssistant?: string };
@@ -526,6 +711,23 @@ async function processMessageForAssistant(
         errorMessage = action.error;
         console.error(`[SDN] Action ${action.actionType} failed: ${action.error}`);
       }
+      // WHAT HAPPENED, KEPT FOR THE REFUSAL'S RECEIPT.
+      //
+      // The refusal envelope below used to carry `steps: []` — so a refusal
+      // could say it declined but not what it tried first. These are the same
+      // actions, recorded whether they succeeded or not, so a refused reply
+      // shows the three service calls that worked and the one that did not.
+      refusalSteps.push({
+        id: action.actionType,
+        action: action.actionType,
+        source: action.actionType,
+        ok: action.success,
+        // flattenActionResults widens to ActionResultLike, which does not
+        // carry a duration. Read it defensively rather than widening the type
+        // for a field the refusal receipt can do without.
+        ms: (action as { durationMs?: number }).durationMs ?? 0,
+        error: action.success ? undefined : action.error,
+      });
     }
   }
 
@@ -535,19 +737,127 @@ async function processMessageForAssistant(
     return;
   }
 
-  // Format error as response if no response generated
+  // A REFUSAL IS NOT A MALFUNCTION.
+  //
+  // Every failed action was wrapped in "I encountered an error … Please check
+  // my configuration", including deliberate ones. When routing declines
+  // because nothing declares a request, the system did not encounter an
+  // error — it made a decision and stated its limit, which is the behaviour
+  // the deterministic router was built for. Dressing that as a fault undoes
+  // the honesty it was built to provide, and in a browser it reads as a crash.
+  //
+  // Same misattribution as telling an operator to add an API key they already
+  // had. The distinction is whether the assistant CHOSE this outcome.
   if (!responseContent && errorMessage) {
-    responseContent = `⚠️ I encountered an error while processing your request:\n\n\`${errorMessage}\`\n\nPlease check my configuration or try again.`;
-    // A failure is a REFUSED answer, not an absence of one. It carries an
-    // envelope like any other reply, so the console can show that the system
-    // declined and why, rather than rendering an unattributed apology.
-    provenance = {
-      arena: 'REFUSED',
-      basis: errorMessage,
-      steps: [],
-      timestamp: new Date().toISOString(),
-      hash: null,
-    };
+    const declined = isDeclination(errorMessage);
+    responseContent = declined
+      ? presentableDeclination(errorMessage)
+      : `⚠️ I ran into a problem and stopped rather than guessing:\n\n\`${errorMessage}\``;
+    // Either way it is a REFUSED answer and carries an envelope, so the
+    // console can show that the system declined and why, rather than
+    // rendering an unattributed apology.
+    // A REFUSAL DOES NOT UNMAKE THE DELEGATION THAT REACHED IT.
+    //
+    // This envelope is built here rather than by seal(), so it dropped the
+    // delegation the message arrived with. Measured 11 Aug: "what's 15% of the
+    // result?" was routed to Smart Calculator, which refused — and the reply
+    // said NO DELEGATION, losing the record of who sent it there. Failure was
+    // the one path where attribution disappeared, which is the path where it
+    // matters most.
+    const inboundDelegation = (
+      payload.message as { metadata?: { symbia?: { delegation?: unknown } } }
+    ).metadata?.symbia?.delegation;
+
+    // A REFUSAL IS SEALED LIKE ANY OTHER ANSWER.
+    //
+    // This envelope was hand-built with `hash: null`, and the comment defending
+    // it argued that an unsealed marker was the honest option because
+    // `message.send` is what seals and a refusal never reaches one. Honest
+    // about the omission, and the omission was the defect: **the one reply
+    // class that could not be verified was the one where the platform declines
+    // to make a claim.** REFUSED is what OEP prescribes when a claim cannot be
+    // supported, so it carries more weight than any other arena, and it could
+    // be altered or forged with nothing to detect it.
+    //
+    // Invisible until 12 Aug because the walk counted `sealValid !== null` and
+    // `signed` — an unsealed reply dropped out of both denominators, so both
+    // read 10/10 while one reply in eleven had no receipt at all.
+    //
+    // Now sealed by the same function, over the same canonical JSON, signed
+    // with the same service identity, and verifiable by the same code path.
+    provenance = seal({
+      content: responseContent,
+      steps: refusalSteps,
+      contentFromModel: false,
+      // Stated, not inferred: no message.send produced content. classify()
+      // only returns REFUSED when EVERY step failed, so a refusal following
+      // three good service.calls and one bad llm.invoke would classify wrong.
+      refusal: {
+        basis: declined
+          ? `declined deliberately: ${errorMessage}`
+          : `could not complete: ${errorMessage}`,
+      },
+      delegation: inboundDelegation as DelegationRecord | undefined,
+      assistant: assistantKey,
+      runId,
+      causedBy: payload.message.id,
+    });
+  }
+
+  // REMEMBER THE VALUE, NOT THE PROSE.
+  //
+  // What a follow-up refers back to is the typed result the envelope sealed —
+  // `fields.result` — not the sentence around it. Storing the text would mean
+  // parsing "= 4" back into 4 later, which is re-deriving something already
+  // known. This is where typed replies pay for themselves.
+  //
+  // `remember()` ignores turns with no result, so a refusal cannot overwrite
+  // the last real answer.
+  const sealedFields = (provenance as { fields?: Record<string, unknown> } | null)?.fields;
+
+  /**
+   * AN EXPLANATION MUST NOT BECOME THE THING EXPLAINED.
+   *
+   * Explaining a receipt produces a reply, which carries its own receipt. If
+   * that is remembered, the next question explains the previous EXPLANATION
+   * rather than the answer:
+   *
+   *     2+2                          -> = 4
+   *     how do you know that?        -> "It was computed…"        (correct)
+   *     who decided you should answer -> "About my last answer:
+   *                                       > About my last answer:"  (wrong)
+   *
+   * Measured 11 Aug 2026 on the first run of this feature. A meta reply is
+   * commentary on the conversation, not a move in it, so it leaves the
+   * referent where it was and a person can ask several questions about one
+   * answer.
+   *
+   * Detected structurally — did a step consult `provenance.explain` — rather
+   * than by matching the rule's name, which would break the moment somebody
+   * renamed it.
+   */
+  const isMetaReply = ((provenance as { steps?: Array<{ source?: string }> } | null)?.steps ?? []).some(
+    (s) => s.source === 'provenance.explain'
+  );
+
+  if (!isMetaReply && (provenance || responseContent)) {
+    remember(payload.conversationId, {
+      // The referent moves only when a value was produced.
+      ...(sealedFields?.result !== undefined
+        ? {
+            result: sealedFields.result as number | string,
+            expression: sealedFields.expression as string | undefined,
+            assistant: assistantKey,
+            messageId: payload.message.id,
+          }
+        : {}),
+      // The envelope is kept EVERY turn, refusals included, so "why did you
+      // refuse?" is answerable. Explaining an answer and referring back to a
+      // value are different questions with different lifetimes.
+      envelope: provenance ?? undefined,
+      content: responseContent ?? undefined,
+      lastAssistant: assistantKey,
+    });
   }
 
   // Send response via SDN

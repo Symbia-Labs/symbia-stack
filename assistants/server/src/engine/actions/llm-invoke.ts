@@ -108,7 +108,23 @@ export class LLMInvokeHandler extends BaseActionHandler {
     prompt: string,
     context: ExecutionContext
   ): Promise<{ content: string; model: string; usage: { promptTokens: number; completionTokens: number } }> {
-    const systemPrompt = params.systemPrompt || 'You are a helpful assistant.';
+    // THE SYSTEM PROMPT IS A TEMPLATE TOO.
+    //
+    // It was passed to the provider raw while userPrompt went through
+    // interpolate(), so a systemPrompt containing {{roster}} reached the model
+    // as the literal seven characters "{{roster}}". The model behaved
+    // correctly on what it was shown — it reported that no specialist was
+    // available — and the rule looked like a classification failure rather
+    // than a plumbing one.
+    //
+    // Nothing marked the two fields as different. Both are prose with braces
+    // in a JSON rule; one was a template and one was not, and the only way to
+    // find out was to read this file. Measured 10 Aug 2026, on the first rule
+    // that ever put data in a system prompt.
+    const systemPrompt = interpolate(
+      params.systemPrompt || 'You are a helpful assistant.',
+      context
+    );
 
     // Verify Integrations service is available
     const integrationsAvailable = await isIntegrationsAvailable();
@@ -125,8 +141,75 @@ export class LLMInvokeHandler extends BaseActionHandler {
     // Get rawOrgId for credential lookup (not the composite key)
     const rawOrgId = (context.metadata as Record<string, unknown>)?.rawOrgId as string | undefined;
 
-    // Explicit configuration wins. Otherwise ASK which provider has a
-    // credential rather than assuming openai — see resolveUsableProvider.
+    // ONE MERGED CONFIGURATION, WITH ACTION PARAMS STILL WINNING.
+    //
+    // Until 12 Aug this read `params.*` directly and never consulted the
+    // assistant's configuration, because `context.llmConfig` was undefined on
+    // every execution — nothing assigned it. So an assistant declaring
+    // temperature 0.7 sent no temperature at all, and every generation ran at
+    // whatever the provider defaults to.
+    //
+    // getActionConfig has implemented exactly this precedence since January
+    // and had no caller. Precedence is unchanged from what it already encoded:
+    //
+    //   action params  >  assistant config  >  preset  >  system defaults
+    //
+    // so no rule that sets a value explicitly changes behaviour. What changes
+    // is rules that set nothing and previously meant nothing.
+    // GENERATION PARAMETERS ARE NOT THE ASSISTANT'S TO SEND EITHER.
+    //
+    // This briefly called getActionConfig and passed the merged temperature and
+    // maxTokens to the provider. That is prediction P3 in
+    // docs/2026-08-12-assistant-normalization-spec.md, and it CAME TRUE AND
+    // BROKE THE SYSTEM:
+    //
+    //   Anthropic API error: `temperature` is deprecated for this model.
+    //
+    // `rule-platform-status` had sent no temperature at all. Merging the
+    // assistant's config made it send 0.7 — a January-era value — to
+    // claude-sonnet-5, which does not accept the parameter. Four predictions
+    // broke: P4, P5, P8, D8.
+    //
+    // WHETHER A PARAMETER IS EVEN LEGAL DEPENDS ON THE MODEL. An assistant
+    // cannot know that, and nothing in this service is positioned to: the model
+    // is chosen at call time by whichever credential exists. Only a broker that
+    // knows what it is calling can validate parameters against it.
+    //
+    // So the resolved config is still assigned, still visible, and deliberately
+    // NOT sent. `context.llmConfig` carries it for display and for the models
+    // service to consume once it brokers these calls. Until then this sends
+    // exactly what a rule wrote explicitly, which is what worked.
+    //
+    // The prediction was not wrong about what would happen. It was wrong to
+    // want it.
+    //
+    // WHICH MODEL RUNS IS NOT THE ASSISTANT'S TO DECLARE.
+    //
+    // The merged config deliberately supplies generation parameters only.
+    // `merged.provider` and `merged.model` exist and are NOT read here.
+    //
+    // Measured 12 Aug, by honouring them and running the walk: 7/11, with
+    // P4, P5, P8 and D8 broken. `smart-calc` declares openai/gpt-4o-mini and
+    // the org's only credential is anthropic, so it failed with "No openai API
+    // key configured". `coordinator` declares claude-3-5-sonnet-20241022, which
+    // Anthropic now rejects outright. Both declarations are January vintage.
+    //
+    // The system had been working precisely BECAUSE it ignored what every
+    // resource declared. Honouring stale configuration is not an improvement
+    // over ignoring it — the fix is for model identity to stop living in a
+    // catalog resource at all.
+    //
+    // Ruling, 12 Aug: the models service owns model identity, availability and
+    // substitution, for local and remote alike. It does not do this yet — it is
+    // local-only (chat-completions imports nothing but the llama engine),
+    // rejects any provider but its own, and currently has zero models loaded.
+    // Until it does, provider selection stays where it demonstrably works:
+    // ask which credential exists.
+    //
+    // CLAUDE.md already ruled this: the catalog holds reusable items, never
+    // real-time point instances. A provider-and-model-id that goes stale in six
+    // months is a point instance. metadata.llmConfig.provider/model is marked
+    // for removal once the broker exists.
     let provider = params.provider;
     let model = params.model;
 

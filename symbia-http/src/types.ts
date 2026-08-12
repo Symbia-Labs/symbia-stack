@@ -1,3 +1,4 @@
+import type { ServiceIdentity } from "@symbia/crypto";
 import type { Express, Request, Response, NextFunction } from "express";
 import type { Server } from "http";
 import type { Server as SocketIOServer, ServerOptions as SocketIOServerOptions } from "socket.io";
@@ -305,6 +306,14 @@ export interface HealthConfig {
 export interface ServerInstance {
   app: Express;
   httpServer: Server;
+  /**
+   * The service's ed25519 identity, if one could be loaded.
+   *
+   * Proves a holder, not a role: `role_claimed` is what the process says it is
+   * and nothing vouches for it yet. Undefined means no key was available, which
+   * is a state to report rather than to paper over.
+   */
+  identity?: ServiceIdentity;
   /**
    * Socket.IO server instance (only present if socket.enabled is true)
    */

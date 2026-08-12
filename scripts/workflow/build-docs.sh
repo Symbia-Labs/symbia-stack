@@ -30,20 +30,7 @@ done
 
 echo ""
 echo "--- Collecting docs ---"
-DOCS_DIR="$ROOT_DIR/docs/api"
-mkdir -p "$DOCS_DIR"
-
-for svc in "${SERVICES[@]}"; do
-  if [[ -f "$ROOT_DIR/$svc/docs/openapi.json" ]]; then
-    cp "$ROOT_DIR/$svc/docs/openapi.json" "$DOCS_DIR/${svc}-openapi.json"
-    echo "  Copied $svc OpenAPI spec"
-  fi
-  if [[ -f "$ROOT_DIR/$svc/docs/llms.txt" ]]; then
-    cp "$ROOT_DIR/$svc/docs/llms.txt" "$DOCS_DIR/${svc}-llms.txt"
-    echo "  Copied $svc LLM docs"
-  fi
-done
-
-echo ""
-echo "=== Documentation build complete ==="
-echo "API docs available in: $DOCS_DIR"
+# The aggregated copy under docs/api was removed 10 Aug 2026. It duplicated
+# */docs/ and nothing read it — validate-docs.sh and CI both read the
+# per-service files directly. A second copy of a generated artifact is a
+# second thing to drift.

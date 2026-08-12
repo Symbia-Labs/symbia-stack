@@ -46,23 +46,37 @@ export function Bubble({
   skin,
   /** First of a run from the same sender — controls whether the name shows. */
   startsGroup = true,
+  /** Resolved participant alias. Falls back to an id-derived name if absent. */
+  senderName,
+  /** Stable per-participant colour for the name (and non-own accent). */
+  senderColor,
 }: {
   message: BubbleMessage;
   isOwn: boolean;
   skin: Skin;
   startsGroup?: boolean;
+  senderName?: string;
+  senderColor?: string;
 }) {
   const isAgent = message.sender_type === 'agent';
   const tone = isOwn ? skin.bubble.own : isAgent ? skin.bubble.agent : skin.bubble.other;
   const body = isOwn ? skin.text.own : skin.text.other;
 
-  const name = isOwn ? 'You' : isAgent ? assistantName(message.sender_id) : message.sender_id.slice(0, 8);
+  const name = senderName ?? (isOwn ? 'You' : isAgent ? assistantName(message.sender_id) : message.sender_id.slice(0, 8));
+  const color = senderColor ?? '#5eabe1';
 
   return (
     <div className={`flex ${isOwn ? 'justify-end' : 'justify-start'}`}>
-      <div className={`${skin.bubble.maxWidth} ${skin.bubble.base} ${tone}`}>
-        {skin.showSenderName && startsGroup && !isOwn && (
-          <div className="text-[14px] font-semibold mb-0.5 text-[#5eabe1]">{name}</div>
+      <div
+        className={`${skin.bubble.maxWidth} ${skin.bubble.base} ${tone}`}
+        // A thin participant-coloured spine on incoming bubbles so the eye
+        // groups a run by who sent it, in a group thread of humans + agents.
+        style={!isOwn ? { borderLeft: `3px solid ${color}` } : undefined}
+      >
+        {/* Names always show for incoming group messages, regardless of skin —
+            a group conversation needs to say who is speaking. */}
+        {startsGroup && !isOwn && (
+          <div className="text-[14px] font-semibold mb-0.5" style={{ color }}>{name}</div>
         )}
 
         <div className={`${body} whitespace-pre-wrap break-words`}>

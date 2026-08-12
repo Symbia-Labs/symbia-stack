@@ -87,6 +87,11 @@ services:
     depends_on:
       db-bootstrap:
         condition: service_completed_successfully
+    volumes:
+      # Service identity key. Without this a recreated container is a new
+      # identity each time — measured 10 Aug 2026: force-recreate changed
+      # directory from 7d9b4cf2... to d7366b1c...
+      - identity_identity:/app/.identity
     healthcheck:
       test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://127.0.0.1:5001/health/live"]
       interval: 30s
@@ -114,6 +119,11 @@ services:
         condition: service_healthy
       db-bootstrap:
         condition: service_completed_successfully
+    volumes:
+      # Service identity key. Without this a recreated container is a new
+      # identity each time — measured 10 Aug 2026: force-recreate changed
+      # directory from 7d9b4cf2... to d7366b1c...
+      - identity_logging:/app/.identity
     healthcheck:
       test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://127.0.0.1:5002/health/live"]
       interval: 30s
@@ -142,6 +152,11 @@ services:
         condition: service_healthy
       db-bootstrap:
         condition: service_completed_successfully
+    volumes:
+      # Service identity key. Without this a recreated container is a new
+      # identity each time — measured 10 Aug 2026: force-recreate changed
+      # directory from 7d9b4cf2... to d7366b1c...
+      - identity_catalog:/app/.identity
     healthcheck:
       test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://127.0.0.1:5003/health/live"]
       interval: 30s
@@ -171,6 +186,11 @@ services:
         condition: service_healthy
       db-bootstrap:
         condition: service_completed_successfully
+    volumes:
+      # Service identity key. Without this a recreated container is a new
+      # identity each time — measured 10 Aug 2026: force-recreate changed
+      # directory from 7d9b4cf2... to d7366b1c...
+      - identity_messaging:/app/.identity
     healthcheck:
       test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://127.0.0.1:5005/health/live"]
       interval: 30s
@@ -195,8 +215,39 @@ services:
     depends_on:
       identity:
         condition: service_healthy
+    volumes:
+      # Service identity key. Without this a recreated container is a new
+      # identity each time — measured 10 Aug 2026: force-recreate changed
+      # directory from 7d9b4cf2... to d7366b1c...
+      - identity_network:/app/.identity
     healthcheck:
       test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://127.0.0.1:5009/health/live"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Directory Service - Federation control plane (peer directory, foreign-node
+  # table, admission). No database; holds federation state in memory.
+  directory:
+    build:
+      context: .
+      dockerfile: directory/Dockerfile
+    environment:
+      NETWORK_SERVICE_URL: http://network:5009
+      NODE_ENV: production
+      PORT: 5010
+      IDENTITY_SERVICE_URL: http://identity:5001
+      LOGGING_SERVICE_URL: http://logging:5002
+    depends_on:
+      identity:
+        condition: service_healthy
+    volumes:
+      # Service identity key. Without this a recreated container is a new
+      # identity each time — measured 10 Aug 2026: force-recreate changed
+      # directory from 7d9b4cf2... to d7366b1c...
+      - identity_directory:/app/.identity
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://127.0.0.1:5010/health/live"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -224,6 +275,11 @@ services:
         condition: service_healthy
       db-bootstrap:
         condition: service_completed_successfully
+    volumes:
+      # Service identity key. Without this a recreated container is a new
+      # identity each time — measured 10 Aug 2026: force-recreate changed
+      # directory from 7d9b4cf2... to d7366b1c...
+      - identity_runtime:/app/.identity
     healthcheck:
       test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://127.0.0.1:5006/health/live"]
       interval: 30s
@@ -236,6 +292,14 @@ services:
       context: .
       dockerfile: assistants/Dockerfile
     environment:
+      # Same secret as `network`, because provenance.ts seals with the same
+      # construction and its docstring promises an envelope sealed here is
+      # checkable by the same means as an event crossing the mesh. Until
+      # 10 Aug 2026 this was unset, so assistants fell back to
+      # 'symbia-network-dev-only' while network used
+      # 'symbia-network-dev-secret' — different secrets, so that promise
+      # was false and nothing ever noticed.
+      NETWORK_HASH_SECRET: ${NETWORK_HASH_SECRET:-symbia-network-dev-secret}
       NODE_ENV: production
       PORT: 5004
       DATABASE_URL: postgresql://${POSTGRES_USER:-symbia}:${POSTGRES_PASSWORD:-symbia_dev}@postgres:5432/assistants
@@ -260,6 +324,11 @@ services:
         condition: service_healthy
       db-bootstrap:
         condition: service_completed_successfully
+    volumes:
+      # Service identity key. Without this a recreated container is a new
+      # identity each time — measured 10 Aug 2026: force-recreate changed
+      # directory from 7d9b4cf2... to d7366b1c...
+      - identity_assistants:/app/.identity
     healthcheck:
       test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://127.0.0.1:5004/health/live"]
       interval: 30s
@@ -290,6 +359,11 @@ services:
         condition: service_healthy
       network:
         condition: service_healthy
+    volumes:
+      # Service identity key. Without this a recreated container is a new
+      # identity each time — measured 10 Aug 2026: force-recreate changed
+      # directory from 7d9b4cf2... to d7366b1c...
+      - identity_integrations:/app/.identity
     healthcheck:
       test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://127.0.0.1:5007/health/live"]
       interval: 30s
@@ -309,6 +383,10 @@ services:
       CATALOG_SERVICE_URL: http://catalog:5003
       LOGGING_SERVICE_URL: http://logging:5002
       NETWORK_SERVICE_URL: http://network:5009
+      # Models asks integrations what remote providers exist, and from stage 1
+      # hands it calls to execute. Integrations keeps the credentials; this
+      # service does not become a second vault.
+      INTEGRATIONS_SERVICE_URL: http://integrations:5007
       MAX_LOADED_MODELS: ${MAX_LOADED_MODELS:-2}
       IDLE_TIMEOUT_MS: ${IDLE_TIMEOUT_MS:-900000}
       DEFAULT_GPU_LAYERS: ${DEFAULT_GPU_LAYERS:-0}
@@ -316,6 +394,10 @@ services:
       HUGGINGFACE_TOKEN: ${HUGGINGFACE_TOKEN:-}
     volumes:
       - models_data:/data/models
+      # Service identity key. Without this a recreated container is a new
+      # identity each time — measured 10 Aug 2026: force-recreate changed
+      # directory from 7d9b4cf2... to d7366b1c...
+      - identity_models:/app/.identity
     depends_on:
       identity:
         condition: service_healthy
@@ -390,6 +472,7 @@ services:
       INTEGRATIONS_HOST: integrations
       MODELS_HOST: models
       NETWORK_HOST: network
+      DIRECTORY_HOST: directory
       API_HOST: service-admin
     depends_on:
       identity:
@@ -405,6 +488,16 @@ services:
 volumes:
   postgres_data:
   models_data:
+  identity_identity:
+  identity_logging:
+  identity_catalog:
+  identity_messaging:
+  identity_network:
+  identity_directory:
+  identity_runtime:
+  identity_assistants:
+  identity_integrations:
+  identity_models:
 
 networks:
   default:

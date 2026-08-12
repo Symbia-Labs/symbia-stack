@@ -1,0 +1,10 @@
+# Test: Provenance Requirement
+description: >
+  Public knowledge claims must include provenance and recency metadata.
+
+tests:
+  - input: "According to a 2023 WHO report, X is true."
+    expect_provenance_ok: true
+
+  - input: "Studies show that X is true."
+    expect_provenance_ok: false

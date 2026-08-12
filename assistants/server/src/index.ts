@@ -16,6 +16,7 @@ import rulesRouter from './routes/rules.js';
 import settingsRouter from './routes/settings.js';
 import assistantsAdminRouter from './routes/assistants-admin.js';
 import { setupDocRoutes } from './doc-routes.js';
+import { provenanceSigningIdentity } from './engine/provenance.js';
 import { loadAssistants, createAssistantsListRouter } from './services/assistant-loader.js';
 
 const telemetry = createTelemetryClient({
@@ -36,6 +37,42 @@ const server = createSymbiaServer({
   registerRoutes: async (_, app) => {
     // Setup documentation routes (type cast for Express v4 compatibility)
     setupDocRoutes(app as any);
+
+    /**
+     * The public key that signs provenance envelopes.
+     *
+     * A signature nobody can fetch a key for is a signature nobody can check,
+     * which claims more than it can support — the failure this whole
+     * vocabulary exists to prevent. Replies now carry `signedBy`; this is where
+     * that identifier resolves.
+     *
+     * UNAUTHENTICATED ON PURPOSE. A public key is public: the point of moving
+     * off a shared secret is that verification no longer requires holding
+     * anything that could also forge. Gating it would reintroduce exactly the
+     * property that was just removed.
+     */
+    app.get('/api/provenance/key', (_req: any, res: any) => {
+      const identity = provenanceSigningIdentity();
+      if (!identity) {
+        return res.status(503).json({
+          error: 'This service has no identity, so it is not signing envelopes.',
+          signing: false,
+        });
+      }
+      res.json({
+        signing: true,
+        id: identity.id,
+        role: identity.role_claimed,
+        fingerprint: identity.fingerprint,
+        publicKeyPem: identity.publicKeyPem,
+        algorithm: 'ed25519',
+        canonicalisation: 'RFC 8785',
+        note:
+          'Verify: recompute sha256 over the canonical envelope body for integrity, ' +
+          'then check the ed25519 signature with this key for authenticity. ' +
+          'Holding this key does not allow signing.',
+      });
+    });
 
     // Auto-seed in-memory database for development/testing
     if (isMemory) {

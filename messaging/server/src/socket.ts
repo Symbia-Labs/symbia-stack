@@ -27,7 +27,14 @@ function getCachedParticipantStatus(userId: string, conversationId: string): boo
     return null;
   }
 
-  return entry.conversationIds.has(conversationId);
+  // POSITIVE cache only. The set is the user's KNOWN participations, not a
+  // complete list — a conversation the user just created is not in it yet.
+  // Returning `false` for a miss treated an incomplete set as authoritative and
+  // rejected the user from joining their OWN new conversation with "Not a
+  // participant" (observed 9 Aug: the chat sent the message and stored it, but
+  // the join failed forever and the reply never streamed back). A miss is
+  // "unknown", not "no" — fall through to a DB check.
+  return entry.conversationIds.has(conversationId) ? true : null;
 }
 
 function setCachedParticipantStatus(userId: string, conversationId: string, isParticipant: boolean): void {

@@ -37,7 +37,7 @@ const OPERATIONAL = [
   'network/Dockerfile',
   ...[
     'identity', 'logging', 'catalog', 'assistants', 'messaging',
-    'network', 'runtime', 'integrations', 'models',
+    'network', 'directory', 'runtime', 'integrations', 'models',
   ].map((s) => `${s}/.env.example`),
 ];
 

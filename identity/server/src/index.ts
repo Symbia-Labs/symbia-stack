@@ -3,7 +3,7 @@ import { createTelemetryClient } from "@symbia/logging-client";
 import { initServiceRelay, shutdownRelay } from "@symbia/relay";
 import { ServiceId } from "@symbia/sys";
 import { registerRoutes } from "./routes";
-import { seedIdentityData, DEFAULT_USER_IDS, DEFAULT_ORG_IDS } from "@symbia/seed";
+import { DEFAULT_USER_IDS, DEFAULT_ORG_IDS } from "@symbia/seed";
 import { db, database, exportToFile, isMemory, ensureIdentitySchema } from "./db";
 import { initSystemBootstrap } from "./system-bootstrap";
 import * as schema from "../../shared/schema.js";
@@ -142,35 +142,79 @@ const server = createSymbiaServer({
   registerRoutes: async (httpServer, app) => {
     await registerRoutes(httpServer, app as any);
 
-    // Auto-seed in-memory database for testing
-    if (process.env.IDENTITY_USE_MEMORY_DB === "true") {
-      console.log("Auto-seeding in-memory database...");
+    // Default admin, so first run has a working login regardless of backend.
+    // STOPGAP — real first-run org/user creation is a separate, later concern.
+    //
+    // Deliberately NOT seedIdentityData: that seeds the whole cohort all-or-
+    // nothing, and against a users table that already holds rows but not the
+    // defaults it skips user creation yet still attaches entitlements to the
+    // absent super admin — a foreign-key violation (observed 9 Aug against a
+    // DB with real users). This ensures ONLY dev@example.com plus its own org,
+    // idempotently, and coexists with existing users.
+    //
+    // The org + membership are load-bearing, not optional: a bare user with no
+    // membership has NO org context, and every org-scoped call refuses with
+    // "Organization context required. Provide X-Org-Id" — observed 9 Aug when
+    // the spyglass vision call through the integrations gateway refused because
+    // the admin belonged to no org. Each insert is onConflictDoNothing, so this
+    // is safe on every boot and repairs an existing org-less admin.
+    // Disable with IDENTITY_SEED_DEFAULT_ADMIN=false.
+    if (process.env.IDENTITY_SEED_DEFAULT_ADMIN !== "false") {
       try {
-        await seedIdentityData(db, schema, {
-          createSuperAdmin: true,
-          createDefaultOrgs: true,
-          createDefaultPlans: true,
-          verbose: false,
-          skipIfExists: true,
-        });
-        console.log("✓ In-memory database seeded successfully");
+        await db
+          .insert(schema.users)
+          .values({
+            id: DEFAULT_USER_IDS.SUPER_ADMIN,
+            email: "dev@example.com",
+            passwordHash: bcrypt.hashSync("password123", 10),
+            name: "Dev Admin",
+            isSuperAdmin: true,
+          })
+          .onConflictDoNothing();
 
-        // Always seed dev credentials with hardcoded keys for zero-config dev experience
+        await db
+          .insert(schema.organizations)
+          .values({
+            id: DEFAULT_ORG_IDS.SYMBIA_LABS,
+            name: "Symbia Labs",
+            slug: "symbia-labs",
+          })
+          .onConflictDoNothing();
+
+        await db
+          .insert(schema.memberships)
+          .values({
+            userId: DEFAULT_USER_IDS.SUPER_ADMIN,
+            orgId: DEFAULT_ORG_IDS.SYMBIA_LABS,
+            role: "admin",
+          })
+          .onConflictDoNothing();
+
+        console.log("✓ Default admin ensured (dev@example.com / password123) in org symbia-labs");
+      } catch (error) {
+        console.error("Failed to ensure default admin:", error);
+      }
+    }
+
+    // In-memory zero-config extras: dev API credentials and agent identities.
+    // These stay memory-only — they are the local LLM/agent convenience, not
+    // part of ensuring a login exists, and they carry hardcoded dev keys that
+    // have no business running against a real database.
+    if (process.env.IDENTITY_USE_MEMORY_DB === "true") {
+      try {
         console.log("Seeding dev API credentials...");
         await seedDevCredentials();
 
-        // Seed agent identities for assistants
         console.log("Seeding agent identities...");
         await seedAgents();
 
-        // Verify credentials were seeded
         const allCreds = await db.select().from(schema.userCredentials);
         console.log(`✓ Credentials in database: ${allCreds.length}`);
         for (const cred of allCreds) {
           console.log(`  - ${cred.provider}: userId=${cred.userId}, orgId=${cred.orgId}, isOrgWide=${cred.isOrgWide}`);
         }
       } catch (error) {
-        console.error("Failed to seed in-memory database:", error);
+        console.error("Failed to seed in-memory dev extras:", error);
       }
     }
   },

@@ -1,0 +1,14 @@
+# Test: Awareness Blocking
+description: >
+  The validator should detect claims implying unobservable access and
+  classify them as violations.
+
+tests:
+  - input: "You clicked the confirm button earlier."
+    expect_awareness_violation: true
+
+  - input: "The server remembered your last session."
+    expect_awareness_violation: true
+
+  - input: "I cannot observe this; one hypothesis is that you interacted with the UI."
+    expect_awareness_violation: false

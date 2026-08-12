@@ -1,0 +1,732 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <style>
+    :root {
+      --cyan: #00e5ff;
+      --violet: #a855f7;
+      --red: #ff3b3b;
+      --ink: #0a0a1a;
+    }
+    * { box-sizing: border-box; }
+    html, body {
+      margin: 0; height: 100%; width: 100%;
+      background: transparent; overflow: hidden;
+      font: 12px -apple-system, system-ui, sans-serif;
+      user-select: none; cursor: default;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* The veil is its own layer: a ring-sized circle whose giant box-shadow
+       darkens EVERYTHING outside the aperture, with a clear hole inside. Because
+       it's separate from #ring, the surround can darken while the ring stays
+       lit — and it sits entirely outside the capture crop, so it never taints
+       the grabbed pixels. */
+    #veil {
+      position: fixed; border-radius: 50%; pointer-events: none;
+      box-shadow: 0 0 0 100vmax rgba(6, 8, 20, 0.42);
+      transition: box-shadow 200ms ease;
+    }
+    body.shooting #veil { box-shadow: 0 0 0 100vmax rgba(3, 4, 10, 0.86); }
+    body.arming  #veil { box-shadow: 0 0 0 100vmax rgba(9, 9, 16, 0.5); }
+
+    /* Audio halo: a ring outside the rim whose radius follows real mic level.
+       Hidden entirely when audio is not capturing — absence of a halo means no
+       audio track, not "audio might be on". */
+    #halo {
+      position: fixed; border-radius: 50%; pointer-events: none;
+      border: 2px solid rgba(168, 85, 247, 0.85);
+      box-shadow: 0 0 18px rgba(168, 85, 247, 0.55), inset 0 0 12px rgba(168, 85, 247, 0.25);
+      opacity: 0; transform-origin: center; display: none;
+    }
+    #halo.live { display: block; }
+
+    #ring {
+      position: fixed; left: 38%; top: 32%;
+      width: 340px; height: 340px; border-radius: 50%;
+      border: 1.5px solid var(--cyan);
+      box-shadow: 0 0 22px rgba(0, 229, 255, 0.55), inset 0 0 26px rgba(0, 229, 255, 0.18);
+      cursor: grab;
+      transition: border-color 160ms, box-shadow 160ms, opacity 90ms;
+    }
+    #ring.dragging { cursor: grabbing; }
+    /* Crosshair at the exact centre. */
+    #ring::before, #ring::after {
+      content: ''; position: absolute; background: rgba(0,229,255,0.7);
+      transition: background 160ms, opacity 90ms;
+    }
+    #ring::before { left: 50%; top: calc(50% - 9px); width: 1px; height: 18px; transform: translateX(-0.5px); }
+    #ring::after  { top: 50%; left: calc(50% - 9px); height: 1px; width: 18px; transform: translateY(-0.5px); }
+
+    /* Four corner ticks framing the ring — also resize handles. */
+    .tick { position: fixed; width: 12px; height: 12px; border: 1.5px solid rgba(0,229,255,0.85); transition: border-color 160ms, opacity 90ms; }
+    #t0, #t3 { cursor: nwse-resize; } /* top-left / bottom-right */
+    #t1, #t2 { cursor: nesw-resize; } /* top-right / bottom-left */
+
+    /* Resize grip at the ring's lower-right. */
+    #grip {
+      position: fixed; width: 16px; height: 16px; border-radius: 50%;
+      background: var(--cyan); box-shadow: 0 0 10px rgba(0,229,255,0.8);
+      cursor: nwse-resize; transition: background 160ms, box-shadow 160ms, opacity 90ms;
+    }
+
+    /* --- Armed: counting down. Ring + ball go red while the ball sweeps. --- */
+    body.arming #ring {
+      border-color: var(--red);
+      box-shadow: 0 0 30px rgba(255, 59, 59, 0.65), inset 0 0 28px rgba(255, 59, 59, 0.22);
+    }
+    body.arming #ring::before, body.arming #ring::after { background: rgba(255, 90, 90, 0.85); }
+    body.arming .tick { border-color: rgba(255, 90, 90, 0.9); }
+    body.arming #grip { background: var(--red); box-shadow: 0 0 14px rgba(255, 59, 59, 0.95); }
+
+    /* --- Recording. The ring breathes red and the ball lifts off the rim to
+       orbit outside the capture region, so the motion that says "running" is
+       never in the frame. Crosshair hides — it sits inside the crop. --- */
+    body.recording #ring { border-color: var(--red); animation: breathe 2s ease-in-out infinite; }
+    body.recording #ring::before, body.recording #ring::after { opacity: 0; }
+    body.recording .tick { border-color: rgba(255, 90, 90, 0.9); }
+    body.recording #grip { background: var(--red); cursor: default; }
+    /* Each sealed segment ticks the ball — one flash per appended lineage
+       event, so the chain accruing is something you can watch happen. */
+    body.recording #grip.sealed { background: #fff; box-shadow: 0 0 20px 4px rgba(255,255,255,0.95); }
+    /* Audio only: nothing is being framed, so the instrument must not pretend
+       it is. Ring goes violet to match the halo, no red, no darkened surround. */
+    body.recording.audio-only #ring { border-color: var(--violet); animation: none;
+      box-shadow: 0 0 26px rgba(168, 85, 247, 0.55), inset 0 0 22px rgba(168, 85, 247, 0.14); }
+    body.recording.audio-only .tick { border-color: rgba(168, 85, 247, 0.9); }
+    body.recording.audio-only #grip { background: var(--violet); box-shadow: 0 0 14px rgba(168, 85, 247, 0.95); }
+
+    @keyframes breathe {
+      0%, 100% { box-shadow: 0 0 18px rgba(255, 59, 59, 0.45), inset 0 0 22px rgba(255, 59, 59, 0.14); }
+      50%      { box-shadow: 0 0 40px rgba(255, 59, 59, 0.85), inset 0 0 34px rgba(255, 59, 59, 0.30); }
+    }
+
+    /* --- Grabbing: hide only the cyan bits that sit inside the capture crop for
+       the single grab frame, so the saved pixels are clean. The veil (outside
+       dark) stays up the whole time — the aperture never blanks. --- */
+    body.grabbing #ring { border-color: transparent; box-shadow: none; }
+    body.grabbing #ring::before, body.grabbing #ring::after,
+    body.grabbing #grip, body.grabbing .tick { opacity: 0; }
+
+    /* Shutter = a focus pull CONFINED to the aperture. The live pixels showing
+       through the transparent window inside the ring snap from blurred to sharp
+       (with a faint light lift), so the emphasis is the image resolving inside
+       the capture region — no colour wash. backdrop-filter blurs the desktop
+       behind the element; animating it to zero reads as pulling into focus. */
+    #flash {
+      position: fixed; border-radius: 50%; pointer-events: none;
+      opacity: 0;
+      backdrop-filter: blur(0px) brightness(1);
+      -webkit-backdrop-filter: blur(0px) brightness(1);
+    }
+    #flash.fire { animation: shutter 420ms ease-out; }
+    @keyframes shutter {
+      0%   { opacity: 1; backdrop-filter: blur(16px) brightness(1.25); -webkit-backdrop-filter: blur(16px) brightness(1.25); }
+      70%  { opacity: 1; backdrop-filter: blur(3px)  brightness(1.06); -webkit-backdrop-filter: blur(3px)  brightness(1.06); }
+      100% { opacity: 0; backdrop-filter: blur(0px)  brightness(1);    -webkit-backdrop-filter: blur(0px)  brightness(1); }
+    }
+  </style>
+</head>
+<body>
+  <div id="veil"></div>
+  <div id="halo"></div>
+  <div id="ring"></div>
+  <div class="tick" id="t0"></div><div class="tick" id="t1"></div>
+  <div class="tick" id="t2"></div><div class="tick" id="t3"></div>
+  <div id="grip"></div>
+  <div id="flash"></div>
+
+  <script>
+    const ring = document.getElementById('ring');
+    const veil = document.getElementById('veil');
+    const halo = document.getElementById('halo');
+    const grip = document.getElementById('grip');
+    const flash = document.getElementById('flash');
+    const ticks = ['t0','t1','t2','t3'].map((id) => document.getElementById(id));
+
+    const MIN = 90, MAX = 900;
+    const COUNTDOWN = 5000; // ms — spacebar arms this, shutter fires at the end
+
+    function ringBox() { return ring.getBoundingClientRect(); }
+
+    // The grip rides the ring at an angle (base: lower-right, 45°). Kept as an
+    // angle so the idle bounce and the countdown sweep can drive it.
+    const GRIP_BASE = Math.PI / 4;
+    let gripAngle = GRIP_BASE;
+    // While recording the ball rides OUTSIDE the rim, clear of the capture
+    // region, so the running indicator can never appear in the frame.
+    const ORBIT_LIFT = 18;
+    let recording = false; // declared here: placeGrip() reads it on first reflow
+    function placeGrip() {
+      const r = ringBox();
+      const cx = r.left + r.width / 2, cy = r.top + r.height / 2;
+      const rad = r.width / 2 + (recording ? ORBIT_LIFT : 0);
+      grip.style.left = (cx + rad * Math.cos(gripAngle) - 8) + 'px';
+      grip.style.top = (cy + rad * Math.sin(gripAngle) - 8) + 'px';
+    }
+
+    function reflow() {
+      const r = ringBox();
+      // Veil + flash track the ring exactly (same circle).
+      [veil, flash].forEach((el) => {
+        el.style.left = r.left + 'px'; el.style.top = r.top + 'px';
+        el.style.width = r.width + 'px'; el.style.height = r.height + 'px';
+      });
+      const off = 8;
+      const corners = [
+        [r.left - off, r.top - off], [r.right - 12 + off, r.top - off],
+        [r.left - off, r.bottom - 12 + off], [r.right - 12 + off, r.bottom - 12 + off],
+      ];
+      ticks.forEach((t, i) => { t.style.left = corners[i][0] + 'px'; t.style.top = corners[i][1] + 'px'; });
+      placeGrip();
+    }
+    reflow();
+
+    // --- click-through except over the ring / grip -------------------------
+    let interactive = false;
+    function setInteractive(yes) {
+      if (yes === interactive) return;
+      interactive = yes;
+      window.spyglass.setInteractive(yes);
+    }
+    function overRect(x, y, el) {
+      const b = el.getBoundingClientRect();
+      return b.width > 0 && x >= b.left && x <= b.right && y >= b.top && y <= b.bottom;
+    }
+    function overRing(x, y) {
+      const r = ringBox();
+      const cx = r.left + r.width / 2, cy = r.top + r.height / 2, rad = r.width / 2;
+      return Math.hypot(x - cx, y - cy) <= rad + 12; // whole disc is grabbable
+    }
+    function updateInteractive(x, y) {
+      if (dragging || resizing) { setInteractive(true); return; }
+      setInteractive(overRing(x, y) || overRect(x, y, grip) || ticks.some((t) => overRect(x, y, t)));
+    }
+
+    // --- drag the ring (grab anywhere on it) -------------------------------
+    let dragging = false, dx = 0, dy = 0;
+    ring.addEventListener('mousedown', (e) => {
+      dragging = true; ring.classList.add('dragging');
+      dx = e.clientX - ring.offsetLeft; dy = e.clientY - ring.offsetTop; e.preventDefault();
+    });
+
+    // --- resize via grip or wheel ------------------------------------------
+    let resizing = false, cx0 = 0, cy0 = 0;
+    // Resize from the ring centre — the size formula tracks the cursor's
+    // distance to a corner, so the grip AND the four corner ticks all work.
+    function startResize(e) {
+      if (recording) return; // frame size is fixed for the length of a clip
+      const r = ringBox(); cx0 = r.left + r.width / 2; cy0 = r.top + r.height / 2;
+      resizing = true; e.preventDefault(); e.stopPropagation();
+    }
+    grip.addEventListener('mousedown', startResize);
+    ticks.forEach((t) => t.addEventListener('mousedown', startResize));
+    function setSize(size, keepCx, keepCy) {
+      size = Math.max(MIN, Math.min(MAX, size));
+      ring.style.width = size + 'px'; ring.style.height = size + 'px';
+      ring.style.left = (keepCx - size / 2) + 'px'; ring.style.top = (keepCy - size / 2) + 'px';
+      reflow();
+    }
+    window.addEventListener('mousemove', (e) => {
+      if (dragging) { ring.style.left = (e.clientX - dx) + 'px'; ring.style.top = (e.clientY - dy) + 'px'; reflow(); }
+      else if (resizing) { const d = Math.hypot(e.clientX - cx0, e.clientY - cy0) * 2 / 1.414; setSize(d, cx0, cy0); }
+      updateInteractive(e.clientX, e.clientY);
+    });
+    window.addEventListener('mouseup', () => { dragging = false; resizing = false; ring.classList.remove('dragging'); });
+    ring.addEventListener('wheel', (e) => {
+      e.preventDefault();
+      if (recording) return; // frame size is fixed for the length of a clip
+      const r = ringBox(); setSize(r.width - e.deltaY * 0.4, r.left + r.width / 2, r.top + r.height / 2);
+    }, { passive: false });
+
+    // --- capture geometry --------------------------------------------------
+    // The crop is the ring's bounding square in the source video's pixel space.
+    // It is rectangular, but everything drawn is clipped to the inscribed
+    // circle: the aperture is round, so the corners are not ours to keep — and
+    // the corners are exactly where the veil sits, so clipping is also what
+    // lets the surround stay dark while a frame is taken.
+    function cropRect(video) {
+      const r = ringBox();
+      const vw = video.videoWidth, vh = video.videoHeight;
+      return {
+        sx: (r.left / innerWidth) * vw, sy: (r.top / innerHeight) * vh,
+        sw: (r.width / innerWidth) * vw, sh: (r.height / innerHeight) * vh,
+      };
+    }
+    function drawAperture(ctx, video, c) {
+      const { sx, sy, sw, sh } = cropRect(video);
+      const w = ctx.canvas.width, h = ctx.canvas.height;
+      ctx.clearRect(0, 0, w, h);
+      ctx.save();
+      ctx.beginPath();
+      ctx.arc(w / 2, h / 2, Math.min(w, h) / 2, 0, Math.PI * 2);
+      ctx.clip();
+      ctx.drawImage(video, sx, sy, sw, sh, 0, 0, w, h);
+      ctx.restore();
+    }
+    async function desktopStream() {
+      const src = await window.spyglass.screenSource();
+      if (!src.sourceId) throw new Error('no screen source — grant Screen Recording');
+      return navigator.mediaDevices.getUserMedia({
+        audio: false,
+        video: { mandatory: { chromeMediaSource: 'desktop', chromeMediaSourceId: src.sourceId,
+          maxWidth: src.width * src.scaleFactor, maxHeight: src.height * src.scaleFactor } },
+      });
+    }
+    async function playing(stream) {
+      const video = document.createElement('video');
+      video.srcObject = stream; await video.play();
+      await new Promise((res) => requestAnimationFrame(() => res()));
+      return video;
+    }
+
+    // --- still capture -----------------------------------------------------
+    async function capture() {
+      const r = ringBox();
+      try {
+        // Darken the surround, keep the ring lit; hide only the in-crop cyan
+        // bits for the actual grab so the saved pixels are clean.
+        document.body.classList.add('shooting');
+        document.body.classList.add('grabbing');
+        await new Promise((res) => setTimeout(res, 150));
+        const stream = await desktopStream();
+        const video = await playing(stream);
+        const { sw, sh } = cropRect(video);
+        const canvas = document.createElement('canvas');
+        canvas.width = Math.round(sw); canvas.height = Math.round(sh);
+        drawAperture(canvas.getContext('2d'), video, r);
+        stream.getTracks().forEach((t) => t.stop());
+        const out = await window.spyglass.saveFrame(canvas.toDataURL('image/png'));
+        // Ring/crosshair back, then bloom inside the aperture.
+        document.body.classList.remove('grabbing');
+        flash.classList.remove('fire'); void flash.offsetWidth; flash.classList.add('fire');
+        setTimeout(() => document.body.classList.remove('shooting'), 360);
+        console.log('[spyglass] frame sha256:' + out.digest.slice(0, 12) + ' · ' +
+          canvas.width + '×' + canvas.height + ' · ' + (out.bytes / 1024 | 0) + ' KB · ' + out.file);
+      } catch (err) {
+        document.body.classList.remove('grabbing');
+        document.body.classList.remove('shooting');
+        console.error('[spyglass] capture failed:', err && err.message || err);
+      }
+    }
+
+    // --- video: record the aperture ----------------------------------------
+    // The desktop stream is pumped through a canvas clipped to the aperture, so
+    // what the recorder sees is only ever the circle — the crop happens before
+    // any encoding, not after. MediaRecorder emits a segment per timeslice; each
+    // one is handed straight to main, hashed, and chained on arrival. Nothing is
+    // buffered waiting to be stamped: the ledger stays truthful even if the app
+    // dies mid-clip, because every segment already written is already committed.
+    const SEGMENT_MS = 1000;   // one lineage event per second of capture
+    const ORBIT_MS = 4000;     // ball completes a turn every 4s while running
+
+    // --- audio sources -----------------------------------------------------
+    // Tier one is the system microphone, and it is the default because it is
+    // the only source macOS will give us without a virtual device: Electron 32's
+    // loopback audio is Windows-only (checked in the shipped typings, not
+    // recalled). Tier two — system audio, and left/right bound to DIFFERENT
+    // sources so channel separation itself carries provenance — is declared in
+    // this shape but not yet selectable. The shape is here so that tier is a
+    // config change rather than a rewrite.
+    //
+    // A capture is not silent by accident: `enabled` is explicit, and the halo
+    // is driven by real level so an armed-but-dead mic cannot read as working.
+    const audioConfig = {
+      enabled: true,
+      channels: [
+        // kind: 'input' | 'output'(deferred). deviceId 'default' follows the
+        // system default rather than pinning a device that may be unplugged.
+        { channel: 'mono', kind: 'input', deviceId: 'default' },
+      ],
+    };
+
+    // Device labels are meaningful to a person reading the ledger; raw device
+    // ids are stable machine identifiers, so they are salted per clip and
+    // hashed. The ledger says which microphone, not which machine.
+    async function sha256Hex(str) {
+      const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(str));
+      return [...new Uint8Array(buf)].map((b) => b.toString(16).padStart(2, '0')).join('');
+    }
+    async function describeAudioSources(stream, salt) {
+      const devices = await navigator.mediaDevices.enumerateDevices();
+      return Promise.all(stream.getAudioTracks().map(async (t) => {
+        const s = t.getSettings();
+        const dev = devices.find((d) => d.deviceId === s.deviceId);
+        return {
+          channel: audioConfig.channels[0].channel,
+          kind: 'input',
+          device_label: dev?.label ?? t.label ?? '(unknown)',
+          device_id_hash: s.deviceId
+            ? 'sha256:' + (await sha256Hex(salt + ':' + s.deviceId)).slice(0, 16) : null,
+          sample_rate: s.sampleRate ?? null,
+          channel_count: s.channelCount ?? null,
+        };
+      }));
+    }
+    let recorder = null, recStream = null, recSrcStream = null;
+    let recVideo = null, recPump = null, recClipId = null, recOrbit = null;
+    let micStream = null, micRecorder = null, micCtx = null, micAnalyser = null, micRAF = null;
+    // Segment writes are async; the clip cannot close until every one has
+    // landed, or the close event would be appended ahead of the tail segment
+    // and the ledger would misreport its own order.
+    let recPending = [];
+
+    async function startRecording(mode) {
+      if (recording || counting || document.body.classList.contains('shooting')) return;
+      const wantVideo = mode?.video !== false;
+      const wantAudio = mode?.audio === true;
+      const r = ringBox();
+      try {
+        const videoMime = MediaRecorder.isTypeSupported('video/webm;codecs=vp9')
+          ? 'video/webm;codecs=vp9' : 'video/webm';
+        const audioMime = MediaRecorder.isTypeSupported('audio/webm;codecs=opus')
+          ? 'audio/webm;codecs=opus' : 'audio/webm';
+        const tracks = [];
+        let canvas = null;
+
+        if (wantVideo) {
+          recSrcStream = await desktopStream();
+          recVideo = await playing(recSrcStream);
+          const { sw, sh } = cropRect(recVideo);
+          // Even dimensions — encoders dislike odd ones.
+          canvas = document.createElement('canvas');
+          canvas.width = Math.round(sw / 2) * 2;
+          canvas.height = Math.round(sh / 2) * 2;
+          const ctx = canvas.getContext('2d');
+          // Redraw every frame from the CURRENT ring position, so the aperture
+          // can be panned over the desktop mid-clip and the recording follows.
+          const pump = () => { drawAperture(ctx, recVideo, null); recPump = requestAnimationFrame(pump); };
+          pump();
+          recStream = canvas.captureStream(30);
+          tracks.push({ id: 'video', media_type: videoMime, frame: { width: canvas.width, height: canvas.height } });
+        }
+
+        // Microphone is a separate stream, separate recorder, separate chain.
+        // If it is refused or absent the clip still records what it can —
+        // silently missing audio would be a lie, so the ledger simply declares
+        // no audio track and the halo never appears.
+        const clipSalt = Math.random().toString(36).slice(2);
+        if (wantAudio) {
+          try {
+            const ch = audioConfig.channels[0];
+            micStream = await navigator.mediaDevices.getUserMedia({
+              audio: ch.deviceId === 'default' ? true : { deviceId: { exact: ch.deviceId } },
+            });
+          } catch (err) {
+            micStream = null;
+            console.warn('[spyglass] microphone unavailable: ' + (err && err.message || err));
+          }
+          if (micStream) {
+            tracks.push({
+              id: 'audio', media_type: audioMime,
+              channels: await describeAudioSources(micStream, clipSalt),
+            });
+          }
+        }
+
+        if (!tracks.length) throw new Error('no capturable track');
+
+        const opened = await window.spyglass.clipOpen({
+          aperture: wantVideo
+            ? { x: Math.round(r.left), y: Math.round(r.top), diameter: Math.round(r.width) }
+            : null,
+          tracks,
+        });
+        recClipId = opened.clipId;
+
+        // One handler shape per track; the track id is bound at creation so a
+        // segment can never be appended to the wrong chain.
+        const onSegment = (trackId) => (e) => {
+          if (!e.data || !e.data.size) return;
+          // Snapshot the clip id SYNCHRONOUSLY. stop() fires this handler and
+          // then onstop; if the id were read after the first await, the tail
+          // segment would arrive to a clip that had already been closed.
+          const id = recClipId;
+          if (!id) return;
+          recPending.push((async () => {
+            const buf = new Uint8Array(await e.data.arrayBuffer());
+            const res = await window.spyglass.clipChunk(id, trackId, buf);
+            if (trackId === 'video') { // the ball ticks for the video chain
+              grip.classList.add('sealed');
+              setTimeout(() => grip.classList.remove('sealed'), 110);
+            }
+            console.log('[spyglass] ' + trackId + ' segment ' + res.seq + ' · ' +
+              (res.bytes / 1024 | 0) + ' KB · sha256:' + res.digest.slice(0, 12) +
+              ' · chain:' + res.chain.slice(0, 12));
+          })());
+        };
+
+        recPending = [];
+        if (recStream) {
+          recorder = new MediaRecorder(recStream, { mimeType: videoMime });
+          recorder.ondataavailable = onSegment('video');
+        }
+        if (micStream) {
+          micRecorder = new MediaRecorder(micStream, { mimeType: audioMime });
+          micRecorder.ondataavailable = onSegment('audio');
+          startLevelMeter(micStream);
+        }
+        if (recorder) recorder.start(SEGMENT_MS);
+        if (micRecorder) micRecorder.start(SEGMENT_MS);
+
+        recording = true;
+        document.body.classList.add('recording');
+        // Audio with no video is a different act: nothing is being framed, so
+        // the aperture must not imply that it is. The ring goes violet to match
+        // the halo and the surround is left alone.
+        if (!recStream) document.body.classList.add('audio-only');
+        // Ball orbits continuously while running.
+        const t0 = performance.now();
+        const orbit = (now) => {
+          if (!recording) return;
+          gripAngle = GRIP_BASE - ((now - t0) / ORBIT_MS) * Math.PI * 2;
+          placeGrip();
+          recOrbit = requestAnimationFrame(orbit);
+        };
+        recOrbit = requestAnimationFrame(orbit);
+        console.log('[spyglass] recording [' + tracks.map((t) => t.id).join('+') + ']' +
+          (canvas ? ' ' + canvas.width + '×' + canvas.height : '') + ' → ' + opened.dir);
+      } catch (err) {
+        await stopRecording(true);
+        console.error('[spyglass] record failed:', err && err.message || err);
+      }
+    }
+
+    async function stopRecording(silent) {
+      // Flush the tail segment of every track before closing, so the ledger
+      // covers every byte that made it into a file.
+      const stops = [recorder, micRecorder]
+        .filter((r) => r && r.state !== 'inactive')
+        .map((r) => new Promise((res) => { r.onstop = res; r.stop(); }));
+      await Promise.all(stops);
+      // onstop can resolve while a tail segment is still being read and hashed.
+      // Wait for every queued write before the clip is closed.
+      await Promise.allSettled(recPending);
+      recPending = [];
+      recording = false;
+      document.body.classList.remove('recording');
+      document.body.classList.remove('audio-only');
+      stopLevelMeter();
+      if (recOrbit) cancelAnimationFrame(recOrbit);
+      if (recPump) cancelAnimationFrame(recPump);
+      if (recStream) recStream.getTracks().forEach((t) => t.stop());
+      if (recSrcStream) recSrcStream.getTracks().forEach((t) => t.stop());
+      if (micStream) micStream.getTracks().forEach((t) => t.stop());
+      recorder = recStream = recSrcStream = recVideo = recPump = recOrbit = null;
+      micRecorder = micStream = null;
+      gripAngle = GRIP_BASE; placeGrip();
+      if (recClipId) {
+        const id = recClipId; recClipId = null;
+        const out = await window.spyglass.clipClose(id);
+        if (!silent) {
+          const parts = Object.entries(out.tracks).map(([k, v]) =>
+            k + ' ' + v.segments + 'seg/' + (v.bytes / 1024 | 0) + 'KB');
+          console.log('[spyglass] clip ' + out.clipId + ' · ' + parts.join(' · ') +
+            ' · ' + (out.durationMs / 1000).toFixed(1) + 's');
+          for (const [k, v] of Object.entries(out.tracks)) {
+            console.log('[spyglass]   ' + k + ' head ' + v.chain_head);
+          }
+          console.log('[spyglass] binding sha256:' + out.binding);
+          console.log('[spyglass] ' + out.dir);
+        }
+      }
+    }
+
+    // --- countdown ---------------------------------------------------------
+    // Spacebar arms a timed shot: ring + ball turn red, the ball sweeps one full
+    // turn counterclockwise as the clock runs, and the shutter fires when it
+    // lands back at the origin. Space or Esc during the count cancels it.
+    let counting = false, countRAF = null;
+    function startCountdown() {
+      if (counting || document.body.classList.contains('shooting')) return;
+      counting = true;
+      document.body.classList.add('arming');
+      const start = performance.now();
+      function frame(now) {
+        if (!counting) return; // cancelled
+        const t = (now - start) / COUNTDOWN;
+        if (t >= 1) {
+          counting = false;
+          document.body.classList.remove('arming');
+          gripAngle = GRIP_BASE; placeGrip();
+          capture();
+          return;
+        }
+        // Ball travels counterclockwise around the ring as the timer runs.
+        gripAngle = GRIP_BASE - t * Math.PI * 2;
+        placeGrip();
+        countRAF = requestAnimationFrame(frame);
+      }
+      countRAF = requestAnimationFrame(frame);
+    }
+    function cancelCountdown() {
+      if (!counting) return;
+      counting = false;
+      if (countRAF) cancelAnimationFrame(countRAF);
+      document.body.classList.remove('arming');
+      gripAngle = GRIP_BASE; placeGrip();
+    }
+
+    // --- keyboard ----------------------------------------------------------
+    // One key, four gestures, all of them the same idea a camera already taught
+    // everyone: how long you hold decides duration, how many times you press
+    // decides what is being captured.
+    //
+    //   tap                  still
+    //   hold                 video, rolls while held
+    //   tap then hold        video + audio, rolls while held
+    //   tap tap              audio only, latched — press again to stop
+    //
+    // Audio-only is the one gesture that latches rather than following the
+    // thumb, because a voice note is not something you hold your hand down for.
+    // Any press stops it, so there is never a state you cannot get out of with
+    // the key you got into it with.
+    const HOLD_MS = 350;   // past this, the press is a hold, not a tap
+    const DOUBLE_MS = 280; // a second press inside this is a double
+    let holdTimer = null, tapTimer = null, spaceDown = false, pressIsSecond = false;
+
+    function clearGesture() {
+      if (holdTimer) { clearTimeout(holdTimer); holdTimer = null; }
+      if (tapTimer) { clearTimeout(tapTimer); tapTimer = null; }
+      pressIsSecond = false;
+    }
+
+    window.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') {
+        if (recording) stopRecording();
+        else if (counting) cancelCountdown();
+        else window.spyglass.quit();
+        clearGesture();
+        return;
+      }
+      if (e.key === ' ') {
+        e.preventDefault();
+        if (e.repeat || spaceDown) return; // ignore auto-repeat while held
+        spaceDown = true;
+
+        // A press while something is running is always "stop" — never the
+        // opening of a new gesture.
+        if (recording) { stopRecording(); clearGesture(); return; }
+        if (counting) { cancelCountdown(); clearGesture(); return; }
+
+        // Is this the second press of a double? A pending tapTimer means the
+        // previous press was a tap still inside the double window.
+        pressIsSecond = Boolean(tapTimer);
+        if (tapTimer) { clearTimeout(tapTimer); tapTimer = null; }
+
+        const second = pressIsSecond;
+        holdTimer = setTimeout(() => {
+          holdTimer = null;
+          // Held: video, plus audio if this was the second press.
+          startRecording({ video: true, audio: second });
+        }, HOLD_MS);
+        return;
+      }
+      // Size is fixed for the length of a clip — the encoder is already running
+      // at one frame size, and a mid-clip change would silently letterbox.
+      if ((e.key === '+' || e.key === '=') && !recording) { const r = ringBox(); setSize(r.width + 30, r.left + r.width/2, r.top + r.height/2); }
+      else if ((e.key === '-' || e.key === '_') && !recording) { const r = ringBox(); setSize(r.width - 30, r.left + r.width/2, r.top + r.height/2); }
+    });
+
+    window.addEventListener('keyup', (e) => {
+      if (e.key !== ' ') return;
+      e.preventDefault();
+      spaceDown = false;
+
+      if (holdTimer) {
+        // Released before the hold threshold — this press was a tap.
+        clearTimeout(holdTimer); holdTimer = null;
+        if (pressIsSecond) { pressIsSecond = false; startRecording({ video: false, audio: true }); return; }
+        // First tap: wait out the double window before committing to a still,
+        // otherwise the second tap of a double would arrive to a countdown
+        // that had already started.
+        tapTimer = setTimeout(() => { tapTimer = null; startCountdown(); }, DOUBLE_MS);
+        return;
+      }
+      // Rolled while held; release ends the clip. Audio-only latches instead,
+      // so it is not stopped here.
+      if (recording && !document.body.classList.contains('audio-only')) stopRecording();
+    });
+
+    // --- idle "still here" bounce ------------------------------------------
+    let bouncing = false;
+    function bounce() {
+      if (dragging || resizing || counting || recording || bouncing) { scheduleBounce(); return; }
+      bouncing = true;
+      const start = performance.now();
+      const dur = 2500;
+      const amp = (45 + Math.random() * 45) * Math.PI / 180; // first shoot height
+      const decay = 3.6;
+      function frame(now) {
+        const t = (now - start) / dur;
+        if (t >= 1 || dragging || resizing || counting || recording) {
+          gripAngle = GRIP_BASE; placeGrip(); bouncing = false; scheduleBounce(); return;
+        }
+        gripAngle = GRIP_BASE - amp * Math.sin(t * Math.PI * 6) * Math.exp(-decay * t);
+        placeGrip();
+        requestAnimationFrame(frame);
+      }
+      requestAnimationFrame(frame);
+    }
+    function scheduleBounce() { setTimeout(bounce, 6000 + Math.random() * 9000); }
+    scheduleBounce();
+
+    // --- the halo: a microphone that cannot be faked ------------------------
+    // A steady "audio on" light is a claim, and a claim can be wrong — a muted
+    // input, a dead device, a track that ended silently all light it just the
+    // same. The halo is driven by the analyser's actual RMS instead, so it is
+    // evidence rather than assertion: if it is moving, sound is arriving. When
+    // audio is armed but idle the halo sits at a faint resting radius, which
+    // says "listening is possible here", never "listening is happening".
+    //
+    // This matters more than it sounds. A ring pointed at a screen is aimed;
+    // a microphone is not, and takes in people who never saw the instrument.
+    // Whoever is in the room should be able to see, at a glance and without
+    // trusting us, that it is live.
+    function startLevelMeter(stream) {
+      stopLevelMeter();
+      try {
+        micCtx = new AudioContext();
+        const src = micCtx.createMediaStreamSource(stream);
+        micAnalyser = micCtx.createAnalyser();
+        micAnalyser.fftSize = 512;
+        micAnalyser.smoothingTimeConstant = 0.75;
+        src.connect(micAnalyser);
+        const buf = new Uint8Array(micAnalyser.fftSize);
+        let shown = 0;
+        const tick = () => {
+          micAnalyser.getByteTimeDomainData(buf);
+          let sum = 0;
+          for (let i = 0; i < buf.length; i++) { const v = (buf[i] - 128) / 128; sum += v * v; }
+          const rms = Math.sqrt(sum / buf.length);
+          // Perceptual-ish curve, then a slow fall so peaks stay legible.
+          const target = Math.min(1, Math.pow(rms * 3.2, 0.6));
+          shown = target > shown ? target : shown + (target - shown) * 0.14;
+          const r = ringBox();
+          const rad = r.width / 2;
+          halo.style.left = (r.left + r.width / 2 - rad) + 'px';
+          halo.style.top = (r.top + r.height / 2 - rad) + 'px';
+          halo.style.width = halo.style.height = (rad * 2) + 'px';
+          halo.style.transform = 'scale(' + (1.03 + shown * 0.10) + ')';
+          halo.style.opacity = (0.22 + shown * 0.72).toFixed(3);
+          micRAF = requestAnimationFrame(tick);
+        };
+        halo.classList.add('live');
+        micRAF = requestAnimationFrame(tick);
+      } catch (err) {
+        console.warn('[spyglass] level meter unavailable: ' + (err && err.message || err));
+      }
+    }
+    function stopLevelMeter() {
+      if (micRAF) cancelAnimationFrame(micRAF);
+      micRAF = null;
+      if (micCtx) { micCtx.close().catch(() => {}); micCtx = null; }
+      micAnalyser = null;
+      halo.classList.remove('live');
+      halo.style.opacity = '';
+      halo.style.transform = '';
+    }
+  </script>
+</body>
+</html>

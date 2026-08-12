@@ -81,6 +81,30 @@ export async function authMiddleware(
     return;
   }
 
+  // WRITE THE RESOLVED ORG BACK ONTO THE USER.
+  //
+  // This is the same shape as the raw-token defect documented above, in this
+  // same function: a value resolved in one place and read from another that
+  // never received it. `orgId` above is resolved header > token > fallback and
+  // then used for RLS only. Six call sites in routes.ts read `user.orgId` to
+  // look up a credential, and `user` still carried whatever token
+  // introspection produced.
+  //
+  // For a human that is harmless — their token names their org, so the two
+  // agree. For an AGENT it is fatal and silent. A bootstrap assistant
+  // registers with no organization (`orgId: null, organizations: []`,
+  // measured 11 Aug 2026 against /api/auth/agent/me), so `user.orgId` is null
+  // no matter what the caller says. `resolveUsableProvider` sends X-Org-Id
+  // precisely to say which org to look in; the header reached this middleware,
+  // was used for RLS, and was then dropped on the floor before the handler.
+  //
+  // The result: identity was asked for `userId: assistant:coordinator,
+  // orgId: null`, could not reach the org-wide fallback in
+  // getCredentialForUserOrOrg, returned 404 for every provider, and the chat
+  // window told the operator to add an API key that was already configured.
+  // No assistant in this platform could resolve an org credential.
+  req.user = { ...user, orgId };
+
   try {
     await setRLSContext({
       orgId,

@@ -85,6 +85,22 @@ export interface ConditionGroup {
 export interface ActionConfig {
   type: ActionType;
   params: Record<string, unknown>;
+  /** Referenced by templates as `{{steps.<id>.…}}`. */
+  id?: string;
+  /**
+   * What to do instead when this action fails.
+   *
+   * DECLARED IN FIVE RULES SINCE JANUARY AND READ BY NOTHING UNTIL 11 AUG 2026.
+   * `calc-evaluate` has carried
+   * *"I couldn't parse that expression. Try something like `2 + 2`."*
+   * the whole time, and it was never once sent — the user got
+   * `Unexpected token:` instead, which was eventually patched at the TOOL
+   * because this layer looked like it already worked.
+   *
+   * A declarative feature that appears to work and changes nothing is worse
+   * than an absent one: it hides the need for the mechanism it represents.
+   */
+  onError?: ActionConfig;
 }
 
 export interface Rule {
@@ -97,6 +113,28 @@ export interface Rule {
   conditions: ConditionGroup;
   actions: ActionConfig[];
   metadata?: Record<string, unknown>;
+  /**
+   * Run only when no other rule matched.
+   *
+   * Every assistant already has one of these and expresses it as an accident
+   * of arithmetic: `coord-orchestrate` sits at priority 100 with
+   * `content exists true`, `calc-invalid` at 50 with `not_matches [0-9]`.
+   * A default case written as "the lowest number, matching everything" is
+   * invisible, and it breaks silently the moment somebody adds a rule below
+   * it — which is exactly why `coord-conversation` had to be 195 rather than
+   * the 95 that reads more naturally.
+   */
+  isDefault?: boolean;
+  /**
+   * If this rule's actions fail, let the next rule try.
+   *
+   * The executor stops at the first rule whose CONDITIONS match, so a rule
+   * that matched and then failed takes the conversation down with it. That is
+   * right for a rule that owns the request and wrong for one that merely
+   * recognised it — `calc-evaluate` matching any string containing a digit,
+   * then choking, is the second kind.
+   */
+  fallThrough?: boolean;
 }
 
 export interface RuleSet {
@@ -113,6 +151,19 @@ export interface RuleSet {
    * Individual actions can override specific settings.
    */
   llmConfig?: AssistantLLMConfigRef;
+  /**
+   * The above, resolved once at load time.
+   *
+   * Resolved on the ruleset rather than per message because the inputs —
+   * preset, authored overrides, system defaults — cannot change between
+   * messages without a reload. Resolving per event would be the same answer
+   * computed thousands of times.
+   *
+   * This is the field that carries configuration to the executor. Before
+   * 12 Aug there was no such field, and `ExecutionContext.llmConfig` was
+   * declared but never assigned by anything — see the note there.
+   */
+  resolvedLLMConfig?: ResolvedLLMConfig;
 }
 
 /**
@@ -123,6 +174,20 @@ export interface AssistantLLMConfigRef {
   preset?: 'routing' | 'conversational' | 'code' | 'reasoning' | 'custom';
   /** Inline configuration overrides (merged with preset if specified) */
   overrides?: {
+    /**
+     * Which provider serves this assistant.
+     *
+     * Added 12 Aug. Its absence is why an assistant could not express the one
+     * thing every live assistant actually declares: `metadata.llmConfig` on
+     * every resource in the catalog carries a `provider`, and there was no
+     * override slot to carry it into the resolved config — so it was dropped
+     * on load and the provider was chosen at call time by asking which
+     * credential happened to exist.
+     */
+    provider?: {
+      type?: string;
+      baseUrl?: string;
+    };
     // Generation settings
     generation?: {
       model?: string;
@@ -199,10 +264,26 @@ export interface ExecutionContext {
    * Resolved LLM configuration for the current assistant.
    * This is the merged result of preset + overrides + org defaults.
    * Actions should use this config unless they have explicit overrides.
+   *
+   * DECLARED SINCE JANUARY AND NEVER ONCE ASSIGNED, until 12 Aug 2026.
+   * `RunCoordinator.processEvent` builds every ExecutionContext in this
+   * codebase and did not set this field; measured by grep, zero assignments in
+   * any route. So `embedding-route.ts` — the only reader anywhere — has always
+   * evaluated `if (context.llmConfig && …)` against `undefined` and skipped.
+   *
+   * The resolver behind it (409 lines, four presets, full system defaults) ran
+   * on every assistant load and produced a value that reached nothing. This is
+   * the `onError` pattern a third time: a feature that appears to work,
+   * changes nothing, and hides the need for the mechanism it represents.
    */
   llmConfig?: ResolvedLLMConfig;
   /**
-   * Assistant metadata for routing decisions
+   * Assistant metadata for routing decisions.
+   *
+   * DEAD FIELD as of 12 Aug 2026: never assigned, and — unlike `llmConfig`
+   * above — never read either. Left in place rather than populated, because
+   * populating a field nothing reads is how the previous three of these got
+   * here. Delete it or give it a caller; do not "fix" it by assigning to it.
    */
   assistant?: {
     key: string;
@@ -215,7 +296,19 @@ export interface ExecutionContext {
  * Resolved LLM configuration (fully populated with defaults)
  */
 export interface ResolvedLLMConfig {
-  // Provider
+  /**
+   * Provider, for display and diagnostics only.
+   *
+   * NOT READ BY `llm.invoke`. Which provider and model actually run is the
+   * models service's business, not an assistant's — see the note in
+   * llm-invoke.ts. This field exists so the console can show what a resource
+   * declares next to what resolves, which is how the staleness in those
+   * declarations became visible in the first place.
+   *
+   * A `declared` flag lived here for about an hour, to let llm.invoke tell an
+   * authored provider from a defaulted one. Removed with the code that read
+   * it: an unread field is the exact thing this service already has 23 of.
+   */
   provider: {
     type: string;
     baseUrl?: string;
@@ -315,6 +408,10 @@ export interface RuleExecutionResult {
   actionsExecuted: ActionResult[];
   error?: string;
   durationMs: number;
+  /** An `onError` handler ran, so the failure is answered rather than raw. */
+  handled?: boolean;
+  /** Conditions matched, actions failed, and the rule ceded to the next. */
+  fellThrough?: boolean;
 }
 
 export interface RunResult {

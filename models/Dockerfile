@@ -19,6 +19,7 @@ RUN apt-get update && apt-get install -y \
 
 # Copy shared library sources needed for build
 COPY symbia-sys/ ./symbia-sys/
+COPY symbia-crypto/ ./symbia-crypto/
 COPY symbia-auth/ ./symbia-auth/
 COPY symbia-http/ ./symbia-http/
 COPY symbia-relay/ ./symbia-relay/
@@ -36,6 +37,10 @@ WORKDIR /app/symbia-relay
 RUN npm install && npm run build
 
 WORKDIR /app/symbia-auth
+RUN npm install && npm run build
+
+# crypto before http: symbia-http imports @symbia/crypto for service identity
+WORKDIR /app/symbia-crypto
 RUN npm install && npm run build
 
 WORKDIR /app/symbia-http

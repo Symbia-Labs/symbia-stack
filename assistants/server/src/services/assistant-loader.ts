@@ -95,15 +95,28 @@ export interface LoadedAssistant {
  */
 async function fetchFromCatalog(
   type: string,
-  options: { maxRetries?: number; retryDelayMs?: number } = {}
+  options: { maxRetries?: number; retryDelayMs?: number; status?: string } = {}
 ): Promise<CatalogResource[]> {
-  const { maxRetries = 5, retryDelayMs = 2000 } = options;
+  const { maxRetries = 5, retryDelayMs = 2000, status } = options;
   const catalogEndpoint = getCatalogEndpoint();
 
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
     try {
-      // Load both published and bootstrap assistants
-      const response = await fetch(`${catalogEndpoint}/resources?type=${type}`, {
+      // STATUS IS A GATE, NOT A LABEL.
+      //
+      // This asked for `?type=assistant` and nothing else, so every assistant
+      // in the catalog loaded regardless of its status — an unpublished one
+      // still got a router, still appeared in `assistants.list`, and was still
+      // a legal routing target. `status` was decoration: the catalog has
+      // supported `?status=` since catalog/server/src/routes.ts:423, and the
+      // one consumer that would give the field meaning never passed it.
+      //
+      // Measured 11 Aug 2026 while reducing the roster to three: setting a
+      // resource to `draft` changed nothing observable, which is the worst
+      // kind of control — one an operator believes they have used.
+      const query = new URLSearchParams({ type });
+      if (status) query.set('status', status);
+      const response = await fetch(`${catalogEndpoint}/resources?${query}`, {
         headers: { 'Content-Type': 'application/json' },
       });
 
@@ -167,6 +180,61 @@ export function getAllLoadedAssistants(): LoadedAssistant[] {
 }
 
 /**
+ * Resolve a name the way a person writes it — key or alias — to a loaded
+ * assistant.
+ *
+ * THIS IS THE ONLY PLACE THAT KNOWS HOW A NAME BECOMES AN ASSISTANT.
+ *
+ * There were three implementations of that question before this one, and two
+ * of them were wrong. `webhooks.ts` and `assistant-route.ts` each carried a
+ * hardcoded alias table mapping `logs`->`log-analyst`, `builder`->
+ * `assistants-assistant`, and five more targets that do not exist in the
+ * registry. Measured 10 Aug 2026: the ten loaded assistants are analyst,
+ * builder, calculator, code-runner, converter, coordinator, data-explainer,
+ * echo, intent-router, smart-calc. Six of that table's seven targets were
+ * fictional, and `builder` — a real assistant — was rewritten into a
+ * non-existent one, so routing to it could only ever fail.
+ *
+ * `webhooks.ts` survived because it fell through to a key and alias check
+ * afterwards. `assistant-route.ts` had no fallback and was simply broken for
+ * every alias and for `builder`.
+ *
+ * The alias is not a constant. It is `metadata.alias` on the catalog resource,
+ * which is the registry — the same place the key comes from. A table in a
+ * source file is a copy of the registry that cannot be updated by registering
+ * anything, which is the defect class this platform exists to prevent.
+ */
+export function resolveAssistant(nameOrAlias: string): LoadedAssistant | undefined {
+  const wanted = nameOrAlias.trim().replace(/^@/, '').toLowerCase();
+  if (!wanted) return undefined;
+
+  // Exact key first — the map is keyed on it, so this is the cheap path.
+  const byKey = loadedAssistants.get(wanted);
+  if (byKey) return byKey;
+
+  // Then alias, as declared on the resource.
+  for (const loaded of loadedAssistants.values()) {
+    if (loaded.alias?.toLowerCase() === wanted) return loaded;
+  }
+
+  return undefined;
+}
+
+/**
+ * The catalog key of a loaded assistant.
+ *
+ * `getAllLoadedAssistants()` returns the map's VALUES, so `config.key` is
+ * undefined on them — which is what the mention router printed when it said a
+ * mention "resolves to undefined". The key lives on the catalog resource as
+ * `assistants/<key>`, which is where the loader derived it from.
+ */
+export function loadedAssistantKey(loaded: LoadedAssistant): string | undefined {
+  const k = loaded.resource?.key;
+  if (!k) return undefined;
+  return k.includes('/') ? k.split('/').pop() : k;
+}
+
+/**
  * Load and register assistants from Catalog
  *
  * If Catalog is unavailable, logs an error and continues with no assistants.
@@ -182,6 +250,9 @@ export async function loadAssistants(app: Express): Promise<void> {
   const catalogAssistants = await fetchFromCatalog('assistant', {
     maxRetries: 5,
     retryDelayMs: 2000,
+    // Only published assistants become routable. Unpublishing is how the
+    // roster shrinks without destroying the resource.
+    status: 'published',
   });
 
   if (catalogAssistants.length === 0) {
@@ -211,6 +282,48 @@ export async function loadAssistants(app: Express): Promise<void> {
       capabilities: extractCapabilities(ruleSet),
     };
 
+    // RESOLVE CONFIGURATION BEFORE THE RULESET IS HANDED OUT.
+    //
+    // `createRuleBasedAssistantRouter` passes this exact object to
+    // `setRuleSet`, which is what `RunCoordinator` later reads to build every
+    // ExecutionContext. Resolving after that call would attach the config to an
+    // object the executor already holds by reference — it would work, by
+    // accident, and break the first time anything clones the ruleset. Order it
+    // deliberately instead.
+    //
+    // The authored `metadata.llmConfig` is folded in as overrides rather than
+    // read separately. Every live resource carries one — the coordinator's says
+    // anthropic / claude-3-5-sonnet-20241022 / 0.7 / 1500 — and until today none
+    // of it reached a model, because the resolver only ever saw a preset name.
+    const authored = (resource.metadata?.llmConfig ?? {}) as {
+      provider?: string;
+      model?: string;
+      temperature?: number;
+      maxTokens?: number;
+    };
+    const llmConfigPreset = resource.metadata?.llmConfigPreset || 'conversational';
+    const llmConfigRef: AssistantLLMConfigRef = {
+      preset: llmConfigPreset,
+      overrides: {
+        ...(authored.provider ? { provider: { type: authored.provider } } : {}),
+        generation: {
+          ...(authored.model ? { model: authored.model } : {}),
+          ...(authored.temperature !== undefined ? { temperature: authored.temperature } : {}),
+          ...(authored.maxTokens !== undefined ? { maxTokens: authored.maxTokens } : {}),
+        },
+      },
+    };
+    const resolvedLLMConfig = resolveLLMConfig(llmConfigRef);
+    ruleSet.llmConfig = llmConfigRef;
+    ruleSet.resolvedLLMConfig = resolvedLLMConfig;
+
+    console.log(
+      `[Assistant Loader] ${assistantKey} llm: preset=${llmConfigPreset} ` +
+        `provider=${resolvedLLMConfig.provider.type} model=${resolvedLLMConfig.generation.model} ` +
+        `temp=${resolvedLLMConfig.generation.temperature} maxTokens=${resolvedLLMConfig.generation.maxTokens}` +
+        `${authored.model || authored.provider ? ' (authored overrides applied)' : ''}`
+    );
+
     // Create rule-based router
     const router = createRuleBasedAssistantRouter({
       key: assistantKey,
@@ -233,11 +346,6 @@ export async function loadAssistants(app: Express): Promise<void> {
     // Extract legacy LLM config from rules (for display)
     const llmConfigLegacy = extractLlmConfig(ruleSet);
 
-    // Resolve full LLM configuration based on preset
-    const llmConfigPreset = resource.metadata?.llmConfigPreset || 'conversational';
-    const llmConfigRef: AssistantLLMConfigRef = { preset: llmConfigPreset };
-    const resolvedLLMConfig = resolveLLMConfig(llmConfigRef);
-
     // Get alias from metadata
     const alias = resource.metadata?.alias as string | undefined;
 
@@ -248,7 +356,19 @@ export async function loadAssistants(app: Express): Promise<void> {
           ...resource.metadata,
           routines,
           llm: llmConfigLegacy,
-          llmConfig: resolvedLLMConfig,
+          // THE AUTHORED CONFIG SURVIVES, UNDER ITS OWN NAME.
+          //
+          // This line used to read `llmConfig: resolvedLLMConfig`, overwriting
+          // what the resource actually declared with the preset-derived value.
+          // The console therefore displayed a configuration nobody had written,
+          // in the field where the authored one belonged — so the operator saw
+          // the discrepancy already resolved rather than seeing that one
+          // existed. A UI that hides a disagreement between two configs is
+          // worse than one that shows neither.
+          //
+          // `llmConfig` is now what the resource says. `llmConfigResolved` is
+          // what it resolves to. Both are visible, and they can be compared.
+          llmConfigResolved: resolvedLLMConfig,
         },
       },
       config,

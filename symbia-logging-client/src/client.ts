@@ -46,6 +46,11 @@ export function createTelemetryClient(
   // Return no-op client if disabled or no endpoint
   if (!config.enabled || !config.endpoint) {
     return {
+      // Disabled is not broken. Telemetry was switched off on purpose here, so
+      // the write path is not "failing" — there is no write path. Returning an
+      // error string would make every sink route to its error port on a stack
+      // that is behaving exactly as configured.
+      getLastError: () => null,
       log: () => undefined,
       event: () => undefined,
       metric: () => undefined,
@@ -71,6 +76,27 @@ export function createTelemetryClient(
   let timer: NodeJS.Timeout | null = null;
   let flushing = false;
   let systemAuthInitialized = false;
+
+  /**
+   * Why the last telemetry write failed, or null if the writer is healthy.
+   *
+   * WHY THIS EXISTS. `request()` below returns `null` once retries are
+   * exhausted, under a comment reading "Silent failure after retries
+   * exhausted". Every caller of this client therefore had no way to learn that
+   * its telemetry was going nowhere — the call returned, nothing threw, and
+   * the data was gone.
+   *
+   * That is the exact defect this platform exists to prevent, sitting in the
+   * component whose entire job is persistence. `runtime`'s `sink.log` reports
+   * success on every message for this reason: it has nothing to report a
+   * failure WITH.
+   *
+   * Deliberately a HEALTH signal, not a per-write result — writes are queued
+   * and flushed in batches, so no individual `log()` call has an outcome yet
+   * when it returns. `MetricWriter` in the runtime already made this exact
+   * distinction and it is copied here on purpose rather than reinvented.
+   */
+  let lastError: string | null = null;
 
   /**
    * Ensure system auth is initialized for "system" auth mode
@@ -114,10 +140,16 @@ export function createTelemetryClient(
         throw new Error(`Telemetry request failed: ${res.status} ${text}`);
       }
 
+      lastError = null;
       return res.json();
     } catch (error) {
       if (attempt >= config.retry) {
-        // Silent failure after retries exhausted
+        // Retries exhausted. Still returns null — callers of `request` are
+        // fire-and-forget batch flushes and cannot act on a throw — but the
+        // failure is now RECORDED rather than discarded, so `getLastError()`
+        // can tell the truth and `sink.log` can route to its error port.
+        lastError =
+          error instanceof Error ? error.message : `telemetry write to ${path} failed`;
         return null;
       }
 
@@ -381,5 +413,14 @@ export function createTelemetryClient(
     objectRef,
     flush,
     shutdown,
+    /**
+     * Why the last flush failed, or null if the writer is healthy.
+     *
+     * Health, not per-write outcome: writes are batched, so a `log()` that has
+     * just returned has not been attempted yet. "The write path is currently
+     * failing" is the strongest honest claim available, and it is strictly
+     * better than the silence it replaces.
+     */
+    getLastError: (): string | null => lastError,
   };
 }

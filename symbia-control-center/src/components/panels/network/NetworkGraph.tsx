@@ -105,40 +105,44 @@ export function NetworkGraph({
     [onNodesChange]
   );
 
-  // Update nodes/edges when network topology changes (new nodes added/removed)
+  // Update nodes/edges when network topology changes (new nodes added/removed).
+  //
+  // Deliberately depends ONLY on the SOURCE data (calculatedNodes/Edges), never
+  // on `nodes`. Depending on `nodes` while calling setNodes here is an infinite
+  // loop: the data-update branch returns fresh object references every run, so
+  // `nodes` changes identity, which refires the effect, which setNodes again —
+  // React aborts with "Maximum update depth exceeded" and the panel renders
+  // blank (observed 9 Aug: the Network view drew a black screen and flooded the
+  // console with 10k identical errors). Current nodes are read through the
+  // functional setNodes updater instead, so no reactive dependency on them.
   useEffect(() => {
-    const currentNodeIds = new Set(nodes.map((n) => n.id));
-    const newNodeIds = new Set(calculatedNodes.map((n) => n.id));
+    setNodes((currentNodes) => {
+      const currentNodeIds = new Set(currentNodes.map((n) => n.id));
+      const newNodeIds = new Set(calculatedNodes.map((n) => n.id));
 
-    // Check if topology changed (nodes added or removed)
-    const topologyChanged =
-      currentNodeIds.size !== newNodeIds.size ||
-      [...currentNodeIds].some((id) => !newNodeIds.has(id)) ||
-      [...newNodeIds].some((id) => !currentNodeIds.has(id));
+      const topologyChanged =
+        currentNodeIds.size !== newNodeIds.size ||
+        [...newNodeIds].some((id) => !currentNodeIds.has(id));
 
-    if (topologyChanged) {
-      // Topology changed - reset layout
-      hasInitialLayout.current = false;
-      nodePositions.current.clear();
-      setNodes(calculatedNodes);
-      setEdges(calculatedEdges);
-    } else {
-      // Only data changed - update data without changing positions
+      if (topologyChanged) {
+        hasInitialLayout.current = false;
+        nodePositions.current.clear();
+        return calculatedNodes;
+      }
+
+      // Only data changed — update data, preserve positions.
       hasInitialLayout.current = true;
-      setNodes((currentNodes) =>
-        currentNodes.map((node) => {
-          const updatedNode = calculatedNodes.find((n) => n.id === node.id);
-          if (updatedNode) {
-            // Preserve position, update data
-            nodePositions.current.set(node.id, node.position);
-            return { ...node, data: updatedNode.data };
-          }
-          return node;
-        })
-      );
-      setEdges(calculatedEdges);
-    }
-  }, [calculatedNodes, calculatedEdges, nodes, setNodes, setEdges]);
+      return currentNodes.map((node) => {
+        const updatedNode = calculatedNodes.find((n) => n.id === node.id);
+        if (updatedNode) {
+          nodePositions.current.set(node.id, node.position);
+          return { ...node, data: updatedNode.data };
+        }
+        return node;
+      });
+    });
+    setEdges(calculatedEdges);
+  }, [calculatedNodes, calculatedEdges, setNodes, setEdges]);
 
   // Handle node click
   const handleNodeClick = useCallback(

@@ -31,3 +31,7 @@ export * from "./database.js";
 export * from "./memory.js";
 export * from "./indexes.js";
 export * from "./rls.js";
+
+// Comment- and quote-aware SQL statement splitting. See sql-statements.ts:
+// a semicolon inside a SQL comment took the whole stack down on 8 Aug 2026.
+export { splitSqlStatements } from './sql-statements.js';

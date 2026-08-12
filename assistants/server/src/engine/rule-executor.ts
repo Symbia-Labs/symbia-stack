@@ -1,4 +1,5 @@
 import type {
+  ActionConfig,
   Rule,
   RuleSet,
   ExecutionContext,
@@ -21,15 +22,30 @@ export class RuleExecutor {
     console.log(`[RuleExecutor] RuleSet: ${ruleSet.name} (${ruleSet.rules.length} rules)`);
     console.log(`[RuleExecutor] Message content: "${context.message?.content?.substring(0, 50)}..."`);
 
-    const applicableRules = ruleSet.rules
-      .filter((rule) => rule.enabled && rule.trigger === context.trigger)
-      .sort((a, b) => b.priority - a.priority);
+    // DEFAULTS RUN LAST, AND SAY SO.
+    //
+    // A default case used to be expressed as "the lowest priority number,
+    // matching everything" — `coord-orchestrate` at 100 with
+    // `content exists true`. That is invisible in the rule and fragile in the
+    // set: adding a rule below it silently disables it, which is why
+    // `coord-conversation` had to be 195 rather than the 95 that reads more
+    // naturally. Marking a rule `isDefault` takes it out of the priority race
+    // entirely, so its position stops being load-bearing.
+    const enabled = ruleSet.rules.filter(
+      (rule) => rule.enabled && rule.trigger === context.trigger
+    );
+    const byPriority = (a: Rule, b: Rule) => b.priority - a.priority;
+    const normalRules = enabled.filter((r) => !r.isDefault).sort(byPriority);
+    const defaultRules = enabled.filter((r) => r.isDefault).sort(byPriority);
+    const applicableRules = [...normalRules, ...defaultRules];
 
     console.log(`[RuleExecutor] Found ${applicableRules.length} applicable rules for trigger ${context.trigger}`);
 
     const results: RuleExecutionResult[] = [];
     let newState: ConversationState | undefined;
     let rulesMatched = 0;
+    /** The last rule that ceded, kept so ceding can never produce silence. */
+    let cededResult: RuleExecutionResult | undefined;
 
     for (const rule of applicableRules) {
       console.log(`[RuleExecutor] Evaluating rule: ${rule.name} (priority: ${rule.priority})`);
@@ -42,6 +58,31 @@ export class RuleExecutor {
       }
       if (ruleResult.actionsExecuted.length > 0) {
         console.log(`[RuleExecutor] Actions executed: ${ruleResult.actionsExecuted.map(a => `${a.actionType}(${a.success ? 'ok' : 'fail'})`).join(', ')}`);
+      }
+
+      // CEDING IS NOT WINNING.
+      //
+      // The loop stopped at the first rule whose CONDITIONS matched, so a rule
+      // that matched and then failed took the conversation down with it. Right
+      // for a rule that owns the request; wrong for one that merely recognised
+      // it — `calc-evaluate` matches any string containing a digit and then
+      // chokes, which is how "ask @smartcalc to…" produced `Invalid character:
+      // @` instead of reaching a rule that could have said something useful.
+      if (ruleResult.fellThrough) {
+        console.log(
+          `[RuleExecutor] Rule "${rule.name}" matched but ceded (fallThrough) — trying the next rule`
+        );
+        // KEEP IT. A ceded failure is the fallback if nothing else answers.
+        //
+        // Measured on the first run of this feature: `solve the quadradic
+        // equation` reached Smart Calculator, `smart-compute` ceded, and Smart
+        // Calculator has no default rule — so NOTHING replied. Silence is a
+        // worse outcome than the tokenizer error it replaced, and it is the
+        // one outcome a person cannot interpret at all.
+        //
+        // Ceding means "let someone better answer", never "let no one answer".
+        cededResult = ruleResult;
+        continue;
       }
 
       if (ruleResult.matched) {
@@ -61,6 +102,18 @@ export class RuleExecutor {
         // Stop after first match - priority determines winner
         break;
       }
+    }
+
+    // Nobody answered, and somebody ceded on the way. Surface the ceded
+    // failure rather than returning nothing — the assistant recognised the
+    // request and could not complete it, which is a thing a person can act on.
+    // Saying nothing is not.
+    if (rulesMatched === 0 && cededResult) {
+      console.log(
+        `[RuleExecutor] No rule handled this and "${cededResult.ruleName}" ceded — reporting its failure rather than staying silent`
+      );
+      rulesMatched = 1;
+      results.push({ ...cededResult, fellThrough: false });
     }
 
     console.log(`[RuleExecutor] Execution complete: ${rulesMatched}/${applicableRules.length} rules matched in ${Date.now() - start}ms`);
@@ -131,7 +184,7 @@ export class RuleExecutor {
         provenance.push({
           id: (actionConfig as { id?: string }).id || actionConfig.type,
           action: actionConfig.type,
-          source: describeSource(actionConfig),
+          source: describeSource(actionConfig, result.output),
           ok: result.success,
           ms: result.durationMs,
           outputDigest: result.success ? digest(result.output) : undefined,
@@ -139,10 +192,67 @@ export class RuleExecutor {
         });
 
         if (!result.success) {
+          // ── the failure path, which until today did not exist ────────────
+          const handler = (actionConfig as { onError?: ActionConfig }).onError;
+
+          if (handler) {
+            // Run the declared handler INSTEAD of the rest of the rule.
+            // Continuing would be wrong: every later action was written
+            // assuming this step produced something, and rendering
+            // `{{steps.step-evaluate.result}}` after a failed evaluate is how
+            // a template silently sends an empty answer.
+            console.log(
+              `[RuleExecutor] Action ${actionConfig.type} failed; running its onError handler (${handler.type})`
+            );
+            const handlerImpl = getActionHandler(handler.type);
+            if (handlerImpl) {
+              const handled = await handlerImpl.execute(handler, context);
+              actionResults.push(handled);
+              provenance.push({
+                id: (handler as { id?: string }).id || `${actionConfig.type}:onError`,
+                action: handler.type,
+                source: describeSource(handler, handled.output),
+                ok: handled.success,
+                ms: handled.durationMs,
+                outputDigest: handled.success ? digest(handled.output) : undefined,
+                error: handled.success ? undefined : handled.error,
+              });
+
+              return {
+                ruleId: rule.id,
+                ruleName: rule.name,
+                matched: true,
+                conditionsEvaluated: true,
+                actionsExecuted: actionResults,
+                // The step that failed STAYS in the record. A handled failure
+                // is not an absent one, and the receipt should show both what
+                // broke and what was said about it.
+                handled: true,
+                durationMs: Date.now() - start,
+              };
+            }
+            console.error(
+              `[RuleExecutor] onError declares unknown action type '${handler.type}' — falling back to the raw failure`
+            );
+          }
+
+          if (rule.fallThrough) {
+            return {
+              ruleId: rule.id,
+              ruleName: rule.name,
+              matched: true,
+              conditionsEvaluated: true,
+              actionsExecuted: actionResults,
+              fellThrough: true,
+              error: result.error,
+              durationMs: Date.now() - start,
+            };
+          }
+
           break;
         }
       }
-      
+
       return {
         ruleId: rule.id,
         ruleName: rule.name,
@@ -181,20 +291,37 @@ export const ruleExecutor = new RuleExecutor();
  * receipt that says "llm.invoke" tells you nothing you could go and verify;
  * "anthropic/claude-sonnet-5" tells you where to look.
  */
-function describeSource(action: { type: string; params?: Record<string, unknown> }): string {
+function describeSource(
+  action: { type: string; params?: Record<string, unknown> },
+  output?: unknown
+): string {
   const p = (action.params || {}) as Record<string, unknown>;
   switch (action.type) {
+    // WHAT ACTUALLY ANSWERED, NOT WHAT WAS CONFIGURED.
+    //
+    // The note below said the resolved provider "is recorded by llm-invoke
+    // itself when it differs". It never was. Almost no rule configures a
+    // provider — resolveUsableProvider picks whichever has a credential — so
+    // in practice every model step in every envelope read
+    // "llm (provider resolved at call time)", which names nothing anyone
+    // could go and check. A receipt whose source field is a description of
+    // its own uncertainty is not a source field.
+    //
+    // llm-invoke has returned `output.model` all along. This reads it, so a
+    // delegation can say WHICH model made a choice that is not reproducible.
+    case 'llm.invoke': {
+      const resolved = (output as { model?: string } | undefined)?.model;
+      if (resolved) return p.provider ? `${p.provider}/${resolved}` : resolved;
+      return p.provider ? `${p.provider}/${p.model ?? 'default'}` : 'llm (provider unresolved — the call did not report a model)';
+    }
     case 'tool.invoke':
       return String(p.tool ?? 'tool');
     case 'service.call':
       return `${p.service ?? 'service'} ${String(p.method ?? 'GET')} ${p.path ?? ''}`.trim();
     case 'integration.invoke':
       return String(p.operation ?? 'integration');
-    case 'llm.invoke':
-      // Provider/model are often resolved at call time rather than configured,
-      // so this is the CONFIGURED value. The resolved one is recorded by
-      // llm-invoke itself when it differs.
-      return p.provider ? `${p.provider}/${p.model ?? 'default'}` : 'llm (provider resolved at call time)';
+    case 'assistant.route':
+      return `route -> ${p.targetAssistant ?? (p.fromContext ? `(from context.${p.contextKey ?? 'routeTarget'})` : 'unspecified')}`;
     case 'message.send':
       return 'message.send';
     default:

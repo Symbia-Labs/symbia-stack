@@ -16,7 +16,14 @@
     "build": "npx tsc",
     "dev": "npx tsc --watch"
   },
-  "keywords": ["symbia", "http", "express", "middleware", "server", "websocket"],
+  "keywords": [
+    "symbia",
+    "http",
+    "express",
+    "middleware",
+    "server",
+    "websocket"
+  ],
   "author": "Symbia",
   "license": "MIT",
   "description": "HTTP server, WebSocket, and middleware utilities for Symbia services",
@@ -33,11 +40,13 @@
     "typescript": "^5.7.2"
   },
   "peerDependencies": {
+    "@symbia/crypto": "*",
     "@symbia/logging-client": "*",
     "@symbia/relay": "*",
     "@symbia/sys": "*"
   },
   "devDependencies": {
+    "@symbia/crypto": "file:../symbia-crypto",
     "@symbia/logging-client": "file:../symbia-logging-client",
     "@symbia/relay": "file:../symbia-relay",
     "@symbia/sys": "file:../symbia-sys"

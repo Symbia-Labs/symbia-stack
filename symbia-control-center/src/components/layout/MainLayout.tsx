@@ -215,7 +215,6 @@ export function MainLayout({ activePanel, onPanelChange, children }: MainLayoutP
   const {
     networkConnectionStatus,
     loadedAssistants,
-    providers,
   } = useServices({
     enableAssistants: true,
     enableNetwork: false,
@@ -226,7 +225,7 @@ export function MainLayout({ activePanel, onPanelChange, children }: MainLayoutP
   const [collapsed, setCollapsed] = useState(false);
 
   // Activity tracking for modem-style lights
-  const { recentNetworkEvents } = useServicesStore();
+  const { recentNetworkEvents, integrations } = useServicesStore();
   const { messages } = useMessagingStore();
   const [msgActivity, setMsgActivity] = useState(false);
   const [netActivity, setNetActivity] = useState(false);
@@ -284,7 +283,7 @@ export function MainLayout({ activePanel, onPanelChange, children }: MainLayoutP
     { id: 'network', label: 'Network', icon: IconNetwork },
     { id: 'catalog', label: 'Catalog', icon: IconCatalog },
     { id: 'assistants', label: 'Assistants', icon: IconAssistants, badge: loadedAssistants.length },
-    { id: 'integrations', label: 'Integrations', icon: IconIntegrations, badge: providers.length },
+    { id: 'integrations', label: 'Integrations', icon: IconIntegrations, badge: integrations.length },
     { id: 'logs', label: 'Logs', icon: IconLogs },
     { id: 'chat', label: 'Chat', icon: IconChat },
   ];

@@ -8,6 +8,7 @@
  * lanes that only tighten. See ./components.ts for the registry.
  */
 
+import { preview } from './preview.js';
 import { v4 as uuid } from 'uuid';
 import { EventEmitter } from 'events';
 import type {
@@ -284,7 +285,7 @@ export class GraphExecutor extends EventEmitter {
             port,
             lane: outMsg.lane,
             ms,
-            summary: JSON.stringify(outMsg.value).slice(0, 160),
+            summary: preview(outMsg.value, 160),
           });
 
           const targets = edgesFrom.get(`${nodeId}:${port}`) ?? [];

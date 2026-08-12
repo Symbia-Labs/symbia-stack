@@ -16,6 +16,8 @@
   },
   "dependencies": {
     "@symbia/auth": "file:../symbia-auth",
+    "@symbia/crypto": "file:../symbia-crypto",
+    "@symbia/lineage": "file:../symbia-lineage",
     "@symbia/db": "file:../symbia-db",
     "@symbia/http": "file:../symbia-http",
     "@symbia/id": "file:../symbia-id",

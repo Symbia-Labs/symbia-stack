@@ -22,6 +22,7 @@
  * plausible is returned on the basis of nothing.
  */
 import { useAuthStore } from '@/stores/authStore';
+import { useOrgStore } from '@/stores/orgStore';
 import { fetchCapabilities, visionOptions } from './capabilities';
 import { currentSelection } from './visionConfig';
 
@@ -41,9 +42,14 @@ export interface VisionOutcome {
 
 function authHeaders(): Record<string, string> {
   const token = useAuthStore.getState().token;
+  // The integrations gateway is org-scoped: without X-Org-Id it refuses with
+  // "Organization context required" and the spyglass reads that as REFUSED
+  // (observed 9 Aug). Every other client already sends it; this one didn't.
+  const orgId = useOrgStore.getState().currentOrgId;
   return {
     'Content-Type': 'application/json',
     ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    ...(orgId ? { 'X-Org-Id': orgId } : {}),
   };
 }
 

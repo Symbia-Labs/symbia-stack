@@ -152,13 +152,21 @@ export function mountServiceProxies(app: Express): void {
           );
           proxyReq.setHeader('x-symbia-caller', 'control-center');
 
-          // NOW the body. This flushes headers, so nothing may setHeader after
-          // it. See the comment above.
-          fixRequestBody(proxyReq, req);
-
+          // Streaming responses (SSE, log tails) must not be buffered. Set this
+          // BEFORE the body flush too — it is a setHeader and would otherwise
+          // throw ERR_HTTP_HEADERS_SENT out of this handler and kill the
+          // process, the exact failure the comment below warns about. It was
+          // sitting AFTER fixRequestBody, so any proxied /stream or /events
+          // request crashed the whole control center (observed 9 Aug: a logout
+          // while log/chat streams were live took down 8000). Same class as the
+          // trace headers above; discipline 7, the sibling the first fix missed.
           if (req.url?.includes('/stream') || req.url?.includes('/events')) {
             proxyReq.setHeader('X-Accel-Buffering', 'no');
           }
+
+          // NOW the body. This flushes headers, so nothing may setHeader after
+          // it. See the comment above.
+          fixRequestBody(proxyReq, req);
           void res;
         },
         error: (err, _req, res) => {

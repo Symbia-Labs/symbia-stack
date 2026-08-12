@@ -14,9 +14,14 @@
 
 import { BaseActionHandler } from './base.js';
 import type { ActionConfig, ActionResult, ExecutionContext } from '../types.js';
-import { getLoadedAssistant } from '../../services/assistant-loader.js';
+import {
+  resolveAssistant,
+  getAllLoadedAssistants,
+  loadedAssistantKey,
+} from '../../services/assistant-loader.js';
 import { emitEvent } from '@symbia/relay';
 import { createMessagingClient } from '@symbia/messaging-client';
+import { sealDelegation, type ProvenanceStep } from '../provenance.js';
 
 interface AssistantRouteParams {
   // Target assistant key (e.g., 'log-analyst')
@@ -27,6 +32,14 @@ interface AssistantRouteParams {
   fromContext?: boolean;
   // Context key to read target from (default: 'routeTarget')
   contextKey?: string;
+  /**
+   * Context key holding the message text to forward, when it differs from what
+   * the person typed — e.g. after `context.resolve` substituted a
+   * back-reference. The specialist must receive the RESOLVED text, or it is
+   * handed "multiply that by 10" and refuses for the reason the resolution
+   * just removed.
+   */
+  contentKey?: string;
 }
 
 export class AssistantRouteHandler extends BaseActionHandler {
@@ -56,35 +69,79 @@ export class AssistantRouteHandler extends BaseActionHandler {
       return this.failure('No target assistant specified for routing', Date.now() - startTime);
     }
 
-    // Clean up the assistant key (remove @ prefix if present)
-    targetAssistant = targetAssistant.replace(/^@/, '').toLowerCase();
-
-    // Map common aliases
-    const aliasMap: Record<string, string> = {
-      'logs': 'log-analyst',
-      'log': 'log-analyst',
-      'catalog': 'catalog-search',
-      'search': 'catalog-search',
-      'debug': 'run-debugger',
-      'debugger': 'run-debugger',
-      'usage': 'usage-reporter',
-      'welcome': 'onboarding',
-      'onboard': 'onboarding',
-      'help': 'coordinator',
-      'builder': 'assistants-assistant',
-      'build': 'assistants-assistant',
-    };
-
-    targetAssistant = aliasMap[targetAssistant] || targetAssistant;
-
-    // Get target assistant configuration
-    const assistant = getLoadedAssistant(targetAssistant);
-    if (!assistant || !assistant.ruleSet) {
-      console.log(`[AssistantRoute] Target assistant '${targetAssistant}' not found or has no rules`);
-      return this.failure(`Assistant '${targetAssistant}' not found`, Date.now() - startTime);
+    // Resolve by key OR alias, against the registry. The hardcoded alias table
+    // that used to sit here mapped six of its seven targets to assistants that
+    // do not exist, and rewrote the real 'builder' into 'assistants-assistant'.
+    // See resolveAssistant() in assistant-loader for the measurement.
+    const requested = targetAssistant;
+    const resolved = resolveAssistant(requested);
+    if (!resolved || !resolved.ruleSet) {
+      const known = getAllLoadedAssistants()
+        .map((l) => {
+          const k = loadedAssistantKey(l);
+          return l.alias && l.alias !== k ? `${k} (@${l.alias})` : k;
+        })
+        .filter(Boolean)
+        .sort()
+        .join(', ');
+      // Name what was asked for AND what exists. "Assistant 'x' not found" sent
+      // an operator looking for a broken assistant when the real answer was
+      // that the name was never a name.
+      console.log(`[AssistantRoute] '${requested}' does not resolve. Loaded: ${known}`);
+      return this.failure(
+        `No assistant named '${requested}'. Loaded assistants: ${known}`,
+        Date.now() - startTime
+      );
     }
 
-    console.log(`[AssistantRoute] Routing message to ${targetAssistant} (reason: ${params.reason || 'user intent'})`);
+    targetAssistant = loadedAssistantKey(resolved)!;
+    const assistant = resolved;
+
+    // A conversation is not a place to discover a cycle.
+    //
+    // assistant.route forwards a message.new event that re-enters
+    // handleSDNMessageNew. Routing to yourself re-triggers the same ruleset on
+    // the same message, matches the same rule, and routes again — an unbounded
+    // loop that costs a model call per iteration and is only visible as a
+    // climbing bill. Refuse it at the boundary rather than relying on every
+    // future ruleset to be written carefully.
+    const selfKey = (context.event?.data as { assistantKey?: string } | undefined)?.assistantKey;
+    if (selfKey && selfKey === targetAssistant) {
+      return this.failure(
+        `Refusing to route to self ('${targetAssistant}') — that is an unbounded loop, not a delegation`,
+        Date.now() - startTime
+      );
+    }
+
+    // Second cycle guard: a message that arrived here BY routing does not get
+    // routed onward. One hop. Two assistants that each route to the other
+    // would otherwise ping-pong forever, and neither ruleset would look wrong
+    // on its own.
+    const alreadyRouted = (context.message?.metadata as { routedFrom?: string } | undefined)?.routedFrom;
+    if (alreadyRouted) {
+      return this.failure(
+        `Message was already routed by '${alreadyRouted}'; refusing a second hop`,
+        Date.now() - startTime
+      );
+    }
+
+    // SAY WHICH TIER DECIDED, NOT WHAT THE RULE HOPED.
+    //
+    // `reason` is a fixed string in the rule ("declared match"), so the log and
+    // the delegation's human-readable reason claimed a pattern match even when
+    // the classifier had decided. Found by reading the logs on 11 Aug:
+    // "Routing message to calculator (reason: declared match)" for a message no
+    // pattern matched.
+    //
+    // The structured `method` was right the whole time. A prose field
+    // disagreeing with the machine-readable field beside it is the defect this
+    // entire day has been about, and it was sitting in the routing log.
+    const tierReason =
+      (context.context[params.contextKey || 'routeTarget'] as { method?: string } | undefined)
+        ?.method === 'classifier'
+        ? 'classifier match'
+        : params.reason || 'declared match';
+    console.log(`[AssistantRoute] Routing message to ${targetAssistant} (reason: ${tierReason})`);
 
     try {
       const targetUserId = `assistant:${targetAssistant}`;
@@ -108,17 +165,113 @@ export class AssistantRouteHandler extends BaseActionHandler {
       // This triggers the target assistant to process the message and respond directly
       console.log(`[AssistantRoute] Forwarding message to ${targetAssistant} via SDN`);
 
+      // SEAL THE DECISION HERE, BECAUSE THERE IS NOWHERE ELSE.
+      //
+      // A reply is sealed inside message.send. This assistant will not send
+      // one — that is the whole point of delegating — so `suppressResponse`
+      // returns before any seal and `context.provenance` is discarded with the
+      // context. The specialist then starts a fresh ExecutionContext with an
+      // empty array. This is the only moment the decision exists.
+      //
+      // The steps recorded so far are the classifier's: whatever fetched the
+      // roster, and the model call that chose. The route itself is appended
+      // because rule-executor records a step only AFTER its handler returns,
+      // so at this instant the action doing the routing is not yet in its own
+      // provenance.
+      // What the specialist actually receives. Falls back to what the person
+      // typed, so a rule that does no resolution behaves exactly as before.
+      const resolved = params.contentKey
+        ? (context.context[params.contentKey] as { text?: string; resolved?: boolean } | undefined)
+        : undefined;
+      const forwardedContent =
+        resolved?.resolved && typeof resolved.text === 'string'
+          ? resolved.text
+          : context.message?.content;
+
+      const selfName =
+        selfKey ||
+        (context.metadata as { assistantKey?: string } | undefined)?.assistantKey ||
+        'coordinator';
+      const priorSteps = (context.provenance ?? []) as ProvenanceStep[];
+
+      // NAME THE DECIDER, AND SAY WHETHER IT CAN BE RUN AGAIN.
+      //
+      // A declared match is a function of the message and the registry: no
+      // model, no network, recomputable. A model choosing is none of those.
+      // Both are legitimate; reporting them the same way is not, because the
+      // lane the reply travels in depends on which happened.
+      const decision = context.context[params.contextKey || 'routeTarget'] as
+        | { matchedPattern?: string; method?: string; tieBroken?: boolean }
+        | undefined;
+      const modelSteps = priorSteps.filter((s) => s.action === 'llm.invoke');
+
+      // Two escalations, and only one of them leaves the canonical lane.
+      // `declaration` and `classifier` are both recomputable; a generative
+      // model is not. Reporting them with one flag was the error corrected in
+      // docs/2026-08-11-lean-deterministic.md.
+      const tier: 'addressed' | 'declaration' | 'classifier' | 'model' =
+        modelSteps.length > 0
+          ? 'model'
+          : decision?.method === 'addressed'
+            ? // Not an inference at all — the person named the assistant. The
+              // most reproducible routing there is, and it was being ignored.
+              'addressed'
+            : decision?.method === 'classifier'
+              ? 'classifier'
+              : 'declaration';
+
+      const decidedBy =
+        tier === 'addressed'
+          ? `you did — ${decision?.matchedPattern ?? 'addressed by name'}`
+          : tier === 'model'
+          ? modelSteps.map((s) => s.source).join(', ') || undefined
+          : tier === 'classifier'
+            ? `assistants.route (${decision?.matchedPattern ?? 'classifier'})`
+            : `assistants.route (declared pattern ${JSON.stringify(decision?.matchedPattern ?? '')}${decision?.tieBroken ? ', TIE BROKEN BY NAME' : ''})`;
+
+      const delegation = sealDelegation({
+        from: selfName,
+        to: targetAssistant,
+        reason: tierReason,
+        decidedBy: decidedBy || undefined,
+        method: tier,
+        causedBy: context.message?.id,
+        conversationId: context.conversationId,
+        steps: [
+          ...priorSteps,
+          {
+            id: (config as { id?: string }).id || 'assistant.route',
+            action: 'assistant.route',
+            source: `${selfName} -> ${targetAssistant}`,
+            ok: true,
+            by: selfName,
+          },
+        ],
+      });
+
       const forwardPayload = {
         conversationId: context.conversationId,
         message: {
           id: context.message?.id,
           sender_id: context.user?.id,
           sender_type: 'user' as const,
-          content: context.message?.content,
+          content: forwardedContent,
           created_at: new Date().toISOString(),
           metadata: {
-            routedFrom: 'coordinator',
+            // Carried so the specialist's reply can show that the question it
+            // answered is not word-for-word the question that was asked.
+            ...(forwardedContent !== context.message?.content
+              ? { resolvedFrom: context.message?.content }
+              : {}),
+            // Was the literal string 'coordinator' regardless of who routed,
+            // so the one surviving breadcrumb would have lied the moment
+            // anything else delegated.
+            routedFrom: selfName,
             routeReason: params.reason,
+            // The sealed decision travels with the message it caused. The
+            // specialist cannot have forged it and does not need to be trusted
+            // to describe it.
+            symbia: { delegation },
           },
         },
         // Target this specific assistant

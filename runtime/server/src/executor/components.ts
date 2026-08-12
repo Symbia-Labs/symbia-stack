@@ -19,6 +19,7 @@
  * reference implementation, flags left to author discipline were dropped at
  * two separate nodes, while the lane rule never once broke.
  */
+import { preview } from './preview.js';
 
 export type Lane = 'canonical' | 'apocryphal';
 
@@ -190,7 +191,7 @@ registerComponent({
   config: {},
   lanes: { out: { lane: 'inherit' } },
   handler: (input, ctx) => {
-    ctx.log(`[${ctx.nodeId}] ${JSON.stringify(input.value).slice(0, 200)}`);
+    ctx.log(`[${ctx.nodeId}] ${preview(input.value, 200)}`);
     return { out: input };
   },
 });

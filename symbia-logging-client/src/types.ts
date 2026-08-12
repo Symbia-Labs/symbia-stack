@@ -107,6 +107,23 @@ export type ObjectRefEntry = {
  */
 export interface TelemetryClient {
   /**
+   * Why the last telemetry flush failed, or null if the write path is healthy.
+   *
+   * Every method below is fire-and-forget: writes are queued and flushed in
+   * batches, so none of them can return an outcome. Until this existed, that
+   * meant a caller could not distinguish "persisted" from "silently
+   * discarded" — the client returned `null` on exhausted retries under a
+   * comment reading "Silent failure after retries exhausted", and that was the
+   * end of it.
+   *
+   * This is a HEALTH signal, deliberately not a per-write result. It answers
+   * "is the write path currently failing", which is the strongest honest claim
+   * a batching writer can make, and is what `sink.log` needs to route to an
+   * error port instead of reporting a success it cannot vouch for.
+   */
+  getLastError(): string | null;
+
+  /**
    * Log a message with level and optional metadata
    */
   log(level: string, message: string, metadata?: Record<string, unknown>): void;

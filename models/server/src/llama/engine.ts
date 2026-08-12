@@ -9,7 +9,10 @@
  */
 
 import { getLlama, LlamaChatSession, type Llama, type LlamaModel, type LlamaContext } from "node-llama-cpp";
-import { readdir, stat } from "fs/promises";
+import { readdir, stat, readFile, writeFile } from "fs/promises";
+import { createReadStream } from "fs";
+import { createHash } from "node:crypto";
+import { pipeline } from "node:stream/promises";
 import { join } from "path";
 import { config } from "../config.js";
 
@@ -23,10 +26,41 @@ export interface InferenceOptions {
   maxTokens?: number;
   topP?: number;
   stop?: string[];
+  /** Fixed sampling seed. Required for a run to be repeatable at temperature > 0. */
+  seed?: number;
+}
+
+/**
+ * Everything that has to be equal for two runs to be equal.
+ *
+ * Reported on every completion so a caller can record what it actually got
+ * rather than what it asked for. `temperature` defaulted to 0.7 and no seed
+ * existed, so identical inputs produced different outputs by design and
+ * nothing in the response said so.
+ *
+ * `reproducible` is the honest summary, and it is deliberately conservative:
+ * weights alone are not enough. Same digest on different hardware, kernels or
+ * quantisation can still diverge, so this claims only that the parameters
+ * WITHIN THIS SERVICE'S CONTROL were pinned. It is the `conditional` port lane
+ * applied to inference — canonical only when the conditions hold, and the
+ * conditions are named rather than assumed.
+ */
+export interface DecodeRecord {
+  modelDigest?: string;
+  temperature: number;
+  seed?: number;
+  topP?: number;
+  maxTokens: number;
+  engine: string;
+  reproducible: boolean;
+  /** Why not, when not. Written for someone reading a receipt. */
+  reproducibilityNote?: string;
 }
 
 export interface ChatCompletionResult {
   content: string;
+  /** What produced this, in terms that can be checked and re-run. */
+  decode?: DecodeRecord;
   finishReason: "stop" | "length" | "error";
   usage: {
     promptTokens: number;
@@ -40,6 +74,27 @@ export interface LocalModel {
   name: string;
   filename: string;
   filepath: string;
+  /**
+   * sha256 of the weights. THE MODEL'S ACTUAL IDENTITY.
+   *
+   * `id` is derived from the filename, which means identity has been a mutable
+   * path: rename a file and it is a different model, drop different weights at
+   * the same name and it is the same model. Nothing downstream could tell.
+   *
+   * Git's arrangement is the right one and it is the reason this is here.
+   * Content addressing first; names are refs that point at a digest and are
+   * allowed to move. `llama-3-8b` is a branch. `sha256:…` is the commit. A
+   * receipt must cite the commit.
+   *
+   * This is what makes "reproducible" checkable rather than asserted. Two
+   * parties can confirm they ran the same function before arguing about what
+   * it returned — and a wrong answer from a named digest is a defect with a
+   * reproduction, which is a thing engineering can hold. A wrong answer from a
+   * moving name is not.
+   */
+  digest?: string;
+  /** Bytes hashed, so a truncated or swapped file is visible without rehashing. */
+  sizeBytes?: number;
   contextLength: number;
   capabilities: string[];
   status: "available" | "loading" | "loaded" | "error";
@@ -56,6 +111,70 @@ interface LoadedModel {
   loadedAt: Date;
   lastUsed: Date;
   idleTimer?: NodeJS.Timeout;
+}
+
+/**
+ * Hash the weights, with a cache keyed on what would change if they changed.
+ *
+ * A GGUF is gigabytes and the scan runs at boot, so hashing unconditionally
+ * would make startup unusable and the digest would get dropped for being
+ * expensive — which is how a correctness property becomes optional. Cached on
+ * (path, size, mtime): the cheap facts that a swapped or truncated file
+ * cannot leave untouched.
+ *
+ * The cache lives beside the weights, so it moves with them and cannot be
+ * mistaken for authority — it is an index, not the record. Delete it and the
+ * digests come back identical, which is the test that it is only a cache.
+ */
+const digestCache = new Map<string, { digest: string; size: number; mtimeMs: number }>();
+let cacheLoaded = false;
+
+async function digestModel(
+  filepath: string,
+  size: number,
+  mtimeMs: number
+): Promise<string | undefined> {
+  const cachePath = join(config.modelsPath, '.digests.json');
+
+  if (!cacheLoaded) {
+    cacheLoaded = true;
+    try {
+      const raw = JSON.parse(await readFile(cachePath, 'utf8')) as Record<
+        string,
+        { digest: string; size: number; mtimeMs: number }
+      >;
+      for (const [k, v] of Object.entries(raw)) digestCache.set(k, v);
+    } catch {
+      // No cache yet. Not an error — the first scan pays for it.
+    }
+  }
+
+  const hit = digestCache.get(filepath);
+  if (hit && hit.size === size && hit.mtimeMs === mtimeMs) return hit.digest;
+
+  try {
+    const started = Date.now();
+    const hash = createHash('sha256');
+    await pipeline(createReadStream(filepath), hash);
+    const digest = hash.digest('hex');
+    console.log(`[llama] Hashed ${filepath} in ${Date.now() - started}ms -> sha256:${digest.slice(0, 16)}…`);
+
+    digestCache.set(filepath, { digest, size, mtimeMs });
+    try {
+      await writeFile(cachePath, JSON.stringify(Object.fromEntries(digestCache), null, 2));
+    } catch (err) {
+      console.warn(`[llama] Could not write digest cache: ${err instanceof Error ? err.message : err}`);
+    }
+    return digest;
+  } catch (err) {
+    // UNDEFINED, NOT A PLACEHOLDER.
+    //
+    // A model whose weights could not be read has no identity, and inventing
+    // one would put an unverifiable claim into every receipt that cites it.
+    // Callers must treat `undefined` as "this model cannot be cited".
+    console.error(`[llama] FAILED to hash ${filepath}: ${err instanceof Error ? err.message : err}`);
+    return undefined;
+  }
 }
 
 class LlamaEngine {
@@ -116,11 +235,15 @@ class LlamaEngine {
         // Derive model ID from filename
         const id = filename.replace(/\.gguf$/, "").toLowerCase().replace(/[^a-z0-9-]/g, "-");
 
+        const digest = await digestModel(filepath, fileStat.size, fileStat.mtimeMs);
+
         const model: LocalModel = {
           id,
           name: filename.replace(/\.gguf$/, ""),
           filename,
           filepath,
+          digest,
+          sizeBytes: fileStat.size,
           contextLength: 4096, // Default, will be updated when loaded
           capabilities: ["chat", "completion"],
           status: "available",
@@ -130,7 +253,9 @@ class LlamaEngine {
         };
 
         this.models.set(id, model);
-        console.log(`[llama] Registered model: ${id} (${model.memoryUsageMB}MB)`);
+        console.log(
+          `[llama] Registered model: ${id} (${model.memoryUsageMB}MB) ${digest ? `sha256:${digest.slice(0, 16)}…` : 'DIGEST UNAVAILABLE'}`
+        );
       }
     } catch (err) {
       console.error("[llama] Error scanning models:", err);
@@ -292,9 +417,26 @@ class LlamaEngine {
         throw new Error("No user message found");
       }
 
+      // DEFAULT TO REPRODUCIBLE.
+      //
+      // This defaulted to 0.7 with no seed, so the same question answered
+      // differently every time and nothing recorded that it had. A wrong
+      // answer under those conditions is not a defect anyone can act on —
+      // it cannot be reproduced, bisected, regression-tested, or shown to be
+      // fixed. It is noise.
+      //
+      // At temperature 0 with a fixed seed a wrong answer is a bug: it has a
+      // reproduction, it can be attached to a model digest, and it can be
+      // proven fixed. That is the entire argument for determinism here, and it
+      // is not an argument about accuracy. Callers wanting variety must now ask
+      // for it, and the DecodeRecord will say they did.
+      const temperature = options.temperature ?? 0;
+      const seed = options.seed ?? 0;
+
       const response = await session.prompt(lastUserMessage.content, {
         maxTokens: options.maxTokens || 2048,
-        temperature: options.temperature ?? 0.7,
+        temperature,
+        seed,
         stopOnAbortSignal: true,
         onTextChunk: (text) => {
           content += text;
@@ -309,8 +451,27 @@ class LlamaEngine {
       const promptText = messages.map((m) => m.content).join(" ");
       const promptTokens = Math.ceil(promptText.length / 4);
 
+      const digest = loaded.info.digest;
       return {
         content: response || content,
+        decode: {
+          modelDigest: digest,
+          temperature,
+          seed,
+          topP: options.topP,
+          maxTokens: options.maxTokens || 2048,
+          engine: 'node-llama-cpp',
+          // Both conditions, and neither is sufficient alone. Pinned decoding
+          // over unidentified weights cannot be re-run by anyone else; an
+          // identified model sampled at temperature cannot be re-run by
+          // anyone, including us.
+          reproducible: Boolean(digest) && temperature === 0,
+          reproducibilityNote: !digest
+            ? 'weights could not be hashed, so this model cannot be cited'
+            : temperature !== 0
+              ? `sampled at temperature ${temperature}; the same input may not produce this output again`
+              : undefined,
+        },
         finishReason: "stop",
         usage: {
           promptTokens,

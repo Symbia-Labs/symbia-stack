@@ -12,12 +12,13 @@
   },
   "dependencies": {
     "@symbia/auth": "file:../symbia-auth",
+    "@symbia/crypto": "file:../symbia-crypto",
     "@symbia/http": "file:../symbia-http",
     "@symbia/logging-client": "file:../symbia-logging-client",
     "@symbia/relay": "file:../symbia-relay",
     "@symbia/sys": "file:../symbia-sys",
-    "node-llama-cpp": "^3.3.0",
     "express": "^5.0.1",
+    "node-llama-cpp": "^3.3.0",
     "zod": "^3.24.2"
   },
   "devDependencies": {

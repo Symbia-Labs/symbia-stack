@@ -1,0 +1,13 @@
+{
+  "name": "@symbia/spyglass-agent",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Native spyglass — a full-desktop aperture that joins the Symbia mesh as a capture node. Milestone 1: the escape (overlay + region capture beyond the browser).",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron ."
+  },
+  "devDependencies": {
+    "electron": "^32.0.0"
+  }
+}
