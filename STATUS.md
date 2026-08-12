@@ -1,8 +1,8 @@
 # STATUS
 
 **What exists, what runs, and what is only written down.**
-Last verified: 11 August 2026, against a running stack and the code on
-`fix/2026-08-06-api-gaps` at `ea87e6d`.
+Last verified: 11 August 2026 (evening), against a running stack and the code on
+`fix/2026-08-06-api-gaps` at `9449ad6`.
 
 This file exists because the project outgrew anyone's ability to hold it in
 their head. Read this before anything else. If a claim here is wrong, that is a
@@ -154,11 +154,51 @@ a caller found five defects in the path, including three that made it
 structurally impossible for `condition`, `parallel` or `loop` to produce any
 reply at all. Full record: `docs/2026-08-10-orchestration-results.md`.
 
-**What it does not do:** nothing in the transcript or the provenance envelope
-records that a delegation happened, who decided, or why. A model chooses which
-assistant answers, and that choice is absent from the chain while every step
-after it is sealed. This is the platform's own claim failing at the point it
-matters, and it is the top of §10.
+~~**What it does not do:** nothing records that a delegation happened.~~
+**Closed 11 Aug — see §5b.**
+
+## 5b. The three-assistant roster — RUNS
+
+Added 11 Aug, and it is the first part of this platform that demonstrates the
+platform's own claim end to end. The catalog went from ten mostly-broken
+assistants to **three that work**: Coordinator (`symbia`), Calculator, and
+Smart Calculator. Applied by gated catalog write (`scripts/simplify-roster.mjs`),
+never by editing bootstrap JSON — see §6.1 for why that distinction is load-bearing.
+
+**Routing is deterministic in three tiers**, cheapest first: an explicit
+`@mention`, then declared patterns, then a naive-Bayes intent classifier with an
+out-of-domain class; a model is consulted only when all three decline. The
+classifier is *reproducible* — the same message routes the same way every time —
+which is the point. Reproducible inaccuracies are bugs, and bugs can be fixed.
+
+**Every reply carries a receipt.** Arena (`COMPUTED` / `RETRIEVED` / `COMPOSED` /
+`GENERATED` / `REFUSED`), the steps that produced it, and — new today — the
+routing decision itself, sealed as a GKS Lineage event chained per conversation
+(§4). The shared secret is gone: envelopes are canonical JSON signed with the
+service's ed25519 identity and verify from the envelope alone, with no
+server-side state.
+
+Standing evidence, re-run after every change: `scripts/verify-assistants.mts`.
+Latest — **11/11 predictions held**, P11 (delegation recorded) 7/7, P12 (seal
+verifies from the envelope alone) 10/10, P14 (signature verifies with the public
+key) 10/10, P13 (OEP enforcement) 11/11.
+
+**Rules gained control flow** (commit `9449ad6`): `onError`, `isDefault`, and
+`fallThrough`. `onError` had been declared in five rules since January and read
+by nothing — a declarative feature that appears to work and changes nothing is
+worse than an absent one, because it hides the need for the mechanism it
+represents. The first implementation of `fallThrough` produced **total silence**
+on a ceded turn, which is worse than the error it replaced; ceding now means
+"let someone better answer", never "let no one answer".
+
+**Twelve platform defects were found by making three assistants work**, most of
+them in code that had never had a caller. That ratio is the argument for
+behavioural tests over `grep`-based ones (§11).
+
+**Known gaps:** correction handling (`add 15% tip first` does not work — the
+sharpest open one), explanations repeat verbatim where declines escalate, and
+rule state is in-memory by ruling (persistence is a production prerequisite, not
+a defect). Records: `docs/2026-08-11-*.md`, `docs/proposals/assistant-data-model.md`.
 
 ## 6. Open defects — ranked
 
@@ -182,13 +222,16 @@ matters, and it is the top of §10.
    implementation that loads *only* the snapshot, ignores every
    `*-bootstrap.json`, and calls `db.delete(resources)` first. Running it
    silently reverts the coordinator to the January ruleset.
-2. **Calc passes raw message text to the evaluator** — `what is 2+2?` refuses
-   with `Invalid character: ?`; `2+2` computes. Converter has the same defect,
-   found 11 Aug: `convert 100 kilometers to miles` refuses with
-   `Invalid format. Use "10 km to miles"`.
-3. **A routing decision leaves no trace in the provenance envelope** (§5a).
-   The model that chooses the specialist is the least recorded step in the
-   chain, and every step after it is sealed.
+2. ~~**Calc passes raw message text to the evaluator**~~ — **FIXED 11 Aug.**
+   `normalizeMathInput` and `stripFiller` in `tool-invoke.ts` handle the
+   phrasing; `what is 2+2?`, `whats 15% tip on $47.50` and `split $120 between
+   4 people` all compute. Converter was removed from the roster (§5b) rather
+   than fixed. **Still open in the same area:** a correction mid-conversation
+   (`add 15% tip first`) is not understood.
+3. ~~**A routing decision leaves no trace in the provenance envelope**~~ —
+   **FIXED 11 Aug** (§5b). Every delegation is a signed GKS Lineage event
+   carrying the method (`mention` / `declaration` / `classifier` / `model`),
+   and the receipt names the resolved model when one was consulted.
 4. **`rule-platform-status` can never match, and now the cause is known.**
    Its pattern uses inline `(?i:…)` groups, which JavaScript does not support.
    `[ConditionEval] INVALID REGEX in condition — this rule can never match`.
@@ -256,7 +299,8 @@ the GKS Lineage grounding, all describing shipped behaviour. Then
 
 ## 9. Git
 
-- Working branch `fix/2026-08-06-api-gaps`, **122 commits ahead of `main`**.
+- Working branch `fix/2026-08-06-api-gaps`, **~140 commits ahead of `main`**
+  (18 added 11 Aug; count with `git rev-list --count main..HEAD`).
   `main` is 69 behind and every GitHub release (`v1.0.0`–`v1.2.0`, Jan–Feb 2026)
   predates the rebuild.
 - `work/2026-08-05-energy-and-honesty-repairs` — **stranded**, 25 commits never
@@ -265,25 +309,28 @@ the GKS Lineage grounding, all describing shipped behaviour. Then
 
 ## 10. What I would do next
 
-*Rewritten late on 10 Aug after the orchestration session. `docs/2026-08-11-plan.md`
-was written before it and its §1 rests on a diagnosis §6.1 now corrects.*
+*Rewritten 11 Aug (evening). Items 1 and 3 of the previous list are done (§5b);
+`docs/2026-08-11-plan.md` predates all of this and its §1 rests on a diagnosis
+§6.1 corrects.*
 
-1. **Put the routing decision in the provenance envelope** (§6.3). The envelope
-   already carries `steps`; a classification is a step. Right now the platform
-   seals what the specialist computed and says nothing about who chose the
-   specialist, which is sealing the wrong half.
+1. **Correction handling.** `add 15% tip first` is the sharpest open product
+   defect: the assistant answers the original question again rather than
+   revising it. It is where deterministic routing stops being enough, so it is
+   also the honest next test of the lean-deterministic thesis.
 2. **Decide what a bootstrap file is for** (§6.1). Either a gated catalog write
    is the only way to change a resource and the JSON files are a first-run seed
    that stops pretending otherwise, or file→DB reconciliation gets built
    deliberately. It is currently neither, and `npm run seed` will silently undo
-   a day's work.
-3. **Assistants accept natural language at their boundary.** Calc and Converter
-   both hand raw message text to a strict parser. Delegation makes this worse,
-   not better: routing now works, so the user reaches a specialist and *then*
-   gets refused on phrasing.
-4. Spyglass gesture interference.
-5. Two decisions that are not the assistant's: `@symbia/lineage` gets a caller
-   or gets parked, and `main` is 122 commits behind reality.
+   a day's work. Unchanged and still the most dangerous entry in this file.
+3. **The remaining rule questions**, deferred deliberately today: whether
+   first-match-wins should be the only strategy, whether conditions may call a
+   tool, whether the *routine* rather than the rule is the right unit, and where
+   a step id lives. Recorded in `docs/2026-08-11-rule-configuration-review.md`.
+4. **The assistant pool in the default catalog** — Brian has ideas here and we
+   have not had the conversation.
+5. Spyglass gesture interference.
+6. One decision that is not the assistant's: `main` is ~140 commits behind
+   reality.
 
 Everything else can wait.
 
@@ -346,8 +393,8 @@ stays — `scripts/check-staleness.mts` reads it.
   behavioural tests against a running stack. The browser walk found four real
   defects in an afternoon; this suite found none in six months.
 
-**Kept deliberately:** `tests/` — the ITT suite (intentions, transparency,
-trust, RLS isolation, secret handling). It is **not** in `workspaces`, so
-nothing runs it, and it has not been touched since 1 February. Kept because a
-trust-and-transparency suite is worth wiring into CI rather than discarding.
-Until it runs, it proves nothing, and this file should not imply otherwise.
+*A "Kept deliberately: `tests/`" paragraph stood here until 11 Aug, directly
+contradicting the removal entry four paragraphs above it. It was written before
+the decision changed and never updated. `tests/` is removed and recoverable from
+git history; the categories are worth rebuilding behaviourally, which is what
+`scripts/verify-assistants.mts` now does for the assistants (§5b).*
