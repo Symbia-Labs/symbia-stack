@@ -102,10 +102,10 @@ identity-versus-config. It is:
 org can be instantiated once, in one place — which is the whole failure
 `APP-MODEL` was written to prevent.
 
-`alias` is the interesting edge: `@calc` is part of what the artifact *is*, but
-two definitions could claim it in one stack. **Proposed:** the alias is
-declared on the definition and *bound* at instantiation, so a collision is an
-installation-time failure rather than a catalog-time one.
+`alias` sits on the **definition** and is **unique in the catalog**, like `key`.
+It is an authoring handle — its primary reader is someone building a rule, a
+graph or a template, not someone chatting — so it must resolve before any
+instance exists. See §2.2 for the ruling and its consequences.
 
 ### 2b. Instance — created to do work
 
@@ -125,7 +125,8 @@ installation-time failure rather than a catalog-time one.
   },
 
   "binding": {
-    "alias":       "calc",              // resolved here; collisions fail here
+    // No alias here — it is an authoring handle on the definition, unique in
+    // the catalog, and must resolve before any instance exists (§2.2).
     "llm":         "model:sha256:…" | null,
     "credentials": [ … ]                // resolved, org-scoped
   },
@@ -237,7 +238,7 @@ that already reserves `@` for a grammar with twelve namespaces.
 That is a naming collision in a codebase whose recurring defect is one fact in
 two places, and I made it without noticing.
 
-**Options, and I do not think this should be decided in passing:**
+**Options:**
 
 - **(i) Make it real Symbia Script.** Add an `@assistant` namespace resolving
   against the registry, so `@calc` is a ref like `@user.displayName` is. One
@@ -248,6 +249,55 @@ two places, and I made it without noticing.
   different worlds — but then the docs must say so, loudly.
 - **(iii) Do nothing and accept the ambiguity.** Cheapest today, and it is
   exactly how `energy.graph.pue` happened.
+
+#### Ruling in progress — (i), and the audience is the reason
+
+*Brian, 11 Aug: alias is most valuable inside Symbia Script, and in application
+development and system-integrator use cases — where the user is **building**,
+not using.*
+
+That settles it, and it also corrects two things I had backwards:
+
+**Alias is an authoring handle, not a chat affordance.** I built tier-0 mention
+routing this afternoon as an end-user convenience and treated that as the
+primary case. It is the *secondary* case — a nicety that reuses the builder's
+handle. The primary reader of `@calc` is someone wiring a rule, a graph, or a
+template.
+
+**So alias belongs to the definition, and it is catalog-unique.** My §2a
+proposal — declared on the definition, *bound at instantiation* so collisions
+fail at install time — is wrong under this reading. A builder writing `@calc`
+into a rule is referencing the **artifact**, at authoring time, before any
+instance exists. Uniqueness therefore has to hold in the catalog, exactly as
+`key` already does (`.unique()` on the column). Simpler than the binding
+scheme, and it fails at the moment a human can fix it.
+
+**And `@mention` was reserved for precisely this.** It sits in the namespace
+table resolving nothing, alongside `@component`, which has no `case` at all
+(`docs/SYMBIA-SCRIPT-QUICKSTART.md` §2). Two placeholders, both for addressing
+registry objects from script, both unwired.
+
+#### The one real cost: grammar
+
+Symbia Script is `@namespace.path`. So `@calc` parses as *namespace* `calc`,
+which is not what it means. The grammatical form is:
+
+```
+@assistant.calc                     → the definition
+@assistant.calc.routing.handles     → a field of it
+@assistant.calc.config.digest       → what a receipt would cite
+```
+
+That last line is the argument for doing it properly: an assistant becomes
+addressable in script the way `@catalog` is, so a rule can reference another
+assistant's declared capability rather than a copy of it. **That is the fifth
+roster-copy defect solved by grammar rather than by discipline.**
+
+Which leaves the chat form to decide: does a person type `@calc` or
+`@assistant.calc` in a conversation? Bare `@calc` in chat and `@assistant.calc`
+in script is the pragmatic answer — the mention router already resolves key or
+alias and can keep doing so — but it is two spellings of one handle, which is
+the shape of defect this codebase keeps producing. **Flagged, not decided.**
 
 #### And the short key is still derived
 
@@ -375,8 +425,10 @@ Additive first, destructive last, so nothing breaks in between.
 5. ~~**`orgId`**~~ — **answered by §2.** It belongs to the instance and was
    never a property of the artifact. Every assistant carrying `orgId: null`
    today was the model being right by accident.
-6. **`@calc` — chat mention or Symbia Script ref?** (§2.2) One character,
-   two grammars, and I put the second one there today without noticing the
-   first. This wants deciding before more of the product leans on `@`.
+6. ~~**`@calc` — chat mention or Symbia Script ref?**~~ — **ruled (i) in §2.2:
+   a Symbia Script ref.** The audience decided it: alias is for people
+   *building*. What remains open is only the chat spelling — bare `@calc` in a
+   conversation versus `@assistant.calc` in script is two spellings of one
+   handle, which is the defect shape this codebase keeps producing.
 7. **Does the short key get stored, or does the loader refuse collisions?**
    (§2.2) Nesting is permitted and the reduction is unguarded.
