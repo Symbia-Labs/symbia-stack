@@ -56,12 +56,13 @@ An auditable handoff, not a mutation.
 ### The BBMD-derived model, and where Symbia improves on it
 
 BACnet's BBMD solves "broadcasts don't cross subnets" with a peer table
-(BDT), a foreign-device table (FDT), and a forwarder — fused in one device.
+(the Broadcast Distribution Table, BDT), a foreign-device table (FDT), and a
+forwarder — fused in one device.
 Symbia keeps the tables and splits the device:
 
 | plane | service | holds |
 |---|---|---|
-| **Control** | Directory service (5010) | peer directory (BDT), foreign-node table (FDT, TTL-leased), admission — *who may federate, with whom, over what* |
+| **Control** | Directory service (5010) | peer directory (the BDT analogue), foreign-node table (the FDT analogue, TTL-leased), admission — *who may federate, with whom, over what* |
 | **Data** | Bridge node | forwarding only; consults the directory per event; **carries no policy of its own** |
 
 A crashed or compromised bridge cannot change who may federate; a peer can
