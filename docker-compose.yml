@@ -307,6 +307,9 @@ services:
       CATALOG_SERVICE_URL: http://catalog:5003
       LOGGING_SERVICE_URL: http://logging:5002
       INTEGRATIONS_SERVICE_URL: http://integrations:5007
+      # Completions go through the broker, which knows what each model will
+      # accept. LLM_VIA_MODELS=0 restores the direct integrations call.
+      MODELS_SERVICE_URL: http://models:5008
       MESSAGING_SERVICE_URL: http://messaging:5005
       # Added 7 Aug 2026. Without these, service.call from a rule resolved
       # runtime and network to localhost INSIDE the assistants container and

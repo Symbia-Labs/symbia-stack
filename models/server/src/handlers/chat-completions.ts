@@ -74,13 +74,19 @@ async function handleRemote(
     { token: bearer, orgId: typeof orgId === "string" ? orgId : undefined }
   );
 
-  if (result.droppedParams.length) {
-    console.log(
-      `[chat] ${opts.provider}/${opts.model} — dropped ${result.droppedParams
-        .map((d) => d.param)
-        .join(", ")}`
-    );
-  }
+  // EVERY BROKERED COMPLETION SAYS SO.
+  //
+  // This logged only when a parameter was dropped, so a successful brokered
+  // call left no trace — and after stage 3 switched the assistants service
+  // over, there was no way to tell from the outside whether completions were
+  // going through the broker or still going direct to integrations. Absence of
+  // evidence read as evidence, which is the one inference this project bans.
+  console.log(
+    `[chat] brokered ${opts.provider}/${opts.model} -> ran ${result.model}` +
+      (result.droppedParams.length
+        ? ` — dropped ${result.droppedParams.map((d) => `${d.param} (${d.reason})`).join(", ")}`
+        : "")
+  );
 
   res.json({
     id: `chatcmpl-${Date.now()}`,
