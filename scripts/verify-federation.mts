@@ -17,9 +17,12 @@
  * in-memory, so a restart clears them.
  */
 
-const IDENTITY = process.env.IDENTITY_URL || 'http://localhost:5001';
-const NETWORK = process.env.NETWORK_URL || 'http://localhost:5009';
-const DIRECTORY = process.env.DIRECTORY_URL || 'http://localhost:5010';
+// 127.0.0.1, not localhost: the services bind 0.0.0.0 (IPv4), and Node 20+
+// may resolve localhost to ::1 first — observed as `fetch failed` on the EC2
+// stack while the same URL shape worked through docker's dual-stack binding.
+const IDENTITY = process.env.IDENTITY_URL || 'http://127.0.0.1:5001';
+const NETWORK = process.env.NETWORK_URL || 'http://127.0.0.1:5009';
+const DIRECTORY = process.env.DIRECTORY_URL || 'http://127.0.0.1:5010';
 const EMAIL = process.env.SYMBIA_EMAIL || 'dev@example.com';
 const PASSWORD = process.env.SYMBIA_PASSWORD;
 
