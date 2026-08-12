@@ -4,33 +4,58 @@
 
 import type { Request, Response } from "express";
 import { getEngine } from "../llama/engine.js";
+import { unifiedRegistry } from "../registry.js";
 
 /**
- * List all available models (OpenAI-compatible format)
+ * List all available models — local AND remote (OpenAI-compatible format).
+ *
+ * Listed only local models until 12 Aug 2026, which is why `/v1/models`
+ * returned `{"data": []}` on a stack with three usable remote providers
+ * configured. The service named for models could not see most of them.
+ *
+ * THE OPENAI SHAPE IS KEPT AND EXTENDED, NOT REPLACED. Every entry still has
+ * `id` / `object` / `created` / `owned_by`, so an OpenAI-compatible client
+ * reads this without knowing anything about Symbia. The fields that shape
+ * cannot carry — where a model runs, whether this service can actually execute
+ * it, whether it is available to the caller — go under a single `symbia` key
+ * rather than being scattered as loose extensions, so it is obvious which half
+ * of the response is standard and which is ours.
+ *
+ * `symbia.brokered` is the load-bearing one. It is `false` for every remote
+ * model today: they are LISTED, and this service cannot yet execute them.
+ * Listing is not offering, and a registry that implied otherwise would be the
+ * "registered ≠ running" defect this codebase already carries twice.
  */
 export async function handleListModels(
   req: Request,
   res: Response
 ): Promise<void> {
   try {
-    const engine = getEngine();
-    const models = await engine.listModels();
+    const entries = await unifiedRegistry();
 
-    // OpenAI-compatible response format
     const response = {
       object: "list",
-      data: models.map((model) => ({
-        id: model.id,
+      data: entries.map((e) => ({
+        id: e.id,
         object: "model",
-        created: model.createdAt ? Math.floor(new Date(model.createdAt).getTime() / 1000) : 0,
-        owned_by: "symbia-labs",
+        created: e.createdAt ? Math.floor(new Date(e.createdAt).getTime() / 1000) : 0,
+        owned_by: e.provider,
         permission: [],
-        root: model.id,
+        root: e.id,
         parent: null,
-        // Extended fields
-        capabilities: model.capabilities,
-        context_length: model.contextLength,
-        status: model.status,
+        // Extended fields, kept for existing readers
+        capabilities: e.capabilities,
+        context_length: e.contextLength,
+        status: e.status,
+        // Symbia-native, in one place
+        symbia: {
+          source: e.source,
+          provider: e.provider,
+          brokered: e.brokered,
+          availability: e.availability,
+          availabilityReason: e.availabilityReason,
+          operations: e.operations,
+        },
       })),
     };
 
