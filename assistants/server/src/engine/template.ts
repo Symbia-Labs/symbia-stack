@@ -18,6 +18,10 @@ import {
   type RefValidation,
 } from '@symbia/sys';
 import type { ExecutionContext } from './types.js';
+import {
+  getAllLoadedAssistants,
+  loadedAssistantKey,
+} from '../services/assistant-loader.js';
 
 /**
  * Convert ExecutionContext to ResolutionContext for Symbia Script
@@ -72,6 +76,25 @@ export function toResolutionContext(ctx: ExecutionContext): ResolutionContext {
 
     // Pass through catalog data if available
     catalog: ctx.catalog,
+
+    /**
+     * The assistant registry, so `@assistant.calc.routing.handles` resolves.
+     *
+     * Injected here rather than fetched in `symbia-sys`, which is a grammar
+     * and must not become a client — the same arrangement `catalog` already
+     * uses.
+     *
+     * A rule can now READ another assistant's declaration instead of holding a
+     * copy of it. Five roster copies have been deleted from this codebase and
+     * every fix was discipline; this one is grammar.
+     */
+    assistants: getAllLoadedAssistants().map((l) => ({
+      key: loadedAssistantKey(l),
+      alias: l.alias,
+      name: l.resource?.name,
+      description: l.resource?.description,
+      routing: (l.resource?.metadata as { routing?: Record<string, unknown> } | undefined)?.routing,
+    })),
 
     // Expose steps at top level for template access ({{steps.step-id.result}})
     // This allows action results to be referenced by subsequent actions

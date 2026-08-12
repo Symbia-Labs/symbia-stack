@@ -47,6 +47,22 @@ export const SymbiaNamespace = {
   CATALOG: 'catalog',
   ENTITY: 'entity',     // Entity directory resolution (@entity.log-analyst → entityId)
   MENTION: 'mention',   // @mention syntax sugar for @entity (@log-analyst → entityId)
+  /**
+   * Assistants, addressable by alias or key.
+   *
+   * `@assistant.calc.routing.handles` reads what Calculator DECLARES it does.
+   * The point is that a rule can reference another assistant's declaration
+   * instead of holding a copy of it — this codebase has killed the same
+   * roster-copy defect five times (a literal array in `assistants.list`, the
+   * coordinator's help text, an orchestrate prompt, two alias tables), and
+   * every fix was discipline. This one is grammar, which does not lapse.
+   *
+   * Added 11 Aug 2026. The prompt was a challenge worth recording: if 99% of
+   * authoring happens through typeahead, does the namespace matter? It matters
+   * *because* of typeahead — `getRefSuggestions()` can only offer what is a
+   * namespace, so without this, autocomplete cannot offer assistants at all.
+   */
+  ASSISTANT: 'assistant',
 } as const;
 
 export type SymbiaNamespace = (typeof SymbiaNamespace)[keyof typeof SymbiaNamespace];
@@ -139,6 +155,21 @@ export interface ResolutionContext {
   catalog?: {
     resources?: Record<string, unknown>[];
   };
+
+  /**
+   * The assistant registry, injected the same way `catalog` is.
+   *
+   * `symbia-sys` must not know how to fetch this — it is a grammar, not a
+   * client. The assistants service injects what it has already loaded.
+   */
+  assistants?: Array<{
+    key?: string;
+    alias?: string;
+    name?: string;
+    description?: string;
+    routing?: Record<string, unknown>;
+    [k: string]: unknown;
+  }>;
 }
 
 /**
@@ -374,6 +405,79 @@ export function getNestedValue(obj: unknown, path: string | string[]): unknown {
 }
 
 /**
+ * Resolve `@assistant.<alias|key>[.path]`.
+ *
+ * `@assistant`                      → every loaded assistant
+ * `@assistant.calc`                 → one, by alias OR by short key
+ * `@assistant.calc.routing.handles` → a field of its declaration
+ *
+ * Matching accepts **alias or key** because that is what a person building a
+ * rule will reach for, and because `resolveAssistant()` in the assistants
+ * service already accepts both — one behaviour, not two.
+ *
+ * FAILS RATHER THAN RETURNING EMPTY. `interpolate()` renders an unresolved ref
+ * as `''`, which is how a template silently produced a prompt with every label
+ * present and every value blank (8 Aug, the Platform Status defect). A
+ * misspelled assistant name is an authoring error and should say so: the error
+ * names what was asked for and what exists, exactly as `assistant.route` does.
+ */
+function resolveAssistantRef(segments: string[], ctx: ResolutionContext): ResolvedValue {
+  const registry = ctx.assistants;
+  if (!registry) {
+    return {
+      success: false,
+      error:
+        'No assistant registry in this context. It is injected by the assistants service; ' +
+        'a context built elsewhere cannot resolve @assistant.',
+    };
+  }
+
+  if (segments.length === 0) return { success: true, value: registry };
+
+  const [wanted, ...rest] = segments;
+  const needle = String(wanted).toLowerCase();
+  // NORMALISE BOTH SIDES. The registry may hold a short key (`calculator`) or
+  // a full catalog key (`assistants/calculator`), and the author may write
+  // either — so reduce each to its last segment before comparing rather than
+  // splitting one and hoping. The first version split only the stored key and
+  // failed on `@assistant.assistants/calculator`.
+  //
+  // FULL CATALOG KEYS ARE NOT ADDRESSABLE HERE, and that is the grammar's
+  // decision rather than an omission. `splitPath` treats `/` as the start of a
+  // URL-like path — which is what makes `@service.logging./logs?limit=10`
+  // work — so `@assistant.assistants/calculator` parses as segments
+  // ['assistants', '/calculator'] and can never match.
+  //
+  // Rather than special-case it, this accepts the **alias** and the **short
+  // key**, which is what an author writes anyway. It is also a concrete reason
+  // the alias earns its place: it is the only handle for an assistant that is
+  // expressible in this grammar.
+  const tail = (s?: string) => s?.toLowerCase().split('/').pop();
+  const found = registry.find(
+    (a) =>
+      a.alias?.toLowerCase() === needle ||
+      a.key?.toLowerCase() === needle ||
+      tail(a.key) === needle
+  );
+
+  if (!found) {
+    const known = registry
+      .map((a) => a.alias || a.key)
+      .filter(Boolean)
+      .sort()
+      .join(', ');
+    return {
+      success: false,
+      error: `No assistant '${wanted}'. Loaded: ${known || '(none)'}`,
+    };
+  }
+
+  return rest.length === 0
+    ? { success: true, value: found }
+    : { success: true, value: getNestedValue(found, rest) };
+}
+
+/**
  * Resolve a catalog reference
  * Supports: @catalog.component[key], @catalog.graph[key].property, etc.
  */
@@ -441,6 +545,9 @@ export function resolveRef(
   const { namespace, segments } = parsed;
 
   switch (namespace) {
+    case SymbiaNamespace.ASSISTANT:
+      return resolveAssistantRef(segments, ctx);
+
     case SymbiaNamespace.CONTEXT:
       return { success: true, value: getNestedValue(ctx.context, segments) };
 
@@ -652,6 +759,28 @@ export function interpolateObject<T extends Record<string, unknown>>(
  */
 export function getNamespaces(): NamespaceInfo[] {
   return [
+    {
+      // Listed FIRST because this is the one a builder reaches for, and
+      // because it is the whole reason the namespace exists: typeahead can
+      // only offer what appears here.
+      name: SymbiaNamespace.ASSISTANT,
+      description: 'Assistants, by alias or key — read what one declares',
+      examples: [
+        '@assistant.calc',
+        '@assistant.calc.routing.handles',
+        '@assistant.smartcalc.description',
+      ],
+      async: false,
+      children: [
+        { path: 'name', description: 'Display name', type: 'value' },
+        { path: 'description', description: 'What it is, in prose', type: 'value' },
+        { path: 'alias', description: 'Its @handle', type: 'value' },
+        { path: 'routing', description: 'What it declares it handles', type: 'object' },
+        { path: 'routing.handles', description: 'One line, in a user\'s terms', type: 'value' },
+        { path: 'routing.patterns', description: 'Exact-match patterns', type: 'object' },
+        { path: 'routing.precedence', description: 'Who wins when several match', type: 'value' },
+      ],
+    },
     {
       name: SymbiaNamespace.CONTEXT,
       description: 'Execution context data',
