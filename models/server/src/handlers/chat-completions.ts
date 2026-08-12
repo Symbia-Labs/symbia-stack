@@ -5,6 +5,124 @@
 import type { Request, Response } from "express";
 import { z } from "zod";
 import { getEngine } from "../llama/engine.js";
+import { executeRemoteChat } from "../remote.js";
+
+/**
+ * Providers this service will broker to, by name.
+ *
+ * Deliberately a fixed set rather than "anything with a slash": local model
+ * files legitimately contain slashes (`meta-llama/Llama-3.2-3B-Instruct`), so
+ * treating every slash as a provider prefix would route local models to the
+ * network. Kept in step with `/api/integrations/providers`.
+ */
+const REMOTE_PROVIDERS = new Set(["openai", "anthropic", "huggingface"]);
+
+/**
+ * Execute a remote completion by delegating to integrations.
+ *
+ * The caller's bearer is forwarded and nothing is stored. Without one this
+ * refuses rather than guessing: integrations resolves credentials per user and
+ * org, so an unauthenticated remote call has no identity to resolve against,
+ * and saying so is more useful than a 500 from two services away.
+ */
+async function handleRemote(
+  req: Request,
+  res: Response,
+  opts: {
+    provider: string;
+    model: string;
+    messages: Array<{ role: string; content: string }>;
+    temperature?: number;
+    maxTokens?: number;
+    stream?: boolean;
+  }
+): Promise<void> {
+  const bearer = req.headers.authorization?.startsWith("Bearer ")
+    ? req.headers.authorization.slice(7)
+    : undefined;
+
+  if (!bearer) {
+    res.status(401).json({
+      error: {
+        message:
+          `Remote model '${opts.provider}/${opts.model}' requires an Authorization header. ` +
+          `Credentials are resolved per user and organisation by the integrations service; ` +
+          `this service forwards your token and holds no key of its own.`,
+        type: "invalid_request_error",
+        code: "authentication_required",
+      },
+    });
+    return;
+  }
+
+  if (opts.stream) {
+    // Said plainly rather than silently answering non-streamed. A caller that
+    // asked for a stream and got one response would look like a hang.
+    res.status(400).json({
+      error: {
+        message:
+          "Streaming is not yet supported for remote models. The integrations execute API " +
+          "returns a complete response; streaming remote completions is not built.",
+        type: "invalid_request_error",
+        code: "streaming_unsupported",
+      },
+    });
+    return;
+  }
+
+  const orgId = req.headers["x-org-id"];
+  const result = await executeRemoteChat(
+    {
+      provider: opts.provider,
+      model: opts.model,
+      messages: opts.messages,
+      temperature: opts.temperature,
+      maxTokens: opts.maxTokens,
+    },
+    { token: bearer, orgId: typeof orgId === "string" ? orgId : undefined }
+  );
+
+  if (result.droppedParams.length) {
+    console.log(
+      `[chat] ${opts.provider}/${opts.model} — dropped ${result.droppedParams
+        .map((d) => d.param)
+        .join(", ")}`
+    );
+  }
+
+  res.json({
+    id: `chatcmpl-${Date.now()}`,
+    object: "chat.completion",
+    created: Math.floor(Date.now() / 1000),
+    model: result.model,
+    choices: [
+      {
+        index: 0,
+        message: { role: "assistant", content: result.content },
+        finish_reason: result.finishReason ?? "stop",
+      },
+    ],
+    usage: result.usage
+      ? {
+          prompt_tokens: result.usage.promptTokens,
+          completion_tokens: result.usage.completionTokens,
+          total_tokens:
+            result.usage.totalTokens ??
+            result.usage.promptTokens + result.usage.completionTokens,
+        }
+      : undefined,
+    // Receipt material the OpenAI shape has no room for. Parameters the broker
+    // refused to send are part of what happened, and a caller that asked for
+    // temperature 0 and silently got the provider default could never find out.
+    symbia: {
+      source: "remote",
+      provider: opts.provider,
+      requestedModel: `${opts.provider}/${opts.model}`,
+      ranModel: result.model,
+      droppedParams: result.droppedParams,
+    },
+  });
+}
 
 const chatCompletionRequestSchema = z.object({
   model: z.string(),
@@ -14,8 +132,18 @@ const chatCompletionRequestSchema = z.object({
       content: z.string(),
     })
   ),
-  temperature: z.number().min(0).max(2).optional().default(0.7),
-  max_tokens: z.number().positive().optional().default(2048),
+  // ABSENT MEANS ABSENT — no default.
+  //
+  // This read `.default(0.7)`, so every request that did not mention
+  // temperature acquired one. That is the precise failure measured on 12 Aug
+  // against claude-sonnet-5 ("`temperature` is deprecated for this model"),
+  // and it was sitting in the front door of the service meant to prevent it.
+  //
+  // A default nobody asked for is not a convenience; it is an unrequested
+  // claim about how the caller wants the model to behave, and for some models
+  // it is a hard error.
+  temperature: z.number().min(0).max(2).optional(),
+  max_tokens: z.number().positive().optional(),
   stream: z.boolean().optional().default(false),
   top_p: z.number().min(0).max(1).optional(),
   frequency_penalty: z.number().min(-2).max(2).optional(),
@@ -41,6 +169,24 @@ export async function handleChatCompletions(
     }
 
     const { model, messages, temperature, max_tokens, stream, stop } = parsed.data;
+
+    // REMOTE MODELS ARE ADDRESSED `provider/model`, AS THE REGISTRY PUBLISHES
+    // THEM. Anything without a known provider prefix is local, which keeps
+    // every existing local caller working unchanged.
+    const slash = model.indexOf("/");
+    const maybeProvider = slash > 0 ? model.slice(0, slash) : null;
+    if (maybeProvider && REMOTE_PROVIDERS.has(maybeProvider)) {
+      await handleRemote(req, res, {
+        provider: maybeProvider,
+        model: model.slice(slash + 1),
+        messages,
+        temperature,
+        maxTokens: max_tokens,
+        stream,
+      });
+      return;
+    }
+
     const engine = getEngine();
 
     if (stream) {
