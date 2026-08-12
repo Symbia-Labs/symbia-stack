@@ -227,7 +227,8 @@ services:
       retries: 3
 
   # Directory Service - Federation control plane (peer directory, foreign-node
-  # table, admission). No database; holds federation state in memory.
+  # table, admission). No database; peers journal to JSONL, foreign nodes are
+  # TTL-leased in memory on purpose.
   directory:
     build:
       context: .
@@ -246,6 +247,10 @@ services:
       # identity each time — measured 10 Aug 2026: force-recreate changed
       # directory from 7d9b4cf2... to d7366b1c...
       - identity_directory:/app/.identity
+      # Peer journal (peers.jsonl). A peer declaration is a recorded decision;
+      # measured 12 Aug 2026: a routine service restart emptied the in-memory
+      # table mid-measurement and every federation forward failed closed.
+      - directory_data:/app/data
     healthcheck:
       test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://127.0.0.1:5010/health/live"]
       interval: 30s
@@ -491,6 +496,7 @@ services:
 volumes:
   postgres_data:
   models_data:
+  directory_data:
   identity_identity:
   identity_logging:
   identity_catalog:
