@@ -17,6 +17,7 @@ import {
 import { defaultCoordinator } from '../engine/run-coordinator.js';
 import { remember } from '../engine/conversation-memory.js';
 import { DECLINED } from '../engine/conversational-turns.js';
+import { seal, type ProvenanceStep, type DelegationRecord } from '../engine/provenance.js';
 import {
   getLoadedAssistant,
   getAllLoadedAssistants,
@@ -662,6 +663,8 @@ async function processMessageForAssistant(
   let provenance: unknown = null;
   let errorMessage: string | null = null;
   let suppressResponse = false;
+  /** Every action this run executed, for the refusal path to seal over. */
+  const refusalSteps: ProvenanceStep[] = [];
 
   for (const ruleResult of result.results) {
     if (!ruleResult.matched) continue;
@@ -708,6 +711,23 @@ async function processMessageForAssistant(
         errorMessage = action.error;
         console.error(`[SDN] Action ${action.actionType} failed: ${action.error}`);
       }
+      // WHAT HAPPENED, KEPT FOR THE REFUSAL'S RECEIPT.
+      //
+      // The refusal envelope below used to carry `steps: []` — so a refusal
+      // could say it declined but not what it tried first. These are the same
+      // actions, recorded whether they succeeded or not, so a refused reply
+      // shows the three service calls that worked and the one that did not.
+      refusalSteps.push({
+        id: action.actionType,
+        action: action.actionType,
+        source: action.actionType,
+        ok: action.success,
+        // flattenActionResults widens to ActionResultLike, which does not
+        // carry a duration. Read it defensively rather than widening the type
+        // for a field the refusal receipt can do without.
+        ms: (action as { durationMs?: number }).durationMs ?? 0,
+        error: action.success ? undefined : action.error,
+      });
     }
   }
 
@@ -748,23 +768,40 @@ async function processMessageForAssistant(
       payload.message as { metadata?: { symbia?: { delegation?: unknown } } }
     ).metadata?.symbia?.delegation;
 
-    provenance = {
-      arena: 'REFUSED',
-      basis: declined
-        ? `declined deliberately: ${errorMessage}`
-        : `could not complete: ${errorMessage}`,
-      steps: [],
-      delegation: inboundDelegation,
+    // A REFUSAL IS SEALED LIKE ANY OTHER ANSWER.
+    //
+    // This envelope was hand-built with `hash: null`, and the comment defending
+    // it argued that an unsealed marker was the honest option because
+    // `message.send` is what seals and a refusal never reaches one. Honest
+    // about the omission, and the omission was the defect: **the one reply
+    // class that could not be verified was the one where the platform declines
+    // to make a claim.** REFUSED is what OEP prescribes when a claim cannot be
+    // supported, so it carries more weight than any other arena, and it could
+    // be altered or forged with nothing to detect it.
+    //
+    // Invisible until 12 Aug because the walk counted `sealValid !== null` and
+    // `signed` — an unsealed reply dropped out of both denominators, so both
+    // read 10/10 while one reply in eleven had no receipt at all.
+    //
+    // Now sealed by the same function, over the same canonical JSON, signed
+    // with the same service identity, and verifiable by the same code path.
+    provenance = seal({
+      content: responseContent,
+      steps: refusalSteps,
+      contentFromModel: false,
+      // Stated, not inferred: no message.send produced content. classify()
+      // only returns REFUSED when EVERY step failed, so a refusal following
+      // three good service.calls and one bad llm.invoke would classify wrong.
+      refusal: {
+        basis: declined
+          ? `declined deliberately: ${errorMessage}`
+          : `could not complete: ${errorMessage}`,
+      },
+      delegation: inboundDelegation as DelegationRecord | undefined,
       assistant: assistantKey,
       runId,
       causedBy: payload.message.id,
-      timestamp: new Date().toISOString(),
-      // Still unsealed, and still saying so. The reply envelope's seal is
-      // computed inside message.send; a rule that never reached one has
-      // nothing to seal. `hash: null` is the honest marker for that, and the
-      // console renders it as "unsealed".
-      hash: null,
-    };
+    });
   }
 
   // REMEMBER THE VALUE, NOT THE PROSE.

@@ -621,6 +621,21 @@ export function seal(input: {
   runId?: string;
   causedBy?: string;
   delegation?: DelegationRecord;
+  /**
+   * This reply is a refusal, and that is known rather than inferred.
+   *
+   * `classify()` reads the arena off the steps, which is right when the steps
+   * are what happened. A refusal reached from the webhook error path is
+   * different: no `message.send` produced content, and THAT is the fact. It
+   * cannot be inferred reliably — `classify` only returns REFUSED when every
+   * step failed, so a refusal that follows three successful `service.call`s
+   * and one failed `llm.invoke` would classify as something else entirely.
+   *
+   * Added 12 Aug because refusals were being sealed by nobody. The webhook
+   * built its own envelope with `hash: null`, and a comment three lines above
+   * it claimed the refusal path "says so with a sealed envelope". It did not.
+   */
+  refusal?: { basis: string };
 }): ProvenanceEnvelope {
   // The delegation's own steps come first, tagged with who ran them, so the
   // reply's chain is the WHOLE causal chain rather than the half that happened
@@ -661,7 +676,8 @@ export function seal(input: {
   // The envelope still carries and hashes the full chain; only the arena
   // narrows. The delegation is already disclosed separately in `basis`.
   const classified = classify(input.steps, input.contentFromModel, input.delegation, input.rule);
-  const arena = classified.arena;
+  // A stated refusal outranks an inferred arena. See `refusal` above.
+  const arena = input.refusal ? 'REFUSED' : classified.arena;
 
   // THE ARENA DESCRIBES THE VALUE. THE BASIS MUST DISCLOSE THE WORDING.
   //
@@ -673,7 +689,7 @@ export function seal(input: {
   //
   // So the value keeps its lane and the sentence says who chose the words.
   const basis =
-    classified.basis +
+    (input.refusal ? input.refusal.basis : classified.basis) +
     (input.presentation?.ornamentedBy
       ? ` The wording you are reading was written by ${input.presentation.ornamentedBy}` +
         `${input.presentation.relayedBy ? ` relaying for ${input.presentation.relayedBy}` : ''}` +
