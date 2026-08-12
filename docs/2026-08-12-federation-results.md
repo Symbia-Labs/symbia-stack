@@ -57,6 +57,24 @@ bridge and the mirrored proxy node on each stack's registry — the EC2
 console's topology should show `peerLocal:directory` and the local console
 `peerEc2:directory`.
 
-Next build, in order: the forwarding daemon (data plane) that spends F4 and
-deliberately breaks F5; the SSM tunnel as the one authenticated edge; mutual
-peer declaration written from each other's offers.
+## Closed later the same day
+
+The forwarding daemon exists (`scripts/federation-bridge.mts`), F4 and F5 are
+measured above, and peers now journal to JSONL (`8621daf`) — verified
+surviving `docker restart`, `--force-recreate` (volume-mounted like the
+identity keys), and a native process kill on EC2 ("replayed 1 peer journal
+entries"). Both directions re-verified after all of it:
+`network.topology` allowed, `catalog.write` refused, both sides.
+
+## Next: LLM capability borrowing (designed, deliberately not built tonight)
+
+The first *useful* class on the seam: EC2 has no model credential and should
+borrow the local stack's models service rather than ever holding a key.
+Shape: a `model.inference.request` / `model.inference.response` pair, bridge
+does request/response correlation by event id, key never leaves the Mac,
+every borrowed call carries the lending installation's signature. Not built
+tonight for one reason: the request side lives in the assistants engine,
+and the parallel agent session is mid-rewrite there (`rule-executor`,
+`provenance`, `types`). Building against a moving engine invites exactly the
+kind of half-integrated seam this project exists to refuse. It goes first in
+the next federation session, engine willing.
