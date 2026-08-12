@@ -222,20 +222,22 @@ a defect). Records: `docs/2026-08-11-*.md`, `docs/proposals/assistant-data-model
    implementation that loads *only* the snapshot, ignores every
    `*-bootstrap.json`, and calls `db.delete(resources)` first. Running it
    silently reverts the coordinator to the January ruleset.
-1a. **Refusals are not sealed.** Found 12 Aug, the moment the walk stopped
-   excluding failures from its own denominators. A refusal carries
-   `arena: REFUSED` and nothing else — no hash, no steps, no signature. It is a
-   label, not a receipt.
+1a. ~~**Refusals are not sealed.**~~ — **FOUND AND FIXED 12 Aug**, both within
+   an hour, because the walk stopped excluding its own failures from its
+   denominators.
 
-   `REFUSED` is one of the five arenas and the one OEP prescribes when a claim
-   cannot be supported, so it is the reply most load-bearing for the honesty
-   claim and the only one that cannot be verified. An unsealed refusal can be
-   altered or forged and nothing detects it.
+   A refusal carried `arena: REFUSED` and nothing else — no hash, no steps, no
+   signature. A label, not a receipt. `REFUSED` is what OEP prescribes when a
+   claim cannot be supported, so **the one reply class that could not be
+   verified was the one where the platform declines to make a claim.**
 
    Hidden because `P12` counted `sealValid !== null` and `P14` counted
-   `e.signed` — an unsealed reply drops out of both denominators, so the walk
-   read 10/10 and 10/10 while one reply in eleven had no receipt at all. Now
-   10/11, named.
+   `e.signed`: an unsealed reply drops out of both denominators, so both read
+   10/10 while one reply in eleven had no receipt at all. Now 11/11.
+
+   `seal()` gained a `refusal` input because the arena here is *stated*, not
+   inferred — `classify()` returns REFUSED only when every step failed, and a
+   refusal following three good `service.call`s classifies as something else.
 2. ~~**Calc passes raw message text to the evaluator**~~ — **FIXED 11 Aug.**
    `normalizeMathInput` and `stripFiller` in `tool-invoke.ts` handle the
    phrasing; `what is 2+2?`, `whats 15% tip on $47.50` and `split $120 between
