@@ -165,6 +165,18 @@ that is the property that keeps *where instances live* a deployment decision.
   an instance lives is a **deployment** decision, not a data model one, and the
   model is only correct if it stays neutral about it.
 
+  **Production gate, not a backlog item** (Brian, 11 Aug): some level of
+  persistence is required before this is used in production, and is not needed
+  before then. Filed as a *prerequisite* rather than a task so it cannot be
+  quietly deferred past the line it belongs to — this is the same class as
+  `NETWORK_HASH_SECRET`, where the guard exists precisely because "we will do
+  it before production" is not a mechanism.
+
+  The reason it stays cheap is the query constraint above. Keep the shape
+  read-whole/write-whole and swapping the `Map` for Redis or a retained topic
+  is a store implementation, not a redesign. Break it once — one convenience
+  lookup across instances — and the swap becomes a migration.
+
   **What follows from choosing in-memory.** An instance does not survive a
   restart, and neither do the two things already built on the same footing —
   conversation memory and the lineage chain heads. Those are currently written
