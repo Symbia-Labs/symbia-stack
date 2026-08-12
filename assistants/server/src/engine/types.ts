@@ -85,6 +85,22 @@ export interface ConditionGroup {
 export interface ActionConfig {
   type: ActionType;
   params: Record<string, unknown>;
+  /** Referenced by templates as `{{steps.<id>.…}}`. */
+  id?: string;
+  /**
+   * What to do instead when this action fails.
+   *
+   * DECLARED IN FIVE RULES SINCE JANUARY AND READ BY NOTHING UNTIL 11 AUG 2026.
+   * `calc-evaluate` has carried
+   * *"I couldn't parse that expression. Try something like `2 + 2`."*
+   * the whole time, and it was never once sent — the user got
+   * `Unexpected token:` instead, which was eventually patched at the TOOL
+   * because this layer looked like it already worked.
+   *
+   * A declarative feature that appears to work and changes nothing is worse
+   * than an absent one: it hides the need for the mechanism it represents.
+   */
+  onError?: ActionConfig;
 }
 
 export interface Rule {
@@ -97,6 +113,28 @@ export interface Rule {
   conditions: ConditionGroup;
   actions: ActionConfig[];
   metadata?: Record<string, unknown>;
+  /**
+   * Run only when no other rule matched.
+   *
+   * Every assistant already has one of these and expresses it as an accident
+   * of arithmetic: `coord-orchestrate` sits at priority 100 with
+   * `content exists true`, `calc-invalid` at 50 with `not_matches [0-9]`.
+   * A default case written as "the lowest number, matching everything" is
+   * invisible, and it breaks silently the moment somebody adds a rule below
+   * it — which is exactly why `coord-conversation` had to be 195 rather than
+   * the 95 that reads more naturally.
+   */
+  isDefault?: boolean;
+  /**
+   * If this rule's actions fail, let the next rule try.
+   *
+   * The executor stops at the first rule whose CONDITIONS match, so a rule
+   * that matched and then failed takes the conversation down with it. That is
+   * right for a rule that owns the request and wrong for one that merely
+   * recognised it — `calc-evaluate` matching any string containing a digit,
+   * then choking, is the second kind.
+   */
+  fallThrough?: boolean;
 }
 
 export interface RuleSet {
@@ -315,6 +353,10 @@ export interface RuleExecutionResult {
   actionsExecuted: ActionResult[];
   error?: string;
   durationMs: number;
+  /** An `onError` handler ran, so the failure is answered rather than raw. */
+  handled?: boolean;
+  /** Conditions matched, actions failed, and the rule ceded to the next. */
+  fellThrough?: boolean;
 }
 
 export interface RunResult {

@@ -195,6 +195,28 @@ async function main() {
     const metadata = structuredClone(res.metadata || {});
     metadata.routing = decl;
 
+    /**
+     * Control flow on the specialists, now that the executor honours it.
+     *
+     * `calc-evaluate` matches any string containing a digit, so it recognises
+     * far more than it can parse. Ceding on failure lets `calc-invalid` — the
+     * rule written for exactly this — actually run, instead of the user
+     * getting a tokenizer error. And `calc-invalid` becomes a real default
+     * rather than a rule that happens to sit at priority 50.
+     */
+    const rulesOf = (metadata.ruleSet?.rules ?? []) as Array<Record<string, unknown>>;
+    let flowNote = '';
+    for (const rule of rulesOf) {
+      if (rule.id === 'calc-evaluate' || rule.id === 'smart-compute') {
+        rule.fallThrough = true;
+        flowNote += `, ${rule.id} cedes on failure`;
+      }
+      if (rule.id === 'calc-invalid') {
+        rule.isDefault = true;
+        flowNote += ', calc-invalid is the default';
+      }
+    }
+
     const typed = TYPED_REPLIES[id];
     let typedNote = '';
     if (typed) {
@@ -224,7 +246,7 @@ async function main() {
     await patch(
       id,
       { metadata },
-      `${decl.patterns.length} patterns, ${decl.examples?.length ?? 0} training examples, precedence ${decl.precedence}${typedNote}`
+      `${decl.patterns.length} patterns, ${decl.examples?.length ?? 0} training examples, precedence ${decl.precedence}${typedNote}${flowNote}`
     );
   }
 
@@ -378,6 +400,17 @@ async function main() {
       },
     ],
   };
+
+  /**
+   * The catch-all becomes an explicit default.
+   *
+   * `coord-orchestrate` matched `content exists true` at priority 100, so its
+   * position was load-bearing: anything added below it was unreachable, which
+   * is why `coord-conversation` had to be 195 rather than the 95 that reads
+   * more naturally. `isDefault` takes it out of the priority race entirely.
+   */
+  orchestrate.isDefault = true;
+  console.log('  coord-orchestrate: marked isDefault (no longer relies on priority)');
 
   const existingConv = rules.findIndex((r) => r.id === 'coord-conversation');
   if (existingConv >= 0) rules[existingConv] = CONVERSATION_RULE;
