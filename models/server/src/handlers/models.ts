@@ -31,7 +31,19 @@ export async function handleListModels(
   res: Response
 ): Promise<void> {
   try {
-    const entries = await unifiedRegistry();
+    // FORWARDED, NOT HELD. If the caller presents a token, it is passed to
+    // integrations so the model ids can be the adapter's MEASURED list rather
+    // than an advertised default. Without one the listing still works and says
+    // `verified: false`. This service stores no credential either way.
+    const bearer = req.headers.authorization?.startsWith("Bearer ")
+      ? req.headers.authorization.slice(7)
+      : undefined;
+    const orgId = req.headers["x-org-id"];
+    const entries = await unifiedRegistry(
+      bearer
+        ? { token: bearer, orgId: typeof orgId === "string" ? orgId : undefined }
+        : undefined
+    );
 
     const response = {
       object: "list",
@@ -55,6 +67,10 @@ export async function handleListModels(
           availability: e.availability,
           availabilityReason: e.availabilityReason,
           operations: e.operations,
+          // Where this id came from, and whether anything checked it.
+          idSource: e.idSource,
+          verified: e.verified,
+          isProviderDefault: e.isProviderDefault,
         },
       })),
     };

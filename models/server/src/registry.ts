@@ -44,6 +44,12 @@ export type ModelSource = "local" | "remote";
  */
 export type Availability = "available" | "unavailable" | "unknown";
 
+/** A caller's credentials, forwarded rather than held. */
+export interface AuthContext {
+  token: string;
+  orgId?: string;
+}
+
 export interface RegistryEntry {
   id: string;
   source: ModelSource;
@@ -58,6 +64,23 @@ export interface RegistryEntry {
   operations?: string[];
   status?: string;
   createdAt?: string;
+  /**
+   * Where this id came from.
+   *
+   * `measured` — the provider adapter listed it.
+   * `provider-config` — configuration advertises it and nothing checked.
+   * `local` — a file on disk.
+   *
+   * Recorded because the two remote sources DISAGREE: config says
+   * `claude-sonnet-4-20250514`, the adapter says `claude-sonnet-5`, and the
+   * adapter is what runs. An id whose provenance is unrecorded is how the
+   * stale one gets copied forward.
+   */
+  idSource?: "measured" | "provider-config" | "local";
+  /** False when the id is advertised rather than confirmed. */
+  verified?: boolean;
+  /** The adapter lists working models first; this is its head. */
+  isProviderDefault?: boolean;
 }
 
 /**
@@ -69,7 +92,7 @@ export interface RegistryEntry {
  * auth, so per-org availability is only answerable when a caller presents a
  * token. See `remoteAvailability` below.
  */
-async function remoteProviders(): Promise<RegistryEntry[]> {
+async function remoteProviders(auth?: AuthContext): Promise<RegistryEntry[]> {
   const url = `${config.integrationsServiceUrl}/api/integrations/providers`;
   let body: {
     providers?: Array<{
@@ -102,17 +125,106 @@ async function remoteProviders(): Promise<RegistryEntry[]> {
     return [];
   }
 
-  return (body.providers ?? []).map((p) => ({
-    id: p.defaultModel ? `${p.name}/${p.defaultModel}` : p.name,
-    source: "remote" as const,
-    provider: p.name,
-    // Stage 1 flips this. Until then, listing is not offering.
-    brokered: false,
-    availability: "unknown" as const,
-    availabilityReason:
-      "remote credentials are per-organisation; this listing carries no org context",
-    operations: p.supportedOperations,
-  }));
+  const providers = body.providers ?? [];
+
+  // MEASURED IDS WHEN WE CAN GET THEM, ADVERTISED ONES CLEARLY LABELLED WHEN
+  // WE CANNOT.
+  //
+  // These two disagree, and the difference is not cosmetic:
+  //
+  //   /api/integrations/providers   anthropic -> claude-sonnet-4-20250514
+  //   the anthropic adapter          anthropic -> claude-sonnet-5
+  //
+  // The first is a provider CONFIG registered in the catalog. The second is
+  // `listModels()` in providers/anthropic.ts, ordered by what was measured to
+  // answer on 7 Aug 2026 — and it is the one that actually runs: the
+  // assistants log reads `resolved to anthropic (claude-sonnet-5)`.
+  //
+  // My first version of this registry published the config value, so a service
+  // built to end stale model identity shipped a stale model id on its first
+  // day. The adapter list needs a user token (integrations has no
+  // service-token path), so when there is no token the id is reported as
+  // ADVERTISED and `verified: false` rather than presented as fact.
+  const entries = await Promise.all(
+    providers.map(async (p) => {
+      const measured = auth ? await measuredModels(p.name, auth) : null;
+
+      if (measured && measured.length) {
+        return measured.map((m, i) => ({
+          id: `${p.name}/${m.id}`,
+          source: "remote" as const,
+          provider: p.name,
+          brokered: false,
+          availability: "unknown" as const,
+          availabilityReason:
+            "listed by the provider adapter; whether this org holds a credential is a separate question",
+          capabilities: m.capabilities,
+          contextLength: m.contextWindow,
+          operations: p.supportedOperations,
+          idSource: "measured" as const,
+          verified: true,
+          // The adapter orders by what answered. First is the working default.
+          isProviderDefault: i === 0,
+        }));
+      }
+
+      return [
+        {
+          id: p.defaultModel ? `${p.name}/${p.defaultModel}` : p.name,
+          source: "remote" as const,
+          provider: p.name,
+          // Stage 1 flips this. Until then, listing is not offering.
+          brokered: false,
+          availability: "unknown" as const,
+          availabilityReason:
+            "remote credentials are per-organisation; this listing carries no org context",
+          operations: p.supportedOperations,
+          idSource: "provider-config" as const,
+          // The id above is what configuration ADVERTISES. It has not been
+          // checked against the provider, and for anthropic it is known to
+          // disagree with what runs.
+          verified: false,
+          isProviderDefault: true,
+        },
+      ];
+    })
+  );
+
+  return entries.flat();
+}
+
+/**
+ * A provider's models as its adapter reports them — the measured list.
+ *
+ * Requires the caller's token: integrations has no service-to-service auth
+ * path, and `authMiddleware` rejects anything without a real user. That is why
+ * an unauthenticated `/v1/models` cannot verify a model id, and says so instead
+ * of pretending.
+ */
+async function measuredModels(
+  provider: string,
+  auth: AuthContext
+): Promise<Array<{ id: string; capabilities?: string[]; contextWindow?: number }> | null> {
+  const url = `${config.integrationsServiceUrl}/api/integrations/providers/${encodeURIComponent(
+    provider
+  )}/models`;
+  try {
+    const headers: Record<string, string> = { Authorization: `Bearer ${auth.token}` };
+    if (auth.orgId) headers["X-Org-Id"] = auth.orgId;
+    const r = await fetch(url, { headers, signal: AbortSignal.timeout(5000) });
+    if (!r.ok) throw new Error(`${r.status} ${r.statusText}`);
+    const body = (await r.json()) as {
+      models?: Array<{ id: string; capabilities?: string[]; contextWindow?: number }>;
+    };
+    return body.models ?? null;
+  } catch (err) {
+    console.warn(
+      `[registry] could not list ${provider} models: ${
+        err instanceof Error ? err.message : String(err)
+      } — falling back to the ADVERTISED default, marked unverified`
+    );
+    return null;
+  }
 }
 
 /** Local models, from the llama engine. */
@@ -134,6 +246,8 @@ async function localModels(): Promise<RegistryEntry[]> {
       capabilities: m.capabilities,
       status: m.status,
       createdAt: m.createdAt,
+      idSource: "local" as const,
+      verified: true,
     }));
   } catch (err) {
     console.warn(
@@ -150,14 +264,14 @@ async function localModels(): Promise<RegistryEntry[]> {
  * list that is both brokered and known-available — it is the honest default,
  * and it is the one the lean-deterministic argument depends on being reachable.
  */
-export async function unifiedRegistry(): Promise<RegistryEntry[]> {
-  const [local, remote] = await Promise.all([localModels(), remoteProviders()]);
+export async function unifiedRegistry(auth?: AuthContext): Promise<RegistryEntry[]> {
+  const [local, remote] = await Promise.all([localModels(), remoteProviders(auth)]);
   return [...local, ...remote];
 }
 
 /** Counts for `/api/stats` and for anyone asking what this service can see. */
-export async function registrySummary() {
-  const entries = await unifiedRegistry();
+export async function registrySummary(auth?: AuthContext) {
+  const entries = await unifiedRegistry(auth);
   return {
     total: entries.length,
     local: entries.filter((e) => e.source === "local").length,
