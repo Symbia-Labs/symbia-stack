@@ -19,17 +19,23 @@
  * service is positioned to — the model is chosen at call time by whichever
  * credential happens to exist. Only something holding the registry can know it.
  *
- * WHAT THIS DELIBERATELY DOES NOT DO. It does not execute remote calls. Listing
- * a remote model here does NOT mean `/v1/chat/completions` can serve it —
- * that is stage 1. Every remote entry therefore carries `brokered: false`, so
- * the registry cannot be mistaken for a capability it does not have.
+ * LISTING IS NOT OFFERING, AND `brokered` IS THE FIELD THAT SAYS WHICH.
+ * A model appearing here does not mean `/v1/chat/completions` can serve it.
  * Registered is not running, and this codebase has been bitten by that twice
  * already (`server` on 5000, and this service reporting healthy with zero
  * models loaded).
+ *
+ * `brokered` is answered by `canBroker()` in remote.ts — the SAME list the chat
+ * router uses to decide what to route. It read a hardcoded `false` for two
+ * hours after stage 1 shipped execution, so the registry advertised no
+ * capability while the capability existed. One fact in two places, drifting,
+ * which is the defect shape this project keeps finding in code written months
+ * ago; that instance was mine and two hours old.
  */
 
 import { config } from "./config.js";
 import { getEngine } from "./llama/engine.js";
+import { canBroker } from "./remote.js";
 
 /** Where a model runs. */
 export type ModelSource = "local" | "remote";
@@ -154,7 +160,7 @@ async function remoteProviders(auth?: AuthContext): Promise<RegistryEntry[]> {
           id: `${p.name}/${m.id}`,
           source: "remote" as const,
           provider: p.name,
-          brokered: false,
+          brokered: canBroker(p.name),
           availability: "unknown" as const,
           availabilityReason:
             "listed by the provider adapter; whether this org holds a credential is a separate question",
@@ -173,8 +179,10 @@ async function remoteProviders(auth?: AuthContext): Promise<RegistryEntry[]> {
           id: p.defaultModel ? `${p.name}/${p.defaultModel}` : p.name,
           source: "remote" as const,
           provider: p.name,
-          // Stage 1 flips this. Until then, listing is not offering.
-          brokered: false,
+          // Stage 1 flipped this. It is now answered by the same list the
+          // chat router uses, so "advertised as brokered" and "actually
+          // routable" cannot drift apart.
+          brokered: canBroker(p.name),
           availability: "unknown" as const,
           availabilityReason:
             "remote credentials are per-organisation; this listing carries no org context",

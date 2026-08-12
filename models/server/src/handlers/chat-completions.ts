@@ -5,17 +5,9 @@
 import type { Request, Response } from "express";
 import { z } from "zod";
 import { getEngine } from "../llama/engine.js";
-import { executeRemoteChat } from "../remote.js";
-
-/**
- * Providers this service will broker to, by name.
- *
- * Deliberately a fixed set rather than "anything with a slash": local model
- * files legitimately contain slashes (`meta-llama/Llama-3.2-3B-Instruct`), so
- * treating every slash as a provider prefix would route local models to the
- * network. Kept in step with `/api/integrations/providers`.
- */
-const REMOTE_PROVIDERS = new Set(["openai", "anthropic", "huggingface"]);
+// The provider list lives in remote.ts, beside the code that executes against
+// it, so the registry and this router cannot disagree about what is brokered.
+import { executeRemoteChat, REMOTE_PROVIDERS } from "../remote.js";
 
 /**
  * Execute a remote completion by delegating to integrations.

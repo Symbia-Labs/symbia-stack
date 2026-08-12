@@ -17,6 +17,32 @@
 import { config } from "./config.js";
 import type { AuthContext } from "./registry.js";
 
+/**
+ * Providers this service can actually execute against.
+ *
+ * ONE LIST, TWO READERS — the registry asks it what to advertise as brokered,
+ * and the chat handler asks it what to route. They lived apart for two hours
+ * after stage 1 and immediately disagreed: execution worked while the registry
+ * still reported `brokered: false` for every remote model.
+ *
+ * That is the same shape as the defects this project keeps finding — one fact
+ * in two places, drifting — and it was mine, two hours old. `verify-assistants`
+ * had a version of it, `conversational-turns` had a version of it, and the
+ * roster had five copies. Kept here, beside the code that does the executing,
+ * because a capability list belongs with the capability.
+ *
+ * Deliberately a fixed set rather than "anything with a slash": local model
+ * files legitimately contain slashes (`meta-llama/Llama-3.2-3B-Instruct`), so
+ * treating every slash as a provider prefix would route local models to the
+ * network.
+ */
+export const REMOTE_PROVIDERS = new Set(["openai", "anthropic", "huggingface"]);
+
+/** Can this service execute against the named provider today? */
+export function canBroker(provider: string): boolean {
+  return REMOTE_PROVIDERS.has(provider);
+}
+
 export interface RemoteChatRequest {
   provider: string;
   model: string;
