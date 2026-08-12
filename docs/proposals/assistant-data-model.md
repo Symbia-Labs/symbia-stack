@@ -158,10 +158,21 @@ that is the property that keeps *where instances live* a deployment decision.
 ### Open, and sharper than before
 
 - ~~**Is the instance persisted at all, or purely in-memory?**~~ — **wrong
-  question.** It should not matter: runtime configuration could live in MQTT,
-  AMQP, Redis or a process map, and the shape above applies to all of them
-  unchanged. Where an instance lives is a **deployment** decision, not a data
-  model one, and the model is only correct if it stays neutral about it.
+  question, and now settled: in memory, for now** (Brian, 11 Aug).
+
+  It should not matter: runtime configuration could live in MQTT, AMQP, Redis
+  or a process map, and the shape above applies to all of them unchanged. Where
+  an instance lives is a **deployment** decision, not a data model one, and the
+  model is only correct if it stays neutral about it.
+
+  **What follows from choosing in-memory.** An instance does not survive a
+  restart, and neither do the two things already built on the same footing —
+  conversation memory and the lineage chain heads. Those are currently written
+  down as defects. Under this ruling they are **the design**, and the honest
+  behaviour is not "persist them" but *say so at the boundary*: after a
+  restart, a follow-up whose referent is gone should tell the person it lost
+  the thread rather than silently refuse. Recorded so the next reader does not
+  file it as a bug and fix the wrong thing.
 
   That neutrality has to be earned rather than assumed, so: the shape holds
   **only if it never depends on query.** It is addressed by one identifier,

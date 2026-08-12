@@ -105,8 +105,12 @@ had none:
   link in `assistants/Dockerfile` because the base image's `npm ci` cannot
   install what is absent from the committed lockfile.
 - The chain heads are **in memory**, so a restart makes a conversation's next
-  delegation link to GENESIS again. Honest, but not continuity. Persisting them
-  is not built.
+  delegation link to GENESIS again. **This is now the ruling, not a defect**
+  (Brian, 11 Aug — in-memory runtime state is fine for now; see
+  `docs/proposals/assistant-data-model.md`). What remains open is not
+  persistence but *disclosure*: after a restart, a follow-up whose referent is
+  gone should say it lost the thread rather than refuse as though the question
+  were unclear.
 
 *Historical, kept because the reasoning still applies elsewhere:*
 
