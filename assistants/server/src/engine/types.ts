@@ -296,25 +296,22 @@ export interface ExecutionContext {
  * Resolved LLM configuration (fully populated with defaults)
  */
 export interface ResolvedLLMConfig {
-  // Provider
+  /**
+   * Provider, for display and diagnostics only.
+   *
+   * NOT READ BY `llm.invoke`. Which provider and model actually run is the
+   * models service's business, not an assistant's — see the note in
+   * llm-invoke.ts. This field exists so the console can show what a resource
+   * declares next to what resolves, which is how the staleness in those
+   * declarations became visible in the first place.
+   *
+   * A `declared` flag lived here for about an hour, to let llm.invoke tell an
+   * authored provider from a defaulted one. Removed with the code that read
+   * it: an unread field is the exact thing this service already has 23 of.
+   */
   provider: {
     type: string;
     baseUrl?: string;
-    /**
-     * True when a human wrote this provider down; false when it fell out of
-     * SYSTEM_DEFAULTS.
-     *
-     * NECESSARY BECAUSE A RESOLVED CONFIG IS ALWAYS FULLY POPULATED — that is
-     * its job — so "is provider set?" is always yes and cannot distinguish
-     * `anthropic` chosen by an author from `openai` arrived at by default.
-     * Without this flag, wiring the resolved config into `llm.invoke` makes
-     * every unconfigured assistant claim to have declared openai, skip the
-     * credential probe, and hard-fail on an org whose only key is anthropic.
-     *
-     * I wrote that regression before catching it. The flag is the difference
-     * between a value and a decision.
-     */
-    declared?: boolean;
   };
   // Generation
   generation: {
