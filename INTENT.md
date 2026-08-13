@@ -191,7 +191,7 @@ This provides:
 - Visible communication topology
 - Centralized policy enforcement
 - Event tracing across the mesh
-- Hash-based integrity verification (HMAC-SHA256)
+- Hash-based integrity verification (keyed SHA-256 today; HMAC migration pending — see `STATUS.md`)
 
 ### 4. Multi-Tenant by Default
 
@@ -206,9 +206,14 @@ Request Headers:
 
 Database Queries:
   SELECT * FROM messages
-  WHERE org_id = $org_id      ← Automatic scoping
+  WHERE org_id = $org_id      ← Automatic scoping (design goal)
     AND ...
 ```
+
+**Current enforcement caveat** (see `STATUS.md`): RLS context is set at pool
+level rather than per-transaction, `X-Org-Id` is not yet validated against
+token membership, and pg-mem dev mode does not enforce RLS at all. The design
+below is the intent; it is not yet a runtime guarantee.
 
 Not an afterthought—multi-tenancy is built into:
 - Database query patterns (Drizzle ORM filters)
@@ -258,7 +263,7 @@ LLM responses can take seconds. Users need control. Human-in-the-loop workflows 
 Everything authenticates against Identity. It answers:
 - **Who is this?** (authentication via JWT, API keys, sessions)
 - **What can they do?** (authorization via entitlements)
-- **What are their credentials?** (AES-256-GCM encrypted vault)
+- **What are their credentials?** (AES-256-GCM encrypted vault; key management not yet production-grade — see `STATUS.md`)
 - **How do I refer to them across services?** (Entity Directory)
 
 Key capabilities:
@@ -306,7 +311,7 @@ Graph-based AI workflow execution:
 - **Prompt Graphs**: DAG-based multi-step AI reasoning
 - **Rule Engine**: Event-triggered, condition-based actions
 - **Turn-Taking**: Multi-agent coordination protocol
-- **Code Tools**: File, bash, search in sandboxed workspaces
+- **Code Tools**: File, bash, search scoped to a workspace directory (not sandboxed — see `STATUS.md`)
 
 Key capabilities:
 - Actions: `llm.invoke`, `message.send`, `service.call`, `webhook.call`, `handoff.create`, `context.update`, `parallel`, `loop`, `condition`, `code.tool.invoke`
@@ -384,7 +389,7 @@ Software-defined networking for service coordination:
 - **Observability**: Topology, traces, flow visualization
 
 Key capabilities:
-- Hash-based event integrity (HMAC-SHA256)
+- Hash-based event integrity (keyed SHA-256 today; HMAC migration pending — see `STATUS.md`)
 - Entity-to-node binding (persistent UUIDs to ephemeral nodes)
 - Heartbeat-based liveness detection
 - Boundary types: intra (same sandbox), inter (cross-sandbox), extra (external)

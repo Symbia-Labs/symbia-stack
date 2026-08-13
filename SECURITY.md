@@ -1,11 +1,14 @@
 # Security Policy
 
+> **Current security posture is documented in [`STATUS.md`](./STATUS.md).**
+> Where this policy and `STATUS.md` disagree, `STATUS.md` is the truth.
+
 ## Supported Versions
 
-| Version | Supported          |
-| ------- | ------------------ |
-| 1.x     | :white_check_mark: |
-| < 1.0   | :x:                |
+**There is no supported release.** The tagged releases (v1.0.0–v1.2.0) predate
+the current rebuild and do not match this tree. Treat everything here as
+pre-release software under active development; do not deploy it in production
+on the strength of this document.
 
 ## Reporting a Vulnerability
 
@@ -15,7 +18,7 @@ We take security seriously. If you discover a security vulnerability, please rep
 
 **DO NOT** open a public GitHub issue for security vulnerabilities.
 
-Instead, please email: **hello@example.com**
+Instead, please email: **bmgilmore1975@gmail.com**
 
 Include:
 - Description of the vulnerability
@@ -121,11 +124,21 @@ This ensures:
 
 ### Built-in Protections
 
-- **Hash-based event verification**: SDN events are cryptographically signed
+- **Hash-based event verification**: SDN events carry a keyed SHA-256 hash
+  (not HMAC yet — migration tracked in `STATUS.md`; dev mode uses a
+  repo-visible fallback secret, so this is no integrity guarantee outside
+  production configuration)
 - **Contract-based access control**: Services must establish contracts before communication
 - **Credential sanitization**: API keys are never logged
 - **Circuit breakers**: Prevent cascading failures
 - **Input validation**: Zod schemas validate all inputs
+
+### Known Gaps (tracked, not yet fixed)
+
+See `STATUS.md` and `docs/2026-08-13-adversarial-analysis.md` for the full
+ledger. Headlines: code-tool bash execution is not sandboxed; the credential
+vault has no KDF and a fallback key; RLS context is set at pool level rather
+than per-transaction; `X-Org-Id` is not validated against token membership.
 
 ### Recommended Additional Measures
 

@@ -250,16 +250,20 @@ data-processor ──[contract]──▶ result-handler
 
 ### 2. Hash-Based Security Commitment
 
-Every event has a cryptographic hash:
+Every event has a cryptographic hash. The intended construction is HMAC:
 
 ```
 hash = HMAC-SHA256(secret, JSON.stringify(payload) + wrapper.source + wrapper.timestamp)
 ```
 
-**What this provides:**
+**Implementation today** (see root `STATUS.md`): `SHA256(data ‖ secret)` — a
+secret-suffix hash, not HMAC — over `{type, data, source, runId, boundary,
+target}`. **No timestamp is covered**, so replay detection is not provided yet.
+
+**What the intended design provides:**
 - Tamper-evidence (modified events have wrong hash)
 - Source authentication (only nodes with secret can generate valid hashes)
-- Replay detection (timestamp in hash)
+- Replay detection (timestamp in hash — not yet implemented)
 
 **What this does NOT provide:**
 - Encryption (events are plaintext)
@@ -540,7 +544,9 @@ MAX_TRACE_HISTORY_SIZE = 5000
 
 ### Why HMAC-SHA256 for Hashing
 
-Event hashes use HMAC with a shared secret:
+Event hashes are intended to use HMAC with a shared secret (current
+implementation is keyed SHA-256, not HMAC — migration pending, see root
+`STATUS.md`):
 
 ```
 hash = HMAC-SHA256(NETWORK_HASH_SECRET, payload + source + timestamp)

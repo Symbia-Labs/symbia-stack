@@ -505,7 +505,7 @@ socket.on('sdn:event', ({ event, trace }) => {
 ### Routing Flow
 
 1. **Event received** via REST or WebSocket
-2. **Hash computed** using HMAC-SHA256 with secret
+2. **Hash computed** — keyed SHA-256 today (HMAC migration pending; see root `STATUS.md`)
 3. **Source validated** - node must be registered
 4. **Targets determined**:
    - Explicit target if provided
