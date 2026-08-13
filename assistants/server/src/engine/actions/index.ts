@@ -17,8 +17,8 @@ import { AssistantRouteHandler } from './assistant-route.js';
 import { EmbeddingRouteHandler } from './embedding-route.js';
 // Tool actions (built-in tools like math, convert)
 import { ToolInvokeHandler } from './tool-invoke.js';
-// Code agent actions
-import { CodeToolInvokeHandler, WorkspaceCreateHandler, WorkspaceDestroyHandler } from './code-tool-invoke.js';
+// Code agent actions — registration gated below (not sandboxed; see code-tool-invoke.ts)
+import { CodeToolInvokeHandler, WorkspaceCreateHandler, WorkspaceDestroyHandler, CODE_TOOLS_ENABLED } from './code-tool-invoke.js';
 // Integration actions
 import { IntegrationInvokeHandler } from './integration-invoke.js';
 
@@ -43,13 +43,23 @@ const handlers: ActionHandler[] = [
   new EmbeddingRouteHandler(),
   // Built-in tools
   new ToolInvokeHandler(),
-  // Code agent
-  new CodeToolInvokeHandler(),
-  new WorkspaceCreateHandler(),
-  new WorkspaceDestroyHandler(),
+  // Code agent: OFF by default. These run commands as the service process
+  // (no sandbox) and their input is LLM-influenced, so they are only
+  // registered when ASSISTANTS_ENABLE_CODE_TOOLS=true is set explicitly.
+  ...(CODE_TOOLS_ENABLED
+    ? [new CodeToolInvokeHandler(), new WorkspaceCreateHandler(), new WorkspaceDestroyHandler()]
+    : []),
   // Integrations
   new IntegrationInvokeHandler(),
 ];
+
+if (CODE_TOOLS_ENABLED) {
+  console.warn(
+    '[assistants] code.tool.invoke / workspace.* action handlers are ENABLED. ' +
+    'These execute on the host as the service process (no sandbox). ' +
+    'Do not enable outside trusted development.'
+  );
+}
 
 const handlerMap = new Map<string, ActionHandler>();
 for (const handler of handlers) {

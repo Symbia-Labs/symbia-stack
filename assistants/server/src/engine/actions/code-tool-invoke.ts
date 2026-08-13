@@ -3,12 +3,109 @@
  *
  * Action handler for invoking code tools (file operations, bash, search).
  *
+ * SECURITY (13 Aug 2026 — see STATUS.md and docs/2026-08-13-adversarial-analysis.md):
+ * This is NOT a sandbox. Commands and file operations run as the service
+ * process with its environment. The controls here (env-flag gating, workspace
+ * confinement with symlink-aware path resolution, blocked-path globs, no
+ * caller-supplied roots or permission escalation) are an interim floor.
+ * Real isolation (container/gVisor per workspace) is required before this is
+ * enabled anywhere untrusted.
+ *
+ * Registration is gated: handlers are only wired when
+ * ASSISTANTS_ENABLE_CODE_TOOLS=true. Bash additionally requires
+ * ASSISTANTS_CODE_TOOLS_ALLOW_BASH=true.
+ *
  * Inspired by OpenCode (https://github.com/opencode-ai/opencode)
  * OpenCode is licensed under the MIT License
  */
 
+import * as nodePath from 'path';
+import * as fsp from 'fs/promises';
 import { BaseActionHandler } from './base.js';
 import type { ActionConfig, ActionResult, ExecutionContext } from '../types.js';
+
+/** Code tools are off unless explicitly enabled. */
+export const CODE_TOOLS_ENABLED = process.env.ASSISTANTS_ENABLE_CODE_TOOLS === 'true';
+/** Bash execution requires its own explicit opt-in on top of the above. */
+const BASH_ENABLED = process.env.ASSISTANTS_CODE_TOOLS_ALLOW_BASH === 'true';
+
+const DEFAULT_BLOCKED_PATHS = ['**/.env*', '.env*', '**/secrets/**', 'secrets/**'];
+
+/** Glob matcher over workspace-relative paths (supports **, *, ?). */
+function matchPathGlob(str: string, pattern: string): boolean {
+  const escaped = pattern.replace(/[.+^${}()|[\]\\]/g, '\\$&');
+  const regex = escaped
+    .replace(/\*\*\//g, '\u0001')
+    .replace(/\*\*/g, '\u0000')
+    .replace(/\*/g, '[^/]*')
+    .replace(/\?/g, '[^/]')
+    .replace(/\u0001/g, '(?:.*\/)?')
+    .replace(/\u0000/g, '.*');
+  return new RegExp(`^${regex}$`).test(str);
+}
+
+function isPathBlocked(relativePath: string, blockedPaths: string[]): boolean {
+  return blockedPaths.some((p) => matchPathGlob(relativePath, p));
+}
+
+function isPathAllowedByPatterns(relativePath: string, paths: string[]): boolean {
+  if (paths.length === 0) return true;
+  return paths.some((p) => matchPathGlob(relativePath, p));
+}
+
+/**
+ * Resolve a target path safely inside a workspace.
+ *
+ * - path.sep-boundary containment (a sibling directory sharing the root as a
+ *   string prefix does not pass)
+ * - symlink defense: the closest existing ancestor is realpath'd and the
+ *   result re-checked against the realpath'd root
+ * - blockedPaths / paths glob enforcement on the workspace-relative path
+ *
+ * Throws on any violation; returns the resolved absolute path.
+ */
+async function resolveSafePath(workspace: WorkspaceContext, targetPath: string | undefined): Promise<string> {
+  const root = nodePath.resolve(workspace.rootPath);
+  const resolved = nodePath.resolve(root, targetPath ?? '.');
+
+  if (resolved !== root && !resolved.startsWith(root + nodePath.sep)) {
+    throw new Error('Path escapes workspace');
+  }
+
+  // Symlink defense: realpath the closest existing ancestor, re-check.
+  const realRoot = await fsp.realpath(root);
+  let existing = resolved;
+  for (;;) {
+    try {
+      const real = await fsp.realpath(existing);
+      const remainder = nodePath.relative(existing, resolved);
+      const realResolved = remainder ? nodePath.join(real, remainder) : real;
+      if (realResolved !== realRoot && !realResolved.startsWith(realRoot + nodePath.sep)) {
+        throw new Error('Path escapes workspace (symlink)');
+      }
+      break;
+    } catch (err) {
+      if ((err as NodeJS.ErrnoException)?.code === 'ENOENT') {
+        const parent = nodePath.dirname(existing);
+        if (parent === existing) break;
+        existing = parent;
+        continue;
+      }
+      throw err;
+    }
+  }
+
+  const rel = nodePath.relative(root, resolved);
+  if (rel) {
+    if (isPathBlocked(rel, workspace.permissions.blockedPaths)) {
+      throw new Error(`Path is blocked by workspace policy: ${rel}`);
+    }
+    if (!isPathAllowedByPatterns(rel, workspace.permissions.paths)) {
+      throw new Error(`Path is not in the workspace's allowed paths: ${rel}`);
+    }
+  }
+  return resolved;
+}
 
 export type CodeToolName =
   | 'file-read'
@@ -125,15 +222,13 @@ export class CodeToolInvokeHandler extends BaseActionHandler {
 
   private async executeFileRead(params: Record<string, unknown>, workspace: WorkspaceContext): Promise<unknown> {
     const fs = await import('fs/promises');
-    const path = await import('path');
+
+    if (!workspace.permissions.read) {
+      throw new Error('Read permission denied');
+    }
 
     const filePath = params.path as string;
-    const fullPath = path.join(workspace.rootPath, filePath);
-
-    // Security check
-    if (!fullPath.startsWith(workspace.rootPath)) {
-      throw new Error('Path escapes workspace');
-    }
+    const fullPath = await resolveSafePath(workspace, filePath);
 
     const content = await fs.readFile(fullPath, 'utf-8');
     const lines = content.split('\n');
@@ -161,11 +256,7 @@ export class CodeToolInvokeHandler extends BaseActionHandler {
 
     const filePath = params.path as string;
     const content = params.content as string;
-    const fullPath = path.join(workspace.rootPath, filePath);
-
-    if (!fullPath.startsWith(workspace.rootPath)) {
-      throw new Error('Path escapes workspace');
-    }
+    const fullPath = await resolveSafePath(workspace, filePath);
 
     await fs.mkdir(path.dirname(fullPath), { recursive: true });
     await fs.writeFile(fullPath, content, 'utf-8');
@@ -186,11 +277,7 @@ export class CodeToolInvokeHandler extends BaseActionHandler {
 
     const filePath = params.path as string;
     const edits = params.edits as Array<{ oldText: string; newText: string }>;
-    const fullPath = path.join(workspace.rootPath, filePath);
-
-    if (!fullPath.startsWith(workspace.rootPath)) {
-      throw new Error('Path escapes workspace');
-    }
+    const fullPath = await resolveSafePath(workspace, filePath);
 
     let content = await fs.readFile(fullPath, 'utf-8');
     let editsApplied = 0;
@@ -215,15 +302,15 @@ export class CodeToolInvokeHandler extends BaseActionHandler {
     const fs = await import('fs/promises');
     const path = await import('path');
 
-    const pattern = params.pattern as string;
-    const cwd = params.cwd ? path.join(workspace.rootPath, params.cwd as string) : workspace.rootPath;
-
-    if (!cwd.startsWith(workspace.rootPath)) {
-      throw new Error('Working directory escapes workspace');
+    if (!workspace.permissions.read) {
+      throw new Error('Read permission denied');
     }
 
+    const pattern = params.pattern as string;
+    const cwd = await resolveSafePath(workspace, params.cwd as string | undefined);
+
     const files: string[] = [];
-    await this.findFilesRecursive(cwd, pattern, files, 1000);
+    await this.findFilesRecursive(cwd, pattern, files, 1000, workspace);
 
     return {
       pattern,
@@ -232,7 +319,7 @@ export class CodeToolInvokeHandler extends BaseActionHandler {
     };
   }
 
-  private async findFilesRecursive(dir: string, pattern: string, results: string[], maxResults: number): Promise<void> {
+  private async findFilesRecursive(dir: string, pattern: string, results: string[], maxResults: number, workspace: WorkspaceContext): Promise<void> {
     const fs = await import('fs/promises');
     const path = await import('path');
 
@@ -245,9 +332,11 @@ export class CodeToolInvokeHandler extends BaseActionHandler {
         if (results.length >= maxResults) break;
 
         const fullPath = path.join(dir, entry.name);
+        const relPath = path.relative(workspace.rootPath, fullPath);
+        if (isPathBlocked(relPath, workspace.permissions.blockedPaths)) continue;
 
         if (entry.isDirectory() && !entry.name.startsWith('.')) {
-          await this.findFilesRecursive(fullPath, pattern, results, maxResults);
+          await this.findFilesRecursive(fullPath, pattern, results, maxResults, workspace);
         } else if (entry.isFile()) {
           if (this.matchGlob(entry.name, pattern)) {
             results.push(fullPath);
@@ -272,19 +361,17 @@ export class CodeToolInvokeHandler extends BaseActionHandler {
     const fs = await import('fs/promises');
     const path = await import('path');
 
-    const pattern = params.pattern as string;
-    const searchPath = params.path
-      ? path.join(workspace.rootPath, params.path as string)
-      : workspace.rootPath;
-
-    if (!searchPath.startsWith(workspace.rootPath)) {
-      throw new Error('Search path escapes workspace');
+    if (!workspace.permissions.read) {
+      throw new Error('Read permission denied');
     }
+
+    const pattern = params.pattern as string;
+    const searchPath = await resolveSafePath(workspace, params.path as string | undefined);
 
     const matches: Array<{ file: string; line: number; content: string }> = [];
     const regex = new RegExp(pattern, params.ignoreCase ? 'gi' : 'g');
 
-    await this.searchFilesRecursive(searchPath, workspace.rootPath, regex, matches, 500);
+    await this.searchFilesRecursive(searchPath, workspace.rootPath, regex, matches, 500, workspace);
 
     return {
       pattern,
@@ -298,7 +385,8 @@ export class CodeToolInvokeHandler extends BaseActionHandler {
     rootPath: string,
     regex: RegExp,
     results: Array<{ file: string; line: number; content: string }>,
-    maxResults: number
+    maxResults: number,
+    workspace: WorkspaceContext
   ): Promise<void> {
     const fs = await import('fs/promises');
     const path = await import('path');
@@ -312,9 +400,11 @@ export class CodeToolInvokeHandler extends BaseActionHandler {
         if (results.length >= maxResults) break;
 
         const fullPath = path.join(dir, entry.name);
+        const relPath = path.relative(workspace.rootPath, fullPath);
+        if (isPathBlocked(relPath, workspace.permissions.blockedPaths)) continue;
 
         if (entry.isDirectory() && !entry.name.startsWith('.') && entry.name !== 'node_modules') {
-          await this.searchFilesRecursive(fullPath, rootPath, regex, results, maxResults);
+          await this.searchFilesRecursive(fullPath, rootPath, regex, results, maxResults, workspace);
         } else if (entry.isFile()) {
           try {
             const content = await fs.readFile(fullPath, 'utf-8');
@@ -344,12 +434,12 @@ export class CodeToolInvokeHandler extends BaseActionHandler {
     const fs = await import('fs/promises');
     const path = await import('path');
 
-    const dirPath = params.path as string;
-    const fullPath = path.join(workspace.rootPath, dirPath);
-
-    if (!fullPath.startsWith(workspace.rootPath)) {
-      throw new Error('Path escapes workspace');
+    if (!workspace.permissions.read) {
+      throw new Error('Read permission denied');
     }
+
+    const dirPath = params.path as string;
+    const fullPath = await resolveSafePath(workspace, dirPath);
 
     const entries = await fs.readdir(fullPath, { withFileTypes: true });
     const result: Array<{ name: string; type: string; size?: number }> = [];
@@ -375,20 +465,19 @@ export class CodeToolInvokeHandler extends BaseActionHandler {
 
   private async executeBash(params: Record<string, unknown>, workspace: WorkspaceContext): Promise<unknown> {
     const { spawn } = await import('child_process');
-    const path = await import('path');
 
+    // NOT A SANDBOX: this runs as the service process. Double-gated: the
+    // workspace must carry execute permission AND the deployment must set
+    // ASSISTANTS_CODE_TOOLS_ALLOW_BASH=true.
+    if (!BASH_ENABLED) {
+      throw new Error('Bash execution is disabled (set ASSISTANTS_CODE_TOOLS_ALLOW_BASH=true to enable in trusted development only)');
+    }
     if (!workspace.permissions.execute) {
       throw new Error('Execute permission denied');
     }
 
     const command = params.command as string;
-    const cwd = params.cwd
-      ? path.join(workspace.rootPath, params.cwd as string)
-      : workspace.rootPath;
-
-    if (!cwd.startsWith(workspace.rootPath)) {
-      throw new Error('Working directory escapes workspace');
-    }
+    const cwd = await resolveSafePath(workspace, params.cwd as string | undefined);
 
     const timeout = (params.timeout as number) || 120000;
 
@@ -452,7 +541,6 @@ export class WorkspaceCreateHandler extends BaseActionHandler {
     const start = Date.now();
     const params = config.params as {
       permissions?: Partial<WorkspaceContext['permissions']>;
-      rootPath?: string;
     };
 
     try {
@@ -462,21 +550,27 @@ export class WorkspaceCreateHandler extends BaseActionHandler {
       const fs = await import('fs/promises');
 
       const workspaceId = uuid();
-      const rootPath = params.rootPath || path.join(os.tmpdir(), 'symbia-workspaces', workspaceId);
+      // SECURITY: rootPath is never caller-supplied. Workspaces live under
+      // the OS temp dir only; a caller-chosen root (e.g. '/') defeats every
+      // path check downstream.
+      const rootPath = path.join(os.tmpdir(), 'symbia-workspaces', workspaceId);
 
       await fs.mkdir(rootPath, { recursive: true });
 
+      // SECURITY: callers may narrow permissions, never widen them.
+      // - execute additionally requires the deployment-level bash opt-in
+      // - blockedPaths can only grow; the defaults cannot be removed
+      const requested = params.permissions ?? {};
       const workspace: WorkspaceContext & { conversationId: string } = {
         workspaceId,
         rootPath,
         conversationId: context.conversationId,
         permissions: {
-          read: true,
-          write: true,
-          execute: false,
-          paths: ['**/*'],
-          blockedPaths: ['**/.env*', '**/secrets/**'],
-          ...params.permissions,
+          read: requested.read !== false,
+          write: requested.write !== false,
+          execute: BASH_ENABLED && requested.execute === true,
+          paths: requested.paths ?? ['**/*'],
+          blockedPaths: [...DEFAULT_BLOCKED_PATHS, ...(requested.blockedPaths ?? [])],
         },
       };
 
