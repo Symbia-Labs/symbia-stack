@@ -62,10 +62,16 @@ jobs:
       - name: Install (workspaces)
         run: npm ci
       - name: Build libs the tests import from dist (tsc only)
-        run: npm run build -w symbia-sys -w symbia-crypto -w symbia-pathguard -w symbia-db
+        run: npm run build -w symbia-sys -w symbia-crypto -w symbia-pathguard -w symbia-egress -w symbia-db
       - name: Stubbed security suite (A1 + A4 + crypto)
         run: npm run test:security
+      - name: R3 egress guard (SSRF) vs predictions
+        run: npm run test:security:egress
       - name: A4 LIVE — RLS against real Postgres
         env:
           DATABASE_URL: postgres://symbia:symbia_dev@localhost:5432/symbia
         run: npm run test:security:a4-live
+      - name: Messaging RLS LIVE — org isolation against real Postgres
+        env:
+          DATABASE_URL: postgres://symbia:symbia_dev@localhost:5432/symbia
+        run: npm run test:security:messaging-rls-live

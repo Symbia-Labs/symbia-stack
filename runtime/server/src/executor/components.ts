@@ -20,6 +20,7 @@
  * two separate nodes, while the lane rule never once broke.
  */
 import { preview } from './preview.js';
+import { safeFetch } from '@symbia/egress';
 
 export type Lane = 'canonical' | 'apocryphal';
 
@@ -443,7 +444,9 @@ registerComponent({
     const method = String(ctx.config.method ?? 'GET');
     if (!url) return { error: { value: { error: 'no url configured' }, lane: 'apocryphal' as Lane } };
     try {
-      const res = await fetch(url, { method, signal: AbortSignal.timeout(10_000) });
+      // R3: gate egress — config.url is graph-controlled; block SSRF to
+      // loopback/private/link-local/metadata addresses.
+      const res = await safeFetch(url, { method, signal: AbortSignal.timeout(10_000) });
       const text = await res.text();
       let body: unknown = text;
       try { body = JSON.parse(text); } catch { /* keep text */ }

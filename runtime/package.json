@@ -17,6 +17,7 @@
     "@symbia/db": "file:../symbia-db",
     "@symbia/http": "file:../symbia-http",
     "@symbia/logging-client": "file:../symbia-logging-client",
+    "@symbia/egress": "file:../symbia-egress",
     "@symbia/pathguard": "file:../symbia-pathguard",
     "@symbia/relay": "file:../symbia-relay",
     "@symbia/sys": "file:../symbia-sys",
