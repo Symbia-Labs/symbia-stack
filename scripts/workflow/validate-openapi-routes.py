@@ -9,7 +9,13 @@ def norm(p):
     if len(p)>1 and p.endswith('/'): p=p[:-1]
     return p
 ROUTE_RE=re.compile(r'\b([A-Za-z_$][\w$]*)\.(get|post|put|patch|delete)\(\s*[`\'"](/[^`\'"]*)[`\'"]')
-USE_RE=re.compile(r'\.use\(\s*[\'"]([^\'"]+)[\'"]\s*,\s*([A-Za-z0-9_$]+)')
+# Capture the mount path and EVERY argument after it, so that
+# `app.use('/api/graphs', optionalAuth, graphsRouter)` links the router to its
+# prefix. The old regex captured only the first identifier after the path, which
+# was the middleware (optionalAuth), never the router — making every
+# middleware-guarded router read as "not implemented". Middleware identifiers
+# resolve to files with no router-kind routes, so listing them here is harmless.
+USE_RE=re.compile(r'\.use\(\s*[\'"]([^\'"]+)[\'"]\s*,([^)]*)\)')
 IMPORT_RE=re.compile(r'import\s+(?:\{([^}]+)\}|([A-Za-z0-9_]+))\s+from\s+[\'"]([^\'"]+)[\'"]')
 APP_RECV={"app","fastify","server"}          # absolute-path receivers
 def is_router_recv(name, routervars):
@@ -63,9 +69,10 @@ class Svc:
         for f in self.files:
             t=read(f); ml=[]
             for m in USE_RE.finditer(t):
-                prefix,ident=m.group(1),m.group(2)
-                tgt=self.symdef.get(ident) or self.imports.get(f,{}).get(ident)
-                if tgt: ml.append((prefix,tgt))
+                prefix,args=m.group(1),m.group(2)
+                for ident in re.findall(r'[A-Za-z_$][\w$]*',args):
+                    tgt=self.symdef.get(ident) or self.imports.get(f,{}).get(ident)
+                    if tgt: ml.append((prefix,tgt))
             self.mounts[f]=ml
     def expand_router(self,f,prefix,stack,acc):
         if f in stack or len(stack)>12: return
