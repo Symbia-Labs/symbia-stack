@@ -15,7 +15,7 @@ and fails when a new one appears without review.*
 | `logging/server/src/db.ts` | 1 | boot: schema/init |
 | `assistants/server/src/index.ts` | 1 | to review (index bootstrap path) |
 | `messaging/server/src/database.ts` | 2 | boot: init + export/backup |
-| `messaging/server/src/models/message.ts` | 1 | **request path — known-uncovered; follow-up to wrap in withRLSContext** |
+| `messaging/server/src/models/message.ts` | 1 | request path — **now wrapped**: the transaction runs through `withRLSContext` when a request RLS context is in scope; the remaining `pool.connect()` is the no-context fallback (internal/boot) |
 
 ## Predictions
 
