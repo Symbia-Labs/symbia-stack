@@ -34,7 +34,6 @@ export function createSymbiaServer(config: ServerConfig): ServerInstance {
     telemetry,
     enableLogging = true,
     middleware = [],
-    setupVite,
     serveStatic,
     registerRoutes,
     health: healthConfig = {},
@@ -357,10 +356,6 @@ export function createSymbiaServer(config: ServerConfig): ServerInstance {
         log("Setting up static file serving for production");
         serveStatic(app);
         log("Static file serving configured");
-      }
-    } else {
-      if (setupVite) {
-        await setupVite(httpServer, app);
       }
     }
 
