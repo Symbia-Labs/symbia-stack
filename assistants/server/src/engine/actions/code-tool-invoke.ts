@@ -1,19 +1,22 @@
 /**
  * Code Tool Invoke Action
  *
- * Action handler for invoking code tools (file operations, bash, search).
+ * Action handler for invoking code tools (file read/write/edit, glob, grep, ls).
  *
  * SECURITY (13 Aug 2026 — see STATUS.md and docs/2026-08-13-adversarial-analysis.md):
- * This is NOT a sandbox. Commands and file operations run as the service
- * process with its environment. The controls here (env-flag gating, workspace
- * confinement with symlink-aware path resolution, blocked-path globs, no
- * caller-supplied roots or permission escalation) are an interim floor.
- * Real isolation (container/gVisor per workspace) is required before this is
- * enabled anywhere untrusted.
+ * This is NOT a sandbox. File operations run as the service process with its
+ * environment. The controls here (env-flag gating, workspace confinement with
+ * symlink-aware path resolution, blocked-path globs, no caller-supplied roots or
+ * permission escalation) are an interim floor for the FILE tools only.
+ *
+ * BASH WAS REMOVED (13 Aug 2026). Arbitrary `bash -c` on the service process is
+ * not something an env flag makes safe. It stays out until real isolation is
+ * decided — the intended home is a WASM sandbox; until that lands there is no
+ * command-execution tool here. Do not re-add `spawn`/`child_process` to this
+ * file without that boundary.
  *
  * Registration is gated: handlers are only wired when
- * ASSISTANTS_ENABLE_CODE_TOOLS=true. Bash additionally requires
- * ASSISTANTS_CODE_TOOLS_ALLOW_BASH=true.
+ * ASSISTANTS_ENABLE_CODE_TOOLS=true.
  *
  * Inspired by OpenCode (https://github.com/opencode-ai/opencode)
  * OpenCode is licensed under the MIT License
@@ -27,8 +30,6 @@ import { resolveConfinedPath, isPathBlocked } from '@symbia/pathguard';
 
 /** Code tools are off unless explicitly enabled. */
 export const CODE_TOOLS_ENABLED = process.env.ASSISTANTS_ENABLE_CODE_TOOLS === 'true';
-/** Bash execution requires its own explicit opt-in on top of the above. */
-const BASH_ENABLED = process.env.ASSISTANTS_CODE_TOOLS_ALLOW_BASH === 'true';
 
 // `**/.env*` also matches a root-level `.env` (pathguard's `**/` matches
 // zero segments), so the bare variants are belt-and-braces only.
@@ -49,8 +50,7 @@ export type CodeToolName =
   | 'file-edit'
   | 'glob'
   | 'grep'
-  | 'ls'
-  | 'bash';
+  | 'ls';
 
 export interface CodeToolInvokeParams {
   tool: CodeToolName;
@@ -64,7 +64,6 @@ export interface WorkspaceContext {
   permissions: {
     read: boolean;
     write: boolean;
-    execute: boolean;
     paths: string[];
     blockedPaths: string[];
   };
@@ -142,7 +141,6 @@ export class CodeToolInvokeHandler extends BaseActionHandler {
       'glob': this.executeGlob.bind(this),
       'grep': this.executeGrep.bind(this),
       'ls': this.executeLs.bind(this),
-      'bash': this.executeBash.bind(this),
     };
 
     const handler = toolHandlers[tool];
@@ -399,73 +397,9 @@ export class CodeToolInvokeHandler extends BaseActionHandler {
     };
   }
 
-  private async executeBash(params: Record<string, unknown>, workspace: WorkspaceContext): Promise<unknown> {
-    const { spawn } = await import('child_process');
-
-    // NOT A SANDBOX: this runs as the service process. Double-gated: the
-    // workspace must carry execute permission AND the deployment must set
-    // ASSISTANTS_CODE_TOOLS_ALLOW_BASH=true.
-    if (!BASH_ENABLED) {
-      throw new Error('Bash execution is disabled (set ASSISTANTS_CODE_TOOLS_ALLOW_BASH=true to enable in trusted development only)');
-    }
-    if (!workspace.permissions.execute) {
-      throw new Error('Execute permission denied');
-    }
-
-    const command = params.command as string;
-    const cwd = await resolveSafePath(workspace, params.cwd as string | undefined);
-
-    const timeout = (params.timeout as number) || 120000;
-
-    return new Promise((resolve) => {
-      let stdout = '';
-      let stderr = '';
-      let timedOut = false;
-
-      const proc = spawn('bash', ['-c', command], { cwd });
-
-      const timeoutId = setTimeout(() => {
-        timedOut = true;
-        proc.kill('SIGTERM');
-      }, timeout);
-
-      proc.stdout.on('data', (data) => {
-        stdout += data.toString();
-        if (stdout.length > 100000) {
-          stdout = stdout.slice(0, 100000) + '\n[truncated]';
-        }
-      });
-
-      proc.stderr.on('data', (data) => {
-        stderr += data.toString();
-        if (stderr.length > 50000) {
-          stderr = stderr.slice(0, 50000) + '\n[truncated]';
-        }
-      });
-
-      proc.on('close', (code) => {
-        clearTimeout(timeoutId);
-        resolve({
-          command,
-          stdout,
-          stderr,
-          exitCode: code ?? 1,
-          timedOut,
-        });
-      });
-
-      proc.on('error', (err) => {
-        clearTimeout(timeoutId);
-        resolve({
-          command,
-          stdout,
-          stderr: err.message,
-          exitCode: 1,
-          timedOut: false,
-        });
-      });
-    });
-  }
+  // executeBash was removed 13 Aug 2026 (see the file header). There is no
+  // command-execution tool until a real isolation boundary (WASM sandbox) is
+  // decided.
 }
 
 // Workspace management actions
@@ -494,7 +428,6 @@ export class WorkspaceCreateHandler extends BaseActionHandler {
       await fs.mkdir(rootPath, { recursive: true });
 
       // SECURITY: callers may narrow permissions, never widen them.
-      // - execute additionally requires the deployment-level bash opt-in
       // - blockedPaths can only grow; the defaults cannot be removed
       const requested = params.permissions ?? {};
       const workspace: WorkspaceContext & { conversationId: string } = {
@@ -504,7 +437,6 @@ export class WorkspaceCreateHandler extends BaseActionHandler {
         permissions: {
           read: requested.read !== false,
           write: requested.write !== false,
-          execute: BASH_ENABLED && requested.execute === true,
           paths: requested.paths ?? ['**/*'],
           blockedPaths: [...DEFAULT_BLOCKED_PATHS, ...(requested.blockedPaths ?? [])],
         },

@@ -31,7 +31,7 @@ export type ActionType =
   // Tool actions
   | 'tool.invoke'         // Invoke a built-in tool (math, convert, etc.)
   // Code agent actions
-  | 'code.tool.invoke'    // Invoke a code tool (file ops, bash, search)
+  | 'code.tool.invoke'    // Invoke a code tool (file ops, search; bash removed)
   | 'workspace.create'    // Create an isolated workspace
   | 'workspace.destroy'   // Destroy a workspace
   // Integration actions

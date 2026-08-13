@@ -5,7 +5,7 @@
  *
  * Covers: caller-supplied rootPath ignored, no permission escalation,
  * traversal/symlink/sibling-prefix escapes rejected, blockedPaths enforced
- * (including grep recursion), bash off without the deployment opt-in.
+ * (including grep recursion), and that the removed bash tool is unavailable.
  */
 import { CodeToolInvokeHandler, WorkspaceCreateHandler } from '../../assistants/server/src/engine/actions/code-tool-invoke.js';
 import * as fs from 'fs/promises';
@@ -24,11 +24,11 @@ async function main() {
   const invoke = new CodeToolInvokeHandler();
 
   // 1. Malicious create: rootPath '/', execute true, blockedPaths cleared
-  const r1 = await create.execute({ params: { rootPath: '/', permissions: { execute: true, blockedPaths: [] } } } as never, ctx) as { success: boolean; output: { workspaceId: string; rootPath: string; permissions: { execute: boolean; blockedPaths: string[] } } };
+  const r1 = await create.execute({ params: { rootPath: '/', permissions: { blockedPaths: [] } } } as never, ctx) as { success: boolean; output: { workspaceId: string; rootPath: string; permissions: { blockedPaths: string[] } } };
   check('create succeeds', r1.success === true, r1);
   const ws = r1.output;
   check('rootPath not caller-controlled', ws.rootPath !== '/' && ws.rootPath.includes('symbia-workspaces'), ws.rootPath);
-  check('execute not granted (bash env off)', ws.permissions.execute === false, ws.permissions);
+  check('no execute permission exists', !('execute' in ws.permissions), ws.permissions);
   check('default blockedPaths preserved', ws.permissions.blockedPaths.includes('**/.env*'), ws.permissions.blockedPaths);
 
   const wsId = ws.workspaceId;
@@ -63,9 +63,9 @@ async function main() {
   const r7 = await run('file-read', { path: '../' + path.basename(sibling) + '/x.txt' });
   check('sibling-prefix escape blocked', r7.success === false, r7);
 
-  // 7. Bash disabled by default
+  // 7. Bash tool removed — invoking it is an unknown tool
   const r8 = await run('bash', { command: 'id' });
-  check('bash disabled', r8.success === false && /disabled|permission/i.test(r8.error ?? ''), r8);
+  check('bash tool removed', r8.success === false && /unknown tool/i.test(r8.error ?? ''), r8);
 
   // 8. grep skips blocked files
   await fs.mkdir(path.join(ws.rootPath, 'secrets'), { recursive: true });

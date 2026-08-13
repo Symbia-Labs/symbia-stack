@@ -268,9 +268,11 @@ Tier 3 (Application Layer):
 - **Rule Engine**: Event-triggered, condition-based action execution
 - **Turn-Taking Protocol**: Claim/defer/observe/respond for multi-agent coordination
 - **Handoff Workflows**: Seamless transitions between AI and human agents
-- **Code Tools**: file operations, bash execution, and search scoped to a
-  workspace directory. **Not sandboxed** — commands run as the service process
-  with its environment; do not enable outside trusted development (see `STATUS.md`)
+- **Code Tools**: file operations and search scoped to a workspace directory.
+  **Not sandboxed** — file operations run as the service process with its
+  environment; off by default, do not enable outside trusted development (see
+  `STATUS.md`). Command/bash execution was removed pending a real isolation
+  boundary (WASM sandbox).
 
 ### Dataflow Execution
 - **Component Abstraction**: Typed input/output ports with schema validation
