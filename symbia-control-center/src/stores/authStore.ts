@@ -93,12 +93,9 @@ interface AuthState {
  */
 export const DEV_NO_AUTH = false;
 
-const devUser = {
-  id: 'dev-no-auth',
-  email: 'dev@localhost',
-  name: 'Developer (login disabled)',
-  isSuperAdmin: true,
-} as never;
+// devUser removed 13 Aug 2026: DEV_NO_AUTH is permanently false (see comment
+// above) and the fake super-admin object it gated was dead weight the build
+// gate rightly flagged.
 
 export const useAuthStore = create<AuthState>()(
   persist(

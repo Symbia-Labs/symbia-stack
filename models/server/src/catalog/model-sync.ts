@@ -43,6 +43,8 @@ export interface ModelCatalogMetadata {
   memoryUsageMB: number;
   loaded: boolean;
   status: string;
+  /** Serialized into catalog resource metadata, which is an open record. */
+  [key: string]: unknown;
 }
 
 /**

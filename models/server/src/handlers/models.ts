@@ -6,6 +6,12 @@ import type { Request, Response } from "express";
 import { getEngine } from "../llama/engine.js";
 import { unifiedRegistry } from "../registry.js";
 
+/** Express 5 route params type as string | string[]; normalize to string. */
+function getParam(params: Record<string, string | string[] | undefined>, key: string): string {
+  const value = params[key];
+  return Array.isArray(value) ? value[0] : (value ?? "");
+}
+
 /**
  * List all available models — local AND remote (OpenAI-compatible format).
  *
@@ -95,7 +101,7 @@ export async function handleGetModel(
   res: Response
 ): Promise<void> {
   try {
-    const { id } = req.params;
+    const id = getParam(req.params, 'id');
     const engine = getEngine();
     const model = await engine.getModel(id);
 
@@ -140,7 +146,7 @@ export async function handleLoadModel(
   res: Response
 ): Promise<void> {
   try {
-    const { id } = req.params;
+    const id = getParam(req.params, 'id');
     const engine = getEngine();
 
     // Unknown model is a client error (404), not a server fault.
@@ -187,7 +193,7 @@ export async function handleUnloadModel(
   res: Response
 ): Promise<void> {
   try {
-    const { id } = req.params;
+    const id = getParam(req.params, 'id');
     const engine = getEngine();
 
     // Unknown model is a client error (404), not a server fault.

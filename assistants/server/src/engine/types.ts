@@ -408,6 +408,11 @@ export interface MessageContext {
   id: string;
   role: 'user' | 'assistant' | 'system' | 'agent';
   content: string;
+  /**
+   * The unmodified message content, kept when `content` has been stripped
+   * (e.g. addressing prefix removed before rule matching in webhooks.ts).
+   */
+  originalContent?: string;
   metadata?: Record<string, unknown>;
 }
 

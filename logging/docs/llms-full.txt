@@ -69,6 +69,43 @@ Request Body:
 
 Response: Logs ingested
 
+#### DELETE /api/logs/streams/{id}
+Delete streams
+Documented from the implemented route. Request/response schema to be enriched.
+
+Path Parameters:
+- id: string
+
+Response: Deleted
+
+#### GET /api/logs/streams/{id}
+Get streams
+Documented from the implemented route. Request/response schema to be enriched.
+
+Path Parameters:
+- id: string
+
+Response: Success
+
+#### PATCH /api/logs/streams/{id}
+Update streams
+Documented from the implemented route. Request/response schema to be enriched.
+
+Path Parameters:
+- id: string
+
+Request Body:
+```json
+```
+
+Response: Success
+
+#### GET /api/logs/stream
+Get stream
+Documented from the implemented route. Request/response schema to be enriched.
+
+Response: Success
+
 ### Metrics
 
 Metric definition and data point management
@@ -125,6 +162,37 @@ Request Body:
 
 Response: Data points ingested
 
+#### DELETE /api/metrics/{id}
+Delete metrics
+Documented from the implemented route. Request/response schema to be enriched.
+
+Path Parameters:
+- id: string
+
+Response: Deleted
+
+#### GET /api/metrics/{id}
+Get metrics
+Documented from the implemented route. Request/response schema to be enriched.
+
+Path Parameters:
+- id: string
+
+Response: Success
+
+#### PATCH /api/metrics/{id}
+Update metrics
+Documented from the implemented route. Request/response schema to be enriched.
+
+Path Parameters:
+- id: string
+
+Request Body:
+```json
+```
+
+Response: Success
+
 ### Traces
 
 Distributed tracing and span management
@@ -173,6 +241,15 @@ Request Body:
 ```
 
 Response: Spans ingested
+
+#### GET /api/traces/{id}
+Get traces
+Documented from the implemented route. Request/response schema to be enriched.
+
+Path Parameters:
+- id: string
+
+Response: Success
 
 ### Objects
 
@@ -224,6 +301,37 @@ Request Body:
 ```
 
 Response: Object registered
+
+#### DELETE /api/objects/streams/{id}
+Delete streams
+Documented from the implemented route. Request/response schema to be enriched.
+
+Path Parameters:
+- id: string
+
+Response: Deleted
+
+#### GET /api/objects/streams/{id}
+Get streams
+Documented from the implemented route. Request/response schema to be enriched.
+
+Path Parameters:
+- id: string
+
+Response: Success
+
+#### PATCH /api/objects/streams/{id}
+Update streams
+Documented from the implemented route. Request/response schema to be enriched.
+
+Path Parameters:
+- id: string
+
+Request Body:
+```json
+```
+
+Response: Success
 
 ### Assistant
 
@@ -306,6 +414,92 @@ Request Body:
 ```
 
 Response: Grouped log patterns
+
+### Integrations
+
+External service integrations
+
+#### DELETE /api/integrations/{id}
+Delete integrations
+Documented from the implemented route. Request/response schema to be enriched.
+
+Path Parameters:
+- id: string
+
+Response: Deleted
+
+#### GET /api/integrations/{id}
+Get integrations
+Documented from the implemented route. Request/response schema to be enriched.
+
+Path Parameters:
+- id: string
+
+Response: Success
+
+#### PATCH /api/integrations/{id}
+Update integrations
+Documented from the implemented route. Request/response schema to be enriched.
+
+Path Parameters:
+- id: string
+
+Request Body:
+```json
+```
+
+Response: Success
+
+#### GET /api/integrations
+List integrations
+Documented from the implemented route. Request/response schema to be enriched.
+
+Response: Success
+
+#### POST /api/integrations
+Create integrations
+Documented from the implemented route. Request/response schema to be enriched.
+
+Request Body:
+```json
+```
+
+Response: Success
+
+#### POST /api/integrations/{id}/test
+Test integrations test
+Documented from the implemented route. Request/response schema to be enriched.
+
+Path Parameters:
+- id: string
+
+Request Body:
+```json
+```
+
+Response: Success
+
+### Stats
+
+Dashboard statistics
+
+#### GET /api/stats
+List stats
+Documented from the implemented route. Request/response schema to be enriched.
+
+Response: Success
+
+#### GET /api/stats/ingest-rate
+Get ingest rate
+Documented from the implemented route. Request/response schema to be enriched.
+
+Response: Success
+
+#### GET /api/stats/query-latency
+Get query latency
+Documented from the implemented route. Request/response schema to be enriched.
+
+Response: Success
 
 ## Authentication
 

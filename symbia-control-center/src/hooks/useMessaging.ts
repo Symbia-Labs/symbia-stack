@@ -8,7 +8,6 @@ import {
   messagingBridge,
   connectSocket,
   disconnectSocket,
-  updateSocketHandlers,
   joinConversation,
   leaveConversation,
   sendSocketMessage,

@@ -20,7 +20,6 @@ import { ContextSchemaSection } from './type-sections/ContextSchemaSection';
 import { AssistantConfigSection } from './type-sections/AssistantConfigSection';
 import { ComponentInterfaceSection } from './type-sections/ComponentInterfaceSection';
 import { IntegrationConnectionSection } from './type-sections/IntegrationConnectionSection';
-import { ExecutorRuntimeSection } from './type-sections/ExecutorRuntimeSection';
 
 type TabId = 'details' | 'config' | 'access' | 'versions';
 
@@ -113,8 +112,6 @@ export function ResourceEditor({
         return 'Interface';
       case 'integration':
         return 'Connection';
-      case 'executor':
-        return 'Runtime';
       default:
         return 'Configuration';
     }
@@ -186,13 +183,6 @@ export function ResourceEditor({
       case 'integration':
         return (
           <IntegrationConnectionSection
-            resource={resource}
-            onUpdateMetadata={onUpdateMetadata}
-          />
-        );
-      case 'executor':
-        return (
-          <ExecutorRuntimeSection
             resource={resource}
             onUpdateMetadata={onUpdateMetadata}
           />

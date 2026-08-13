@@ -118,7 +118,7 @@ const updateContextSchema = z.object({
  */
 function registryLedger(
   req: { user?: { id?: string; isSuperAdmin?: boolean }; headers?: Record<string, unknown> },
-  action: "register" | "publish",
+  action: "register" | "publish" | "update",
   resource: { id?: string; key?: string; type?: string }
 ): void {
   const principal = req.user?.id ?? "anonymous";

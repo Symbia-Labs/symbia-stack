@@ -203,7 +203,7 @@ async function invokeViaIntegrations(
     clearTimeout(timeoutId);
 
     if (!response.ok) {
-      const error = await response.json().catch(() => ({ error: "Unknown error" }));
+      const error = await response.json().catch(() => ({ error: "Unknown error" })) as { error?: string };
       const errorMsg = error.error || response.statusText;
 
       // Detect auth errors and throw a specific error type
@@ -271,7 +271,7 @@ export async function getAvailableProviders(): Promise<Array<{ name: string; sup
   try {
     const response = await fetch(`${INTEGRATIONS_SERVICE_URL}/api/integrations/providers`);
     if (!response.ok) return [];
-    const data = await response.json();
+    const data = await response.json() as { providers?: Array<{ name: string; supportedOperations: string[] }> };
     return data.providers || [];
   } catch {
     return [];
@@ -446,7 +446,7 @@ export async function invokeEmbedding(
     clearTimeout(timeoutId);
 
     if (!response.ok) {
-      const error = await response.json().catch(() => ({ error: "Unknown error" }));
+      const error = await response.json().catch(() => ({ error: "Unknown error" })) as { error?: string };
       const errorMsg = error.error || response.statusText;
 
       if (response.status === 401 || errorMsg.includes('Invalid or expired token')) {
@@ -527,7 +527,7 @@ export async function invokeEmbeddingBatch(
     clearTimeout(timeoutId);
 
     if (!response.ok) {
-      const error = await response.json().catch(() => ({ error: "Unknown error" }));
+      const error = await response.json().catch(() => ({ error: "Unknown error" })) as { error?: string };
       throw new Error(`Embedding service error: ${error.error || response.statusText}`);
     }
 

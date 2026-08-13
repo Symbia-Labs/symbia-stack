@@ -66,6 +66,8 @@ export interface CatalogResource {
   type: 'assistant' | string;
   status: string;
   tags: string[];
+  /** Bootstrap assistants auto-register with Identity and use the shared credential. */
+  isBootstrap?: boolean;
   metadata: {
     alias?: string;
     llmConfigPreset?: 'routing' | 'conversational' | 'code' | 'reasoning';

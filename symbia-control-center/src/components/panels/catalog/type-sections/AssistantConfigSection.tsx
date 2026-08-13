@@ -12,7 +12,7 @@ import { RoutineEditor, type Routine } from './RoutineEditor';
 import { RoutineFlowPreview } from './RoutineFlowPreview';
 import { getDefaultRoutines, hasCustomRoutines } from './defaultRoutines';
 import { useServicesStore } from '@/stores/servicesStore';
-import { integrationsClient, type ModelInfo, type ProviderCapability } from '@/services/integrationsClient';
+import { integrationsClient, type ModelInfo } from '@/services/integrationsClient';
 import { ContextBindingEditor, type ContextBinding } from './ContextBindingEditor';
 
 interface AssistantConfigSectionProps {

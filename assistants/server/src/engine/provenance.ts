@@ -539,7 +539,8 @@ export function sealDelegation(input: {
   to: string;
   reason?: string;
   decidedBy?: string;
-  method?: 'declaration' | 'model';
+  /** Same tiers as RouteDecision.method (minus 'declined' — declined routes are never sealed). */
+  method?: 'addressed' | 'declaration' | 'classifier' | 'model';
   steps: ProvenanceStep[];
   causedBy?: string;
   /** Scopes the chain. Delegations in one conversation link in order. */

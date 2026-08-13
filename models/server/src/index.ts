@@ -46,11 +46,11 @@ const server = createSymbiaServer({
     enableLiveness: true,
     enableReadiness: true,
     livenessCheck: async () => {
-      return { status: "ok" };
+      return true;
     },
     readinessCheck: async () => {
       // TODO: Check if at least one model is available
-      return { status: "ok" };
+      return true;
     },
   },
   shutdown: {

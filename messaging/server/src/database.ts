@@ -43,6 +43,15 @@ if (USE_MEMORY_DB) {
   pool = new Pool({
     connectionString: config.databaseUrl,
   });
+  // Survive a Postgres restart (13 Aug 2026): an unhandled pool 'error'
+  // event kills the process. Log and continue; the pool reconnects on the
+  // next query once Postgres is back.
+  pool.on('error', (err) => {
+    console.error(
+      `[messaging] Postgres pool error (backend gone away?): ${err.message}. ` +
+      `Continuing; new connections will be attempted on next query.`
+    );
+  });
 }
 
 export async function initDatabase(): Promise<void> {

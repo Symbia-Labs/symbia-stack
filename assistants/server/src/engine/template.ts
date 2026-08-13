@@ -24,9 +24,19 @@ import {
 } from '../services/assistant-loader.js';
 
 /**
- * Convert ExecutionContext to ResolutionContext for Symbia Script
+ * The subset of ExecutionContext that template interpolation actually reads.
+ * Callers like webhooks.ts interpolate before a full ExecutionContext exists
+ * (no conversationState/trigger/event yet), so the parameter is structural:
+ * org + conversation are required, everything else optional.
  */
-export function toResolutionContext(ctx: ExecutionContext): ResolutionContext {
+export type TemplateContext = Partial<ExecutionContext> &
+  Pick<ExecutionContext, 'orgId' | 'conversationId'>;
+
+/**
+ * Convert ExecutionContext (or the interpolation subset) to ResolutionContext
+ * for Symbia Script
+ */
+export function toResolutionContext(ctx: TemplateContext): ResolutionContext {
   return {
     orgId: ctx.orgId,
     conversationId: ctx.conversationId,
@@ -113,7 +123,7 @@ export function toResolutionContext(ctx: ExecutionContext): ResolutionContext {
  * @param ctx - Execution context
  * @returns Interpolated string
  */
-export function interpolate(template: string, ctx: ExecutionContext): string {
+export function interpolate(template: string, ctx: TemplateContext): string {
   const resCtx = toResolutionContext(ctx);
 
   // Use the Symbia Script interpolation
@@ -130,7 +140,7 @@ export function interpolate(template: string, ctx: ExecutionContext): string {
  */
 export function interpolateObject<T extends Record<string, unknown>>(
   obj: T,
-  ctx: ExecutionContext
+  ctx: TemplateContext
 ): T {
   const resCtx = toResolutionContext(ctx);
   return scriptInterpolateObject(obj, resCtx);

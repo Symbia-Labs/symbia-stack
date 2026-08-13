@@ -59,6 +59,17 @@ export function initializeDatabase<TSchema extends Record<string, unknown>>(
     }
   } else {
     pool = new Pool({ connectionString: databaseUrl });
+    // Survive a Postgres restart (13 Aug 2026, adversarial analysis C):
+    // pg emits 'error' on idle clients when the backend goes away, and an
+    // unhandled 'error' event kills the process. Four services crashed this
+    // way. Log and carry on — the pool discards the broken client and dials
+    // fresh connections on demand once Postgres is back.
+    pool.on("error", (err) => {
+      console.error(
+        `[${serviceId}] Postgres pool error (backend gone away?): ${err.message}. ` +
+        `Continuing; new connections will be attempted on next query.`
+      );
+    });
     // Pooled one-shot queries honor the ambient AsyncLocalStorage RLS
     // context on a pinned client + transaction (see als-context.ts).
     attachRLSPoolWrapper(pool);

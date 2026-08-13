@@ -220,7 +220,10 @@ export const messagingBridge = new MessagingBridge();
 import { io, Socket } from 'socket.io-client';
 
 let socket: Socket | null = null;
-let currentHandlers: SocketEventHandlers | null = null;
+// currentHandlers removed 13 Aug 2026: it was written on connect/update and
+// nulled on disconnect but never read anywhere — write-only state the build
+// gate rightly flagged. setupSocketListeners already receives handlers
+// directly at every call site.
 let connectionId = 0; // Track connection attempts to handle race conditions
 
 // Default timeout for socket emit callbacks (ms)
@@ -371,9 +374,6 @@ export function connectSocket(handlers: SocketEventHandlers): Socket {
     console.log('[Socket] Connection ID:', thisConnectionId);
   }
 
-  // Store handlers for potential reconnection
-  currentHandlers = handlers;
-
   // If socket exists and is connected, just update handlers
   if (socket?.connected) {
     if (isDev) console.log('[Socket] Already connected, updating handlers');
@@ -416,7 +416,6 @@ export function connectSocket(handlers: SocketEventHandlers): Socket {
  * Update handlers on existing socket (e.g., when component re-renders)
  */
 export function updateSocketHandlers(handlers: SocketEventHandlers): void {
-  currentHandlers = handlers;
   if (socket) {
     setupSocketListeners(handlers);
   }
@@ -428,7 +427,6 @@ export function disconnectSocket(): void {
     socket.disconnect();
     socket = null;
   }
-  currentHandlers = null;
 }
 
 export function getSocket(): Socket | null {

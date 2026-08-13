@@ -4,9 +4,9 @@
  * Defines the API spec for local LLM inference endpoints.
  */
 
-import type { OpenAPIObject } from "@symbia/md";
+import type { OpenAPISpec } from "@symbia/md";
 
-export const apiDocumentation: OpenAPIObject = {
+export const apiDocumentation: OpenAPISpec = {
   openapi: "3.1.0",
   info: {
     title: "Symbia Models Service",

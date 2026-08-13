@@ -6,7 +6,7 @@
 
 **CORS**: All API endpoints support CORS with methods GET, POST, PUT, PATCH, DELETE, OPTIONS and headers Content-Type, Authorization, X-API-Key, X-Org-Id, X-Service-Id, X-Env, X-Data-Class, X-Policy-Ref. Credentialed requests (cookies) only allowed from origins in CORS_ALLOWED_ORIGINS. Disallowed origins receive 403 on preflight. Identity Service origin is always allowed.
 
-**Resource Types**: context, integration, graph, assistant. All types support identical CRUD operations and versioning workflows.
+**Resource Types**: context, integration, graph, assistant, component. All types support identical CRUD operations and versioning workflows. Resources of type 'component' must include a manifest (typed input/output ports and required capability) under metadata.manifest.
 
 **Authentication**: Bearer token (JWT), API key (X-API-Key header), or session cookie (symbia_session).
 
@@ -121,6 +121,33 @@ Request Body:
 
 Response: Bulk operation completed
 
+#### GET /api/resources/{id}/artifacts
+List artifacts
+Documented from the implemented route. Request/response schema to be enriched.
+
+Path Parameters:
+- id: string
+
+Response: Success
+
+#### GET /api/resources/{id}/certifications
+List certifications
+Documented from the implemented route. Request/response schema to be enriched.
+
+Path Parameters:
+- id: string
+
+Response: Success
+
+#### GET /api/resources/{id}/signatures
+List signatures
+Documented from the implemented route. Request/response schema to be enriched.
+
+Path Parameters:
+- id: string
+
+Response: Success
+
 ### Versions
 
 Version management operations
@@ -149,6 +176,12 @@ Path Parameters:
 - id: Resource ID
 
 Response: List of versions
+
+#### GET /api/versions
+List versions
+Documented from the implemented route. Request/response schema to be enriched.
+
+Response: Success
 
 ### Search
 
@@ -185,6 +218,12 @@ Get bootstrap summary
 Public endpoint that returns aggregated counts for bootstrap resources (components + contexts) grouped by category and intention group. No authentication required.
 
 Response: Bootstrap summary payload
+
+#### GET /api/bootstrap/service
+Get service
+Documented from the implemented route. Request/response schema to be enriched.
+
+Response: Success
 
 ### Stats
 
@@ -360,7 +399,7 @@ Response: Rate limit configuration
   key?: string;  // Unique key for the resource
   name?: string;  // Display name
   description?: string;  // Resource description
-  type?: context|integration|graph|assistant;  // Resource type. Use 'graph' for workflow/pipeline definitions.
+  type?: context|integration|graph|assistant|component;  // Resource type. Use 'graph' for workflow/pipeline definitions.
   status?: draft|published|deprecated;  // Current status
   currentVersion?: integer;  // Current version number
   tags?: array;  // Tags for categorization
@@ -379,7 +418,7 @@ Response: Rate limit configuration
   key: string;  // Unique key for the resource
   name: string;  // Display name
   description?: string;  // Resource description
-  type: context|integration|graph|assistant;  // Resource type. Use 'graph' for workflow/pipeline definitions.
+  type: context|integration|graph|assistant|component;  // Resource type. Use 'graph' for workflow/pipeline definitions.
   tags?: array;  // Tags for categorization
   isBootstrap?: boolean;  // Whether this resource is used for system initialization
   orgId?: string;  // Organization identifier
@@ -394,7 +433,7 @@ Response: Rate limit configuration
   key?: string;  // Unique key for the resource
   name?: string;  // Display name
   description?: string;  // Resource description
-  type?: context|integration|graph|assistant;  // Resource type. Use 'graph' for workflow/pipeline definitions.
+  type?: context|integration|graph|assistant|component;  // Resource type. Use 'graph' for workflow/pipeline definitions.
   status?: draft|published|deprecated;  // Current status
   tags?: array;  // Tags for categorization
   isBootstrap?: boolean;  // Whether this resource is used for system initialization
