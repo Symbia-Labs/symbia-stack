@@ -3,6 +3,7 @@ import { randomUUID } from 'crypto';
 import { newDb, DataType, IMemoryDb } from 'pg-mem';
 import { writeFileSync, mkdirSync } from 'fs';
 import { dirname } from 'path';
+import { attachRLSPoolWrapper } from '@symbia/db';
 import { config } from './config.js';
 
 const { Pool } = pg;
@@ -52,6 +53,11 @@ if (USE_MEMORY_DB) {
       `Continuing; new connections will be attempted on next query.`
     );
   });
+  // Honor the ambient RLS context (set per-request in auth.ts via
+  // runWithRLSContext) on pooled queries. No-op until a context is in scope, so
+  // this is safe before the RLS policies are applied. Explicit-client paths
+  // (pool.connect()) are NOT covered — see @symbia/db als-context.ts.
+  attachRLSPoolWrapper(pool);
 }
 
 export async function initDatabase(): Promise<void> {
