@@ -52,6 +52,7 @@ import { apiDocumentation } from "./openapi";
 import { registerDocRoutes } from "./doc-routes";
 import { getBootstrapConfig, validateSystemSecret, addUserToSystemOrg, SYSTEM_ORG_ID } from "./system-bootstrap";
 import { runWithRLSContext, type RLSContext } from "@symbia/db";
+import { encryptSecret, decryptSecret } from "@symbia/crypto";
 
 /**
  * Run the rest of the request inside a fail-closed AsyncLocalStorage RLS
@@ -3147,14 +3148,9 @@ For service-to-service authentication, use POST /api/auth/introspect with { "tok
     try {
       const data = createUserCredentialSchema.parse(req.body);
 
-      // Simple encryption using AES-256-GCM - must match key used in index.ts seeding
-      const encryptionKey = process.env.CREDENTIAL_ENCRYPTION_KEY || process.env.JWT_SECRET || "dev-secret-key-32chars-minimum!!";
-      const iv = crypto.randomBytes(16);
-      const cipher = crypto.createCipheriv('aes-256-gcm', Buffer.from(encryptionKey.padEnd(32).slice(0, 32)), iv);
-      let encrypted = cipher.update(data.apiKey, 'utf8', 'hex');
-      encrypted += cipher.final('hex');
-      const authTag = cipher.getAuthTag().toString('hex');
-      const encryptedCredential = `${iv.toString('hex')}:${authTag}:${encrypted}`;
+      // Vault encryption via @symbia/crypto (A2): HKDF-keyed AES-256-GCM,
+      // versioned format, no JWT_SECRET coupling, no hardcoded fallback.
+      const encryptedCredential = encryptSecret(data.apiKey);
 
       // Get prefix for identification (e.g., "sk-proj-..." -> "sk-proj-")
       const prefix = data.apiKey.slice(0, Math.min(8, data.apiKey.length));
@@ -3310,23 +3306,10 @@ For service-to-service authentication, use POST /api/auth/introspect with { "tok
         return res.status(404).json({ message: "Credential not found" });
       }
 
-      // Decrypt the credential - must use same key as encryption in index.ts
-      const encryptionKey = process.env.CREDENTIAL_ENCRYPTION_KEY || process.env.JWT_SECRET || "dev-secret-key-32chars-minimum!!";
-      const parts = credential.credentialEncrypted.split(':');
-      if (parts.length !== 3) {
-        return res.status(500).json({ message: "Invalid credential format" });
-      }
-
-      const [ivHex, authTagHex, encryptedHex] = parts;
-      const iv = Buffer.from(ivHex, 'hex');
-      const authTag = Buffer.from(authTagHex, 'hex');
-      const encrypted = Buffer.from(encryptedHex, 'hex');
-
-      const decipher = crypto.createDecipheriv('aes-256-gcm', Buffer.from(encryptionKey.padEnd(32).slice(0, 32)), iv);
-      decipher.setAuthTag(authTag);
-      let decrypted = decipher.update(encrypted);
-      decrypted = Buffer.concat([decrypted, decipher.final()]);
-      const apiKey = decrypted.toString('utf8');
+      // Decrypt via @symbia/crypto (A2). decryptSecret reads both the v2
+      // (HKDF) format and legacy `iv:tag:data` ciphertexts, trying legacy
+      // key derivations only for old data; GCM auth rejects wrong keys.
+      const apiKey = decryptSecret(credential.credentialEncrypted);
 
       // Update last used timestamp
       await storage.updateUserCredentialLastUsed(credential.id);
@@ -3375,25 +3358,9 @@ For service-to-service authentication, use POST /api/auth/introspect with { "tok
         return res.status(400).json({ message: "Missing required fields: userId, provider, accessToken" });
       }
 
-      // Encrypt the access token
-      const encryptionKey = process.env.CREDENTIAL_ENCRYPTION_KEY || process.env.JWT_SECRET || "dev-secret-key-32chars-minimum!!";
-      const iv = crypto.randomBytes(16);
-      const cipher = crypto.createCipheriv('aes-256-gcm', Buffer.from(encryptionKey.padEnd(32).slice(0, 32)), iv);
-      let encrypted = cipher.update(accessToken, 'utf8', 'hex');
-      encrypted += cipher.final('hex');
-      const authTag = cipher.getAuthTag().toString('hex');
-      const encryptedAccessToken = `${iv.toString('hex')}:${authTag}:${encrypted}`;
-
-      // Encrypt the refresh token if provided
-      let encryptedRefreshToken: string | null = null;
-      if (refreshToken) {
-        const refreshIv = crypto.randomBytes(16);
-        const refreshCipher = crypto.createCipheriv('aes-256-gcm', Buffer.from(encryptionKey.padEnd(32).slice(0, 32)), refreshIv);
-        let refreshEncrypted = refreshCipher.update(refreshToken, 'utf8', 'hex');
-        refreshEncrypted += refreshCipher.final('hex');
-        const refreshAuthTag = refreshCipher.getAuthTag().toString('hex');
-        encryptedRefreshToken = `${refreshIv.toString('hex')}:${refreshAuthTag}:${refreshEncrypted}`;
-      }
+      // Encrypt via @symbia/crypto (A2)
+      const encryptedAccessToken = encryptSecret(accessToken);
+      const encryptedRefreshToken: string | null = refreshToken ? encryptSecret(refreshToken) : null;
 
       // Get prefix for display
       const prefix = accessToken.slice(0, Math.min(8, accessToken.length));
@@ -3469,23 +3436,8 @@ For service-to-service authentication, use POST /api/auth/introspect with { "tok
         return res.status(404).json({ message: "Credential not found" });
       }
 
-      // Decrypt the credential
-      const encryptionKey = process.env.CREDENTIAL_ENCRYPTION_KEY || process.env.JWT_SECRET || "dev-secret-key-32chars-minimum!!";
-      const parts = credential.credentialEncrypted.split(':');
-      if (parts.length !== 3) {
-        return res.status(500).json({ message: "Invalid credential format" });
-      }
-
-      const [ivHex, authTagHex, encryptedHex] = parts;
-      const iv = Buffer.from(ivHex, 'hex');
-      const authTag = Buffer.from(authTagHex, 'hex');
-      const encrypted = Buffer.from(encryptedHex, 'hex');
-
-      const decipher = crypto.createDecipheriv('aes-256-gcm', Buffer.from(encryptionKey.padEnd(32).slice(0, 32)), iv);
-      decipher.setAuthTag(authTag);
-      let decrypted = decipher.update(encrypted);
-      decrypted = Buffer.concat([decrypted, decipher.final()]);
-      const apiKey = decrypted.toString('utf8');
+      // Decrypt via @symbia/crypto (A2; handles v2 and legacy formats)
+      const apiKey = decryptSecret(credential.credentialEncrypted);
 
       res.json({
         apiKey,

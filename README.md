@@ -259,9 +259,9 @@ Tier 3 (Application Layer):
 - **JWT Authentication**: 7-day tokens with refresh support
 - **API Key Management**: Scoped keys with expiration and rotation
 - **Entitlements**: Fine-grained capability-based permissions (`cap:*`, `role:*`)
-- **Credential Vault**: secrets stored AES-256-GCM encrypted. Key management is
-  not production-grade yet: no KDF, and a repo-visible fallback key is used when
-  `CREDENTIAL_ENCRYPTION_KEY` is unset (see `STATUS.md`)
+- **Credential Vault**: AES-256-GCM with HKDF-derived keys (`@symbia/crypto`).
+  `CREDENTIAL_ENCRYPTION_KEY` is required in production (startup throws);
+  dev without it uses a clearly-labeled dev-only key with a loud warning
 
 ### AI Workflow Orchestration
 - **Prompt Graphs**: DAG-based execution with message-passing semantics
@@ -289,7 +289,7 @@ Tier 3 (Application Layer):
 ### Service Mesh & Event Routing
 - **Contract-Based Authorization**: Explicit permissions for service communication
 - **Policy Engine**: Allow, deny, route, transform, log actions
-- **Hash-Based Security**: keyed SHA-256 hash on events (HMAC migration pending — see `STATUS.md`)
+- **Hash-Based Security**: HMAC-SHA256 event integrity with constant-time verification (`@symbia/crypto`)
 - **SDN Observability**: Real-time topology, traces, and flow visualization
 - **Entity Binding**: Persistent identities mapped to ephemeral nodes
 
@@ -346,10 +346,11 @@ Each service provides auto-generated documentation:
 
 All services are designed for multi-tenant operation:
 
-- **Organization Scoping**: data scoped by `org_id` via Postgres RLS policies.
-  Enforcement caveats are tracked in `STATUS.md`: RLS context is currently set
-  at pool level rather than per-transaction, and `X-Org-Id` is not yet checked
-  against token membership. pg-mem mode does not enforce RLS at all.
+- **Organization Scoping**: data scoped by `org_id` via Postgres RLS policies,
+  applied per-request on a pinned client with `SET LOCAL` (AsyncLocalStorage
+  scope in `@symbia/db`). `X-Org-Id` must match token membership (or super
+  admin) in assistants. Caveat: pg-mem dev mode does not enforce RLS —
+  services log a loud warning at startup in that mode.
 - **Header Propagation**: `X-Org-Id`, `X-Service-Id`, `X-Env` for context
 - **Data Classification**: `none`, `pii`, `phi`, `secret` levels
 - **Cross-Org Access**: Super admin capabilities for platform operations
@@ -358,9 +359,9 @@ All services are designed for multi-tenant operation:
 
 - **Authentication**: JWT tokens, API keys, session cookies
 - **Authorization**: Entitlement-based with role inheritance
-- **Encryption**: AES-256-GCM for credentials at rest (key management caveats in `STATUS.md`)
+- **Encryption**: AES-256-GCM for credentials at rest, HKDF-derived keys, versioned ciphertexts
 - **Password Hashing**: bcrypt with configurable rounds
-- **Event Integrity**: keyed SHA-256 hash on network events (HMAC migration pending — see `STATUS.md`)
+- **Event Integrity**: HMAC-SHA256 on network events, constant-time verification
 - **Audit Logging**: All significant actions tracked
 
 ## Development

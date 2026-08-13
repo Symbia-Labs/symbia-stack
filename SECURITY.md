@@ -124,10 +124,10 @@ This ensures:
 
 ### Built-in Protections
 
-- **Hash-based event verification**: SDN events carry a keyed SHA-256 hash
-  (not HMAC yet — migration tracked in `STATUS.md`; dev mode uses a
-  repo-visible fallback secret, so this is no integrity guarantee outside
-  production configuration)
+- **Hash-based event verification**: SDN events carry an HMAC-SHA256 over
+  payload, id, timestamp, source, run, boundary, and target, verified in
+  constant time. (Dev mode without `NETWORK_HASH_SECRET` uses a repo-visible
+  fallback secret, so integrity holds only where the secret is configured.)
 - **Contract-based access control**: Services must establish contracts before communication
 - **Credential sanitization**: API keys are never logged
 - **Circuit breakers**: Prevent cascading failures
@@ -136,9 +136,10 @@ This ensures:
 ### Known Gaps (tracked, not yet fixed)
 
 See `STATUS.md` and `docs/2026-08-13-adversarial-analysis.md` for the full
-ledger. Headlines: code-tool bash execution is not sandboxed; the credential
-vault has no KDF and a fallback key; RLS context is set at pool level rather
-than per-transaction; `X-Org-Id` is not validated against token membership.
+ledger. Headlines: code tools execute as the service process — the 13 Aug
+hardening (off-by-default registration, workspace confinement, blocked-path
+enforcement) is an interim floor, not a sandbox; pg-mem dev mode has no RLS;
+several route surfaces remain reachable without authentication in dev.
 
 ### Recommended Additional Measures
 

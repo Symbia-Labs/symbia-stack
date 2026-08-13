@@ -250,20 +250,16 @@ data-processor ──[contract]──▶ result-handler
 
 ### 2. Hash-Based Security Commitment
 
-Every event has a cryptographic hash. The intended construction is HMAC:
+Every event has a cryptographic hash:
 
 ```
-hash = HMAC-SHA256(secret, JSON.stringify(payload) + wrapper.source + wrapper.timestamp)
+hash = HMAC-SHA256(secret, JSON({type, data, id, timestamp, source, runId, boundary, target}))
 ```
 
-**Implementation today** (see root `STATUS.md`): `SHA256(data ‖ secret)` — a
-secret-suffix hash, not HMAC — over `{type, data, source, runId, boundary,
-target}`. **No timestamp is covered**, so replay detection is not provided yet.
-
-**What the intended design provides:**
-- Tamper-evidence (modified events have wrong hash)
+**What this provides:**
+- Tamper-evidence (modified events have wrong hash; constant-time verification)
 - Source authentication (only nodes with secret can generate valid hashes)
-- Replay detection (timestamp in hash — not yet implemented)
+- Replay-relevant coverage (id and timestamp are inside the MAC)
 
 **What this does NOT provide:**
 - Encryption (events are plaintext)
@@ -544,12 +540,10 @@ MAX_TRACE_HISTORY_SIZE = 5000
 
 ### Why HMAC-SHA256 for Hashing
 
-Event hashes are intended to use HMAC with a shared secret (current
-implementation is keyed SHA-256, not HMAC — migration pending, see root
-`STATUS.md`):
+Event hashes use HMAC with a shared secret (via `@symbia/crypto`):
 
 ```
-hash = HMAC-SHA256(NETWORK_HASH_SECRET, payload + source + timestamp)
+hash = HMAC-SHA256(NETWORK_HASH_SECRET, JSON({type, data, id, timestamp, source, runId, boundary, target}))
 ```
 
 **Why HMAC over plain SHA256:**

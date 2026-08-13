@@ -191,7 +191,7 @@ This provides:
 - Visible communication topology
 - Centralized policy enforcement
 - Event tracing across the mesh
-- Hash-based integrity verification (keyed SHA-256 today; HMAC migration pending — see `STATUS.md`)
+- Hash-based integrity verification (HMAC-SHA256, constant-time verify)
 
 ### 4. Multi-Tenant by Default
 
@@ -210,10 +210,11 @@ Database Queries:
     AND ...
 ```
 
-**Current enforcement caveat** (see `STATUS.md`): RLS context is set at pool
-level rather than per-transaction, `X-Org-Id` is not yet validated against
-token membership, and pg-mem dev mode does not enforce RLS at all. The design
-below is the intent; it is not yet a runtime guarantee.
+**Enforcement** (13 Aug 2026): RLS context is applied per-request on a pinned
+client via `SET LOCAL` inside a transaction (AsyncLocalStorage scope in
+`@symbia/db`), fail-closed; `X-Org-Id` is validated against token membership
+in assistants. Remaining caveat: pg-mem dev mode does not enforce RLS —
+services warn loudly at startup in that mode (see `STATUS.md`).
 
 Not an afterthought—multi-tenancy is built into:
 - Database query patterns (Drizzle ORM filters)
@@ -263,7 +264,7 @@ LLM responses can take seconds. Users need control. Human-in-the-loop workflows 
 Everything authenticates against Identity. It answers:
 - **Who is this?** (authentication via JWT, API keys, sessions)
 - **What can they do?** (authorization via entitlements)
-- **What are their credentials?** (AES-256-GCM encrypted vault; key management not yet production-grade — see `STATUS.md`)
+- **What are their credentials?** (AES-256-GCM vault, HKDF-derived keys; `CREDENTIAL_ENCRYPTION_KEY` required in production)
 - **How do I refer to them across services?** (Entity Directory)
 
 Key capabilities:
@@ -389,7 +390,7 @@ Software-defined networking for service coordination:
 - **Observability**: Topology, traces, flow visualization
 
 Key capabilities:
-- Hash-based event integrity (keyed SHA-256 today; HMAC migration pending — see `STATUS.md`)
+- Hash-based event integrity (HMAC-SHA256, constant-time verify)
 - Entity-to-node binding (persistent UUIDs to ephemeral nodes)
 - Heartbeat-based liveness detection
 - Boundary types: intra (same sandbox), inter (cross-sandbox), extra (external)

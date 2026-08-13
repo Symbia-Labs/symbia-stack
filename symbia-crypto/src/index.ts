@@ -33,3 +33,15 @@ export {
   type ServiceIdentity,
   type LoadServiceIdentityOptions,
 } from './service-identity.js';
+
+// Keyed integrity (HMAC + constant-time verify) — see keyed-hash.ts
+export { hmacSha256Hex, verifyHmacSha256Hex } from './keyed-hash.js';
+
+// Credential vault (HKDF-keyed AES-256-GCM, versioned format) — see vault.ts
+export {
+  resolveVaultSecret,
+  deriveVaultKey,
+  encryptSecret,
+  decryptSecret,
+  isLegacyCiphertext,
+} from './vault.js';

@@ -27,7 +27,7 @@
  */
 
 import { execSync } from 'node:child_process';
-import crypto from 'node:crypto';
+import { decryptSecret } from '@symbia/crypto';
 
 const IDENTITY = process.env.IDENTITY_URL || 'http://localhost:5001';
 const EMAIL = process.env.SYMBIA_EMAIL || 'dev@example.com';
@@ -58,22 +58,9 @@ function readExistingKey() {
   );
   if (!row) throw new Error(`no personal ${PROVIDER} credential found to copy`);
 
-  const encryptionKey =
-    process.env.CREDENTIAL_ENCRYPTION_KEY ||
-    process.env.JWT_SECRET ||
-    'dev-secret-key-32chars-minimum!!';
-
-  const [ivHex, tagHex, dataHex] = row.split(':');
-  const decipher = crypto.createDecipheriv(
-    'aes-256-gcm',
-    Buffer.from(encryptionKey.padEnd(32).slice(0, 32)),
-    Buffer.from(ivHex, 'hex')
-  );
-  decipher.setAuthTag(Buffer.from(tagHex, 'hex'));
-  return Buffer.concat([
-    decipher.update(Buffer.from(dataHex, 'hex')),
-    decipher.final(),
-  ]).toString('utf8');
+  // A2: @symbia/crypto handles both the v2 (HKDF) and legacy formats and
+  // owns the key-resolution rules (no inline fallback keys here).
+  return decryptSecret(row);
 }
 
 async function main() {
