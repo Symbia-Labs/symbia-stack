@@ -16,6 +16,9 @@ five commits (`9665f62`…`7bec31b`). State by finding:
   workspace roots and permission escalation removed, path checks are
   sep-boundary + symlink-aware + blockedPaths-enforcing. Verified by harness
   (12/12). **Still not a sandbox** — real isolation remains open.
+  Path validation is consolidated in `@symbia/pathguard` (13 Aug) — runtime
+  re-exports it, assistants imports it; there is exactly one validator now.
+  Do not add another copy.
 - **A4 tenancy**: `X-Org-Id` membership-checked in assistants (403 cross-org,
   verified by harness); all five DB-backed services run requests inside a
   fail-closed AsyncLocalStorage RLS scope with pinned-client `SET LOCAL`
@@ -31,9 +34,15 @@ five commits (`9665f62`…`7bec31b`). State by finding:
 - **C**: see items 8 and 9 below (check gate green; Postgres crash mechanism
   removed, survival unmeasured).
 
-Open from the analysis: real execution isolation (A1), pg-mem dev mode still
-has no RLS (loud startup warning added), unauthenticated dev route surfaces,
-in-memory state rulings unchanged.
+The harnesses are committed as regression tests: `npm run test:security`
+(38 checks across A1/A4/A2+A3, no running stack required). Run them before
+touching auth middleware, code tools, or `@symbia/crypto`.
+
+Open from the analysis: real execution isolation (A1 — env-gated process
+`bash` is a floor, not a boundary; build-or-delete still stands), pg-mem dev
+mode still has no RLS (loud startup warning added), unauthenticated dev route
+surfaces, in-memory state rulings unchanged, and no CI — every "green" above
+is a local run.
 
 This file exists because the project outgrew anyone's ability to hold it in
 their head. Read this before anything else. If a claim here is wrong, that is a

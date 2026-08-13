@@ -6,6 +6,7 @@
   "workspaces": [
     "symbia-sys",
     "symbia-crypto",
+    "symbia-pathguard",
     "symbia-lineage",
     "symbia-auth",
     "symbia-db",
@@ -33,7 +34,7 @@
   ],
   "scripts": {
     "install:all": "npm install",
-    "build:libs": "npm run build -w symbia-sys && npm run build -w symbia-relay -w symbia-logging-client && npm run build -w symbia-auth -w symbia-db -w symbia-http -w symbia-seed -w symbia-md -w symbia-id -w symbia-messaging-client -w symbia-catalog-client",
+    "build:libs": "npm run build -w symbia-sys -w symbia-pathguard && npm run build -w symbia-relay -w symbia-logging-client && npm run build -w symbia-auth -w symbia-db -w symbia-http -w symbia-seed -w symbia-md -w symbia-id -w symbia-messaging-client -w symbia-catalog-client",
     "build:services": "npm run build --if-present -w identity -w logging -w catalog -w messaging -w network -w directory -w runtime -w assistants -w integrations -w models -w service-admin",
     "build": "npm run build:libs && npm run build:services",
     "dev": "./start-local.sh",
@@ -50,7 +51,11 @@
     "db:setup": "./start-local.sh --db-only",
     "check": "npm run check --workspaces --if-present",
     "check:ports": "tsx scripts/check-ports.ts",
-    "clean": "rm -rf node_modules */node_modules */dist */.tsbuildinfo"
+    "clean": "rm -rf node_modules */node_modules */dist */.tsbuildinfo",
+    "test:security": "npm run test:security:a1 && npm run test:security:a4 && npm run test:security:crypto",
+    "test:security:a1": "cd assistants && tsx ../scripts/tests/a1-code-tools.test.ts",
+    "test:security:a4": "cd assistants && tsx ../scripts/tests/a4-tenancy.test.ts",
+    "test:security:crypto": "cd network && tsx ../scripts/tests/a2a3-crypto.test.ts"
   },
   "engines": {
     "node": ">=20.0.0"

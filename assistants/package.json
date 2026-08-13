@@ -23,6 +23,7 @@
     "@symbia/lineage": "file:../symbia-lineage",
     "@symbia/logging-client": "file:../symbia-logging-client",
     "@symbia/messaging-client": "file:../symbia-messaging-client",
+    "@symbia/pathguard": "file:../symbia-pathguard",
     "@symbia/relay": "file:../symbia-relay",
     "@symbia/seed": "file:../symbia-seed",
     "@symbia/sys": "file:../symbia-sys",

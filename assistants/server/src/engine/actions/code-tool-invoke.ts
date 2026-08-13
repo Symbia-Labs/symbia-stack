@@ -19,92 +19,28 @@
  * OpenCode is licensed under the MIT License
  */
 
-import * as nodePath from 'path';
-import * as fsp from 'fs/promises';
 import { BaseActionHandler } from './base.js';
 import type { ActionConfig, ActionResult, ExecutionContext } from '../types.js';
+// Path confinement lives in ONE place — @symbia/pathguard (consolidated
+// 13 Aug 2026 after this file briefly held the third copy of the validator).
+import { resolveConfinedPath, isPathBlocked } from '@symbia/pathguard';
 
 /** Code tools are off unless explicitly enabled. */
 export const CODE_TOOLS_ENABLED = process.env.ASSISTANTS_ENABLE_CODE_TOOLS === 'true';
 /** Bash execution requires its own explicit opt-in on top of the above. */
 const BASH_ENABLED = process.env.ASSISTANTS_CODE_TOOLS_ALLOW_BASH === 'true';
 
+// `**/.env*` also matches a root-level `.env` (pathguard's `**/` matches
+// zero segments), so the bare variants are belt-and-braces only.
 const DEFAULT_BLOCKED_PATHS = ['**/.env*', '.env*', '**/secrets/**', 'secrets/**'];
 
-/** Glob matcher over workspace-relative paths (supports **, *, ?). */
-function matchPathGlob(str: string, pattern: string): boolean {
-  const escaped = pattern.replace(/[.+^${}()|[\]\\]/g, '\\$&');
-  const regex = escaped
-    .replace(/\*\*\//g, '\u0001')
-    .replace(/\*\*/g, '\u0000')
-    .replace(/\*/g, '[^/]*')
-    .replace(/\?/g, '[^/]')
-    .replace(/\u0001/g, '(?:.*\/)?')
-    .replace(/\u0000/g, '.*');
-  return new RegExp(`^${regex}$`).test(str);
-}
-
-function isPathBlocked(relativePath: string, blockedPaths: string[]): boolean {
-  return blockedPaths.some((p) => matchPathGlob(relativePath, p));
-}
-
-function isPathAllowedByPatterns(relativePath: string, paths: string[]): boolean {
-  if (paths.length === 0) return true;
-  return paths.some((p) => matchPathGlob(relativePath, p));
-}
-
 /**
- * Resolve a target path safely inside a workspace.
- *
- * - path.sep-boundary containment (a sibling directory sharing the root as a
- *   string prefix does not pass)
- * - symlink defense: the closest existing ancestor is realpath'd and the
- *   result re-checked against the realpath'd root
- * - blockedPaths / paths glob enforcement on the workspace-relative path
- *
- * Throws on any violation; returns the resolved absolute path.
+ * Resolve a target path safely inside a workspace, enforcing the workspace's
+ * path policy. Thin adapter over @symbia/pathguard's resolveConfinedPath —
+ * sep-boundary containment, symlink defense, blockedPaths/paths globs.
  */
 async function resolveSafePath(workspace: WorkspaceContext, targetPath: string | undefined): Promise<string> {
-  const root = nodePath.resolve(workspace.rootPath);
-  const resolved = nodePath.resolve(root, targetPath ?? '.');
-
-  if (resolved !== root && !resolved.startsWith(root + nodePath.sep)) {
-    throw new Error('Path escapes workspace');
-  }
-
-  // Symlink defense: realpath the closest existing ancestor, re-check.
-  const realRoot = await fsp.realpath(root);
-  let existing = resolved;
-  for (;;) {
-    try {
-      const real = await fsp.realpath(existing);
-      const remainder = nodePath.relative(existing, resolved);
-      const realResolved = remainder ? nodePath.join(real, remainder) : real;
-      if (realResolved !== realRoot && !realResolved.startsWith(realRoot + nodePath.sep)) {
-        throw new Error('Path escapes workspace (symlink)');
-      }
-      break;
-    } catch (err) {
-      if ((err as NodeJS.ErrnoException)?.code === 'ENOENT') {
-        const parent = nodePath.dirname(existing);
-        if (parent === existing) break;
-        existing = parent;
-        continue;
-      }
-      throw err;
-    }
-  }
-
-  const rel = nodePath.relative(root, resolved);
-  if (rel) {
-    if (isPathBlocked(rel, workspace.permissions.blockedPaths)) {
-      throw new Error(`Path is blocked by workspace policy: ${rel}`);
-    }
-    if (!isPathAllowedByPatterns(rel, workspace.permissions.paths)) {
-      throw new Error(`Path is not in the workspace's allowed paths: ${rel}`);
-    }
-  }
-  return resolved;
+  return resolveConfinedPath(workspace.rootPath, targetPath, workspace.permissions);
 }
 
 export type CodeToolName =
