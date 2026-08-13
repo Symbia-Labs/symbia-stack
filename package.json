@@ -55,6 +55,7 @@
     "test:security": "npm run test:security:a1 && npm run test:security:a4 && npm run test:security:crypto",
     "test:security:a1": "cd assistants && tsx ../scripts/tests/a1-code-tools.test.ts",
     "test:security:a4": "cd assistants && tsx ../scripts/tests/a4-tenancy.test.ts",
+    "test:security:a4-live": "tsx scripts/tests/a4-tenancy-live.test.ts",
     "test:security:crypto": "cd network && tsx ../scripts/tests/a2a3-crypto.test.ts"
   },
   "engines": {
