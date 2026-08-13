@@ -2,7 +2,38 @@
 
 **What exists, what runs, and what is only written down.**
 Last verified: 11 August 2026 (evening), against a running stack and the code on
-`fix/2026-08-06-api-gaps` at `9449ad6`.
+`fix/2026-08-06-api-gaps` at `9449ad6`. Security posture and build gate
+re-verified 13 August against the code only (stack not restarted); see §0a.
+
+## 0a. 13 Aug security remediation — code landed, runtime unverified
+
+An adversarial analysis (`docs/2026-08-13-adversarial-analysis.md`, response
+in `docs/2026-08-13-adversarial-analysis-response.md`) was worked through in
+five commits (`9665f62`…`7bec31b`). State by finding:
+
+- **A1 code tools**: registration now off by default
+  (`ASSISTANTS_ENABLE_CODE_TOOLS`), bash double-gated, caller-supplied
+  workspace roots and permission escalation removed, path checks are
+  sep-boundary + symlink-aware + blockedPaths-enforcing. Verified by harness
+  (12/12). **Still not a sandbox** — real isolation remains open.
+- **A4 tenancy**: `X-Org-Id` membership-checked in assistants (403 cross-org,
+  verified by harness); all five DB-backed services run requests inside a
+  fail-closed AsyncLocalStorage RLS scope with pinned-client `SET LOCAL`
+  (`@symbia/db` als-context). **Not yet exercised against a running stack.**
+  Explicit-client paths (`pool.connect`, `db.transaction`) bypass the wrapper
+  and must use `withRLSContext` — grep before adding one.
+- **A2 vault / A3 HMAC**: centralized in `@symbia/crypto` (HKDF-keyed
+  AES-256-GCM with versioned ciphertexts + legacy read path; real HMAC with
+  `timingSafeEqual`, timestamp now covered). 18/18 harness checks. Identity
+  throws at startup in production without `CREDENTIAL_ENCRYPTION_KEY`.
+- **B docs**: front-door claims reconciled; README and SECURITY now defer to
+  this file explicitly.
+- **C**: see items 8 and 9 below (check gate green; Postgres crash mechanism
+  removed, survival unmeasured).
+
+Open from the analysis: real execution isolation (A1), pg-mem dev mode still
+has no RLS (loud startup warning added), unauthenticated dev route surfaces,
+in-memory state rulings unchanged.
 
 This file exists because the project outgrew anyone's ability to hold it in
 their head. Read this before anything else. If a claim here is wrong, that is a
@@ -259,11 +290,20 @@ a defect). Records: `docs/2026-08-11-*.md`, `docs/proposals/assistant-data-model
 6. **The first chat message after a page load does not appear.** Reproduced
    twice, 11 Aug. Sent again on the settled page, it works. Not investigated.
 7. **Spyglass gesture interference** (§2).
-8. **`npm run check` fails with 159 TypeScript errors** (49 recorded on 6 Aug).
-   The assistants service alone accounts for 19, unchanged by this session's
-   work. The build gate is effectively off.
-9. **No service survives a Postgres restart** — four crashed on an unhandled
-   `error` event and stayed down. No reconnect, no restart policy.
+8. ~~**`npm run check` fails with 159 TypeScript errors**~~ — **FIXED 13 Aug
+   (commit `7bec31b`): 0 errors across all workspaces, and `npm run build`
+   completes end to end.** Root cause of most of it was environmental, not
+   code: npm run from app-spawned shells inherits `NODE_ENV=production` and
+   silently omits devDependencies, so esbuild/tsx/tailwindcss/@types were
+   missing from the tree. If npm ever says "up to date" while node_modules is
+   visibly missing packages, check `NODE_ENV` first. Second-largest cause: a
+   self-referencing zustand store made its type circular and untyped every
+   consumer (~35 errors from one line).
+9. **Postgres restart: the crash mechanism is removed, survival not yet
+   measured.** The unhandled pool `error` event that killed four services is
+   now handled in `@symbia/db` and messaging (13 Aug, `7bec31b`); pg dials
+   fresh connections on the next query. A live restart test is still owed —
+   handler-added is the observation, "survives" would be an inference.
 9a. **`npm run seed` has never completed on this stack**, for two independent
    reasons found 11 Aug while restoring the MCP probe account. `seed.ts` used
    `import * as bcrypt` under `"type": "module"`, so `bcrypt.hash` was not
