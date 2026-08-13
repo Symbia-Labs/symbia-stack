@@ -10,6 +10,7 @@ import { db, database, exportToFile, isMemory } from './lib/db.js';
 import { join } from 'path';
 import graphsRouter from './routes/graphs.js';
 import runsRouter from './routes/runs.js';
+import { optionalAuth } from './middleware/auth.js';
 import actorsRouter from './routes/actors.js';
 import webhooksRouter from './routes/webhooks.js';
 import rulesRouter from './routes/rules.js';
@@ -205,8 +206,12 @@ const server = createSymbiaServer({
     });
 
     // Register API routes (type cast for Express v4 compatibility)
-    (app as any).use('/api/graphs', graphsRouter);
-    (app as any).use('/api/runs', runsRouter);
+    // optionalAuth: when a token is present, X-Org-Id is validated against
+    // membership and queries run in a fail-closed RLS scope (A4). Routes
+    // remain reachable without a token in dev; gating them entirely behind
+    // requireAuth is tracked in STATUS.md.
+    (app as any).use('/api/graphs', optionalAuth, graphsRouter);
+    (app as any).use('/api/runs', optionalAuth, runsRouter);
     (app as any).use('/api/actors', actorsRouter);
     (app as any).use('/api/rules', rulesRouter);
     (app as any).use('/api/settings', settingsRouter);

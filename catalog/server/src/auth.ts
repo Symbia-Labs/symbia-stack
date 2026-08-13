@@ -15,7 +15,7 @@ import {
 } from '@symbia/auth';
 import { config } from './config.js';
 import { storage } from './storage.js';
-import { setRLSContext } from './db.js';
+import { runWithRLSContext } from '@symbia/db';
 
 // Re-export
 export type { AuthUser };
@@ -114,17 +114,24 @@ export async function authMiddleware(
 
   req.user = user;
 
-  // Set RLS context
+  // Fail-closed AsyncLocalStorage RLS scope (A4, 13 Aug 2026): pooled
+  // queries run on a pinned client with SET LOCAL context. The previous
+  // pool-level setRLSContext was a no-op under pooling, and errors fell open.
   try {
-    await setRLSContext({
-      orgId: user?.organizations?.[0]?.id,
-      userId: user?.id,
-      isSuperAdmin: user?.isSuperAdmin,
-      capabilities: user?.entitlements,
-    });
+    runWithRLSContext(
+      {
+        orgId: user?.organizations?.[0]?.id ?? '',
+        userId: user?.id ?? 'anonymous',
+        isSuperAdmin: user?.isSuperAdmin,
+        capabilities: user?.entitlements,
+        serviceId: 'catalog',
+      },
+      () => next()
+    );
   } catch (error) {
-    console.error('[Catalog Auth] Failed to set RLS context:', error);
+    console.error('[Catalog Auth] Failed to establish RLS context:', error);
+    if (!res.headersSent) {
+      res.status(500).json({ error: 'Failed to establish request security context' });
+    }
   }
-
-  next();
 }

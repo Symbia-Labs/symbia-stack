@@ -24,7 +24,7 @@ import {
 } from "./spec-parser/index.js";
 import { createEvalRoutes, initializeModelEvalSystem } from "./model-eval/index.js";
 import type { Integration, IntegrationInvokeRequest } from "@shared/schema.js";
-import { db, setRLSContext } from "./db.js";
+import { db } from "./db.js";
 import { sql, and } from "drizzle-orm";
 import { executionLogs, proxyUsage } from "@shared/schema.js";
 import type { CredentialLookup } from "./credential-client.js";

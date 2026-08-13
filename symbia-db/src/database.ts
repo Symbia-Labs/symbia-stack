@@ -2,6 +2,7 @@ import { drizzle } from "drizzle-orm/node-postgres";
 import pg from "pg";
 import type { DatabaseConfig, DatabaseInstance } from "./types.js";
 import { createMemoryDatabase, exportMemoryDatabase } from "./memory.js";
+import { attachRLSPoolWrapper } from "./als-context.js";
 
 const { Pool } = pg;
 
@@ -48,9 +49,19 @@ export function initializeDatabase<TSchema extends Record<string, unknown>>(
     isMemory = true;
     if (enableLogging) {
       console.log(`[${serviceId}] Using in-memory database (pg-mem).`);
+      // Loud on purpose: pg-mem does not implement Postgres RLS, so the
+      // multi-tenant isolation devs believe is "automatic" is absent in this
+      // mode (adversarial analysis A5, 13 Aug 2026).
+      console.warn(
+        `[${serviceId}] WARNING: RLS NOT ENFORCED (pg-mem). ` +
+        `Row-level tenant isolation is unavailable in memory-db mode.`
+      );
     }
   } else {
     pool = new Pool({ connectionString: databaseUrl });
+    // Pooled one-shot queries honor the ambient AsyncLocalStorage RLS
+    // context on a pinned client + transaction (see als-context.ts).
+    attachRLSPoolWrapper(pool);
     if (enableLogging) {
       console.log(`[${serviceId}] Connected to PostgreSQL database.`);
     }

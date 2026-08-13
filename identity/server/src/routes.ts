@@ -51,7 +51,23 @@ const updatePlanAdminSchema = z.object({
 import { apiDocumentation } from "./openapi";
 import { registerDocRoutes } from "./doc-routes";
 import { getBootstrapConfig, validateSystemSecret, addUserToSystemOrg, SYSTEM_ORG_ID } from "./system-bootstrap";
-import { setRLSContext } from "./db";
+import { runWithRLSContext, type RLSContext } from "@symbia/db";
+
+/**
+ * Run the rest of the request inside a fail-closed AsyncLocalStorage RLS
+ * scope (A4, 13 Aug 2026): pooled queries execute on a pinned client with
+ * SET LOCAL context. "Continue without RLS" on error was the fail-open.
+ */
+function runRequestWithRLS(context: RLSContext, res: Response, next: NextFunction): void {
+  try {
+    runWithRLSContext(context, () => next());
+  } catch (error) {
+    console.error("[identity-service] Failed to establish RLS context:", error);
+    if (!res.headersSent) {
+      res.status(500).json({ message: "Failed to establish request security context" });
+    }
+  }
+}
 
 // SESSION_SECRET is required - no fallback to prevent insecure defaults
 if (!process.env.SESSION_SECRET) {
@@ -187,17 +203,17 @@ async function authMiddleware(req: Request, res: Response, next: NextFunction) {
         isSuperAdmin: firstUser.isSuperAdmin,
       };
       req.principal = { id: firstUser.id, type: "user", name: firstUser.name };
-      try {
-        await setRLSContext({
+      return runRequestWithRLS(
+        {
           orgId: "",
           userId: firstUser.id,
           isSuperAdmin: firstUser.isSuperAdmin,
           capabilities: [],
-        });
-      } catch (error) {
-        console.error("[identity-service] Failed to set RLS context for DEV_NO_AUTH user:", error);
-      }
-      return next();
+          serviceId: "identity",
+        },
+        res,
+        next
+      );
     }
     return res.status(401).json({ message: "Authentication required" });
   }
@@ -227,17 +243,18 @@ async function authMiddleware(req: Request, res: Response, next: NextFunction) {
     // Update last seen
     storage.updateAgentLastSeen(agent.id).catch(() => {});
 
-    // Set RLS context for agent
-    try {
-      await setRLSContext({
+    // Fail-closed RLS scope for agent (A4)
+    return runRequestWithRLS(
+      {
         orgId: agent.orgId || "",
         userId: agent.id,
         isSuperAdmin: false,
         capabilities: (agent.capabilities as string[]) || [],
-      });
-    } catch (error) {
-      console.error("[identity-service] Failed to set RLS context for agent:", error);
-    }
+        serviceId: "identity",
+      },
+      res,
+      next
+    );
   } else {
     // Default: user type
     const user = await storage.getUser(payload.sub);
@@ -247,20 +264,19 @@ async function authMiddleware(req: Request, res: Response, next: NextFunction) {
     req.user = { id: user.id, email: user.email, name: user.name, isSuperAdmin: user.isSuperAdmin };
     req.principal = { id: user.id, type: 'user', name: user.name };
 
-    // Set RLS context for user
-    try {
-      await setRLSContext({
+    // Fail-closed RLS scope for user (A4)
+    return runRequestWithRLS(
+      {
         orgId: "", // Identity service operates cross-org; specific org context set per-query
         userId: user.id,
         isSuperAdmin: user.isSuperAdmin,
         capabilities: [],
-      });
-    } catch (error) {
-      console.error("[identity-service] Failed to set RLS context for user:", error);
-    }
+        serviceId: "identity",
+      },
+      res,
+      next
+    );
   }
-
-  next();
 }
 
 async function superAdminMiddleware(req: Request, res: Response, next: NextFunction) {
