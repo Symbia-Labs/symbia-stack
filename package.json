@@ -59,6 +59,8 @@
     "test:security:a4-live": "tsx scripts/tests/a4-tenancy-live.test.ts",
     "test:security:messaging-rls-live": "tsx scripts/tests/messaging-rls-live.test.ts",
     "test:security:egress": "tsx scripts/tests/egress-guard.test.ts",
+    "test:security:seed-guard": "tsx scripts/tests/seed-guard.test.ts",
+    "test:security:explicit-client-ratchet": "tsx scripts/tests/explicit-client-ratchet.test.ts",
     "test:security:crypto": "cd network && tsx ../scripts/tests/a2a3-crypto.test.ts"
   },
   "engines": {

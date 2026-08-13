@@ -67,6 +67,10 @@ jobs:
         run: npm run test:security
       - name: R3 egress guard (SSRF) vs predictions
         run: npm run test:security:egress
+      - name: R5 seed guard vs predictions
+        run: npm run test:security:seed-guard
+      - name: R2 explicit-client seam ratchet
+        run: npm run test:security:explicit-client-ratchet
       - name: A4 LIVE — RLS against real Postgres
         env:
           DATABASE_URL: postgres://symbia:symbia_dev@localhost:5432/symbia

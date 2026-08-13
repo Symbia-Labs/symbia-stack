@@ -11,6 +11,7 @@ import { join, dirname } from "path";
 import { fileURLToPath } from "url";
 import { db } from "./db.js";
 import { resources } from "../../shared/schema.js";
+import { seedForced, seedDecision } from "./seed-guard.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -104,10 +105,15 @@ async function runSeed() {
     }
     console.log("");
 
-    // Check existing resources
+    // Check existing resources — and refuse to destroy them unless forced (R5).
     const existing = await db.select().from(resources);
+    const decision = seedDecision(existing.length, seedForced());
+    if (!decision.proceed) {
+      console.error(`\n🛑 ${decision.reason}\n`);
+      process.exit(2);
+    }
     if (existing.length > 0) {
-      console.log(`⚠️  Database already has ${existing.length} resources`);
+      console.log(`⚠️  ${decision.reason}`);
       console.log("   Clearing existing data before seeding...\n");
       await db.delete(resources);
     }
