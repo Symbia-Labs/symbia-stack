@@ -44,6 +44,17 @@ mode still has no RLS (loud startup warning added), unauthenticated dev route
 surfaces, in-memory state rulings unchanged, and no CI — every "green" above
 is a local run.
 
+**A1's real boundary — a direction, PAPER.** `docs/proposals/wasm-runtime.md`
+(13 Aug) proposes implementing the declared-but-empty `wasm` ComponentRuntime
+and re-expressing the code-tool as a capability-scoped wasm component, so the
+isolation is structural (a capability is a wasm import; the grant is
+host-mediated and pathguard-scoped) rather than a process gated by env flags.
+Not a runtime migration — one enum case, code-tool first, the rest stays TS.
+Evidence is two runnable spikes under `experiments/` (add: substrate-
+interchangeable; file-reader: capability granted/denied via `@symbia/pathguard`).
+Ergonomics past scalars are **unproven** — the proposal registers that as the
+first prediction to test (jco probe). PAPER until step 2 of §8 lands.
+
 This file exists because the project outgrew anyone's ability to hold it in
 their head. Read this before anything else. If a claim here is wrong, that is a
 defect in this file — fix it here first.
