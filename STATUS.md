@@ -493,7 +493,13 @@ the GKS Lineage grounding, all describing shipped behaviour. Then
    tool, whether the *routine* rather than the rule is the right unit, and where
    a step id lives. Recorded in `docs/2026-08-11-rule-configuration-review.md`.
 4. **The assistant pool in the default catalog** — Brian has ideas here and we
-   have not had the conversation.
+   have not had the conversation. **Add to that conversation when it happens: a
+   personality strategy for assistants** (flagged 14 Aug, not yet discussed).
+   Note that the roster today is deliberately characterless — three assistants
+   that work, routing deterministic in three tiers, replies carrying an arena
+   and a sealed receipt. Any personality strategy has to sit on top of that
+   without turning a reproducible routing decision into a stylistic one, and
+   without giving a REFUSED reply a voice that softens it into a maybe.
 5. Spyglass gesture interference.
 6. One decision that is not the assistant's: `main` is ~140 commits behind
    reality.

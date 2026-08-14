@@ -1,8 +1,23 @@
 # Proposal — the canonical bus
 
-*14 August 2026. A **proposal**, to be argued with. **PAPER** — no code.
-Originates with Brian, 14 Aug, in the Dark Fleet thread; written up here because
-it reframes the lane model rather than extending it.*
+*14 August 2026. A **proposal**, to be argued with. **PAPER** in this repo.*
+
+**Prior art, and it is ours.** This is not a new idea and this document should not
+have been written as though it were. The Canonical Event Bus is specified in
+*Commit-First Event Substrates for Probabilistic Decision Systems* (preprint,
+Jan 2026, `~/vscode/symbia-website/content/preprints/`), where §4 presents CEB as
+the reference implementation of a commit-first event substrate. A working stub
+exists at `~/vscode/canonical-event-bus/` (Dec 2025) — append-only hash-chained
+log, rebuildable projections, decisions from projections only, monotonic time.
+The authority model it serves is in `~/vscode/symbia-seed/docs/axioms.md`
+(CEB/AEB, "AEB may propose or inform; CEB alone may decide and authorize") —
+the same file `runtime/.../components.ts:14` already cites for the lane
+vocabulary.
+
+What is new here is only the *application*: applying CEB's separation to the
+runtime's graph execution, so the graph is the apocryphal medium and
+deterministic work is certified on the bus. Read the preprint first; several
+questions this document raises are answered there.
 
 *Prerequisite reading: `docs/2026-08-14-lane-visibility-results.md` (measured),
 `docs/2026-08-10-lanes-claims-and-lineage.md` (the conceptual spine), and
@@ -25,7 +40,7 @@ thing worth recording is the **boundary crossing** — and unlike a lane
 transition, a boundary crossing is enumerable from the graph definition before
 anything runs.
 
-## 2. This is already in the codebase, unnamed
+## 2. The admission criterion is already in the codebase
 
 `docs/proposals/wasm-runtime.md` §4, written 13 Aug about the Component Model:
 
