@@ -56,6 +56,7 @@ An LLM-native orchestration platform for building, deploying, and operating auto
 | [Integrations](integrations/) | 5007 | LLM provider gateway (OpenAI, Anthropic, HuggingFace, symbia-labs) |
 | [Models](models/) | 5008 | Local LLM inference with node-llama-cpp (GGUF models) |
 | [Network](network/) | 5009 | Software-defined network for event routing and service mesh |
+| [Directory](directory/) | 5010 | Federation control plane: peer directory, foreign-node table, admission. Distinct from Identity's Entity Directory |
 
 And the two front ends:
 
@@ -64,7 +65,7 @@ And the two front ends:
 | [API / admin](service-admin/) | 9000 | The front door. **The only port published to your host by default.** |
 | [Control center](symbia-control-center/) | 8000 | Operator console. Internal by default; see the dev overlay below. |
 
-The nine services above listen on their own ports and reach each other over the
+The ten services above listen on their own ports and reach each other over the
 Compose network by name. They are **not** published to your host unless you ask
 for them — see [What a plain Compose run publishes](#what-a-plain-compose-run-publishes).
 
@@ -105,7 +106,7 @@ that and restart fast.
 Then open **<http://localhost:9000>** — the API and admin front end.
 
 `start.sh` is the *developer* path, so it also gives you the operator console on
-**<http://localhost:8000>**, Postgres on 5432, and each service on 5001–5009.
+**<http://localhost:8000>**, Postgres on 5432, and each service on 5001–5010.
 
 ### What a plain Compose run publishes
 
@@ -191,7 +192,7 @@ For manual control:
 # Start all services — publishes 9000 only
 docker-compose up -d
 
-# Start all services and publish the dev ports too (5432, 5001-5009, 8000)
+# Start all services and publish the dev ports too (5432, 5001-5010, 8000)
 docker-compose -f docker-compose.yml -f docker-compose.dev.yml up -d
 
 # View logs
@@ -238,7 +239,8 @@ Tier 1 (Foundational):
 Tier 2 (Core Services):
   ├── Catalog (5003)      ← Identity
   ├── Messaging (5005)    ← Identity, Network
-  └── Integrations (5007) ← Identity
+  ├── Integrations (5007) ← Identity
+  └── Directory (5010)    ← Identity
 
 Tier 3 (Application Layer):
   ├── Runtime (5006)      ← Identity, Catalog
