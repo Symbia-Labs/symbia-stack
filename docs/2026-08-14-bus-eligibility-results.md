@@ -89,45 +89,75 @@ printed nothing, which reads identically to "no boundaries found." Fixed to fetc
 each graph in detail and to report a missing node array loudly. Blank must never
 be inferred as a pass — the script now cannot make that mistake quietly.
 
-## Unrelated finding: the standing evidence could not run
+## Unrelated finding: the standing evidence could not run — and why
 
-`npx tsx` fails on this machine. `node_modules/tsx/node_modules/esbuild`
-resolves to `@esbuild/aix-ppc64` on a `darwin-arm64` host — a node_modules
-assembled on one platform and used on another, consistent with the `.ec2-last-sync`
-marker in the repo root.
+`npx tsx` failed on this machine, taking out **every `.mts` script** including
+`verify-assistants.mts` (STATUS §5b: "standing evidence, re-run after every
+change") and **the entire `npm run test:security` suite**, whose sub-scripts each
+invoke `tsx`.
 
-That is not cosmetic. **Every `.mts` script is affected**, including:
+**Fixed. `NODE_ENV= npm install` — and the diagnosis matters more than the fix.**
 
-- `scripts/verify-assistants.mts` — STATUS §5b calls this "standing evidence,
-  re-run after every change"
-- `scripts/verify-component-manifests.mts`, `check-staleness.mts`,
-  `check-oep-conformance.mts`, `verify-federation.mts`
-- **the entire `npm run test:security` suite** — 38 checks across A1/A4/A2+A3,
-  which STATUS says to run before touching auth middleware, code tools, or
-  `@symbia/crypto`. Every one of its sub-scripts invokes `tsx`.
+### An inference I got wrong, recorded because the correction is the lesson
 
-**There is a fix that needs no `node_modules` repair.** `package.json` already
-contains one script using it:
+esbuild's error says: *"the `@esbuild/aix-ppc64` package is present but this
+platform needs `@esbuild/darwin-arm64`"*, and volunteers that people get here by
+copying `node_modules` between platforms. There is an `.ec2-last-sync` marker in
+the repo root. I wrote that down as a cross-platform node_modules copy.
+
+**That was wrong.** Checking instead of concluding:
 
 ```
-"audit:unauth": "node --experimental-strip-types scripts/enumerate-…mts"
+$ ls -la node_modules/@esbuild/darwin-arm64/     → total 0
+$ ls -la node_modules/@esbuild/aix-ppc64/        → total 0
+$ node -p "process.env.NODE_ENV"                 → production
 ```
 
-Verified today — `node --experimental-strip-types scripts/verify-component-manifests.mts`
-runs clean, 16/16 PASS. Node's native type stripping does the job that tsx was
-being used for.
+All 26 platform directories exist and **all of them are empty**. No binary was
+installed for *any* platform. esbuild's resolver found nothing usable, fell
+through to the first entry, and reported the mismatch it happened to see — so the
+error names a real symptom and the wrong cause, and I repeated it.
 
-I have added `verify:bus`, `verify:manifests` and `verify:assistants` on that
-invocation. I have **not** switched `test:security:*` — those are regression
-tests for security-critical code, and swapping their transform is a change whose
-equivalence should be confirmed deliberately rather than assumed by me. That is
-the one recommended follow-up from this section.
+The actual cause is **STATUS §6 item 8, recurring**: *"npm run from app-spawned
+shells inherits `NODE_ENV=production` and silently omits devDependencies."* The
+shell this ran in had `NODE_ENV=production` set. The documented remedy —
+*"if npm ever says 'up to date' while node_modules is visibly missing packages,
+check `NODE_ENV` first"* — is exactly right and I did not apply it until the
+directory listing forced the issue.
 
-This is the same family as STATUS §6 item 8: an environmental cause presenting
-as a code failure. The lesson recorded there — *if npm says "up to date" while
-node_modules is visibly missing packages, check `NODE_ENV` first* — extends to:
-**if a script fails on native code, check what platform node_modules was built
-for before reading the error as a defect.**
+Two things worth keeping from this:
+
+- **A tool's own error message is an observation, not a diagnosis.** esbuild
+  reported what it could see from inside its resolver. It could not see that
+  nothing had been installed at all.
+- The lesson in item 8 should be widened, because the symptom this time was not
+  "npm says up to date". It was a native binary failing to load. **Before
+  reading any native-module error as a code or platform defect, check whether
+  the package directory contains anything.**
+
+### State after the fix
+
+`NODE_ENV= npm install`, then the suite as written, on `tsx`, unchanged:
+
+```
+A1 12  A4 8  A2+A3 18  EGRESS-GUARD 21  SEED-GUARD 9
+EXPLICIT-CLIENT-RATCHET 2  REDACTION 20  CRED-CRYPTO 19
+109 passed, 0 failed
+```
+
+The 38 checks STATUS names across A1/A4/A2+A3 are the first three.
+
+**No transform change was needed.** An intermediate version of this document
+proposed moving scripts to `node --experimental-strip-types` because that ran
+when tsx would not. That workaround is now unnecessary and was also incomplete:
+strip-types transforms types but does not resolve a `.js` specifier onto a `.ts`
+source file, which is how four of the eight security tests import service code.
+It ran four of them and failed the other four with `ERR_MODULE_NOT_FOUND`. Had
+the environment not been repaired, adopting it would have quietly halved the
+suite.
+
+`verify:manifests` and `verify:assistants` are added as npm scripts on `tsx`,
+matching every other script in the file.
 
 ## What follows
 

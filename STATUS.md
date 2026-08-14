@@ -389,21 +389,55 @@ a defect). Records: `docs/2026-08-11-*.md`, `docs/proposals/assistant-data-model
     work on a separate substrate. It is a fork in the road, not a patch — see
     §7.
 
-13. **`npx tsx` does not run on this machine, so the standing evidence has not
-    been runnable.** `node_modules/tsx/node_modules/esbuild` resolves to
-    `@esbuild/aix-ppc64` on a `darwin-arm64` host — node_modules assembled on
-    one platform, used on another (cf. `.ec2-last-sync`). This takes out every
-    `.mts` script including `verify-assistants.mts` — described in §5b as
-    "standing evidence, re-run after every change" — and **all of
-    `npm run test:security`**, whose sub-scripts each invoke `tsx`.
+13. ~~**`npx tsx` does not run on this machine, so the standing evidence has not
+    been runnable.**~~ — **FOUND AND FIXED 14 Aug. Item 8 recurring, and the
+    misdiagnosis is the part worth keeping.**
 
-    Same family as item 8: an environmental cause presenting as a code failure.
-    Fix needs no `node_modules` repair — `node --experimental-strip-types` runs
-    the `.mts` files clean (verified 14 Aug, `verify-component-manifests` 16/16
-    PASS), and `audit:unauth` already used it. `verify:manifests` and
-    `verify:assistants` now do too. **`test:security:*` was deliberately left on
-    `tsx`**: swapping the transform under security regression tests should be a
-    considered change, not a drive-by. That is the open half of this item.
+    `tsx` failed, taking out every `.mts` script — including
+    `verify-assistants.mts`, described in §5b as "standing evidence, re-run
+    after every change" — and **all of `npm run test:security`**. So the suite
+    this file tells you to run before touching auth middleware, code tools or
+    `@symbia/crypto` had not been runnable.
+
+    esbuild's error blames a platform mismatch (`@esbuild/aix-ppc64` present,
+    `darwin-arm64` needed) and volunteers that this happens when node_modules is
+    copied between platforms. With `.ec2-last-sync` sitting in the repo root
+    that reads as a complete explanation. **It was wrong.** All 26
+    `node_modules/@esbuild/*` directories were present and **all were empty** —
+    nothing installed for any platform. The shell had `NODE_ENV=production`.
+    esbuild found no binary, fell through to the first entry, and reported the
+    mismatch it could see from inside its own resolver.
+
+    Fix: `NODE_ENV= npm install`. Suite then passes as written, on `tsx`,
+    unchanged — 109 checks, 0 failed (A1 12, A4 8, A2+A3 18, egress 21,
+    seed-guard 9, ratchet 2, redaction 20, cred-crypto 19). No transform change
+    was needed; an intermediate proposal to move to
+    `node --experimental-strip-types` is withdrawn, and would have silently
+    halved the suite, since strip-types does not resolve `.js` specifiers onto
+    `.ts` sources and four of the eight tests import service code that way.
+
+    **Widen item 8's lesson.** It reads "if npm says *up to date* while
+    node_modules is visibly missing packages, check `NODE_ENV` first." The
+    symptom this time was a native binary failing to load, not an npm message.
+    Before reading any native-module error as a code or platform defect, check
+    whether the package directory contains anything at all. A tool's own error
+    message is an observation, not a diagnosis.
+
+14. **`activeExecutions` counts cancelled executions as active.** Found 14 Aug
+    while clearing measurement probes. Observed, not inferred:
+    `GET /api/graphs` reported `loadedGraphs: 0, activeExecutions: 2` while
+    `GET /api/executions` showed both of those executions in state `cancelled`,
+    with `graphId`s that no longer resolve to a loaded graph.
+
+    Two things here and they should not be conflated. The counter is wrong —
+    the figure a console renders overstates what is running. Separately,
+    `DELETE /api/graphs/:id` leaves executions behind referencing a graph that
+    is gone; whether that is retention-by-design or a leak has not been
+    established, and the answer decides whether the counter is the only defect.
+
+    Cleanup helper: `node experiments/cleanup-probes.mjs` (role=`probe` only, by
+    construction — a cleanup script that can delete a real graph is a worse
+    problem than the mess it tidies).
 
 ## 7. PAPER — designs and proposals, none built
 
