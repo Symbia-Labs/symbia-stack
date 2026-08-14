@@ -37,6 +37,23 @@ hardcoded ingress all destroy the point).
 - MAP (measure against prediction): register predictions in git before
   measuring; report broken ones as broken.
 
+## Writing — chat replies and docs both
+- Observation, then inference, in that order, in separate sentences. Then stop.
+  A third sentence restating the finding more memorably is the tic to cut.
+- Banned constructions: closing aphorisms; `not X, it's Y`; `X doesn't A, it
+  B's`; em-dash asides carrying the punchline; a metaphor where a number exists;
+  rhetorical repetition for cadence.
+- Prefer the plain word. Cut any sentence that would survive unchanged if the
+  measurement behind it changed.
+- **This repo's own voice is a trap.** `STATUS.md` and `claims.ts` carry
+  aphorisms that were earned by a specific finding. Matching that register by
+  default amplifies it into decoration.
+- Why it matters here and not everywhere: flourish is unfalsifiable, so it reads
+  as generated rather than verified, and it devalues the real measurements
+  printed next to it.
+- Say what was not established as plainly as what was. No summary paragraph that
+  is more confident than the section above it.
+
 ## Constraints
 - Dev/local persistence is JSONL + local logs only (DB connectors later,
   behind an interface).
