@@ -353,6 +353,58 @@ a defect). Records: `docs/2026-08-11-*.md`, `docs/proposals/assistant-data-model
     `dev@example.com` when `DEBUG` is set. Not a missing login screen — a
     hardcoded one. Still open as a defect; only the mystery is closed.
 
+12. **Lanes are legible but not actionable, and in four places not true.**
+    Three measurements, 14 Aug, each with predictions committed before the run.
+
+    - **A graph cannot branch on the lane it received.** `FlowValue` is
+      `{value, lane}`; `logic.filter` reads `input.value` only, so a filter
+      configured on `lane` emits the same port whether the value arrived
+      canonical or apocryphal. The same output port fires in both cases, and
+      `conditional` never reaches a value at runtime — it is manifest-only,
+      resolved to one of two lanes before anything downstream sees it. The lane
+      *is* returned to the caller, so the platform discloses its epistemic state
+      outward while withholding it from its own control flow. 6/6 predictions
+      held. `docs/2026-08-14-lane-visibility-results.md`.
+    - **Stateful operators launder lanes.** `state.set(...)` stores bare values
+      at `components-state.ts:74, 128, 182, 247`, and `normaliseEmission` takes
+      the single current message — so an aggregate is laned by whichever
+      delivery triggered it, not by what it aggregates. A window fed one
+      apocryphal and one canonical value emits **canonical**. No error fires and
+      no payload records it. 5/5 held.
+      `docs/2026-08-14-state-lane-laundering-results.md`.
+    - **Four ports declare a lane the implementation cannot honour:**
+      `state.latest.snapshot`, `state.window.out`, `state.rollup.out` (all
+      `conditional`, all state-carrying), and `source.timer.out`, which declares
+      **canonical** while its payload carries `ts: new Date().toISOString()`.
+      A wall-clock read is not recomputable by any definition. That last one is
+      the worst of the four, because the other three at least signal doubt.
+      `docs/2026-08-14-bus-eligibility-results.md`.
+
+    Nothing downstream is wrong *today*, because nothing reads a lane to make a
+    decision — which is the first finding. Standing evidence:
+    `npm run verify:bus`.
+
+    A response is proposed in `docs/proposals/canonical-bus.md` (PAPER): treat
+    the graph as the apocryphal lane by construction and certify deterministic
+    work on a separate substrate. It is a fork in the road, not a patch — see
+    §7.
+
+13. **`npx tsx` does not run on this machine, so the standing evidence has not
+    been runnable.** `node_modules/tsx/node_modules/esbuild` resolves to
+    `@esbuild/aix-ppc64` on a `darwin-arm64` host — node_modules assembled on
+    one platform, used on another (cf. `.ec2-last-sync`). This takes out every
+    `.mts` script including `verify-assistants.mts` — described in §5b as
+    "standing evidence, re-run after every change" — and **all of
+    `npm run test:security`**, whose sub-scripts each invoke `tsx`.
+
+    Same family as item 8: an environmental cause presenting as a code failure.
+    Fix needs no `node_modules` repair — `node --experimental-strip-types` runs
+    the `.mts` files clean (verified 14 Aug, `verify-component-manifests` 16/16
+    PASS), and `audit:unauth` already used it. `verify:manifests` and
+    `verify:assistants` now do too. **`test:security:*` was deliberately left on
+    `tsx`**: swapping the transform under security regression tests should be a
+    considered change, not a drive-by. That is the open half of this item.
+
 ## 7. PAPER — designs and proposals, none built
 
 Moved to `docs/proposals/`. Nothing here exists in code.
@@ -364,6 +416,7 @@ Moved to `docs/proposals/`. Nothing here exists in code.
 | `BEYOND-THE-PLATFORM` | The libraries outside Symbia, with nginx as the worked example. |
 | `POSITIONING` | Positioning paper for @symbia/crypto. Its central framing is flagged unsettled. |
 | `appliance-hardware-intent` | Hardware root of trust. Explicitly not costed or prototyped. |
+| `canonical-bus` | The graph *is* the apocryphal lane; deterministic work is certified on a separate substrate and returned as a receipted token. Response to §6 item 12. Adds a `computation` claim to the claims vocabulary. Its §10 P2 is measured and held; P1 is measured and **broken**, which is evidence for the import-set mechanism in `wasm-runtime` §4. |
 
 ## 8. Findings — recorded, not proposals
 
