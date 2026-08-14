@@ -158,6 +158,31 @@ work at "the code-tool, and only the code-tool, runs as wasm."
 
 ---
 
+## 9. Addendum, 14 Aug — §4 is load-bearing beyond isolation
+
+`docs/proposals/canonical-bus.md` (14 Aug) argues that this proposal's strongest
+justification is not the one made above.
+
+The sentence in §4 — *"imports predict the provenance lane: a component that
+imports nothing is `canonical`; one that imports the filesystem is
+`apocryphal`. That is a static read off the manifest, before execution"* — was
+written as an observation about the Component Model's fit. It is also an
+**admission criterion for a deterministic substrate**: the property that makes
+wasm safe (no ambient authority) is identically the property that makes a
+computation replayable. Isolation and recomputability are the same mechanism seen
+from two sides.
+
+That reframes §8 step 4. "Decide whether to go further, only if provenance
+uniformity becomes a product promise" is not a later question — the canonical bus
+is what provenance uniformity *is*, and the `add-component` spike (same manifest,
+TS and wasm, both canonical, agreeing bit-for-bit) is already its first evidence.
+
+It does not change §7. If the jco ergonomics probe fails, the bus does not die —
+it narrows to first-party pure builtins, which is where it starts anyway.
+`symbia.compute.arithmetic` is bus-eligible today with no wasm involved.
+
+---
+
 *If this gets built, move the parts that became true into `docs/` as dated
 findings and mark this proposal superseded. Until then it is PAPER with two
 scratch spikes, and STATUS.md should say so.*

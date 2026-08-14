@@ -340,11 +340,16 @@ Sequenced so each step can fail informatively rather than by surprise.
 
 1. ~~**Measure D10.**~~ **Done, 14 Aug — the answer is no.** See §4a and
    `docs/2026-08-14-lane-visibility-results.md`.
-1a. **Build `symbia.logic.lane-gate`**, the fifteen-line consequence. Until it
-   exists, no graph on this platform can refuse a value for being unverifiable,
-   which is the one thing the lane vocabulary was built to let it do.
+1a. ~~**Build `symbia.logic.lane-gate`.**~~ **Superseded the same day.**
+   `docs/proposals/canonical-bus.md` argues the lane is a topology marker rather
+   than a gate, and that per-value labels inside the graph are the wrong
+   mechanism — the graph *is* the apocryphal lane, and what matters is the
+   boundary crossing to a deterministic bus, which is readable off the graph
+   definition. `lane-gate` solves a problem the bus does not have. Do not build
+   it without reading that first.
 2. **Build `symbia.sink.lineage`.** One component, second caller for
    `@symbia/lineage`. Expect defects in the library; they are the yield.
+   Unaffected by the above — the reception ledger needs it either way.
 3. **`df-coverage` alone**, on synthetic ticks. Prove the rollup gate refuses to
    claim across a manufactured gap before any real data exists. This is
    acceptance item 4, and it is buildable first.
