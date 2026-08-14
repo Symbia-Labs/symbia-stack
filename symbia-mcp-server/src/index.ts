@@ -20,14 +20,20 @@ import { ServicePorts, RunningServices, type ServiceId } from "@symbia/sys";
 // in the MCP config, matching the wallet model and the .mcp.json integrations
 // entry. SYMBIA_EMAIL/SYMBIA_PASSWORD is the legacy login flow, kept as a
 // local-dev fallback only.
+// SYMBIA_SESSION_TOKEN is the best path: a long-lived session token (minted via
+// POST /api/auth/session) that this server resolves to a fresh short-lived JWT —
+// revocable server-side, refreshable, no password. SYMBIA_TOKEN is a direct
+// pre-issued bearer (API key). SYMBIA_PASSWORD is the legacy login fallback.
+const SESSION_TOKEN = process.env.SYMBIA_SESSION_TOKEN;
 const TOKEN = process.env.SYMBIA_TOKEN;
 const EMAIL = process.env.SYMBIA_EMAIL ?? "gap-probe@symbia.test";
 const PASSWORD = process.env.SYMBIA_PASSWORD;
-if (!TOKEN && !PASSWORD) {
+if (!SESSION_TOKEN && !TOKEN && !PASSWORD) {
   console.error(
-    "No credentials configured. Set SYMBIA_TOKEN (a pre-issued bearer — preferred,\n" +
-      "no password in config) OR SYMBIA_PASSWORD (legacy email/password login) in\n" +
-      "the MCP server's env.",
+    "No credentials configured. Set one of (preferred first):\n" +
+      "  SYMBIA_SESSION_TOKEN — a session token (POST /api/auth/session), revocable, no password\n" +
+      "  SYMBIA_TOKEN         — a pre-issued bearer / API key\n" +
+      "  SYMBIA_PASSWORD      — legacy email/password login (local dev)",
   );
   process.exit(1);
 }
@@ -49,8 +55,27 @@ type ServiceName = ServiceId;
 let token: string | null = TOKEN ?? null;
 
 async function login(): Promise<string> {
-  // A pre-issued token cannot be refreshed here; a 401 means it is invalid or
-  // expired. Surface that instead of looping on a login we cannot perform.
+  // Preferred: resolve a session token to a fresh JWT. Refreshable (this runs
+  // again on 401) and revocable server-side.
+  if (SESSION_TOKEN) {
+    const r = await fetch(`http://${HOST}:${PORTS.identity}/api/auth/session/resolve`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ token: SESSION_TOKEN }),
+      signal: AbortSignal.timeout(10000),
+    });
+    if (!r.ok) {
+      throw new Error(
+        `Session resolve failed (${r.status}). The SYMBIA_SESSION_TOKEN is invalid, expired, or revoked — mint a fresh one via POST /api/auth/session.`,
+      );
+    }
+    const j = (await r.json()) as { token?: string };
+    if (!j.token) throw new Error("Session resolve returned no token");
+    token = j.token;
+    return token;
+  }
+  // A pre-issued direct bearer cannot be refreshed here; a 401 means it is
+  // invalid or expired. Surface that instead of looping on a login we cannot do.
   if (TOKEN) {
     throw new Error(
       "SYMBIA_TOKEN was rejected (401). Issue a fresh token (Identity API key or " +

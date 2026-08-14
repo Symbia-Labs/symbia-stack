@@ -52,7 +52,7 @@ import { apiDocumentation } from "./openapi";
 import { registerDocRoutes } from "./doc-routes";
 import { getBootstrapConfig, validateSystemSecret, addUserToSystemOrg, SYSTEM_ORG_ID } from "./system-bootstrap";
 import { runWithRLSContext, type RLSContext } from "@symbia/db";
-import { encryptSecret, decryptSecret } from "@symbia/crypto";
+import { encryptSecret, decryptSecret, nodeCredentialCrypto, type StoredSession } from "@symbia/crypto";
 
 /**
  * Run the rest of the request inside a fail-closed AsyncLocalStorage RLS
@@ -998,6 +998,72 @@ For service-to-service authentication, use POST /api/auth/introspect with { "tok
   app.post("/api/auth/user/login", handleUserLogin);
   // Unified login (matches OpenAPI /auth/login under base /api)
   app.post("/api/auth/login", handleUserLogin);
+
+  // --- MCP / CLI session tokens (SPIKE, 14 Aug 2026) -------------------------
+  // Envelope-session model lifted from mcp-wallet
+  // (docs/proposals/2026-08-14-lift-wallet-credentials-into-identity.md, L2):
+  // an authenticated caller mints a random opaque token that wraps a per-session
+  // secret; the caller (Claude Desktop / Cowork / symbia-mcp-server) holds the
+  // TOKEN, never a password, and resolving it returns a fresh short-lived JWT.
+  // Additive — it does not change any existing auth path.
+  //
+  // SPIKE SCOPE: sessions live in memory (a restart clears them); a durable table
+  // is the review follow-up. `scope` is reserved for the admin/user/viewer roles
+  // coming next — today it is carried and echoed but not yet enforced.
+  const mcpSessions = new Map<string, { session: StoredSession; userId: string; scope: string }>();
+  const pruneSessions = () => {
+    const now = Math.floor(Date.now() / 1000);
+    for (const [h, s] of mcpSessions) if (now > s.session.expiresAt) mcpSessions.delete(h);
+  };
+
+  // Mint a session (authenticated). Returns the token ONCE.
+  app.post("/api/auth/session", authMiddleware, async (req, res) => {
+    try {
+      const userId = req.user!.id;
+      const ttlSecs = Math.min(Math.max(Number(req.body?.ttlSecs) || 86400, 60), 7 * 86400);
+      const scope = typeof req.body?.scope === "string" ? req.body.scope : "viewer";
+      const masterKey = crypto.randomBytes(32);
+      const { session, token } = nodeCredentialCrypto.createSession(masterKey, ttlSecs);
+      mcpSessions.set(session.tokenHash, { session, userId, scope });
+      res.json({ token, sessionId: session.sessionId, expiresAt: session.expiresAt, scope });
+    } catch (error) {
+      console.error("Session mint error:", error);
+      res.status(500).json({ message: "Failed to mint session" });
+    }
+  });
+
+  // Resolve a session token → a fresh JWT (the token is the auth; no bearer).
+  app.post("/api/auth/session/resolve", async (req, res) => {
+    try {
+      pruneSessions();
+      const presented = typeof req.body?.token === "string" ? req.body.token : "";
+      if (!presented) return res.status(400).json({ message: "token required" });
+      const hash = crypto.createHash("sha256").update(presented).digest("hex");
+      const entry = mcpSessions.get(hash);
+      if (!entry) return res.status(401).json({ message: "invalid or expired session" });
+      // Cryptographic gate: a wrong or expired token throws (GCM auth / expiry).
+      try {
+        nodeCredentialCrypto.resolveSession(entry.session, presented);
+      } catch {
+        return res.status(401).json({ message: "invalid or expired session" });
+      }
+      const user = await storage.getUser(entry.userId);
+      if (!user) return res.status(401).json({ message: "session principal no longer exists" });
+      const jwt = signToken({ id: user.id, email: user.email, name: user.name });
+      res.json({ token: jwt, scope: entry.scope, expiresAt: entry.session.expiresAt });
+    } catch (error) {
+      console.error("Session resolve error:", error);
+      res.status(500).json({ message: "Failed to resolve session" });
+    }
+  });
+
+  // Revoke a session by id (authenticated). Locking the wallet, server-side.
+  app.delete("/api/auth/session/:sessionId", authMiddleware, async (req, res) => {
+    const id = getParam(req.params, "sessionId");
+    let revoked = false;
+    for (const [h, s] of mcpSessions) if (s.session.sessionId === id) { mcpSessions.delete(h); revoked = true; }
+    res.json({ revoked });
+  });
 
   // Logout (works for both users and agents)
   app.post("/api/auth/logout", (req, res) => {
