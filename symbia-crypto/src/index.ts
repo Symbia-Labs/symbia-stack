@@ -45,3 +45,16 @@ export {
   decryptSecret,
   isLegacyCiphertext,
 } from './vault.js';
+
+// CredentialCrypto — envelope keys, session tokens, KEK derivation, behind one
+// swap-for-WASM seam. See credential-crypto.ts and
+// docs/proposals/2026-08-14-lift-wallet-credentials-into-identity.md.
+export {
+  nodeCredentialCrypto,
+  sessionExpired,
+  SecretString,
+  CredentialCryptoError,
+  type CredentialCrypto,
+  type StoredSession,
+  type KdfParams,
+} from './credential-crypto.js';
