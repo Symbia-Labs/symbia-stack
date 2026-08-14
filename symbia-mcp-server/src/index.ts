@@ -135,7 +135,10 @@ server.registerTool(
   {
     title: "Symbia Stack Health",
     description:
-      "Check health and self-reported version of all nine Symbia services (identity, logging, catalog, assistants, messaging, runtime, integrations, models, network). Returns per-service status, port, latency in ms, and OpenAPI title/version. Use this first to confirm the stack is up.",
+      // Derived, not restated: a hardcoded "all nine" here outlived the tenth
+      // service (directory, 5010) — the count read as a claim about the
+      // platform while being a claim about nine services.
+      `Check health and self-reported version of all ${RunningServices.length} registered Symbia services (${RunningServices.join(", ")}). Returns per-service status, port, latency in ms, and OpenAPI title/version. Use this first to confirm the stack is up.`,
     inputSchema: z.object({}).strict(),
     annotations: RO,
   },
