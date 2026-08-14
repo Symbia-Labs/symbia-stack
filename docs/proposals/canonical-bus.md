@@ -192,9 +192,36 @@ manifest stops depending on a component author's good behaviour.
   through the bus, two structurally identical values will differ in provenance
   grade. I would make this visible rather than fix it — it went through the bus
   or it did not, and the graph shows which.
-- **Async.** Bus work must be synchronous or at least suspension-safe to stay
-  deterministic. This is the same unknown as `wasm-runtime.md` §6.4 and does not
-  get easier here.
+- **Async — and this one has prior work, in telecom vocabulary.** Bus work must
+  be synchronous or at least suspension-safe to stay deterministic. That is the
+  same unknown as `wasm-runtime.md` §6.4, but it is not a blank page: the
+  original exploration branched into message-routing terms and landed in two
+  places, both of which are already in this platform.
+
+  **Turn-taking** is the coordination half — floor control by another name.
+  `INTENT.md` §"Turn-Taking Protocol": agents declare intent before acting,
+  `assistant.intent.claim` → `assistant.intent.defer` →
+  `assistant.action.respond`, others observe and defer. For the bus the question
+  is the same shape: does a graph hold the floor across a bus round-trip, or
+  cede and re-enter?
+
+  **Backpressure** is the flow-control half. The runtime already has "backpressure
+  management via queuing during pause" and execution states including `paused`
+  (`INTENT.md`, runtime section). A bus call that suspends is a pause, and the
+  mechanism for what happens to deliveries during one exists.
+
+  **The consequence nobody has drawn yet: flow control is not neutral with
+  respect to determinism.** If deliveries queue during a suspension and drain in
+  queue order, then *arrival order has become an input*. A computation is only
+  reproducible if that ordering is part of what the inputs digest covers —
+  otherwise two replays of the same bus call over the same values can differ
+  because they were interleaved differently. Queueing policy is therefore part of
+  the receipt, not an implementation detail beneath it.
+
+  Standing caveat, per `docs/2026-08-10-orchestration-predictions.md`: the
+  claim/defer protocol was built and had no caller for months. Orchestration got
+  one on 11 Aug (STATUS §5a). Whether turn-taking survives a bus round-trip is
+  unmeasured, and giving it that second caller would be the way to find out.
 - **Non-determinism that looks deterministic.** Floating-point across
   architectures, map iteration order, and canonical-JSON edge cases. The
   `add-component` spike agreeing on `0.1 + 0.2` is encouraging and is one data
