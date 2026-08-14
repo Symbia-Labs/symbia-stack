@@ -31,6 +31,7 @@
 services:
   # PostgreSQL database
   postgres:
+    restart: unless-stopped
     image: postgres:15-alpine
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-symbia}
@@ -63,6 +64,7 @@ services:
 
   # Identity Service - Authentication & Authorization
   identity:
+    restart: unless-stopped
     build:
       context: .
       dockerfile: identity/Dockerfile
@@ -104,6 +106,7 @@ services:
 
   # Logging Service - Telemetry & Observability
   logging:
+    restart: unless-stopped
     build:
       context: .
       dockerfile: logging/Dockerfile
@@ -136,6 +139,7 @@ services:
 
   # Catalog Service - Resource Registry
   catalog:
+    restart: unless-stopped
     build:
       context: .
       dockerfile: catalog/Dockerfile
@@ -169,6 +173,7 @@ services:
 
   # Messaging Service - Real-time Communication
   messaging:
+    restart: unless-stopped
     build:
       context: .
       dockerfile: messaging/Dockerfile
@@ -203,6 +208,7 @@ services:
 
   # Network Service - Service Mesh & Event Routing
   network:
+    restart: unless-stopped
     build:
       context: .
       dockerfile: network/Dockerfile
@@ -234,6 +240,7 @@ services:
   # table, admission). No database; peers journal to JSONL, foreign nodes are
   # TTL-leased in memory on purpose.
   directory:
+    restart: unless-stopped
     build:
       context: .
       dockerfile: directory/Dockerfile
@@ -263,6 +270,7 @@ services:
 
   # Runtime Service - Graph Execution Engine
   runtime:
+    restart: unless-stopped
     build:
       context: .
       dockerfile: runtime/Dockerfile
@@ -297,6 +305,7 @@ services:
 
   # Assistants Service - AI Orchestration
   assistants:
+    restart: unless-stopped
     build:
       context: .
       dockerfile: assistants/Dockerfile
@@ -349,6 +358,7 @@ services:
 
   # Integrations Service - LLM Provider Gateway
   integrations:
+    restart: unless-stopped
     build:
       context: .
       dockerfile: integrations/Dockerfile
@@ -384,6 +394,7 @@ services:
 
   # Models Service - Local LLM Inference (node-llama-cpp)
   models:
+    restart: unless-stopped
     build:
       context: .
       dockerfile: models/Dockerfile
@@ -426,6 +437,7 @@ services:
   # API front end / admin console - ServiceId.API
   # Was `service-admin` on 9000, registered nowhere (F1).
   service-admin:
+    restart: unless-stopped
     build:
       context: .
       dockerfile: service-admin/Dockerfile
@@ -469,6 +481,7 @@ services:
   # Previously not started by anything: it ran only if a developer knew to run
   # a bundler by hand (F5).
   control-center:
+    restart: unless-stopped
     build:
       context: .
       dockerfile: symbia-control-center/Dockerfile
