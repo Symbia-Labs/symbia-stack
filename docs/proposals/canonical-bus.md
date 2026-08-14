@@ -120,9 +120,12 @@ Four open items stop needing individual fixes:
   the graph definition. `symbia.logic.lane-gate` is not needed for this.
 - **D13** (may an ingress declare its lane?) dissolves. Inbound delivery lands in
   the graph, and being in the graph *is* the statement. Nothing to declare.
-- **D14** (stateful components launder lanes — `state.set(key, input.value)`
-  stores a bare value) dissolves. State inside the graph is apocryphal by
-  definition, so there is no lane to lose.
+- **D14** (stateful components launder lanes) dissolves. **Now measured, not
+  supposed** — 5/5 predictions held, `docs/2026-08-14-state-lane-laundering-results.md`.
+  State inside the graph is apocryphal by definition, so there is no lane to lose
+  at `state.set(...)` and no need to widen `normaliseEmission` to carry a
+  contributing set. All three `conditional` ports stop needing a lane they cannot
+  compute. The defect is not fixed; it stops existing.
 - **The transition-instrumentation problem** inverts. I had proposed
   instrumenting `normaliseEmission` to record canonical→apocryphal flips at
   runtime. Under this model the transitions *are the bus boundaries*: countable
@@ -187,8 +190,15 @@ manifest stops depending on a component author's good behaviour.
 1. **Every current builtin can be classified bus-eligible or not from its
    manifest alone**, with no appeal to its implementation. *Risk: `emitsApocryphal`
    is a hand-set boolean and may not agree with an import-set reading.*
-2. **At least one builtin is misclassified today** — declaring a lane its
-   implementation does not earn. Rollup's state path (D14) is the likeliest.
+2. ~~**At least one builtin is misclassified today** — declaring a lane its
+   implementation does not earn.~~ **MEASURED 14 Aug, held. It is three.**
+   `state.latest.snapshot`, `state.window.out` and `state.rollup.out` — every
+   port in the runtime declaring `conditional`. All three are state-carrying
+   aggregates whose notes state the correct rule and whose implementations
+   cannot compute it, because the contributing lanes are discarded at
+   `state.set(...)`. A window aggregating one apocryphal and one canonical value
+   emits **canonical**, with no error and no trace.
+   Full record: `docs/2026-08-14-state-lane-laundering-results.md`.
 3. **Bus v0 needs no wasm.** The set of bus-eligible builtins is non-empty and
    includes `symbia.compute.arithmetic`.
 4. **Receipt overhead is dominated by canonical JSON**, not by hashing.
