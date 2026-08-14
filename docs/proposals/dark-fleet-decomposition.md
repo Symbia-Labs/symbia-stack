@@ -198,15 +198,31 @@ already in the runtime, doing the thing it was written to do.
 
 And immediately, the sharpest finding in this decomposition:
 
-**D10 — a graph cannot see the lane it received.** The gate needs to branch on
-whether the rollup came out canonical or conditional. Lanes are declared on
-*ports* in the manifest and `inherit` proves the runtime carries them, but
-`symbia.logic.switch` switches on *data*, and there is no evidence a lane is
-readable from a payload. If it is not, then the platform's central epistemic
-mechanism is legible to a human reading a manifest and invisible to the graph
-that has to act on it — which is the "declarative feature that appears to work
-and changes nothing" pattern this repo already names as worse than an absent one.
-This is the first thing to measure, before any of it is built.
+**D10 — a graph cannot see the lane it received. MEASURED 14 Aug, confirmed.**
+6/6 predictions held; full record in `docs/2026-08-14-lane-visibility-results.md`,
+predictions registered beforehand at `0d4ac7d`.
+
+A filter attempting to branch on `lane` emitted `fail` in both the apocryphal and
+the canonical case — the lane changed underneath it and its behaviour did not.
+`FlowValue` is `{value, lane}` and `logic.filter` reads `input.value` only. The
+same port fires in both cases, so port-based branching is no escape either, and
+`conditional` never reaches a value at all: it is manifest-only, resolved to one
+of two runtime lanes before anything downstream sees it.
+
+The asymmetry is the finding: the run output *reports* the lane to an operator
+(P6 held) while withholding it from the graph that must act on it.
+
+**The gate is still constructible today, through the payload** —
+`filter(field: "coverage", op: "eq", value: 1)` did discriminate correctly. But
+`coverage` and the emitted lane are set three lines apart in
+`components-state.ts` and are bound by nothing but that adjacency. A gate built
+on it *looks* like it enforces the lane rule and does not.
+
+So `df-coverage` grows a prerequisite: **`symbia.logic.lane-gate`**, about
+fifteen lines, emitting on a `canonical` or `apocryphal` port by reading the
+field next to the one filters already read. It is the smallest change that lets a
+graph *refuse* — the behaviour the entire lane vocabulary exists to support and
+which no graph can currently express. Build it before the gate, not after.
 
 ## 5. Components — and a naming collision worth settling first
 
@@ -322,9 +338,11 @@ is *declared, unexamined*. Worth ten minutes before assuming it is available.
 
 Sequenced so each step can fail informatively rather than by surprise.
 
-1. **Measure D10.** Can a graph branch on a lane? Everything downstream is
-   shaped by the answer, and if the answer is no, that finding is worth more than
-   the app.
+1. ~~**Measure D10.**~~ **Done, 14 Aug — the answer is no.** See §4a and
+   `docs/2026-08-14-lane-visibility-results.md`.
+1a. **Build `symbia.logic.lane-gate`**, the fifteen-line consequence. Until it
+   exists, no graph on this platform can refuse a value for being unverifiable,
+   which is the one thing the lane vocabulary was built to let it do.
 2. **Build `symbia.sink.lineage`.** One component, second caller for
    `@symbia/lineage`. Expect defects in the library; they are the yield.
 3. **`df-coverage` alone**, on synthetic ticks. Prove the rollup gate refuses to

@@ -1,0 +1,39 @@
+{
+  "symbia": "graph/1.0",
+  "name": "lane-probe",
+  "version": "0.1.0",
+  "description": "Measurement probe for D10: can a graph branch on the lane it received? A rollup with a deliberately absent expected key emits apocryphal on the same port it uses for canonical. Two filters then try to distinguish the two cases — one by the lane, one by the payload's coverage field. Which collect node receives the value is the measurement.",
+  "author": "experiments",
+  "nodes": [
+    { "id": "entry", "component": "symbia.io.passthrough" },
+
+    { "id": "roll", "component": "symbia.state.rollup",
+      "config": { "expected": ["a", "b"], "op": "sum",
+                  "keyField": "key", "valueField": "value" } },
+
+    { "id": "byLane", "component": "symbia.logic.filter",
+      "config": { "field": "lane", "op": "exists" } },
+    { "id": "laneSeen",   "component": "symbia.io.collect" },
+    { "id": "laneUnseen", "component": "symbia.io.collect" },
+
+    { "id": "byCoverage", "component": "symbia.logic.filter",
+      "config": { "field": "coverage", "op": "eq", "value": 1 } },
+    { "id": "covComplete", "component": "symbia.io.collect" },
+    { "id": "covPartial",  "component": "symbia.io.collect" }
+  ],
+  "edges": [
+    { "id": "e1", "source": { "node": "entry", "port": "out" },        "target": { "node": "roll", "port": "in" } },
+
+    { "id": "e2", "source": { "node": "roll", "port": "out" },         "target": { "node": "byLane", "port": "in" } },
+    { "id": "e3", "source": { "node": "byLane", "port": "pass" },      "target": { "node": "laneSeen", "port": "in" } },
+    { "id": "e4", "source": { "node": "byLane", "port": "fail" },      "target": { "node": "laneUnseen", "port": "in" } },
+
+    { "id": "e5", "source": { "node": "roll", "port": "out" },         "target": { "node": "byCoverage", "port": "in" } },
+    { "id": "e6", "source": { "node": "byCoverage", "port": "pass" },  "target": { "node": "covComplete", "port": "in" } },
+    { "id": "e7", "source": { "node": "byCoverage", "port": "fail" },  "target": { "node": "covPartial", "port": "in" } }
+  ],
+  "metadata": {
+    "role": "probe",
+    "ingress": { "node": "entry", "port": "in" }
+  }
+}
