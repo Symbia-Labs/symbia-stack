@@ -75,6 +75,10 @@ services:
       PORT: 5001
       DATABASE_URL: postgresql://${POSTGRES_USER:-symbia}:${POSTGRES_PASSWORD:-symbia_dev}@postgres:5432/identity
       SESSION_SECRET: ${SESSION_SECRET:-symbia-dev-secret-change-in-production}
+      # Credential vault key (HKDF-derived). Required in production by the vault;
+      # a dev default keeps the local stack booting, same pattern as the secrets
+      # above. Real deployments MUST override this.
+      CREDENTIAL_ENCRYPTION_KEY: ${CREDENTIAL_ENCRYPTION_KEY:-symbia-credential-dev-key-change-in-production}
       # Development switch. Untokened requests run as the first existing user.
       # OFF unless set: a gate skipped by default is not a gate.
       #

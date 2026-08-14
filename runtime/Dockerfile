@@ -19,6 +19,8 @@ COPY runtime/ ./runtime/
 # Link to pre-built libraries from base image
 COPY --from=symbia-base /symbia-libs/symbia-sys ./symbia-sys
 COPY --from=symbia-base /symbia-libs/symbia-crypto ./symbia-crypto
+COPY --from=symbia-base /symbia-libs/symbia-pathguard ./symbia-pathguard
+COPY --from=symbia-base /symbia-libs/symbia-egress ./symbia-egress
 COPY --from=symbia-base /symbia-libs/symbia-auth ./symbia-auth
 COPY --from=symbia-base /symbia-libs/symbia-db ./symbia-db
 COPY --from=symbia-base /symbia-libs/symbia-http ./symbia-http

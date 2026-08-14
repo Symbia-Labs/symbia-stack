@@ -19,6 +19,8 @@ COPY assistants/ ./assistants/
 # Link to pre-built libraries from base image
 COPY --from=symbia-base /symbia-libs/symbia-sys ./symbia-sys
 COPY --from=symbia-base /symbia-libs/symbia-crypto ./symbia-crypto
+COPY --from=symbia-base /symbia-libs/symbia-pathguard ./symbia-pathguard
+COPY --from=symbia-base /symbia-libs/symbia-egress ./symbia-egress
 COPY --from=symbia-base /symbia-libs/symbia-lineage ./symbia-lineage
 # @symbia/lineage imports @symbia/crypto and declared no dependency on it —
 # undeclared for as long as the library had no callers, because nothing ever
