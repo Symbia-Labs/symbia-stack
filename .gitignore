@@ -60,3 +60,11 @@ __pycache__/
 # all dated 29 Jan, all differing from the live file they shadowed — which is
 # what made them dangerous rather than merely redundant. git is the backup.
 *.backup
+
+# Service identity keypairs. @symbia/crypto service-identity writes
+# .identity/service.key.pem (a private key, mode 0600) into the cwd of
+# whichever service generates one — assistants/.identity/ appeared 13 Aug
+# during a typecheck pass. Any service directory can grow this; one
+# `git add -A` would put a private key in history. Keys are machine-local,
+# never shared state.
+.identity/
