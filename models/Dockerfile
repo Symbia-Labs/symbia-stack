@@ -20,6 +20,7 @@ RUN apt-get update && apt-get install -y \
 # Copy shared library sources needed for build
 COPY symbia-sys/ ./symbia-sys/
 COPY symbia-crypto/ ./symbia-crypto/
+COPY symbia-redact/ ./symbia-redact/
 COPY symbia-auth/ ./symbia-auth/
 COPY symbia-http/ ./symbia-http/
 COPY symbia-relay/ ./symbia-relay/
@@ -41,6 +42,11 @@ RUN npm install && npm run build
 
 # crypto before http: symbia-http imports @symbia/crypto for service identity
 WORKDIR /app/symbia-crypto
+RUN npm install && npm run build
+
+# redact before http too: symbia-http imports @symbia/redact to redact request
+# logs. Zero dependencies, so its position here is only about ordering.
+WORKDIR /app/symbia-redact
 RUN npm install && npm run build
 
 WORKDIR /app/symbia-http

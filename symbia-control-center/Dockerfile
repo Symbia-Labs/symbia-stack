@@ -13,6 +13,7 @@ WORKDIR /app
 COPY package.json package-lock.json ./
 COPY symbia-sys/package.json          symbia-sys/
 COPY symbia-crypto/package.json       symbia-crypto/
+COPY symbia-redact/package.json       symbia-redact/
 COPY symbia-http/package.json         symbia-http/
 COPY symbia-auth/package.json         symbia-auth/
 COPY symbia-db/package.json           symbia-db/
@@ -36,6 +37,7 @@ RUN npm ci --include=dev --workspaces --include-workspace-root || npm install --
 
 COPY symbia-sys/            symbia-sys/
 COPY symbia-crypto/         symbia-crypto/
+COPY symbia-redact/         symbia-redact/
 COPY symbia-http/           symbia-http/
 COPY symbia-auth/           symbia-auth/
 COPY symbia-db/             symbia-db/

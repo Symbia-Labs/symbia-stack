@@ -116,64 +116,20 @@ export function securityHeadersMiddleware(
 // =============================================================================
 
 /**
- * Patterns that indicate sensitive data
+ * Re-exported from `@symbia/redact`, not implemented here.
+ *
+ * This file held the platform's only recursive redactor while `symbia-http` —
+ * the log path all ten services share — overwrote four top-level keys by exact
+ * name. Two implementations of one security concern, the stronger one reaching
+ * one service. That is the forked-concern shape that let `@symbia/auth` ship
+ * without RLS awareness (R1), and it is closed the same way `@symbia/pathguard`
+ * closed path validation: one package, and the old call sites keep their names.
+ *
+ * `sanitizeForLogging` is kept as an alias so no call site here had to change.
+ * New code should import `redact` from `@symbia/redact` directly.
  */
-const SENSITIVE_PATTERNS = [
-  /api[_-]?key/i,
-  /secret/i,
-  /password/i,
-  /token/i,
-  /bearer/i,
-  /authorization/i,
-  /credential/i,
-  /private[_-]?key/i,
-];
-
-/**
- * Sanitize an object for logging by redacting sensitive fields.
- * Returns a new object with sensitive values replaced by "[REDACTED]".
- */
-export function sanitizeForLogging(obj: unknown, depth = 0): unknown {
-  // Prevent infinite recursion
-  if (depth > 10) return "[MAX_DEPTH]";
-
-  if (obj === null || obj === undefined) {
-    return obj;
-  }
-
-  if (typeof obj === "string") {
-    // Redact strings that look like API keys (long alphanumeric strings)
-    if (obj.length > 20 && /^[A-Za-z0-9_-]+$/.test(obj)) {
-      return `[REDACTED:${obj.length}chars]`;
-    }
-    // Redact Bearer tokens in strings
-    if (obj.toLowerCase().includes("bearer ")) {
-      return obj.replace(/bearer\s+[A-Za-z0-9_.-]+/gi, "Bearer [REDACTED]");
-    }
-    return obj;
-  }
-
-  if (Array.isArray(obj)) {
-    return obj.map((item) => sanitizeForLogging(item, depth + 1));
-  }
-
-  if (typeof obj === "object") {
-    const sanitized: Record<string, unknown> = {};
-    for (const [key, value] of Object.entries(obj)) {
-      // Check if key name suggests sensitive data
-      const isSensitive = SENSITIVE_PATTERNS.some((pattern) => pattern.test(key));
-
-      if (isSensitive) {
-        sanitized[key] = "[REDACTED]";
-      } else {
-        sanitized[key] = sanitizeForLogging(value, depth + 1);
-      }
-    }
-    return sanitized;
-  }
-
-  return obj;
-}
+export { sanitizeForLogging, redact, redactObject } from "@symbia/redact";
+import { sanitizeForLogging } from "@symbia/redact";
 
 /**
  * Create a logger that automatically sanitizes sensitive data.

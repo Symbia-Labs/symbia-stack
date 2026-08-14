@@ -20,6 +20,7 @@ COPY network/ ./network/
 COPY --from=symbia-base /symbia-libs/symbia-sys ./symbia-sys
 COPY --from=symbia-base /symbia-libs/symbia-crypto ./symbia-crypto
 COPY --from=symbia-base /symbia-libs/symbia-auth ./symbia-auth
+COPY --from=symbia-base /symbia-libs/symbia-redact ./symbia-redact
 COPY --from=symbia-base /symbia-libs/symbia-http ./symbia-http
 COPY --from=symbia-base /symbia-libs/symbia-relay ./symbia-relay
 COPY --from=symbia-base /symbia-libs/symbia-logging-client ./symbia-logging-client

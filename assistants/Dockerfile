@@ -35,6 +35,7 @@ RUN mkdir -p symbia-lineage/node_modules/@symbia \
     && ln -sfn /app/symbia-crypto symbia-lineage/node_modules/@symbia/crypto
 COPY --from=symbia-base /symbia-libs/symbia-auth ./symbia-auth
 COPY --from=symbia-base /symbia-libs/symbia-db ./symbia-db
+COPY --from=symbia-base /symbia-libs/symbia-redact ./symbia-redact
 COPY --from=symbia-base /symbia-libs/symbia-http ./symbia-http
 COPY --from=symbia-base /symbia-libs/symbia-relay ./symbia-relay
 COPY --from=symbia-base /symbia-libs/symbia-logging-client ./symbia-logging-client

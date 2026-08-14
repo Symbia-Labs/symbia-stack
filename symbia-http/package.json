@@ -42,12 +42,14 @@
   "peerDependencies": {
     "@symbia/crypto": "*",
     "@symbia/logging-client": "*",
+    "@symbia/redact": "*",
     "@symbia/relay": "*",
     "@symbia/sys": "*"
   },
   "devDependencies": {
     "@symbia/crypto": "file:../symbia-crypto",
     "@symbia/logging-client": "file:../symbia-logging-client",
+    "@symbia/redact": "file:../symbia-redact",
     "@symbia/relay": "file:../symbia-relay",
     "@symbia/sys": "file:../symbia-sys"
   }

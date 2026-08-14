@@ -62,20 +62,17 @@ jobs:
       - name: Install (workspaces)
         run: npm ci
       - name: Build libs the tests import from dist (tsc only)
-        run: npm run build -w symbia-sys -w symbia-crypto -w symbia-pathguard -w symbia-egress -w symbia-db
-      - name: Stubbed security suite (A1 + A4 + crypto)
+        run: npm run build -w symbia-sys -w symbia-crypto -w symbia-pathguard -w symbia-egress -w symbia-redact -w symbia-db
+      # One command, not six steps. Until 14 Aug this job ran `test:security`
+      # (A1 + A4 + crypto) and then listed egress, seed-guard and the ratchet
+      # as separate steps — so CI covered six suites while the documented local
+      # command covered three, and a developer running the documented command
+      # got a green that CI did not mean. `test:security` is now the whole
+      # stack-free set; adding a step here without adding it to that script is
+      # how the gap reopens.
+      - name: Stubbed security suite (A1, A4, crypto, egress, seed-guard, ratchet, redaction)
         run: npm run test:security
-      - name: R3 egress guard (SSRF) vs predictions
-        run: npm run test:security:egress
-      - name: R5 seed guard vs predictions
-        run: npm run test:security:seed-guard
-      - name: R2 explicit-client seam ratchet
-        run: npm run test:security:explicit-client-ratchet
-      - name: A4 LIVE — RLS against real Postgres
+      - name: LIVE — A4 and messaging RLS isolation against real Postgres
         env:
           DATABASE_URL: postgres://symbia:symbia_dev@localhost:5432/symbia
-        run: npm run test:security:a4-live
-      - name: Messaging RLS LIVE — org isolation against real Postgres
-        env:
-          DATABASE_URL: postgres://symbia:symbia_dev@localhost:5432/symbia
-        run: npm run test:security:messaging-rls-live
+        run: npm run test:security:live

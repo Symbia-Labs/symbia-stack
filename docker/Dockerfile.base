@@ -11,6 +11,7 @@ COPY symbia-sys/package*.json ./symbia-sys/
 COPY symbia-crypto/package*.json ./symbia-crypto/
 COPY symbia-pathguard/package*.json ./symbia-pathguard/
 COPY symbia-egress/package*.json ./symbia-egress/
+COPY symbia-redact/package*.json ./symbia-redact/
 COPY symbia-lineage/package*.json ./symbia-lineage/
 COPY symbia-auth/package*.json ./symbia-auth/
 COPY symbia-db/package*.json ./symbia-db/
@@ -27,6 +28,7 @@ RUN cd symbia-sys && npm ci --ignore-scripts & \
     cd symbia-crypto && npm ci --ignore-scripts & \
     cd symbia-pathguard && npm install --ignore-scripts & \
     cd symbia-egress && npm install --ignore-scripts & \
+    cd symbia-redact && npm install --ignore-scripts & \
     cd symbia-lineage && npm ci --ignore-scripts & \
     cd symbia-auth && npm ci --ignore-scripts & \
     cd symbia-db && npm ci --ignore-scripts & \
@@ -44,6 +46,7 @@ COPY symbia-sys/ ./symbia-sys/
 COPY symbia-crypto/ ./symbia-crypto/
 COPY symbia-pathguard/ ./symbia-pathguard/
 COPY symbia-egress/ ./symbia-egress/
+COPY symbia-redact/ ./symbia-redact/
 COPY symbia-lineage/ ./symbia-lineage/
 COPY symbia-auth/ ./symbia-auth/
 COPY symbia-db/ ./symbia-db/
@@ -60,9 +63,11 @@ COPY symbia-messaging-client/ ./symbia-messaging-client/
 RUN cd symbia-sys && npm run build || true
 # crypto before http: http imports @symbia/crypto for service identity
 RUN cd symbia-crypto && npm run build || true
-# pathguard + egress: zero-dependency guards used by runtime and assistants
+# pathguard + egress + redact: zero-dependency guards. redact must precede
+# symbia-http, which imports it for request-log redaction.
 RUN cd symbia-pathguard && npm run build || true
 RUN cd symbia-egress && npm run build || true
+RUN cd symbia-redact && npm run build || true
 RUN cd symbia-lineage && npm run build || true
 RUN cd symbia-relay && npm run build || true
 RUN cd symbia-logging-client && npm run build || true
