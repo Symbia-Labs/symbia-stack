@@ -15,12 +15,19 @@ import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js"
 import { z } from "zod";
 import { ServicePorts, RunningServices, type ServiceId } from "@symbia/sys";
 
+// Auth, token-first (14 Aug 2026). SYMBIA_TOKEN is a pre-issued bearer — an
+// Identity API key or a session token — and is the preferred path: no password
+// in the MCP config, matching the wallet model and the .mcp.json integrations
+// entry. SYMBIA_EMAIL/SYMBIA_PASSWORD is the legacy login flow, kept as a
+// local-dev fallback only.
+const TOKEN = process.env.SYMBIA_TOKEN;
 const EMAIL = process.env.SYMBIA_EMAIL ?? "gap-probe@symbia.test";
 const PASSWORD = process.env.SYMBIA_PASSWORD;
-if (!PASSWORD) {
+if (!TOKEN && !PASSWORD) {
   console.error(
-    "SYMBIA_PASSWORD is not set. This server authenticates against the local\n" +
-      "Identity service; set the probe account password in the MCP server's env.",
+    "No credentials configured. Set SYMBIA_TOKEN (a pre-issued bearer — preferred,\n" +
+      "no password in config) OR SYMBIA_PASSWORD (legacy email/password login) in\n" +
+      "the MCP server's env.",
   );
   process.exit(1);
 }
@@ -39,9 +46,17 @@ const PORTS: Record<ServiceId, number> = Object.fromEntries(
 ) as Record<ServiceId, number>;
 type ServiceName = ServiceId;
 
-let token: string | null = null;
+let token: string | null = TOKEN ?? null;
 
 async function login(): Promise<string> {
+  // A pre-issued token cannot be refreshed here; a 401 means it is invalid or
+  // expired. Surface that instead of looping on a login we cannot perform.
+  if (TOKEN) {
+    throw new Error(
+      "SYMBIA_TOKEN was rejected (401). Issue a fresh token (Identity API key or " +
+        "session); this server does not fall back to password login when a token is set.",
+    );
+  }
   const r = await fetch(`http://${HOST}:${PORTS.identity}/api/auth/login`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },

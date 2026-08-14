@@ -237,7 +237,19 @@ async function seedMcpProbe(orgId: string): Promise<boolean> {
     role: "member",
   });
 
-  console.log(`   • Seeded ${MCP_PROBE_EMAIL} (read-only probe, member of ${orgId})`);
+  // Observability grant. Platform telemetry is emitted into the SYSTEM org, so a
+  // plain member of one org sees none of it under RLS — which is exactly why the
+  // MCP log tools came up empty. cap:telemetry.global-read triggers the RLS
+  // read-bypass (@symbia/db GLOBAL_READ_CAPABILITIES), read-only across orgs, so
+  // symbia_query_logs / symbia_list_log_streams actually return data out of the
+  // box in a quickstart. Read-only: the probe is still NOT a super admin.
+  await db.insert(schema.userEntitlements).values({
+    id: crypto.randomUUID(),
+    userId,
+    entitlementKey: "cap:telemetry.global-read",
+  });
+
+  console.log(`   • Seeded ${MCP_PROBE_EMAIL} (read-only probe + telemetry.global-read, member of ${orgId})`);
   return true;
 }
 
