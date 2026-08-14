@@ -418,13 +418,15 @@ not a plan to route around it. Each is expected to be *measured*.
   GENESIS mid-voyage and silently splits a track's evidence in two. This needs a
   ruling of its own, and the honest minimum is *disclosure* — the chain must say
   it lost continuity rather than present two chains as one.
-- **D4.** The runtime invokes components; a receiver is a **long-running
-  daemon**, not an invocation. `catalog/shared/schema.ts:97` declares
-  `implementation: "remote-service"` — "delegates to an external service" — which
-  is the obvious candidate, and **grep finds it in the schema and nowhere else**.
-  Declared-but-empty, the same shape as `wasm` before
-  `docs/proposals/wasm-runtime.md`. A continuous sensor may not be expressible as
-  a platform component at all today; if so that is the most valuable finding here.
+- **D4.** ~~A receiver is a long-running daemon, not an invocation, and may not be
+  expressible as a platform component at all.~~ **Largely dissolved by
+  `dark-fleet-decomposition.md` §3** — it does not need to be. A witness is a
+  signed client of a *declared ingress*
+  (`runtime/server/src/catalog/ingress.ts`, `POST /api/ingress/:graphName`),
+  which is the spyglass posture and is already built. `remote-service` remains
+  declared-and-empty in `catalog/shared/schema.ts:97` — grep finds it in the
+  schema and nowhere else — but v1 does not need the runtime to *host* a sensor,
+  only to *accept* what one delivers. What survives is narrower and is now D9.
 - **D5.** **There are two outbound paths and neither is both guarded and
   recorded.** `@symbia/egress` (13 Aug) is an SSRF *guard* — host resolution and
   address checks for URLs arriving from graph config or conversation context. It
@@ -446,6 +448,11 @@ not a plan to route around it. Each is expected to be *measured*.
   records verify without us. `docs/2026-08-12-federation-*.md` exists; whether it
   reaches a foreign instrument identity signing into a shared ledger is unread and
   should not be assumed from the filename.
+
+**D9–D12 continue in `dark-fleet-decomposition.md`**, which maps this scope onto
+the actual primitives: websocket ingress (D9), whether a graph can branch on the
+lane it received (D10 — measure this first), app-provided component key
+conventions (D11), and silent collision of nested assistant keys (D12).
 - **D6.** Bulk. Sentinel-1 GRD products are large. Chunked chaining exists in
   `observation.ts`; whether the JSONL-and-local-logs constraint survives a
   quarter of SAR products in the box is unmeasured.
