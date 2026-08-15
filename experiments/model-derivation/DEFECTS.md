@@ -4,6 +4,18 @@ Ledger, per the governing rule: anything that could not be done through the
 platform is logged here rather than worked around silently. Ordered by how
 much of the edge↔cloud theory each one blocks.
 
+**Closure state, end of 15 Aug** (stages of
+`docs/proposals/models-defect-closure.md`; measurements in
+`docs/2026-08-15-models-stage2-results.md` and `-stage345-results.md`):
+§1 closed (stage 0, suite 28/28, spike 7/7 with workaround deleted).
+§2 closed (stage 4, measured live: pull → digest → signed event → card, 5/5
+predictions). §3 closed (stage 2, measured incl. forced mismatch). §4
+closed (stage 3, 33/33, spike re-emits with zero local shapes). §5 closed
+(stage 1, card stability observed across boots). §6 code-landed,
+deploy-gated (stage 5 — deployed catalog rejects type `model` by enum,
+measured; migration dry-run selects exactly the 4 old-shape cards). §7
+fixed same day it was found; catalog route awaits deployed rebuild.
+
 ## 1. `@symbia/lineage`: sign-then-serialize is not round-trip-safe — LATENT, PRODUCTION-ADJACENT
 
 Observed in this spike: an event signed without `continuity_context` failed
