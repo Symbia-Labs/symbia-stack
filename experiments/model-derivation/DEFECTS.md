@@ -65,6 +65,19 @@ An HF-style catalog wants `models/<org>/<name>` as a first-class type-plural
 key with write-gate agreement. Decided direction from the 14 Aug
 conversation; not built.
 
+## 7. The catalog could not be asked by key — FOUND AND FIXED 15 Aug (route change runtime-unverified)
+
+Found while measuring stage 2, not by reading. `storage.getResourceByKey`
+existed with no route exposing it; `GET/PATCH/DELETE /api/resources/:id`
+are id-only; the list route ignored unknown filters. Consequence in
+model-sync: the by-key existence check always 404ed, the update branch had
+never executed, the PUT verb it would have used has no route, and every
+re-sync re-POSTed into the key's unique constraint. Fix: exact `key` filter
+on the list route; model-sync finds-by-key then PATCHes by id. Second boot
+measured: 4 updates, 0 failures. The catalog route itself awaits a deployed
+catalog rebuild to be measured. Full record:
+`docs/2026-08-15-models-stage2-results.md`.
+
 ## Environment notes (not platform defects)
 
 - The cowork sandbox egress allowlist blocks huggingface.co (403 at the

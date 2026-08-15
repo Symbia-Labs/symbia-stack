@@ -439,6 +439,21 @@ a defect). Records: `docs/2026-08-11-*.md`, `docs/proposals/assistant-data-model
     construction — a cleanup script that can delete a real graph is a worse
     problem than the mess it tidies).
 
+15. **The catalog could not be asked by key — FOUND AND FIXED 15 Aug, route
+    change runtime-unverified.** `storage.getResourceByKey` had no route;
+    `/api/resources/:id` routes are id-only; the list route ignored unknown
+    filters. model-sync's by-key check therefore always 404ed: its update
+    branch had never run (the PUT it would use has no route), and every
+    re-sync re-POSTed into the key's unique constraint — February's
+    TESTING-REPORT "Model sync: Pass" was true once per model. Fixed: exact
+    `key` filter on the list route; model-sync finds-by-key then PATCHes by
+    id (works against pre-filter catalogs too, measured: second boot, 4
+    updates, 0 failures). The catalog route awaits a deployed rebuild.
+    Same day, same service: weights digests now flow engine → registry →
+    API → card, with card/file mismatch disclosed at load (measured via a
+    forced-mismatch card). Records: `docs/2026-08-15-models-stage2-*.md`,
+    `experiments/model-derivation/DEFECTS.md`.
+
 ## 7. PAPER — designs and proposals, none built
 
 Moved to `docs/proposals/`. Nothing here exists in code.
