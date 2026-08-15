@@ -47,6 +47,15 @@ RESULTS.md for why bundles are the composable unit).
 
 ## Open, and honest about it
 
+- **Whether identity belongs in imagine mode at all — OPEN (Brian, 15 Aug,
+  deferred deliberately).** It is mounted today, so the sidecar issues its
+  own auth against an in-memory user store that dies with the process.
+  The alternatives are pointing at a real identity service (imagine mode
+  borrows a grounded principal) or running with no auth and saying so.
+  The question matters because auth is the one thing where "ephemeral and
+  unsigned" stops being obviously harmless: a token minted here looks
+  exactly like a token minted anywhere else.
+
 - **No user can be created under pg-mem.** `POST /api/auth/register`
   fails with a foreign-key error between organizations and memberships —
   pg-mem's FK emulation, not the platform's logic. So the sidecar has no
