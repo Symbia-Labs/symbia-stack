@@ -95,6 +95,10 @@ await mount("logging", "../../logging/.standalone-routes.mjs");
 await mount("directory", "../../directory/.standalone-routes.mjs", (mod, sub) =>
   sub.use(mod.createRouter())
 );
+// Extracted from their index.ts on 15 Aug so they could be imported at all.
+await mount("network", "../../network/.standalone-routes.mjs");
+await mount("messaging", "../../messaging/.standalone-routes.mjs");
+await mount("runtime", "../../runtime/.standalone-routes.mjs");
 
 // 3. Listen on an ephemeral port — internal plumbing, not a product surface.
 const port = await new Promise((resolve) => {
