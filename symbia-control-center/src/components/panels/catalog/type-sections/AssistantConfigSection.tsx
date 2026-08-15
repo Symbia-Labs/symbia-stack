@@ -11,8 +11,8 @@ import { TagEditor } from '../shared/TagEditor';
 import { RoutineEditor, type Routine } from './RoutineEditor';
 import { RoutineFlowPreview } from './RoutineFlowPreview';
 import { getDefaultRoutines, hasCustomRoutines } from './defaultRoutines';
-import { useServicesStore } from '@/stores/servicesStore';
-import { integrationsClient, type ModelInfo } from '@/services/integrationsClient';
+import { getServiceUrl } from '@/config/services';
+import { useAuthStore } from '@/stores/authStore';
 import { ContextBindingEditor, type ContextBinding } from './ContextBindingEditor';
 
 interface AssistantConfigSectionProps {
@@ -22,75 +22,112 @@ interface AssistantConfigSectionProps {
 }
 
 /**
- * Hook to get providers from capabilities (SOR)
- * Falls back to fetching if capabilities not in store
+ * The model list comes from the MODELS SERVICE REGISTRY — one list, local
+ * and remote, which is the 12 Aug ruling (the models service handles model
+ * selection; only something holding the registry can know what is legal).
+ *
+ * Until 15 Aug this section read integrations `/capabilities` instead,
+ * which lists REMOTE providers with credentials — so a local model served
+ * by this very platform could not be configured onto an assistant, found
+ * by Brian creating one in the console. The registry answers the dialog's
+ * actual questions: `brokered` (can this platform execute it), availability
+ * WITH its reason (never inferred), and for local models the digest — the
+ * bytes the assistant would actually run on.
  */
-function useProviders() {
-  const capabilities = useServicesStore((s) => s.capabilities);
-  const isLoadingCapabilities = useServicesStore((s) => s.isLoadingCapabilities);
-
-  // Extract providers from capabilities, sorted by preference
-  const providers = useMemo(() => {
-    if (!capabilities) return [];
-    return capabilities.providers.map(p => ({
-      value: p.provider,
-      label: p.name,
-      description: p.description || '',
-      hasCredential: p.access.hasCredential,
-      status: p.status,
-    }));
-  }, [capabilities]);
-
-  return { providers, loading: isLoadingCapabilities };
+interface RegistryEntry {
+  id: string;
+  symbia: {
+    source: 'local' | 'remote';
+    provider: string;
+    brokered: boolean;
+    availability: 'available' | 'unavailable' | 'unknown';
+    availabilityReason: string;
+    digest?: string;
+  };
+  capabilities?: string[];
 }
 
-/**
- * Hook to get models for a provider from capabilities (SOR)
- * Uses cached capabilities data instead of fetching per-provider
- */
-function useProviderModels(provider: string | undefined) {
-  const capabilities = useServicesStore((s) => s.capabilities);
-  const isLoadingCapabilities = useServicesStore((s) => s.isLoadingCapabilities);
-  const [fallbackModels, setFallbackModels] = useState<ModelInfo[]>([]);
-  const [fallbackLoading, setFallbackLoading] = useState(false);
+function useModelRegistry() {
+  const token = useAuthStore((s) => s.token);
+  const [entries, setEntries] = useState<RegistryEntry[] | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  // Try to get models from capabilities cache first
-  const cachedModels = useMemo(() => {
-    if (!provider || !capabilities) return null;
-    const providerCap = capabilities.byProvider[provider];
-    return providerCap?.models || null;
-  }, [provider, capabilities]);
-
-  // Fallback to fetching if not in cache
   useEffect(() => {
-    if (!provider || cachedModels !== null) {
-      setFallbackModels([]);
-      return;
-    }
-
-    setFallbackLoading(true);
-    integrationsClient.getProviderModels(provider)
-      .then(data => setFallbackModels(data || []))
-      .catch(err => {
-        console.error(`[AssistantConfig] Failed to fetch models for ${provider}:`, err);
-        setFallbackModels([]);
+    let cancelled = false;
+    setLoading(true);
+    // Session-cookie sessions work too: a same-origin fetch carries cookies.
+    fetch(`${getServiceUrl('models')}/api/models`, {
+      headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+    })
+      .then(async (res) => {
+        if (!res.ok) throw new Error(`models service returned ${res.status}`);
+        const body = (await res.json()) as { data: RegistryEntry[] };
+        if (!cancelled) { setEntries(body.data); setError(null); }
       })
-      .finally(() => setFallbackLoading(false));
-  }, [provider, cachedModels]);
+      .catch((err) => {
+        // The failure is content (confident-zero rule): entries stays null
+        // and the selects say the registry could not be read, rather than
+        // rendering an empty-but-plausible list.
+        if (!cancelled) { setEntries(null); setError(err instanceof Error ? err.message : String(err)); }
+      })
+      .finally(() => { if (!cancelled) setLoading(false); });
+    return () => { cancelled = true; };
+  }, [token]);
 
-  const models = cachedModels || fallbackModels;
-  const loading = isLoadingCapabilities || fallbackLoading;
+  return { entries, loading, error };
+}
 
-  // Filter to only show chat-capable, non-deprecated models
-  const chatModels = useMemo(() =>
-    models.filter(m =>
-      !m.deprecated &&
-      (m.capabilities?.includes('chat') || m.capabilities?.includes('reasoning') || !m.capabilities)
-    ),
-    [models]
-  );
+function useProviders() {
+  const { entries, loading, error } = useModelRegistry();
+  const providers = useMemo(() => {
+    if (!entries) return [];
+    const byProvider = new Map<string, RegistryEntry[]>();
+    for (const e of entries) {
+      const list = byProvider.get(e.symbia.provider) ?? [];
+      list.push(e);
+      byProvider.set(e.symbia.provider, list);
+    }
+    return [...byProvider.entries()].map(([value, list]) => {
+      const local = list.some((e) => e.symbia.source === 'local');
+      return {
+        value,
+        label: local ? `${value} (local)` : value,
+        description: local
+          ? `${list.length} model(s) served by this platform`
+          : `${list.length} model(s) via the ${value} adapter`,
+        // "Selectable" means the platform can execute it — `brokered` from
+        // the registry, not a credential guess made in the console.
+        brokered: list.some((e) => e.symbia.brokered),
+      };
+    });
+  }, [entries]);
+  return { providers, loading, error };
+}
 
-  return { models, chatModels, loading, error: null };
+function useProviderModels(provider: string | undefined) {
+  const { entries, loading, error } = useModelRegistry();
+  const chatModels = useMemo(() => {
+    if (!entries || !provider) return [];
+    return entries
+      .filter((e) => e.symbia.provider === provider)
+      // Capabilities are recorded for local models; an absent list on a
+      // remote entry is "not stated", not "cannot chat".
+      .filter((e) => !e.capabilities || e.capabilities.includes('chat') || e.capabilities.includes('reasoning'))
+      .map((e) => {
+        // Remote registry ids are provider-prefixed (`openai/gpt-4o`); the
+        // assistant's llm config stores the bare model id beside `provider`.
+        const bare = e.id.startsWith(`${provider}/`) ? e.id.slice(provider.length + 1) : e.id;
+        const digestNote = e.symbia.digest ? ` · ${e.symbia.digest.slice(0, 19)}…` : '';
+        const availNote = e.symbia.availability === 'available' ? '' : ` (${e.symbia.availability})`;
+        return {
+          id: bare,
+          name: `${bare}${availNote}`,
+          description: `${e.symbia.availabilityReason}${digestNote}`,
+        };
+      });
+  }, [entries, provider]);
+  return { chatModels, loading, error };
 }
 
 // LLM Configuration presets with their default values
@@ -449,18 +486,15 @@ export function AssistantConfigSection({
                 <option
                   key={p.value}
                   value={p.value}
-                  disabled={!p.hasCredential}
+                  disabled={!p.brokered}
                 >
-                  {p.label} {!p.hasCredential && '(No API key)'}
+                  {p.label} {!p.brokered && '(not brokered)'}
                 </option>
               ))}
             </select>
             {selectedProvider && (
               <p className="text-xs text-slate-500 mt-1">
                 {selectedProvider.description}
-                {!selectedProvider.hasCredential && (
-                  <span className="text-amber-500 ml-2">⚠️ Configure API key in Settings</span>
-                )}
               </p>
             )}
           </div>
