@@ -1,0 +1,112 @@
+/**
+ * Floating edge geometry — where a wire meets a node in a mesh.
+ *
+ * THE PROBLEM THIS SOLVES. React Flow attaches an edge to a fixed handle, so
+ * with an LR layout every wire leaves the right face and arrives at the left
+ * face regardless of where the other node actually is. A node sitting directly
+ * above its caller still gets a wire that exits right, runs out, turns, comes
+ * back across, and enters from the left. Ten of those share the same corridors
+ * and the picture reads as a backplane: parallel rectilinear runs you cannot
+ * trace end to end.
+ *
+ * A mesh is not a backplane. Peers call peers, in every direction, and the
+ * geometry should say so.
+ *
+ * WHAT A FLOATING EDGE DOES. The endpoint is not a handle — it is the point
+ * where the line between the two node centres crosses the node's boundary. A
+ * wire to something above leaves the top. A wire to something left leaves the
+ * left. Direction is legible from the stub alone, before you follow it
+ * anywhere, and edges stop sharing corridors because they no longer have to
+ * route around the node they started on.
+ *
+ * This is geometry, not styling: the same edges, drawn where they actually go.
+ */
+
+export interface Rect {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
+export interface Point {
+  x: number;
+  y: number;
+}
+
+export function centreOf(r: Rect): Point {
+  return { x: r.x + r.width / 2, y: r.y + r.height / 2 };
+}
+
+/**
+ * Where the ray from `rect`'s centre towards `towards` leaves the rectangle.
+ *
+ * Scales the direction vector until it touches whichever face it reaches
+ * first. `Math.max` of the two normalised components picks that face without
+ * branching on which quadrant the target is in — the usual four-case version
+ * of this is where sign errors live.
+ *
+ * Degenerate case: two nodes at the same point have no direction between them.
+ * Returns the centre rather than dividing by zero, so a wire collapses to a
+ * dot instead of flying off to infinity. It cannot be drawn meaningfully and
+ * should not pretend otherwise.
+ */
+export function boundaryPoint(rect: Rect, towards: Point): Point {
+  const c = centreOf(rect);
+  const dx = towards.x - c.x;
+  const dy = towards.y - c.y;
+  if (dx === 0 && dy === 0) return c;
+
+  const halfW = rect.width / 2;
+  const halfH = rect.height / 2;
+  const scale = 1 / Math.max(Math.abs(dx) / halfW, Math.abs(dy) / halfH);
+
+  return { x: c.x + dx * scale, y: c.y + dy * scale };
+}
+
+/**
+ * A gently bowed path between two points.
+ *
+ * `bow` displaces the midpoint PERPENDICULAR to the line, which is what makes
+ * this work in a mesh. The previous parallel-edge separation added a fixed
+ * vertical offset — correct only while every edge ran horizontally, and
+ * actively wrong for a wire running vertically, where a vertical offset moves
+ * the line along itself and separates nothing.
+ *
+ * A small constant bow on every edge also separates the two directions of a
+ * bidirectional pair: A→B bows one way, B→A the other, because the
+ * perpendicular flips with the direction of travel. Two calls between the same
+ * services stop being one line.
+ */
+export function bowedPath(a: Point, b: Point, bow: number): string {
+  const dx = b.x - a.x;
+  const dy = b.y - a.y;
+  const len = Math.hypot(dx, dy);
+  if (len === 0) return `M ${a.x},${a.y} L ${b.x},${b.y}`;
+  if (bow === 0) return `M ${a.x},${a.y} L ${b.x},${b.y}`;
+
+  // Unit perpendicular to the direction of travel.
+  const px = -dy / len;
+  const py = dx / len;
+
+  const mx = (a.x + b.x) / 2 + px * bow;
+  const my = (a.y + b.y) / 2 + py * bow;
+
+  return `M ${a.x},${a.y} Q ${mx},${my} ${b.x},${b.y}`;
+}
+
+/** Midpoint of a bowed path, for placing a label on the line rather than beside it. */
+export function bowedMidpoint(a: Point, b: Point, bow: number): Point {
+  const dx = b.x - a.x;
+  const dy = b.y - a.y;
+  const len = Math.hypot(dx, dy);
+  if (len === 0) return a;
+  const px = -dy / len;
+  const py = dx / len;
+  // Quadratic bezier at t=0.5 sits halfway between the chord and the control
+  // point, so the visual midpoint is bow/2 off the straight line, not bow.
+  return {
+    x: (a.x + b.x) / 2 + (px * bow) / 2,
+    y: (a.y + b.y) / 2 + (py * bow) / 2,
+  };
+}
