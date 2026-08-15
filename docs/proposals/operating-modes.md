@@ -28,6 +28,17 @@ operate in exactly one of three modes:
   authority said so", it means "you can check it without trusting
   anyone."
 
+The modes also describe the human/AI collaboration at each stage, with no
+stretching (Brian's observation, on review). In imagine, human and machine
+riff, and nothing either one says is binding. In design, they build on
+ground together: the human rules, the machine resolves, and every
+resolution is recorded so each can check the other. In deploy, the
+collaboration on that artifact is finished — humans certified it, the
+machine executes it, and neither may quietly change it; further
+collaboration reopens in design, through revocation or a copy. So the mode
+label tells a reader not only how much to trust an artifact but what kind
+of conversation produced it.
+
 ## The 2×2 they cut through
 
 Two independent axes: persistence (in-mem vs grounded) and verification
