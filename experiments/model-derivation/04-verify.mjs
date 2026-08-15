@@ -13,8 +13,7 @@ import os from "node:os";
 import { createHash, createPublicKey } from "node:crypto";
 import { execFileSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
-import { GENESIS, advance, verifyEvent, sha256Hex } from "@symbia/lineage";
-import { canonicalJson } from "@symbia/crypto";
+import { GENESIS, advance, verifyEvent, eventDigest } from "@symbia/lineage";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const chainDir = path.join(here, "chain");
@@ -46,15 +45,14 @@ for (const ev of events) {
 let chain = GENESIS;
 let chainOk = true;
 for (const ev of events) {
-  const { checksum: _c, signature: _s, ...unsealed } = ev;
-  chain = advance(chain, sha256Hex(canonicalJson(unsealed)));
+  chain = advance(chain, eventDigest(ev));
   if (ev.checksum !== `sha256:${chain}`) chainOk = false;
 }
 check("chain recomputes end to end", chainOk);
 
 // 3. digests: the files on disk are the artifacts the events name
-const reg = events.find((e) => e.event_type === "model.artifact.registered");
-const derived = events.filter((e) => e.event_type === "model.artifact.derived");
+const reg = events.find((e) => e.event_type === "artifact.registered");
+const derived = events.filter((e) => e.event_type === "artifact.derived");
 const { files } = JSON.parse(fs.readFileSync(path.join(chainDir, "digests.json"), "utf8"));
 
 check("parent digest matches disk",

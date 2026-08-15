@@ -15,9 +15,10 @@ import { fileURLToPath } from "node:url";
 // Bare imports resolve upward into the repo's root node_modules (workspaces).
 import {
   generateIdentity, identityFromPrivatePem, exportPrivatePem, identityId,
-  canonicalJson,
 } from "@symbia/crypto";
-import { GENESIS, advance, signEvent, sha256Hex, lineageLine } from "@symbia/lineage";
+import {
+  GENESIS, lineageLine, sealArtifactEvent, registeredPayload, derivedPayload,
+} from "@symbia/lineage";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const dataDir = path.join(here, "data");
@@ -64,62 +65,52 @@ for (const [k, rel] of Object.entries(files)) {
 console.log(`P1 determinism: q4 === q4repeat → ${digest.q4 === digest.q4repeat}`);
 
 // -- events -----------------------------------------------------------------
+// Stage 3 exit criterion: ZERO local event-shape definitions. The library
+// owns the vocabulary (artifact.registered / artifact.derived, claims in
+// words, verified-vs-asserted parent links); this file only supplies facts.
 let chain = GENESIS;
 const events = [];
-function emit(event_type, payload, parents) {
-  // No continuity_context here on purpose: since the 15 Aug normalize-
-  // before-sign fix, @symbia/lineage signs, verifies, and serializes one
-  // normalized shape, so an absent optional field round-trips. This event is
-  // built the same way sealDelegation builds them, as a regression canary.
-  const ev = {
-    event_id: crypto.randomUUID(),
-    timestamp: new Date().toISOString(),
-    actor_identity: actor,
-    event_type,
-    payload,
-    parent_links: parents,
-    checksum: "",
-    signature: null,
-  };
-  // Digest over the library's normalized shape (minus seal fields), so the
-  // recomputation in 04-verify sees the same bytes after a JSONL round-trip.
-  const { checksum: _c, signature: _s, ...unsealed } = JSON.parse(lineageLine(ev));
-  const digestHex = sha256Hex(canonicalJson(unsealed));
-  chain = advance(chain, digestHex);
-  ev.checksum = `sha256:${chain}`;
-  ev.signature = signEvent(ev, identity);
-  events.push(ev);
-  return ev.event_id;
-}
+const seal = (eventType, payload, parents) => {
+  const sealed = sealArtifactEvent({
+    eventType, payload, actor, chain, parents, identity,
+  });
+  chain = sealed.chain;
+  events.push(sealed.event);
+  return sealed.event.event_id;
+};
 
-const parentId = emit("model.artifact.registered", {
+const parentId = seal("artifact.registered", registeredPayload({
   digest: `sha256:${digest.parent}`,
   bytes: fs.statSync(path.join(here, files.parent)).size,
   source: recipe.parent.source,
   format: "gguf",
   precision: "f16",
-}, [null]);
+}), [null]);
 
-const q4Id = emit("model.artifact.derived", {
+seal("artifact.derived", derivedPayload({
   parentDigest: `sha256:${digest.parent}`,
   childDigest: `sha256:${digest.q4}`,
   recipe: {
     tool: recipe.tool, toolVersion: recipe.toolVersion, toolchain: recipe.toolchain,
     args: recipe.derivations[0].args,
   },
+  parentLink: "verified",
   deterministic: digest.q4 === digest.q4repeat,
   reproductionDigest: `sha256:${digest.q4repeat}`,
-}, [parentId]);
+}), [parentId]);
 
-emit("model.artifact.derived", {
+seal("artifact.derived", derivedPayload({
   parentDigest: `sha256:${digest.parent}`,
   childDigest: `sha256:${digest.q2}`,
   recipe: {
     tool: recipe.tool, toolVersion: recipe.toolVersion, toolchain: recipe.toolchain,
     args: recipe.derivations[1].args,
   },
-  deterministic: null, // single run; not measured for Q2_K
-}, [parentId]);
+  // Still `verified` — same deterministic tool — but reproduction was not
+  // run for Q2_K, and `deterministic: null` says so rather than implying it.
+  parentLink: "verified",
+  deterministic: null,
+}), [parentId]);
 
 fs.writeFileSync(
   path.join(chainDir, "events.jsonl"),
