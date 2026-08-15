@@ -65,14 +65,18 @@ export async function handlePullModel(req: Request, res: Response): Promise<void
   let bytes = 0;
 
   try {
-    // FORWARDED, NOT HELD — the caller's bearer goes to integrations, which
-    // owns egress and the vault. Same discipline as the registry's remote
-    // listing.
+    // FORWARDED, NOT HELD — whichever credential the caller PRESENTED goes
+    // to integrations, which owns egress and the vault. Both header forms:
+    // API callers send a bearer; the console authenticates with an identity
+    // SESSION COOKIE (measured 15 Aug — a browser pull reached this handler
+    // cookie-authed with an empty bearer store, was accepted here, and then
+    // 401ed at integrations because only Authorization was forwarded).
     const upstream = await fetch(`${config.integrationsServiceUrl}/api/integrations/download`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
         ...(req.headers.authorization ? { Authorization: req.headers.authorization } : {}),
+        ...(req.headers.cookie ? { Cookie: req.headers.cookie } : {}),
       },
       body: JSON.stringify({ provider: "huggingface", repo, file, revision }),
     });

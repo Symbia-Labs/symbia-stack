@@ -263,7 +263,11 @@ async function localModels(): Promise<RegistryEntry[]> {
       // recorded rather than assumed.
       availability: m.status === "loaded" ? ("available" as const) : ("unavailable" as const),
       availabilityReason:
-        m.status === "loaded" ? "loaded and serving" : `present but ${m.status ?? "not loaded"}`,
+        m.status === "loaded"
+          ? "loaded and serving"
+          : m.status === "available"
+            ? "present on disk, not loaded"
+            : `present but ${m.status ?? "not loaded"}`,
       contextLength: m.contextLength,
       capabilities: m.capabilities,
       status: m.status,
