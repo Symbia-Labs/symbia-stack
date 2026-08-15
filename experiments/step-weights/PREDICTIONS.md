@@ -44,3 +44,22 @@ Known limitation registered up front: the models service chat API has no
 `seed` parameter, so the three samples are not individually reproducible —
 disagreement is measurable, its exact instance is not replayable. That is
 a platform deficiency, not a spike choice.
+
+## Addendum — registered after the first run, before the second
+
+The first run broke PS4a in the sharpest way: q2k answered **86
+unanimously** (tax applied, discount skipped) at temperature 1.2, so
+same-model self-consistency never fired and a wrong answer flowed to the
+formatter. Self-consistency is not correctness; a model can be reproducibly
+wrong. Two counter-designs, registered before measuring either:
+
+- **PS5 (cross-substrate disagreement):** one greedy sample each from
+  q2k, q4km, and f16 on the same problem produces at least two distinct
+  parsed answers — heterogeneity of weights surfaces the error that
+  homogeneous sampling hid.
+- **PS6 (deterministic verification beats both):** the problem is
+  arithmetic, so a COMPUTED check (evaluate 80 × 0.85 × 1.08) is possible
+  with no model at all; the check flags every wrong sampled answer and
+  passes 73.44. Where a step's claim is checkable, checking is strictly
+  stronger than any consensus — this is the canonical-bus thesis at step
+  scale.
