@@ -25,6 +25,11 @@ COPY symbia-seed/package.json         symbia-seed/
 COPY symbia-md/package.json           symbia-md/
 COPY symbia-id/package.json           symbia-id/
 COPY symbia-stream-client/package.json symbia-stream-client/
+# Copied because `build:libs` names it. npm silently skips a missing
+# workspace when others in the same -w list match, but errors when NONE
+# match — so lineage (built alone, after crypto) must exist here even
+# though the console does not import it. Measured 15 Aug.
+COPY symbia-lineage/package.json      symbia-lineage/
 COPY symbia-control-center/package.json symbia-control-center/
 
 # NODE_ENV is set to development for the install ON PURPOSE. With
@@ -49,6 +54,7 @@ COPY symbia-seed/           symbia-seed/
 COPY symbia-md/             symbia-md/
 COPY symbia-id/             symbia-id/
 COPY symbia-stream-client/   symbia-stream-client/
+COPY symbia-lineage/        symbia-lineage/
 COPY symbia-control-center/ symbia-control-center/
 
 RUN npm run build:libs

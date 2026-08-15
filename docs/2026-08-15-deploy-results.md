@@ -68,18 +68,31 @@ containers WITHOUT published ports — the dev override is what publishes
   `models/qwen/qwen2-5-0-5b-instruct-q4-k-m`, type `model`, digest
   present, **no live fields**.
 
-## Not done, and one of them is a standing defect
+## The `build:libs` defect — FIXED, same night
 
-**The control-center image did not rebuild** — `npm run build:libs` exits
-2 partway through (after `catalog-client`). This is defect #1 of the
-12 Aug EC2 findings, still unfixed: `build:libs` names sixteen workspaces
-and omits `symbia-crypto`, `symbia-lineage`, and `symbia-stream-client`,
-so a clean image build cannot resolve them. Local builds work because
-their `dist/` folders linger. Consequence tonight: the deployed console
-at :8000 does NOT have the Models panel, which was verified against a
-local build earlier this evening instead. The fix is small (add the three
-workspaces, in dependency order — crypto before lineage) but it belongs
-to a session with time to measure what it cascades into.
+Defect #1 of the 12 Aug EC2 findings, open since then: `build:libs`
+omitted `symbia-crypto`, `symbia-lineage`, and `symbia-stream-client`, so
+no image could build them and only lingering local `dist/` folders hid
+it. Fixed in dependency order — crypto and stream-client join the first
+group, lineage builds alone after crypto (it peer-depends on it).
+
+Fixing it exposed the next layer, as these things do: the control-center
+image copies a SUBSET of workspaces, and npm silently skips a missing
+workspace when others in the same `-w` list match but errors when NONE
+match. `-w symbia-lineage` alone therefore failed with "No workspaces
+found". The console Dockerfile now copies `symbia-lineage` (package.json
+and source) even though the console does not import it — the honest fix,
+rather than hiding lineage inside another `-w` group and depending on the
+skip-quirk.
+
+Result: the control-center image built (first time since the panel
+landed), was restarted, and **the Models panel is live on the deployed
+console at :8000** — verified in a browser: Local (1) showing
+`qwen2-5-0-5b-instruct-q4-k-m` with digest `sha256:74a4da8c9fdb…`,
+availability "present on disk, not loaded", Remote (47) each `unknown`
+with the reason stated.
+
+## Not done
 
 EC2 is still stopped and still at `4bb72ff`; nothing was pushed to it.
 `verify-models.mts` was not run against the deployed stack: it reads
