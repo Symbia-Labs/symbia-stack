@@ -40,9 +40,6 @@ export interface ModelCatalogMetadata {
     gpuLayers: number;
     threads: number;
   };
-  memoryUsageMB: number;
-  loaded: boolean;
-  status: string;
   /** Serialized into catalog resource metadata, which is an open record. */
   [key: string]: unknown;
 }
@@ -73,9 +70,15 @@ export function modelToCatalogResource(model: LocalModel): CatalogResource {
       gpuLayers: config.defaultGpuLayers,
       threads: config.defaultThreads,
     },
-    memoryUsageMB: model.memoryUsageMB,
-    loaded: model.loaded,
-    status: model.status,
+    // Artifact identity — durable, so it belongs on the card (unlike the
+    // live fields removed below). `sha256:<hex>` of the weights file.
+    ...(model.digest ? { digest: `sha256:${model.digest}` } : {}),
+    ...(model.sizeBytes ? { sizeBytes: model.sizeBytes } : {}),
+    // No `loaded`, `status`, or `memoryUsageMB` here. The card describes the
+    // ARTIFACT; whether it is loaded right now is the registry's answer
+    // (12 Aug ruling: real-time point instances never live in the catalog).
+    // Those three fields were written on every boot until 15 Aug 2026 —
+    // see experiments/model-derivation/DEFECTS.md §5.
   };
 
   return {
@@ -83,7 +86,9 @@ export function modelToCatalogResource(model: LocalModel): CatalogResource {
     name: model.name,
     type: "integration",
     status: "published",
-    isBootstrap: true,
+    // A runtime upsert is not a seed file. `true` here conflated the two,
+    // which is STATUS §6.1's territory.
+    isBootstrap: false,
     tags: ["ai", "llm", config.providerName, "local", "model", "gguf"],
     metadata,
     accessPolicy: {
@@ -179,52 +184,38 @@ async function upsertCatalogResource(resource: CatalogResource): Promise<void> {
 }
 
 /**
- * Update model status in catalog (e.g., when loaded/unloaded)
+ * The card's digest claim for a model, or null.
+ *
+ * Null means "could not ask" or "card makes no claim" — it must never be
+ * read as a pass. The caller (engine load path) compares it against the
+ * file's digest and DISCLOSES a mismatch rather than refusing; see the
+ * ruling recorded on `LocalModel.cardDigestMismatch`.
  */
-export async function updateModelStatus(
-  modelId: string,
-  loaded: boolean,
-  status: string
-): Promise<void> {
+export async function fetchCardDigest(modelId: string): Promise<string | null> {
   const catalogUrl = config.catalogServiceUrl;
-  if (!catalogUrl) return;
-
-  const key = buildModelKey(modelId);
-
+  if (!catalogUrl) return null;
   try {
-    // Fetch current resource
     const response = await fetch(
-      `${catalogUrl}/api/resources/${encodeURIComponent(key)}`,
+      `${catalogUrl}/api/resources/${encodeURIComponent(buildModelKey(modelId))}`,
       {
-        headers: {
-          "X-Service-Auth": "internal",
-        },
+        headers: { "X-Service-Auth": "internal" },
+        signal: AbortSignal.timeout(3000),
       }
     );
-
-    if (!response.ok) {
-      console.warn(`[model-sync] Model ${modelId} not in catalog`);
-      return;
-    }
-
-    const resource = (await response.json()) as CatalogResource;
-    const metadata = resource.metadata as ModelCatalogMetadata;
-    metadata.loaded = loaded;
-    metadata.status = status;
-
-    // Update
-    await fetch(`${catalogUrl}/api/resources/${encodeURIComponent(key)}`, {
-      method: "PUT",
-      headers: {
-        "Content-Type": "application/json",
-        "X-Service-Auth": "internal",
-      },
-      body: JSON.stringify(resource),
-    });
-  } catch (err) {
-    console.error(`[model-sync] Failed to update model status:`, err);
+    if (!response.ok) return null;
+    const resource = (await response.json()) as { metadata?: Record<string, unknown> };
+    const digest = resource.metadata?.digest;
+    return typeof digest === "string" ? digest : null;
+  } catch {
+    return null;
   }
 }
+
+// `updateModelStatus` was removed 15 Aug 2026: its one job was writing
+// `loaded`/`status` into catalog metadata — live state the card must not
+// carry — and an import search found it had never had a caller. A function
+// that exists only to commit a rule violation nothing invokes is worse than
+// absent: it looks like the sanctioned way to do the wrong thing.
 
 /**
  * Remove a model from catalog (e.g., when file deleted)
