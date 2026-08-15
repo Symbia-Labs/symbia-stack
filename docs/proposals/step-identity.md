@@ -45,7 +45,7 @@ identity discipline that survives that compilation unchanged:
    longer says that" is checkable forever.
 4. **Mismatch policy follows the modes:** in design mode, ref-same/
    digest-changed is DISCLOSED (receipt line, console banner — same
-   pattern as the card/file weights mismatch). In certified mode it is a
+   pattern as the card/file weights mismatch). In deploy mode it is a
    REVOCATION: the cast froze the step; a changed step is a different
    artifact. No ratchet clock needed — the mode boundary is the ratchet.
 

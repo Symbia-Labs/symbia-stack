@@ -1,8 +1,10 @@
-# Operating modes: imagine, design, certified
+# Operating modes: imagine, design, deploy
 
 Status: PAPER. Proposed 15 Aug 2026 (Brian's frame, late session; names
-settled same night after a full tour — canon, commission, cast, mint were
-each tried and each kept one property of mode 3 while shedding the other).
+toured the same night — canon, commission, cast, mint, certified each
+kept one property of mode 3 while shedding another. Brian's final call:
+**deploy**. The verification vocabulary — certify, certificate, revoke —
+survives as the GATE language; deploy is the mode it guards.)
 Nothing here is built. The gates map onto machinery that exists; the mode
 field and its enforcement do not.
 
@@ -17,17 +19,20 @@ operate in exactly one of three modes:
 - **design** — grounded but mutable. The artifact lives in the catalog
   with an identity attached; behavior still resolves at call time, and
   every resolution is recorded. The collaborative middle.
-- **certified** — cast and checked. Composition signed, weights pinned by
+- **deploy** — cast and checked. Composition signed, weights pinned by
   digest, resolution already frozen, and nothing unreceipted feeds its
-  output. The certificate recomputes from the records alone — the word is
-  hereby reclaimed: certified does NOT mean "an authority said so", it
-  means "you can check it without trusting anyone."
+  output. Only deploy-mode artifacts run on production nodes — including
+  edge nodes, which is the federation story in one line: you cannot ship
+  imagination. The certificate that admits an artifact into this mode
+  recomputes from the records alone — certified does NOT mean "an
+  authority said so", it means "you can check it without trusting
+  anyone."
 
 ## The 2×2 they cut through
 
 Two independent axes: persistence (in-mem vs grounded) and verification
 (unsigned vs signed). The modes are the diagonal — imagine is
-in-mem+unsigned, design is grounded+unsigned, certified is
+in-mem+unsigned, design is grounded+unsigned, deploy is
 grounded+signed+compiled. The fourth cell (in-mem+signed) is not empty —
 session tokens and delegation seals live there — but it holds signed
 EPHEMERA, never behavior artifacts, and is out of scope here.
@@ -45,20 +50,20 @@ were sins of UNLABELED memory.
 
 Therefore the one hard requirement: **mode is a visible property of every
 behavior artifact** — a field in the catalog, a badge in the console, a
-line in every receipt. `mode: certified` in a receipt is a checkable
+line in every receipt. `mode: deploy` in a receipt is a checkable
 claim; the absence of a mode label is how every defect above happened.
 
 ## Precision on "no-mem"
 
 Taken literally, no-mem is unachievable — inference is memory-full and
 context windows are state. The defensible invariant, and the one this
-proposal means: **nothing may influence certified output whose provenance
-cannot be named.** State is permitted in certified mode when it derives
+proposal means: **nothing may influence deploy-mode output whose provenance
+cannot be named.** State is permitted in deploy mode when it derives
 from signed inputs and is recorded; what is banned is unreceipted,
 unreconstructible state feeding the canonical bus. This is the lane
 discipline applied to the stack's own configuration — and the modes shadow
 the lanes deliberately: imagine ≈ apocryphal, design ≈ conditional (the
-declared boundary is the point), certified ≈ canonical.
+declared boundary is the point), deploy ≈ canonical.
 
 ## The gates, mapped to what exists
 
@@ -66,39 +71,37 @@ declared boundary is the point), certified ≈ canonical.
   write path, identity attached. Resolves §6.1 by construction: a
   bootstrap JSON file is an imagine-mode artifact; grounding is the only
   door into design; editing the seed file is editing imagination.
-- **cast** (the freeze inside design → certified): resolution happens
+- **cast** (the freeze inside design → deploy): resolution happens
   ONCE, at cast time — the models broker answers, the answer becomes a
   digest pin; the composition is fixed. After the cast, runtime does no
   selection: an unavailable pinned model is a refusal or an `onUnavailable`
   event per the standing ruling, never a silent substitute.
-- **certify** (design → certified): every check runs — signed composition
+- **certify** (design → deploy): every check runs — signed composition
   (the component gate, 16/16 measured 14 Aug), manifest validation, digest
   verification — and the certificate is sealed: the receipt bundle that
-  recomputes from records alone.
-- **revoke** (certified → design): a violated certificate — digest
+  recomputes from records alone. Certification is the only door into
+  deploy mode; placement on nodes follows from the mode rather than
+  being a separate ceremony.
+- **revoke** (deploy → design): a violated certificate — digest
   mismatch, broken pin, failed recheck — drops the artifact to design
   mode, loudly, with the violation recorded. PKI taught everyone this
   lifecycle already; we do not invent semantics.
-- **deploy**: the placement of CERTIFIED artifacts on nodes, including
-  edge nodes. Kept separate from mode on purpose: deployment is an act,
-  certification is a state. The federation consequence in one line: you
-  can only deploy what is certified — you cannot ship imagination.
 
 ## Consequences for work in flight
 
 - **Per-step weights** (experiments/step-weights): imagine — unpinned,
   anything; design — constraints resolved at call time, resolution
-  recorded beside the candidates; certified — pins only, resolved at cast
+  recorded beside the candidates; deploy — pins only, resolved at cast
   time. The spike's escalation ranking (computed verification, then
   cross-substrate panels, then self-consistency as prefilter) becomes
-  graph shapes available in design, frozen choices in certified.
+  graph shapes available in design, frozen choices in deploy mode.
 - **Step identity** is prerequisite to pins in any mode — see
   step-identity.md, same date.
-- **The models service** built certified-mode primitives all day without
+- **The models service** built deploy-mode primitives all day without
   the name: content-addressed weights, receipted acquisition, checkable
   derivation, disclose-then-refuse mismatch handling. The ratchet
   ("disclose now, refuse when…") is revealed as mode-aware behavior:
-  disclosure is design-mode manners; refusal is certified-mode manners.
+  disclosure is design-mode manners; refusal is deploy-mode manners.
 
 ## The strain, stated
 
@@ -116,6 +119,6 @@ step and the mode plumbing, not new cryptography.
    but it is a schema migration.)
 2. Environment defaults: does a dev stack default new artifacts to
    imagine, and does production refuse to load them?
-3. Does certification require the deployed catalog rebuild first (it
+3. Does entering deploy mode require the catalog rebuild first (it
    needs the type/gate machinery from stage 5), or can assistants certify
    against the old catalog with mode in metadata?
