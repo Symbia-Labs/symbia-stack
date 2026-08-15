@@ -59,12 +59,13 @@ app.get("/", (_req, res) =>
   })
 );
 
-async function mount(id, spec) {
+async function mount(id, spec, attach) {
   const sub = express();
   sub.use(express.json({ limit: "10mb" }));
   try {
     const mod = await import(spec);
-    await mod.registerRoutes(httpServer, sub);
+    if (attach) await attach(mod, sub);
+    else await mod.registerRoutes(httpServer, sub);
     app.use(`/svc/${id}`, sub);
     mounted.push({ id, ok: true });
     log(`mounted /svc/${id}`);
@@ -79,10 +80,21 @@ async function mount(id, spec) {
 }
 
 // Bundles, because `@shared/*` resolves per service — see RESULTS.md.
+//
+// Six of eleven services are mountable. The other five —  assistants,
+// messaging, runtime, network, service-admin — build their routes inline
+// inside index.ts and export nothing, so there is no module to import.
+// Counted rather than glossed: that ratio IS the PS4 finding.
 await mount("identity", "../../identity/.standalone-routes.mjs");
 await mount("catalog", "../../catalog/.standalone-routes.mjs");
 await mount("integrations", "../../integrations/.standalone-routes.mjs");
 await mount("models", "../../models/.standalone-routes.mjs");
+await mount("logging", "../../logging/.standalone-routes.mjs");
+// directory exports `createRouter()` rather than `registerRoutes` — a
+// third shape for the same job, adapted here instead of being argued with.
+await mount("directory", "../../directory/.standalone-routes.mjs", (mod, sub) =>
+  sub.use(mod.createRouter())
+);
 
 // 3. Listen on an ephemeral port — internal plumbing, not a product surface.
 const port = await new Promise((resolve) => {

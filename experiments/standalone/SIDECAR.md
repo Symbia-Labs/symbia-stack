@@ -58,11 +58,29 @@ RESULTS.md for why bundles are the composable unit).
   resources through `/api/resources` rather than the 54 the container
   loads through `seedFromDataFiles`, because that function is private to
   `catalog/server/src/index.ts`. Extracting it is the fix for both.
-- **Four services, not thirteen.** assistants, logging, network,
-  messaging, runtime and directory are not mounted yet — `symbia_stack_health`
-  reports logging as unreachable, correctly, because it is not there.
-  Assistants is the one worth doing next; it is what makes the sidecar
-  interesting to an MCP client.
+- **Six services mount; five cannot, and the number is the finding.**
+  Counted 15 Aug across eleven services:
+
+  | shape | services | mountable |
+  |---|---|---|
+  | `export registerRoutes` in `routes.ts` | identity, catalog, integrations, models, logging | yes |
+  | `export createRouter()` in `routes.ts` | directory | yes, via an adapter |
+  | routes built inline in `index.ts` | assistants, messaging, runtime, network | **no** |
+  | no server source | service-admin | n/a |
+
+  Three shapes for one job, and the four that matter most for an MCP
+  client — assistants above all — are in the shape that cannot be
+  imported at all.
+
+- **Mounted is not the same as complete.** `symbia_stack_health` reports
+  2 of 12 healthy even with six mounted, because `/health`, readiness,
+  telemetry and service identity are all provided by
+  `createSymbiaServer`, which a composition root bypasses. The routes
+  themselves work — catalog and models answered real requests on the
+  earlier single-port run — but a service mounted this way is missing
+  everything the server factory adds. That is the same PS4 gap as
+  bootstrap, seen from another side: **the unit of composition should be
+  the service, not its route table.**
 - **Relay untouched.** Nothing calls `initServiceRelay` here. In one
   process it should short-circuit rather than dial a network service in
   the same heap.

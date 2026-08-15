@@ -10,7 +10,11 @@ set -euo pipefail
 cd "$(dirname "$0")"
 mkdir -p build
 
-for svc in catalog identity integrations models; do
+# Only these six have a separable route module. assistants, messaging,
+# runtime and network define their routes inline inside index.ts (as a
+# `registerRoutes:` property of the createSymbiaServer config), so they
+# cannot be imported at all — that is the PS4 finding, counted.
+for svc in catalog identity integrations models logging directory; do
   echo "bundling ${svc}..."
   # Output lands INSIDE the service directory on purpose: third-party
   # packages stay external (node-llama-cpp is native and cannot be
