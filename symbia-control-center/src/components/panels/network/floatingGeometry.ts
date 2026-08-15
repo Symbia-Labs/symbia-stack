@@ -110,3 +110,50 @@ export function bowedMidpoint(a: Point, b: Point, bow: number): Point {
     y: (a.y + b.y) / 2 + (py * bow) / 2,
   };
 }
+
+export type Side = 'top' | 'right' | 'bottom' | 'left';
+
+/**
+ * Which face of `rect` looks towards `towards`, and the point on it.
+ *
+ * WHY THIS REPLACED A FREE BOUNDARY INTERSECTION. Attaching a wire anywhere
+ * along the edge of a card is geometrically tidy and semantically vague: the
+ * wire lands on a blank stretch of border rather than on a connection point.
+ * These nodes DO have connection points, and a reader should be able to see
+ * which one a call arrived at.
+ *
+ * The original problem was never that edges attached to handles. It was that
+ * there were only two handles — a target on the left face and a source on the
+ * right — so every wire had to leave rightwards and arrive leftwards no matter
+ * where the other node was, and the picture became parallel corridors.
+ *
+ * Four faces, one connection point each, and each edge uses the pair that face
+ * one another. Wires land on a visible dot AND run at their natural angle.
+ *
+ * The comparison is on the NORMALISED delta so the choice respects the card's
+ * shape: these are 180x130, so a target 100px right and 100px up is reached
+ * through the top face, not the right one. Comparing raw dx and dy would pick
+ * the wrong face for any node that is not square.
+ */
+export function facingSide(rect: Rect, towards: Point): Side {
+  const c = centreOf(rect);
+  const dx = (towards.x - c.x) / (rect.width / 2 || 1);
+  const dy = (towards.y - c.y) / (rect.height / 2 || 1);
+  if (Math.abs(dx) >= Math.abs(dy)) return dx >= 0 ? 'right' : 'left';
+  return dy >= 0 ? 'bottom' : 'top';
+}
+
+/** The connection point on a given face — where that side's handle sits. */
+export function sideAnchor(rect: Rect, side: Side): Point {
+  const c = centreOf(rect);
+  switch (side) {
+    case 'top':
+      return { x: c.x, y: rect.y };
+    case 'bottom':
+      return { x: c.x, y: rect.y + rect.height };
+    case 'left':
+      return { x: rect.x, y: c.y };
+    case 'right':
+      return { x: rect.x + rect.width, y: c.y };
+  }
+}

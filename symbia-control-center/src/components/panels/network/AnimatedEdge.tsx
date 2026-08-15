@@ -7,7 +7,7 @@
 
 import { memo, type CSSProperties } from 'react';
 import { BaseEdge, useInternalNode, type Position } from '@xyflow/react';
-import { boundaryPoint, bowedMidpoint, bowedPath, centreOf, type Rect } from './floatingGeometry';
+import { bowedMidpoint, bowedPath, centreOf, facingSide, sideAnchor, type Rect } from './floatingGeometry';
 
 /**
  * How far apart parallel edges bow, and how much curve every edge gets.
@@ -90,8 +90,15 @@ function AnimatedEdgeComponent({
   // Falls back to React Flow's handle coordinates when a node has not been
   // measured yet — on the first frame, before layout. Straight and honest
   // rather than absent: a missing measurement is not a reason to drop an edge.
-  const a = sRect && tRect ? boundaryPoint(sRect, centreOf(tRect)) : { x: sourceX, y: sourceY };
-  const b = sRect && tRect ? boundaryPoint(tRect, centreOf(sRect)) : { x: targetX, y: targetY };
+  // Land on a CONNECTION POINT, not a bare stretch of border. Each node
+  // carries a handle on all four faces; this picks the pair that face one
+  // another, so the wire ends exactly on the dot a reader can see.
+  const a = sRect && tRect
+    ? sideAnchor(sRect, facingSide(sRect, centreOf(tRect)))
+    : { x: sourceX, y: sourceY };
+  const b = sRect && tRect
+    ? sideAnchor(tRect, facingSide(tRect, centreOf(sRect)))
+    : { x: targetX, y: targetY };
 
   const edgePath = bowedPath(a, b, bow);
   const mid = bowedMidpoint(a, b, bow);
