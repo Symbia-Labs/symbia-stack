@@ -1,16 +1,14 @@
 /**
  * POST /api/models/pull — acquire a weights artifact through the platform.
  *
- * Closes DEFECTS.md §2 (models-defect-closure stage 4): the QUICKSTART's
- * hand-`curl` was the moment provenance should begin and didn't. The pull
- * streams through `@symbia/egress`, digests DURING the stream, registers a
+ * Closes DEFECTS.md §2 (models-defect-closure stage 4). The BYTES come in
+ * through the integrations service (`/api/integrations/download`) — ruling
+ * 15 Aug: models come in through integrations; this service orchestrates,
+ * selects, applies, manages. It decides WHAT to pull, hands the fetch over
+ * with the caller's own bearer, digests DURING the stream, registers a
  * signed `artifact.registered` event in the ledger beside the weights, and
- * writes the catalog card. One call, no shell.
- *
- * Known limitation, recorded not hidden: `safeFetch` gates the INITIAL URL;
- * HuggingFace's `/resolve/` redirects to a CDN host that is not re-checked.
- * The sole-ingress proposal owns redirect-chain recording; until then the
- * response's final URL is stored in the event source.
+ * writes the catalog card. No socket to a third party is opened here, and
+ * no credential is held here — same delegation shape as remote.ts.
  */
 import type { Request, Response } from "express";
 import { z } from "zod";
@@ -21,7 +19,6 @@ import { existsSync } from "node:fs";
 import { join } from "node:path";
 import { Readable, Transform } from "node:stream";
 import { pipeline } from "node:stream/promises";
-import { safeFetch, EgressError } from "@symbia/egress";
 import { registeredPayload } from "@symbia/lineage";
 import { getEngine } from "../llama/engine.js";
 import { config } from "../config.js";
@@ -63,17 +60,28 @@ export async function handlePullModel(req: Request, res: Response): Promise<void
     return;
   }
 
-  const url = `https://huggingface.co/${repo}/resolve/${revision}/${file}`;
   const partial = `${dest}.partial`;
   const hash = createHash("sha256");
   let bytes = 0;
 
   try {
-    const upstream = await safeFetch(url);
+    // FORWARDED, NOT HELD — the caller's bearer goes to integrations, which
+    // owns egress and the vault. Same discipline as the registry's remote
+    // listing.
+    const upstream = await fetch(`${config.integrationsServiceUrl}/api/integrations/download`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        ...(req.headers.authorization ? { Authorization: req.headers.authorization } : {}),
+      },
+      body: JSON.stringify({ provider: "huggingface", repo, file, revision }),
+    });
     if (!upstream.ok || !upstream.body) {
-      res.status(502).json({ error: { message: `upstream returned ${upstream.status} for ${url}` } });
+      const detail = await upstream.text().catch(() => "");
+      res.status(502).json({ error: { message: `integrations download returned ${upstream.status}: ${detail.slice(0, 200)}` } });
       return;
     }
+    const sourceUrl = upstream.headers.get("x-source-url") ?? `https://huggingface.co/${repo}/resolve/${revision}/${file}`;
 
     const hasher = new Transform({
       transform(chunk, _enc, cb) {
@@ -107,7 +115,7 @@ export async function handlePullModel(req: Request, res: Response): Promise<void
         digest: `sha256:${digestHex}`,
         bytes: fileStat.size,
         format: "gguf",
-        source: { type: "huggingface", repo, file, url: upstream.url || url },
+        source: { type: "huggingface", repo, file, url: sourceUrl },
       })
     );
 
@@ -124,10 +132,6 @@ export async function handlePullModel(req: Request, res: Response): Promise<void
     });
   } catch (err) {
     await unlink(partial).catch(() => {});
-    if (err instanceof EgressError) {
-      res.status(403).json({ error: { message: `egress refused: ${err.message}` } });
-      return;
-    }
     res.status(500).json({ error: { message: err instanceof Error ? err.message : "pull failed" } });
   }
 }

@@ -32,8 +32,11 @@ export const config = {
   defaultGpuLayers: parseInt(process.env.DEFAULT_GPU_LAYERS || "0", 10),
   defaultThreads: parseInt(process.env.DEFAULT_THREADS || "4", 10),
 
-  // HuggingFace
-  huggingfaceToken: process.env.HUGGINGFACE_TOKEN || "",
+  // No third-party credential lives here. `huggingfaceToken` sat in this
+  // config from February to 15 Aug 2026 with zero readers — a vault slot in
+  // the one service the 12 Aug ruling says must never become a second
+  // vault. Credentials for gated repos belong to integrations; the pull
+  // path forwards the caller's bearer and integrations attaches the key.
 
   // Provider name for catalog registration
   providerName: "symbia-labs",

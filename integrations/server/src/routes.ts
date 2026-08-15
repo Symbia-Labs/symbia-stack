@@ -1,6 +1,8 @@
 import type { Express, Request, Response } from "express";
 import type { Server } from "http";
 import { randomUUID } from "crypto";
+import { z } from "zod";
+import { safeFetch, EgressError } from "@symbia/egress";
 import { config } from "./config.js";
 import { readFileSync } from "fs";
 import { join, dirname } from "path";
@@ -119,6 +121,82 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     slowRequestThresholdMs: 5000,
     traceIdHeader: 'x-trace-id',
   }) as any);
+
+  // ==========================================================================
+  // Download Endpoint — external artifact bytes enter the platform HERE
+  // ==========================================================================
+  //
+  // Ruling 15 Aug 2026 (Brian): models come in through the integrations
+  // service; the models service orchestrates, selects, applies, manages —
+  // it does not open sockets to third parties. Same shape as the 12 Aug
+  // remote-execution ruling: integrations is the vault and the boundary,
+  // models decides WHAT to fetch and hands the fetch over.
+  //
+  // This route asserts RETRIEVAL, in the claims-vocabulary sense: these
+  // bytes are what the endpoint returned at this time — nothing about what
+  // they are. The caller (models) hashes, ledgers, and cards them.
+  app.post("/api/integrations/download", authMiddleware, rateLimitMiddleware, async (req: Request, res: Response) => {
+    const user = (req as any).user;
+    const token = (req as any).token;
+
+    const downloadSchema = z.object({
+      provider: z.literal("huggingface"),
+      repo: z.string().regex(/^[A-Za-z0-9][\w.-]*\/[A-Za-z0-9][\w.-]*$/),
+      file: z.string().regex(/^[A-Za-z0-9][\w.-]*\.gguf$/),
+      revision: z.string().regex(/^[\w.-]+$/).default("main"),
+    });
+    const parsed = downloadSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return res.status(400).json({ success: false, error: "provider (huggingface), repo, and a plain .gguf file name required" });
+    }
+    const { repo, file, revision } = parsed.data;
+    const url = `https://huggingface.co/${repo}/resolve/${revision}/${file}`;
+
+    try {
+      // Credential from the vault when the org holds one (gated repos work);
+      // public repos stream without one. The key never leaves this service.
+      let apiKey: string | undefined;
+      try {
+        const credential = await getCredential(user.id, user.orgId, "huggingface", token);
+        apiKey = credential?.apiKey;
+      } catch {
+        apiKey = undefined;
+      }
+
+      // Egress-gated. Known limitation, recorded not hidden: the INITIAL URL
+      // is checked; HF's /resolve/ redirects to a CDN host that is not
+      // re-checked. The sole-ingress proposal owns redirect-chain recording.
+      const upstream = await safeFetch(url, {
+        headers: apiKey ? { Authorization: `Bearer ${apiKey}` } : undefined,
+      });
+      if (!upstream.ok || !upstream.body) {
+        return res.status(502).json({ success: false, error: `upstream returned ${upstream.status}` });
+      }
+
+      res.status(200);
+      res.setHeader("Content-Type", "application/octet-stream");
+      const len = upstream.headers.get("content-length");
+      if (len) res.setHeader("Content-Length", len);
+      // The final URL after redirects — the caller records it as the source.
+      res.setHeader("X-Source-Url", upstream.url || url);
+      const { Readable } = await import("node:stream");
+      const { pipeline } = await import("node:stream/promises");
+      await pipeline(Readable.fromWeb(upstream.body as never), res);
+      return;
+    } catch (error) {
+      if (error instanceof EgressError) {
+        return res.status(403).json({ success: false, error: `egress refused: ${error.message}` });
+      }
+      if (!res.headersSent) {
+        return res.status(500).json({ success: false, error: error instanceof Error ? error.message : "download failed" });
+      }
+      // Mid-stream failure: the status is already 200 and gone. Destroying
+      // the socket is the only honest signal left — the caller's digest
+      // check is what makes a truncated body detectable.
+      res.destroy(error instanceof Error ? error : new Error("download failed"));
+      return;
+    }
+  });
 
   // ==========================================================================
   // Execute Endpoint
