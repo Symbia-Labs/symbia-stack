@@ -1,0 +1,51 @@
+# Docker build context exclusions.
+#
+# There was no .dockerignore until 15 Aug 2026, so every `docker-compose
+# build` shipped the ENTIRE tree to the daemon — node_modules, git history,
+# dists, and (once the model-derivation spike landed) 3.0 GB of GGUF
+# weights. Measured: the context passed 1.2 GB and was still climbing when
+# the build was killed. The Dockerfiles copy what they need; nothing here
+# is load-bearing for an image.
+#
+# Rule of thumb for additions: if a service does not COPY it, it does not
+# belong in the context.
+
+# Dependencies and build output — reinstalled/rebuilt inside the image
+node_modules
+**/node_modules
+dist
+**/dist
+.build
+**/.build
+
+# Model weights and experiment data (gigabytes; never in an image)
+**/data/*.gguf
+experiments/*/data
+models/data
+
+# VCS and local tooling
+.git
+.gitignore
+.github
+**/.DS_Store
+*.log
+**/*.log
+
+# Local state, secrets, identities — must never reach an image layer
+.env
+.env.*
+!.env.example
+**/.identity
+.mcp.json
+.ec2-last-sync
+
+# Docs and notes: not needed to run a service
+docs
+**/*.md
+!README.md
+
+# Test and scratch artifacts
+coverage
+**/coverage
+tmp
+**/tmp

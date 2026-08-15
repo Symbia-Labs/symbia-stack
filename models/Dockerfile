@@ -26,6 +26,9 @@ COPY symbia-http/ ./symbia-http/
 COPY symbia-relay/ ./symbia-relay/
 COPY symbia-logging-client/ ./symbia-logging-client/
 COPY symbia-md/ ./symbia-md/
+# The artifact ledger: models seals a signed artifact.registered event for
+# every pull (15 Aug). Depends on @symbia/crypto, built below.
+COPY symbia-lineage/ ./symbia-lineage/
 
 # Build shared libraries
 WORKDIR /app/symbia-sys
@@ -54,6 +57,28 @@ RUN npm install && npm run build
 
 WORKDIR /app/symbia-md
 RUN npm install && npm run build
+
+# lineage after crypto — it signs with @symbia/crypto's primitives.
+#
+# NO `npm install` here: @symbia/crypto is a peerDependency at "*", so npm
+# goes to the public registry and 404s (measured 15 Aug during the first
+# docker build of the artifact ledger). The assistants Dockerfile solved
+# this the same way — link the sibling and build with the local tsc.
+# --legacy-peer-deps is load-bearing, not a workaround for a broken tree:
+# @symbia/crypto is a peerDependency at "*", and npm 7+ tries to satisfy
+# peers from the public registry, where no @symbia package exists (404,
+# measured 15 Aug). The peer is satisfied by the sibling symlink below.
+# Borrowing crypto's own tsc/@types instead produced a type skew that does
+# not exist in either package on its own — libraries build with their own
+# declared toolchain.
+# Symlink AFTER npm install: install prunes anything it did not put there,
+# so linking first silently removes the link (measured — the build then
+# fails with "Cannot find module '@symbia/crypto'").
+WORKDIR /app/symbia-lineage
+RUN npm install --legacy-peer-deps \
+    && mkdir -p node_modules/@symbia \
+    && ln -sfn /app/symbia-crypto node_modules/@symbia/crypto \
+    && npm run build
 
 # Copy service package files
 WORKDIR /app
