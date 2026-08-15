@@ -131,41 +131,66 @@ export async function syncModelsToCatalog(models: LocalModel[]): Promise<void> {
 /**
  * Upsert a resource in the catalog service
  */
-async function upsertCatalogResource(resource: CatalogResource): Promise<void> {
+/**
+ * Find a catalog row by exact key, or null.
+ *
+ * Uses the list route with a `key` filter and re-filters client-side, so it
+ * works against catalogs deployed before the filter existed (those ignore
+ * unknown query params and return the full list). The previous
+ * implementation GETed the key against `/api/resources/:id` — an id route —
+ * saw 404 every time, and concluded "absent": the update branch of the
+ * upsert below had NEVER run, and a second boot's re-POST died on the key's
+ * unique constraint. Found 15 Aug 2026 by measuring, not by reading.
+ */
+async function findResourceByKey(
+  key: string
+): Promise<{ id: string; metadata?: Record<string, unknown> } | null> {
   const catalogUrl = config.catalogServiceUrl;
-
-  // Check if resource exists
-  const existingRes = await fetch(
-    `${catalogUrl}/api/resources/${encodeURIComponent(resource.key)}`,
+  const response = await fetch(
+    `${catalogUrl}/api/resources?key=${encodeURIComponent(key)}`,
     {
-      method: "GET",
-      headers: {
-        "Content-Type": "application/json",
-        // Use internal service auth - catalog trusts internal requests
-        "X-Service-Auth": "internal",
-      },
+      headers: { "X-Service-Auth": "internal" },
+      signal: AbortSignal.timeout(5000),
     }
   );
+  if (!response.ok) {
+    throw new Error(`Failed to query resources by key: ${response.status}`);
+  }
+  const body = (await response.json()) as Array<{
+    id: string;
+    key: string;
+    metadata?: Record<string, unknown>;
+  }>;
+  const rows = Array.isArray(body) ? body.filter((r) => r.key === key) : [];
+  return rows[0] ?? null;
+}
 
-  if (existingRes.ok) {
-    // Update existing
-    const response = await fetch(
-      `${catalogUrl}/api/resources/${encodeURIComponent(resource.key)}`,
-      {
-        method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-          "X-Service-Auth": "internal",
-        },
-        body: JSON.stringify(resource),
-      }
-    );
+async function upsertCatalogResource(resource: CatalogResource): Promise<void> {
+  const catalogUrl = config.catalogServiceUrl;
+  const existing = await findResourceByKey(resource.key);
 
+  if (existing) {
+    // PATCH by row id — the only update verb the catalog has. The old code
+    // PUT by key: no PUT route exists, so even with a working lookup the
+    // update would have 404ed.
+    const response = await fetch(`${catalogUrl}/api/resources/${existing.id}`, {
+      method: "PATCH",
+      headers: {
+        "Content-Type": "application/json",
+        "X-Service-Auth": "internal",
+      },
+      body: JSON.stringify({
+        name: resource.name,
+        tags: resource.tags,
+        metadata: resource.metadata,
+        status: resource.status,
+        accessPolicy: resource.accessPolicy,
+      }),
+    });
     if (!response.ok) {
       throw new Error(`Failed to update resource: ${response.status}`);
     }
-  } else if (existingRes.status === 404) {
-    // Create new
+  } else {
     const response = await fetch(`${catalogUrl}/api/resources`, {
       method: "POST",
       headers: {
@@ -174,12 +199,9 @@ async function upsertCatalogResource(resource: CatalogResource): Promise<void> {
       },
       body: JSON.stringify(resource),
     });
-
     if (!response.ok) {
       throw new Error(`Failed to create resource: ${response.status}`);
     }
-  } else {
-    throw new Error(`Failed to check resource: ${existingRes.status}`);
   }
 }
 
@@ -195,16 +217,8 @@ export async function fetchCardDigest(modelId: string): Promise<string | null> {
   const catalogUrl = config.catalogServiceUrl;
   if (!catalogUrl) return null;
   try {
-    const response = await fetch(
-      `${catalogUrl}/api/resources/${encodeURIComponent(buildModelKey(modelId))}`,
-      {
-        headers: { "X-Service-Auth": "internal" },
-        signal: AbortSignal.timeout(3000),
-      }
-    );
-    if (!response.ok) return null;
-    const resource = (await response.json()) as { metadata?: Record<string, unknown> };
-    const digest = resource.metadata?.digest;
+    const row = await findResourceByKey(buildModelKey(modelId));
+    const digest = row?.metadata?.digest;
     return typeof digest === "string" ? digest : null;
   } catch {
     return null;

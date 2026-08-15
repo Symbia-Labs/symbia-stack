@@ -426,6 +426,17 @@ export async function registerRoutes(
         console.log("[Resources] After status filter:", accessibleResources.length);
       }
 
+      // Exact-key lookup. `storage.getResourceByKey` existed with no route
+      // exposing it (found 15 Aug 2026), so a keyed store could not be asked
+      // by key: model-sync GETed keys against the :id route, always saw 404,
+      // and its update branch had never run — every re-sync fell into POST
+      // and the key's unique constraint. Kept as a filter on the list route
+      // (rather than a new path) so access filtering above still applies.
+      const keyFilter = req.query.key as string | undefined;
+      if (keyFilter) {
+        accessibleResources = accessibleResources.filter(r => r.key === keyFilter);
+      }
+
       res.json(accessibleResources);
     } catch (error) {
       console.error("Error fetching resources:", error);
