@@ -93,7 +93,13 @@ if (CATALOG_URL) {
     await fetch(`${CATALOG_URL}/api/resources`, { headers: { "X-Service-Auth": "internal" } })
   ).json()) as Array<{ key: string; metadata?: Record<string, unknown> }>;
   for (const m of locals) {
-    const card = rows.find((r) => r.key.endsWith(`/models/${m.id}`));
+    // Both key shapes: `models/<publisher>/<id>` (stage 5) and the
+    // pre-migration `integrations/<provider>/models/<id>`.
+    const card = rows.find(
+      (r) =>
+        new RegExp(`^models/[^/]+/${m.id}$`).test(r.key) ||
+        r.key.endsWith(`/models/${m.id}`)
+    );
     if (!card) { ok(`M4 ${m.id} has a card`, false); continue; }
     const meta = card.metadata ?? {};
     ok(`M4 ${m.id} card carries no live state`,

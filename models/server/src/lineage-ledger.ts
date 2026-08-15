@@ -21,6 +21,7 @@ import {
   sealArtifactEvent,
   lineageLine,
   type ArtifactRegisteredPayload,
+  type ArtifactSource,
   type LineageEvent,
 } from "@symbia/lineage";
 import { config } from "./config.js";
@@ -57,6 +58,30 @@ function chainHead(): string {
     // corruption; refusing to append is the honest failure.
     throw new Error(`ledger tail is not parseable JSON: ${p}`);
   }
+}
+
+/**
+ * The registered source for a digest, or null. This is how a catalog card
+ * learns its publisher: matched BY CONTENT against the registration event,
+ * never guessed from a filename. A file with no registration event answers
+ * null, and its card says `local` — the absence is the information.
+ */
+export function sourceForDigest(digestHex: string): ArtifactSource | null {
+  const p = ledgerPath();
+  if (!existsSync(p)) return null;
+  const want = `sha256:${digestHex}`;
+  const lines = readFileSync(p, "utf8").split("\n").filter((l) => l.trim());
+  for (let i = lines.length - 1; i >= 0; i--) {
+    try {
+      const ev = JSON.parse(lines[i]) as LineageEvent;
+      if (ev.event_type !== "artifact.registered") continue;
+      const payload = ev.payload as ArtifactRegisteredPayload;
+      if (payload?.digest === want && payload.source) return payload.source;
+    } catch {
+      continue;
+    }
+  }
+  return null;
 }
 
 /**

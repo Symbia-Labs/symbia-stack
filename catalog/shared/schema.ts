@@ -8,7 +8,7 @@ export const resourceStatuses = ["draft", "published", "deprecated"] as const;
 export type ResourceStatus = (typeof resourceStatuses)[number];
 
 // Resource types
-export const resourceTypes = ["context", "integration", "graph", "assistant", "component", "app"] as const;
+export const resourceTypes = ["context", "integration", "graph", "assistant", "component", "app", "model"] as const;
 export type ResourceType = (typeof resourceTypes)[number];
 
 // Component manifest — for resources of type 'component'.

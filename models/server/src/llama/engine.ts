@@ -323,7 +323,7 @@ class LlamaEngine {
     // a pass, and not a failure either; the distinction §6.10 taught.
     try {
       const { fetchCardDigest } = await import("../catalog/model-sync.js");
-      const cardDigest = await fetchCardDigest(id);
+      const cardDigest = await fetchCardDigest(id, modelInfo.digest);
       if (cardDigest && modelInfo.digest) {
         const fileDigest = `sha256:${modelInfo.digest}`;
         if (cardDigest !== fileDigest) {

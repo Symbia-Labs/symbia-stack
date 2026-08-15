@@ -1,18 +1,29 @@
 /**
  * Model Sync - Catalog Registration
  *
- * Registers local models with the catalog service for discovery.
- * Models are stored as resources with key pattern:
- *   integrations/symbia-labs/models/{modelId}
+ * Registers local models with the catalog as first-class `model` resources:
+ *   models/<publisher>/<modelId>          (stage 5, 15 Aug 2026)
+ *
+ * The publisher segment is the upstream namespace (`qwen`, `bartowski`),
+ * read from the artifact ledger's registration event BY DIGEST — or `local`
+ * when no registration exists, which is a statement, not a default: a file
+ * with no provenance says so in its key. Cards under the pre-stage-5 shape
+ * (`integrations/symbia-labs/models/*`, type `integration`) are migrated by
+ * `scripts/migrate-model-cards.mjs` — a gated catalog write, per §6.1.
+ *
+ * NOTE deploy coupling: a catalog built before 15 Aug rejects type "model"
+ * (enum, measured). Deploy catalog and models together, or sync logs
+ * failures until the catalog catches up — models still serve either way.
  */
 
 import { config } from "../config.js";
 import type { LocalModel } from "../llama/engine.js";
+import { sourceForDigest } from "../lineage-ledger.js";
 
 export interface CatalogResource {
   key: string;
   name: string;
-  type: "integration";
+  type: "model";
   status: "published" | "draft" | "archived";
   isBootstrap: boolean;
   tags: string[];
@@ -31,9 +42,10 @@ export interface ModelCatalogMetadata {
   capabilities: string[];
   supportedOperations: string[];
   source?: {
-    type: "local" | "huggingface";
+    type: "local" | "huggingface" | "url";
     repo?: string;
     file?: string;
+    url?: string;
   };
   runtime: {
     framework: string;
@@ -44,17 +56,31 @@ export interface ModelCatalogMetadata {
   [key: string]: unknown;
 }
 
+/** Publisher segment for a model: upstream namespace from the ledger, or `local`. */
+export function publisherFor(model: Pick<LocalModel, "digest">): string {
+  if (model.digest) {
+    const source = sourceForDigest(model.digest);
+    const owner = source?.repo?.split("/")[0];
+    if (owner) return owner.toLowerCase().replace(/[^a-z0-9._-]/g, "-");
+  }
+  return "local";
+}
+
 /**
- * Build catalog resource key for a model
+ * Build catalog resource key for a model: `models/<publisher>/<modelId>`.
  */
-export function buildModelKey(modelId: string): string {
-  return `integrations/${config.providerName}/models/${modelId}`;
+export function buildModelKey(modelId: string, publisher = "local"): string {
+  return `models/${publisher}/${modelId}`;
 }
 
 /**
  * Convert a LocalModel to a CatalogResource
  */
 export function modelToCatalogResource(model: LocalModel): CatalogResource {
+  // Source from the registration event, matched by digest — `{type: local}`
+  // is the honest answer for a file that was never registered.
+  const source = (model.digest && sourceForDigest(model.digest)) || { type: "local" as const };
+  const publisher = publisherFor(model);
   const metadata: ModelCatalogMetadata = {
     provider: config.providerName,
     modelId: model.id,
@@ -62,9 +88,7 @@ export function modelToCatalogResource(model: LocalModel): CatalogResource {
     contextWindow: model.contextLength,
     capabilities: model.capabilities,
     supportedOperations: ["chat.completions", "completions"],
-    source: {
-      type: "local",
-    },
+    source,
     runtime: {
       framework: "node-llama-cpp",
       gpuLayers: config.defaultGpuLayers,
@@ -82,14 +106,14 @@ export function modelToCatalogResource(model: LocalModel): CatalogResource {
   };
 
   return {
-    key: buildModelKey(model.id),
+    key: buildModelKey(model.id, publisher),
     name: model.name,
-    type: "integration",
+    type: "model",
     status: "published",
     // A runtime upsert is not a seed file. `true` here conflated the two,
     // which is STATUS §6.1's territory.
     isBootstrap: false,
-    tags: ["ai", "llm", config.providerName, "local", "model", "gguf"],
+    tags: ["ai", "llm", config.providerName, publisher, "gguf"],
     metadata,
     accessPolicy: {
       visibility: "public",
@@ -213,11 +237,19 @@ async function upsertCatalogResource(resource: CatalogResource): Promise<void> {
  * file's digest and DISCLOSES a mismatch rather than refusing; see the
  * ruling recorded on `LocalModel.cardDigestMismatch`.
  */
-export async function fetchCardDigest(modelId: string): Promise<string | null> {
+export async function fetchCardDigest(
+  modelId: string,
+  fileDigestHex?: string
+): Promise<string | null> {
   const catalogUrl = config.catalogServiceUrl;
   if (!catalogUrl) return null;
   try {
-    const row = await findResourceByKey(buildModelKey(modelId));
+    const publisher = publisherFor({ digest: fileDigestHex });
+    let row = await findResourceByKey(buildModelKey(modelId, publisher));
+    if (!row) {
+      // Pre-stage-5 card shape, until the migration script has run.
+      row = await findResourceByKey(`integrations/${config.providerName}/models/${modelId}`);
+    }
     const digest = row?.metadata?.digest;
     return typeof digest === "string" ? digest : null;
   } catch {
@@ -238,10 +270,14 @@ export async function removeModelFromCatalog(modelId: string): Promise<void> {
   const catalogUrl = config.catalogServiceUrl;
   if (!catalogUrl) return;
 
-  const key = buildModelKey(modelId);
-
   try {
-    await fetch(`${catalogUrl}/api/resources/${encodeURIComponent(key)}`, {
+    // Find by key (either shape), delete by row id — the DELETE route is
+    // id-only, the same contract findResourceByKey exists for.
+    const row =
+      (await findResourceByKey(buildModelKey(modelId, publisherFor({ digest: undefined })))) ??
+      (await findResourceByKey(`integrations/${config.providerName}/models/${modelId}`));
+    if (!row) return;
+    await fetch(`${catalogUrl}/api/resources/${row.id}`, {
       method: "DELETE",
       headers: {
         "X-Service-Auth": "internal",

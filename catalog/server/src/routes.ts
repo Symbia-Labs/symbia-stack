@@ -468,6 +468,24 @@ export async function registerRoutes(
 
       const validatedData = createResourceSchema.parse(req.body);
 
+      // Key-prefix ⇄ type agreement for the `models/` prefix (the 9 Aug key
+      // ruling, enforced at the API for the first time — older prefixes are
+      // not retro-gated here because existing rows predate the rule).
+      // A model key is `models/<publisher>/<name…>`: publisher is the
+      // upstream namespace (qwen, meta-llama) or `local`, a provenance fact
+      // — never a Symbia org id (APP-MODEL rule).
+      const keyIsModels = validatedData.key.startsWith("models/");
+      if (keyIsModels !== (validatedData.type === "model")) {
+        return res.status(400).json({
+          error: "key-prefix and type disagree: keys under models/ must have type 'model', and type 'model' requires a models/ key",
+        });
+      }
+      if (keyIsModels && !/^models\/[a-z0-9][\w.-]*\/.+$/.test(validatedData.key)) {
+        return res.status(400).json({
+          error: "model keys are models/<publisher>/<name>: publisher segment required (use 'local' when there is no upstream)",
+        });
+      }
+
       // Component resources must carry a valid manifest (typed ports + capability)
       // so that a graph node referencing this component can be validated against a
       // contract at load time (runtime roadmap Phase 1). The manifest is accepted
@@ -546,6 +564,19 @@ export async function registerRoutes(
       }
 
       const validatedData = updateResourceSchema.parse(req.body);
+
+      // Same models/ prefix ⇄ type agreement as create, over the EFFECTIVE
+      // values — a PATCH must not be the verb that skips the gate (see the
+      // manifest note below for why that lesson is already written down).
+      {
+        const effKey = validatedData.key ?? resource.key;
+        const effType = validatedData.type ?? resource.type;
+        if (effKey.startsWith("models/") !== (effType === "model")) {
+          return res.status(400).json({
+            error: "key-prefix and type disagree: keys under models/ must have type 'model', and type 'model' requires a models/ key",
+          });
+        }
+      }
 
       if (validatedData.key && validatedData.key !== resource.key) {
         const existing = await storage.getResourceByKey(validatedData.key);
