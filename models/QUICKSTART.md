@@ -10,26 +10,27 @@ Run local LLM inference with GGUF models using node-llama-cpp.
 
 ## Getting Models
 
-Download a GGUF model from HuggingFace. Recommended starter models:
+Pull a GGUF model through the service (auth required). The pull is
+egress-gated, digested during the stream, recorded as a signed
+`artifact.registered` event in `MODELS_PATH/.lineage.jsonl`, and registered
+in the catalog — one call, and provenance starts at acquisition:
 
 ```bash
-# Create models directory
-mkdir -p data/models
-cd data/models
+# Small model (~0.5GB) — good for testing
+curl -X POST http://localhost:5008/api/models/pull \
+  -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
+  -d '{"repo": "Qwen/Qwen2.5-0.5B-Instruct-GGUF", "file": "qwen2.5-0.5b-instruct-q4_k_m.gguf"}'
 
-# Option 1: Small model (~2GB) - Good for testing
-curl -L -o llama-3.2-1b-instruct-q4_k_m.gguf \
-  "https://huggingface.co/bartowski/Llama-3.2-1B-Instruct-GGUF/resolve/main/Llama-3.2-1B-Instruct-Q4_K_M.gguf"
-
-# Option 2: Medium model (~4GB) - Better quality
-curl -L -o llama-3.2-3b-instruct-q4_k_m.gguf \
-  "https://huggingface.co/bartowski/Llama-3.2-3B-Instruct-GGUF/resolve/main/Llama-3.2-3B-Instruct-Q4_K_M.gguf"
-
-# Option 3: Using huggingface-cli (if installed)
-pip install huggingface_hub
-huggingface-cli download bartowski/Llama-3.2-3B-Instruct-GGUF \
-  Llama-3.2-3B-Instruct-Q4_K_M.gguf --local-dir .
+# Larger model (~2GB) — better quality
+curl -X POST http://localhost:5008/api/models/pull \
+  -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
+  -d '{"repo": "bartowski/Llama-3.2-1B-Instruct-GGUF", "file": "Llama-3.2-1B-Instruct-Q4_K_M.gguf"}'
 ```
+
+The response carries the artifact digest and the ledger event id. A file
+dropped into `MODELS_PATH` by hand still works — it is scanned and digested
+at boot — but it arrives with no source recorded and no registration event,
+and the difference is visible in the ledger.
 
 ## Quick Start (Standalone)
 

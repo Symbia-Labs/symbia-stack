@@ -13,6 +13,8 @@
   "dependencies": {
     "@symbia/auth": "file:../symbia-auth",
     "@symbia/crypto": "file:../symbia-crypto",
+    "@symbia/egress": "file:../symbia-egress",
+    "@symbia/lineage": "file:../symbia-lineage",
     "@symbia/http": "file:../symbia-http",
     "@symbia/logging-client": "file:../symbia-logging-client",
     "@symbia/relay": "file:../symbia-relay",

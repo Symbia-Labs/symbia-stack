@@ -8,6 +8,7 @@ import { requireAuth } from "./auth.js";
 import { handleChatCompletions } from "./handlers/chat-completions.js";
 import { handleListModels, handleGetModel, handleLoadModel, handleUnloadModel } from "./handlers/models.js";
 import { handleExecute } from "./handlers/execute.js";
+import { handlePullModel } from "./handlers/pull.js";
 
 import { classifyImage, visionReadiness } from "./vision.js";
 
@@ -25,6 +26,11 @@ export async function registerRoutes(
 
   // Model management endpoints
   app.get("/api/models", handleListModels);
+
+  // Acquire weights through the platform: egress-gated download, digest
+  // during the stream, signed artifact.registered in the ledger, card in
+  // the catalog. Replaces the QUICKSTART hand-curl (DEFECTS.md §2).
+  app.post("/api/models/pull", requireAuth, handlePullModel);
 
   // Vision classification for captured frames (the spyglass).
   //
