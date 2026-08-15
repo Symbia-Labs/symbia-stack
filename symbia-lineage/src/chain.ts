@@ -10,7 +10,7 @@
  * damage stays verifiable, so a corrupted record degrades to a shorter
  * trustworthy record rather than to nothing at all.
  */
-import { signDocument, verifyDocument, sha256Hex, type Identity } from '@symbia/crypto';
+import { signDocument, verifyDocument, sha256Hex, canonicalJson, type Identity } from '@symbia/crypto';
 import { createHash, type KeyObject } from 'node:crypto';
 
 /** 32 zero bytes, so the first entry has a parent like every other entry. */
@@ -67,6 +67,18 @@ function normalizeEvent(ev: LineageEvent): LineageEvent {
     checksum: ev.checksum,
     signature: ev.signature ?? null,
   };
+}
+
+/**
+ * The digest an event contributes to the chain: canonical JSON of the
+ * NORMALIZED event minus its seal fields (checksum, signature). Exported so
+ * every producer and verifier computes the same bytes — the spike that found
+ * the round-trip defect had its own JSON.stringify version of this, and it
+ * broke for exactly the reason this module now normalizes.
+ */
+export function eventDigest(ev: LineageEvent): string {
+  const { checksum: _c, signature: _s, ...unsealed } = normalizeEvent(ev);
+  return sha256Hex(canonicalJson(unsealed as never));
 }
 
 export function signEvent(ev: LineageEvent, identity: Identity | null): string | null {

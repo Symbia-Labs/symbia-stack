@@ -8,7 +8,10 @@
  * suite of self-agreeing checks and were caught by attacking the output.
  */
 import { generateIdentity, canonicalJson, verifyDocument } from '@symbia/crypto';
-import { Observation, verifyEvent, signEvent, lineageLine, advance, GENESIS, substantiate, CLAIMS } from '../dist/index.js';
+import {
+  Observation, verifyEvent, signEvent, lineageLine, advance, GENESIS, substantiate, CLAIMS,
+  sealArtifactEvent, registeredPayload, derivedPayload, eventDigest,
+} from '../dist/index.js';
 
 let pass = 0, fail = 0;
 const ok = (name: string, cond: boolean, detail = '') => {
@@ -119,6 +122,39 @@ ok('whitespace does not affect the signature',
   ok('…and still verifies after a lineageLine round-trip', verifyEvent(reread, id.publicKey));
   ok('absent and explicit-null continuity_context produce the same signature',
     signEvent({ ...bare, continuity_context: null } as never, id) === bare.signature);
+}
+
+// --- artifact events --------------------------------------------------------
+{
+  const reg = sealArtifactEvent({
+    eventType: 'artifact.registered',
+    payload: registeredPayload({ digest: 'sha256:aa'.padEnd(71, '0'), bytes: 10, format: 'gguf' }),
+    actor: 'test:artifact', chain: GENESIS, parents: [null], identity: id,
+  });
+  const der = sealArtifactEvent({
+    eventType: 'artifact.derived',
+    payload: derivedPayload({
+      parentDigest: 'sha256:aa'.padEnd(71, '0'), childDigest: 'sha256:bb'.padEnd(71, '0'),
+      recipe: { tool: 'llama-quantize', args: ['Q4_K_M', '4'] },
+      parentLink: 'verified', deterministic: true,
+    }),
+    actor: 'test:artifact', chain: reg.chain, parents: [reg.event.event_id], identity: id,
+  });
+  ok('artifact events verify', verifyEvent(reg.event, id.publicKey) && verifyEvent(der.event, id.publicKey));
+  ok('artifact events verify after lineageLine round-trip',
+    verifyEvent(JSON.parse(lineageLine(der.event)), id.publicKey));
+  ok('artifact chain recomputes from eventDigest',
+    der.event.checksum === `sha256:${advance(advance(GENESIS, eventDigest(reg.event)), eventDigest(der.event))}`);
+  ok('derived payload carries the claim in words',
+    (der.event.payload as { claim: { asserts: string } }).claim.asserts.includes('recompute'));
+  let threw = false;
+  try {
+    derivedPayload({
+      parentDigest: 'sha256:aa', childDigest: 'sha256:bb',
+      recipe: { tool: 'x', args: [] }, parentLink: 'verified', deterministic: false,
+    });
+  } catch { threw = true; }
+  ok('verified + measured-nonreproduction is refused as a contradiction', threw);
 }
 
 // --- substantiation ---------------------------------------------------------
