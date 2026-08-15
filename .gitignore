@@ -74,3 +74,6 @@ __pycache__/
 
 # standalone spike bundles (esbuild output inside service dirs)
 .standalone-routes.mjs
+
+# sidecar in-memory model dir
+experiments/standalone/.models/

@@ -52,13 +52,32 @@ const PORTS: Record<ServiceId, number> = Object.fromEntries(
 ) as Record<ServiceId, number>;
 type ServiceName = ServiceId;
 
+/**
+ * Where a service answers.
+ *
+ * Two arrangements, one rule — ADDRESS BY ID, NEVER BY PORT (CLAUDE.md).
+ * This file kept a port map and so could only ever talk to a stack where
+ * every service owns a port. `SYMBIA_BASE_URL` switches it to the
+ * one-origin form the console has always used, `<base>/svc/<id>`, which
+ * is what the headless imagine sidecar serves: every service in one
+ * process behind one origin.
+ *
+ *   SYMBIA_BASE_URL=http://localhost:7100  ->  http://localhost:7100/svc/catalog/api/…
+ *   unset                                  ->  http://localhost:5003/api/…
+ */
+const BASE_URL = process.env.SYMBIA_BASE_URL?.replace(/\/$/, "");
+
+function serviceBase(service: ServiceName): string {
+  return BASE_URL ? `${BASE_URL}/svc/${service}` : `http://${HOST}:${PORTS[service]}`;
+}
+
 let token: string | null = TOKEN ?? null;
 
 async function login(): Promise<string> {
   // Preferred: resolve a session token to a fresh JWT. Refreshable (this runs
   // again on 401) and revocable server-side.
   if (SESSION_TOKEN) {
-    const r = await fetch(`http://${HOST}:${PORTS.identity}/api/auth/session/resolve`, {
+    const r = await fetch(`${serviceBase("identity" as ServiceName)}/api/auth/session/resolve`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ token: SESSION_TOKEN }),
@@ -82,7 +101,7 @@ async function login(): Promise<string> {
         "session); this server does not fall back to password login when a token is set.",
     );
   }
-  const r = await fetch(`http://${HOST}:${PORTS.identity}/api/auth/login`, {
+  const r = await fetch(`${serviceBase("identity" as ServiceName)}/api/auth/login`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ email: EMAIL, password: PASSWORD }),
@@ -108,7 +127,7 @@ interface ApiOptions {
 async function api<T>(service: ServiceName, path: string, opts: ApiOptions = {}): Promise<T> {
   if (!token && !opts.skipAuth) await login();
   const doFetch = async (): Promise<Response> =>
-    fetch(`http://${HOST}:${PORTS[service]}${path}`, {
+    fetch(`${serviceBase(service)}${path}`, {
       method: opts.method ?? "GET",
       headers: {
         Accept: "application/json",
@@ -196,9 +215,9 @@ server.registerTool(
             title = spec.info?.title;
             version = spec.info?.version;
           } catch { /* spec optional */ }
-          return { service: name, port: PORTS[name], status: "healthy", latencyMs: Date.now() - t0, title, version };
+          return { service: name, endpoint: serviceBase(name), status: "healthy", latencyMs: Date.now() - t0, title, version };
         } catch (e) {
-          return { service: name, port: PORTS[name], status: "unreachable", latencyMs: Date.now() - t0, error: e instanceof Error ? e.message.slice(0, 120) : String(e) };
+          return { service: name, endpoint: serviceBase(name), status: "unreachable", latencyMs: Date.now() - t0, error: e instanceof Error ? e.message.slice(0, 120) : String(e) };
         }
       })
     );
