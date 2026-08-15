@@ -77,6 +77,10 @@ export async function handleListModels(
           idSource: e.idSource,
           verified: e.verified,
           isProviderDefault: e.isProviderDefault,
+          // Which bytes. Absent for remote models; mismatch present only
+          // when the card and the file disagree (disclosed, not refused).
+          digest: e.digest,
+          digestMismatch: e.digestMismatch,
         },
       })),
     };
@@ -126,6 +130,10 @@ export async function handleGetModel(
       status: model.status,
       loaded: model.loaded,
       memory_usage_mb: model.memoryUsageMB,
+      // Which bytes this id names right now. The live fields above are the
+      // registry's business; this one is the artifact's identity.
+      digest: model.digest ? `sha256:${model.digest}` : undefined,
+      digest_mismatch: model.cardDigestMismatch,
     });
   } catch (err) {
     console.error("[models] Error getting model:", err);

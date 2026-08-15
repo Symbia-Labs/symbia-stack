@@ -87,6 +87,20 @@ export interface RegistryEntry {
   verified?: boolean;
   /** The adapter lists working models first; this is its head. */
   isProviderDefault?: boolean;
+  /**
+   * `sha256:<hex>` of the weights file. Local models only — a remote id has
+   * no bytes this service can hash, and pretending otherwise would be an
+   * `idSource: provider-config` claim wearing a checksum.
+   */
+  digest?: string;
+  /**
+   * Present when the file's digest and the catalog card's digest disagree.
+   * Disclosed, not refused (ruling 15 Aug 2026): the load succeeds and this
+   * field says what was loaded anyway. Ratchets to refusal when the pull
+   * path lands and every card carries a digest —
+   * docs/proposals/models-defect-closure.md stage 2.
+   */
+  digestMismatch?: { card: string; file: string };
 }
 
 /**
@@ -256,6 +270,8 @@ async function localModels(): Promise<RegistryEntry[]> {
       createdAt: m.createdAt,
       idSource: "local" as const,
       verified: true,
+      digest: m.digest ? `sha256:${m.digest}` : undefined,
+      digestMismatch: m.cardDigestMismatch,
     }));
   } catch (err) {
     console.warn(

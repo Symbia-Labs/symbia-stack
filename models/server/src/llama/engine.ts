@@ -95,6 +95,15 @@ export interface LocalModel {
   digest?: string;
   /** Bytes hashed, so a truncated or swapped file is visible without rehashing. */
   sizeBytes?: number;
+  /**
+   * Set at load time when the catalog card's digest and the file's digest
+   * disagree. Disclose-don't-refuse (ruling 15 Aug 2026): the load proceeds,
+   * and the registry and API carry this field so nothing downstream can cite
+   * the card while serving different bytes unannounced. Becomes a refusal
+   * when the pull path guarantees every card a digest
+   * (docs/proposals/models-defect-closure.md).
+   */
+  cardDigestMismatch?: { card: string; file: string };
   contextLength: number;
   capabilities: string[];
   status: "available" | "loading" | "loaded" | "error";
@@ -308,6 +317,29 @@ class LlamaEngine {
 
     console.log(`[llama] Loading model: ${id}`);
     modelInfo.status = "loading";
+
+    // Compare the file against its catalog card, when both sides have a
+    // digest. A null here is "could not ask" or "card makes no claim" — not
+    // a pass, and not a failure either; the distinction §6.10 taught.
+    try {
+      const { fetchCardDigest } = await import("../catalog/model-sync.js");
+      const cardDigest = await fetchCardDigest(id);
+      if (cardDigest && modelInfo.digest) {
+        const fileDigest = `sha256:${modelInfo.digest}`;
+        if (cardDigest !== fileDigest) {
+          modelInfo.cardDigestMismatch = { card: cardDigest, file: fileDigest };
+          console.warn(
+            `[llama] DIGEST MISMATCH for ${id}: card says ${cardDigest.slice(0, 24)}…, file is ${fileDigest.slice(0, 24)}… — loading anyway, disclosed on the registry entry`
+          );
+        } else {
+          modelInfo.cardDigestMismatch = undefined;
+        }
+      }
+    } catch (err) {
+      console.warn(
+        `[llama] Card digest check skipped: ${err instanceof Error ? err.message : err}`
+      );
+    }
 
     try {
       if (!this.llama) {
