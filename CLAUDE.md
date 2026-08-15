@@ -75,4 +75,4 @@ hardcoded ingress all destroy the point).
   honesty-repairs` is stranded (25 commits, unmerged).
 - Findings live in dated `docs/2026-08-*.md` files, not here.
 - `DEVELOPER.md` §8 predates the rebuild (Vite/5173) — stale.
-- MCP server `dist/` may still probe network on 5054; `src/` has 5009.
+- MCP server `dist/` rebuilt from `src/` 15 Aug; the 5054 probe is gone.

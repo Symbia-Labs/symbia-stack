@@ -76,6 +76,35 @@ so the registry states the difference rather than implying a capability.
 
 ## 2. Status — measured, not asserted
 
+### Update, 15 Aug 2026
+
+The 12 Aug figures below stand as history; the service moved. Dated
+evidence: `2026-08-15-models-stage2-results.md`,
+`2026-08-15-models-stage345-results.md`, `experiments/model-derivation/`,
+`experiments/step-weights/`, and STATUS §5c which summarizes. In brief:
+
+- Local weights are content-addressed (sha256 at scan, digest on registry
+  entries, API responses, and catalog cards; card/file mismatch disclosed
+  at load — measured with a forced mismatch).
+- `POST /api/models/pull {repo, file}`: bytes enter via
+  `POST /api/integrations/download` (egress + vault credential — ruling
+  15 Aug, models opens no third-party sockets and holds no credential),
+  digested in-stream, sealed as a signed `artifact.registered` event in
+  `MODELS_PATH/.lineage.jsonl`, carded. Empty directory → served,
+  receipted model in one authenticated call, measured 5/5.
+- The two BUILT-UNWIRED entries below are stale in the good direction:
+  the llama engine has served real requests (spike harness + console),
+  and model-sync is exercised — and was broken in a way only exercise
+  could find (STATUS §6.15: the catalog could not be asked by key; the
+  update branch had never run). Both fixed.
+- Deploy-gated: catalog type `model`, keys `models/<publisher>/<name>`
+  with a prefix⇄type gate, `scripts/migrate-model-cards.mjs`. The
+  deployed catalog rejects the type by enum until rebuilt (measured).
+- Console: a Models panel (registry, pull, mismatch banners), and the
+  assistant editor's provider/model selects now read THIS registry
+  rather than integrations `/capabilities`.
+- Standing evidence: `scripts/verify-models.mts`.
+
 ### RUNS
 
 **The unified registry.** `/v1/models` returned `{"data": []}` on a stack with
@@ -177,17 +206,19 @@ Walk held at 11/11 and the broker's own log is the evidence:
 
 ## 3. Next steps, in order
 
-1. **Load a local model and serve one request.** Everything about local
-   inference is currently a claim about code. `symbia-chat-lab`
-   (`vscode/symbia-chat-lab`, reference only, not to be ported) has a solved
-   version of this: a GGUF catalog with repo/file/quant, HEAD-checked sizes,
-   and a `start_llama` that polls until the server actually answers before
-   reporting success. Until a local model serves a request, "local and remote"
-   is half true.
+1. ~~**Load a local model and serve one request.**~~ **Done 15 Aug** — the
+   spike harness and the console pull path both served real requests
+   through the engine; digests name which bytes served them.
 2. **Move resolution to the broker.** Today the assistants service picks the
    provider by credential and the broker executes. That split is deliberate and
    temporary: it kept stage 3 debuggable. Once resolution moves, an assistant
    asks for a *capability* and the broker answers with a model.
+   **Now with spike evidence** (`experiments/step-weights/`): pin-by-digest
+   and constraints-with-recorded-rule both work; the resolve logic lived
+   client-side in the spike and belongs here as an endpoint. The registry
+   needs `bytes` and `precision` on entries first — "prefer smallest" is
+   unanswerable today — and the chat API needs `seed` for reproducible
+   sampling.
 3. **Grow the parameter table from measurement, not incident.** Four rules
    added after one outage is not a table, it is a scar. The provider adapters
    already list models with capabilities; the constraints should come from the

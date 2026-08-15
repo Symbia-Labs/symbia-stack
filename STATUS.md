@@ -251,6 +251,48 @@ sharpest open one), explanations repeat verbatim where declines escalate, and
 rule state is in-memory by ruling (persistence is a production prerequisite, not
 a defect). Records: `docs/2026-08-11-*.md`, `docs/proposals/assistant-data-model.md`.
 
+## 5c. The models service — RUNS, and content-addressed as of 15 Aug
+
+One day's arc, every stage measured against running code; records in
+`docs/2026-08-15-models-stage2-*.md`, `-stage345-results.md`, and
+`experiments/model-derivation/` + `experiments/step-weights/`.
+
+- **Weights have identity.** Every local GGUF is sha256'd at scan (cached
+  by mtime+size), the digest flows registry → API → catalog card, and a
+  card/file mismatch at load is DISCLOSED, not refused (ruling: refusal
+  arrives when the pull path guarantees every card a digest). Measured
+  with a forced-mismatch card.
+- **Acquisition is receipted.** `POST /api/models/pull` — the bytes enter
+  through INTEGRATIONS (`/api/integrations/download`: egress + vault;
+  ruling 15 Aug restated the 12 Aug delegation shape), models digests
+  during the stream and appends a signed `artifact.registered` event to a
+  JSONL ledger beside the weights. QUICKSTART's hand-curl is gone. An
+  empty directory to a served, receipted model is one authenticated call —
+  measured, 5/5 predictions.
+- **Derivation is a checkable claim.** `@symbia/lineage` gained the
+  artifact vocabulary (`artifact.registered`/`artifact.derived`, claims in
+  words, verified-vs-asserted parent links). Ground truth from the spike:
+  llama-quantize is byte-deterministic (two runs, one digest), so a
+  quantization receipt is recomputable by anyone with parent + recipe.
+- **Local inference has served requests.** The §2 BUILT-UNWIRED entry in
+  docs/MODELS.md is stale in the good direction: the spike harness and the
+  console pull/inference path both exercised the llama engine end to end.
+- **The console can see all of it.** A Models panel (registry by digest,
+  pull with rendered receipt, mismatch banners), and the assistant editor
+  now offers local models — it read integrations `/capabilities` before,
+  which made platform-served models structurally invisible.
+- **Deploy-gated:** `model` as a catalog type with a `models/<publisher>/`
+  key gate, migration script dry-run-verified; the DEPLOYED catalog
+  rejects the type by enum (measured), so catalog+models ship together,
+  then `migrate-model-cards.mjs --apply`.
+- **Step-weights spike finding, for the engine queue:** same-model
+  self-consistency FAILED reproducibly-wrong q2k (answered 86 three times,
+  unanimously); a cross-substrate panel and a no-model computed check both
+  caught it. Escalation ranking: computed verification where checkable,
+  substrate panels second, self-consistency as prefilter only. Per-step
+  weight pins want stable step ids — the deferred 11 Aug rule question is
+  now load-bearing.
+
 ## 6. Open defects — ranked
 
 1. **There is no path from an edited bootstrap file to a running database.**
@@ -477,16 +519,16 @@ the GKS Lineage grounding, all describing shipped behaviour. Then
 
 ## 9. Git
 
-- Working branch `fix/2026-08-06-api-gaps`, **176 commits ahead of `main`**
-  (measured, not estimated: `git rev-list --count main..HEAD`. The figure here
-  read 122 all day and I first replaced it with an estimate of ~140, which was
-  wrong by 36 — this file does not get to carry guesses.)
-  `main` is 69 behind and every GitHub release (`v1.0.0`–`v1.2.0`, Jan–Feb 2026)
+- Working branch `fix/2026-08-06-api-gaps`, **276 commits ahead of `main`**
+  (measured 15 Aug evening: `git rev-list --count main..HEAD`; the figure
+  was 176 at the 11 Aug measurement — this file does not get to carry
+  guesses.) Every GitHub release (`v1.0.0`–`v1.2.0`, Jan–Feb 2026)
   predates the rebuild.
 - `work/2026-08-05-energy-and-honesty-repairs` — **stranded**, 25 commits never
   merged forward.
-- Local tree clean. **47 commits unpushed** — this line claimed "nothing
-  unpushed" until 11 Aug. Today's work exists on one laptop.
+- Push state is measured at each session close, not here — see the dated
+  `docs/2026-08-*-session-close.md` files. The standing risk is unchanged:
+  a day's work routinely exists on one laptop until pushed.
 
 ## 10. What I would do next
 
@@ -503,10 +545,14 @@ the GKS Lineage grounding, all describing shipped behaviour. Then
    that stops pretending otherwise, or file→DB reconciliation gets built
    deliberately. It is currently neither, and `npm run seed` will silently undo
    a day's work. Unchanged and still the most dangerous entry in this file.
-3. **The remaining rule questions**, deferred deliberately today: whether
+3. **The remaining rule questions**, deferred deliberately on 11 Aug: whether
    first-match-wins should be the only strategy, whether conditions may call a
    tool, whether the *routine* rather than the rule is the right unit, and where
    a step id lives. Recorded in `docs/2026-08-11-rule-configuration-review.md`.
+   **Step identity stopped being deferrable on 15 Aug**: per-step weight
+   pins (step-weights spike, §5c) attach to step ids, and a pin on a
+   step that renumbers is a provenance bug by construction. This is now
+   the prerequisite for the per-step-weights engine work.
 4. **The assistant pool in the default catalog** — Brian has ideas here and we
    have not had the conversation. **Add to that conversation when it happens: a
    personality strategy for assistants** (flagged 14 Aug, not yet discussed).

@@ -332,9 +332,9 @@ server.registerTool(
 server.registerTool(
   "symbia_list_models",
   {
-    title: "List Local Models",
+    title: "List Models (unified registry)",
     description:
-      "List LLM models available in the Models service (local inference via node-llama-cpp), with id, owner, capabilities, context length, and load state. The Models service speaks the OpenAI-compatible protocol on /v1.",
+      "The Models service's unified registry: local AND remote models in one list. Each entry carries symbia.{source, provider, brokered, availability + its reason, idSource, verified}; local entries also carry the weights digest (sha256 — the model's content address) and, when a catalog card disagrees with the file, a digestMismatch disclosure. Availability is measured, never inferred: 'unknown' is a real answer for remote models on an unauthenticated listing. The service speaks the OpenAI-compatible protocol on /v1; weights are acquired via POST /api/models/pull (egress and credentials handled by integrations; every pull is sealed as a signed artifact.registered event).",
     inputSchema: z.object({}).strict(),
     annotations: RO,
   },
