@@ -40,18 +40,23 @@ export function advance(chainHex: string, digestHex: string): string {
 
 export { sha256Hex };
 
-export function signEvent(ev: LineageEvent, identity: Identity | null): string | null {
-  if (!identity?.privateKey) return null;
-  return signDocument(ev, identity);
-}
-
-export function verifyEvent(ev: LineageEvent, publicKey: KeyObject): boolean {
-  return verifyDocument(ev, publicKey);
-}
-
-/** JSONL line with a fixed top-level key order, so ledgers stay readable. */
-export function lineageLine(ev: LineageEvent): string {
-  return JSON.stringify({
+/**
+ * The one shape that gets signed, verified, and serialized.
+ *
+ * Signing and serialization used to disagree about absent optional fields:
+ * `signDocument` canonicalizes what it is given, and `lineageLine` wrote
+ * `continuity_context: null` for an event that had no such key — so an event
+ * signed without the field failed verification after a round-trip through
+ * this module's own serializer. Found 15 Aug 2026 by the model-derivation
+ * spike (3/3 signatures failed until the caller materialized the field).
+ *
+ * The fix is normalize-before-sign: sign, verify, and serialize all pass
+ * through here, so there is exactly one answer to "what bytes does the
+ * signature cover". Absent and null are the same statement — "no continuity
+ * context" — and now they are the same bytes.
+ */
+function normalizeEvent(ev: LineageEvent): LineageEvent {
+  return {
     event_id: ev.event_id,
     timestamp: ev.timestamp,
     actor_identity: ev.actor_identity,
@@ -61,5 +66,19 @@ export function lineageLine(ev: LineageEvent): string {
     parent_links: ev.parent_links,
     checksum: ev.checksum,
     signature: ev.signature ?? null,
-  }) + '\n';
+  };
+}
+
+export function signEvent(ev: LineageEvent, identity: Identity | null): string | null {
+  if (!identity?.privateKey) return null;
+  return signDocument(normalizeEvent(ev), identity);
+}
+
+export function verifyEvent(ev: LineageEvent, publicKey: KeyObject): boolean {
+  return verifyDocument(normalizeEvent(ev), publicKey);
+}
+
+/** JSONL line with a fixed top-level key order, so ledgers stay readable. */
+export function lineageLine(ev: LineageEvent): string {
+  return JSON.stringify(normalizeEvent(ev)) + '\n';
 }

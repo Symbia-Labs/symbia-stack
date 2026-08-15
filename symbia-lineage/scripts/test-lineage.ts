@@ -8,7 +8,7 @@
  * suite of self-agreeing checks and were caught by attacking the output.
  */
 import { generateIdentity, canonicalJson, verifyDocument } from '@symbia/crypto';
-import { Observation, verifyEvent, advance, GENESIS, substantiate, CLAIMS } from '../dist/index.js';
+import { Observation, verifyEvent, signEvent, lineageLine, advance, GENESIS, substantiate, CLAIMS } from '../dist/index.js';
 
 let pass = 0, fail = 0;
 const ok = (name: string, cond: boolean, detail = '') => {
@@ -96,6 +96,30 @@ for (const k of Object.keys(evs[1]).reverse()) reversed[k] = evs[1][k];
 ok('key insertion order does not affect the signature', verifyEvent(reversed as never, id.publicKey));
 ok('whitespace does not affect the signature',
   verifyEvent(JSON.parse(JSON.stringify(evs[1], null, 2)), id.publicKey));
+
+// --- sign/serialize round-trip ----------------------------------------------
+// Regression for the 15 Aug 2026 defect: an event signed WITHOUT
+// continuity_context failed verification after lineageLine wrote it and a
+// reader parsed it back, because the serializer materialized the absent field
+// as null and the signature covered the whole canonical document. Sign,
+// verify, and serialize now share one normalization; this test round-trips an
+// event built the way sealDelegation builds them — no continuity_context key
+// at all — through the library's own serializer.
+{
+  const bare = {
+    event_id: 'e-roundtrip', timestamp: new Date().toISOString(),
+    actor_identity: 'test:roundtrip', event_type: 'test.roundtrip',
+    payload: { n: 1 }, parent_links: [null], checksum: `sha256:${GENESIS}`,
+    signature: null as string | null,
+  };
+  bare.signature = signEvent(bare as never, id);
+  ok('event without continuity_context verifies directly',
+    verifyEvent(bare as never, id.publicKey));
+  const reread = JSON.parse(lineageLine(bare as never));
+  ok('…and still verifies after a lineageLine round-trip', verifyEvent(reread, id.publicKey));
+  ok('absent and explicit-null continuity_context produce the same signature',
+    signEvent({ ...bare, continuity_context: null } as never, id) === bare.signature);
+}
 
 // --- substantiation ---------------------------------------------------------
 ok('substantiate: attested claim with no genesis offered is not substantiated',
