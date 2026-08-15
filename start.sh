@@ -60,6 +60,20 @@ check_requirements() {
   done
 }
 
+# Compose refuses to interpolate CREDENTIAL_ENCRYPTION_KEY when it is unset
+# (see docker-compose.yml). A fresh clone has no .env, so generate the key
+# here; an existing .env keeps its key so stored credentials stay decryptable.
+ensure_env() {
+  if ! grep -qs '^CREDENTIAL_ENCRYPTION_KEY=..*' .env; then
+    log_info "Generating CREDENTIAL_ENCRYPTION_KEY in .env (first run)..."
+    # Remove an empty assignment left by a copied .env.example
+    if grep -qs '^CREDENTIAL_ENCRYPTION_KEY=$' .env; then
+      grep -v '^CREDENTIAL_ENCRYPTION_KEY=$' .env > .env.tmp && mv .env.tmp .env
+    fi
+    echo "CREDENTIAL_ENCRYPTION_KEY=$(openssl rand -hex 32)" >> .env
+  fi
+}
+
 # Detect if this is a first run
 is_first_run() {
   # Check if postgres volume has data
@@ -322,6 +336,7 @@ show_status() {
 # Main execution
 main() {
   check_requirements
+  ensure_env
 
   local force_rebuild=false
   local skip_admin=false
