@@ -1,0 +1,14 @@
+{
+  "digest": {
+    "parent": "8e0ae26000627ed62de0e78e41860af70094558b9d2913385c842a6aa06cf3fc",
+    "q4": "eeac84f264d9a9a3836dbc1baaa1436d3c82d8bdb8b8dc5208f68745ddc532e4",
+    "q4repeat": "eeac84f264d9a9a3836dbc1baaa1436d3c82d8bdb8b8dc5208f68745ddc532e4",
+    "q2": "ab2836923d54330e3e3b96ad4f491ea801fb8d60ced4b3aa5f688329409f973b"
+  },
+  "files": {
+    "parent": "data/qwen2.5-0.5b-instruct-fp16.gguf",
+    "q4": "data/child-q4km-run1.gguf",
+    "q4repeat": "data/child-q4km-run2.gguf",
+    "q2": "data/child-q2k.gguf"
+  }
+}
