@@ -71,3 +71,6 @@ __pycache__/
 
 # Parallel-stack port overrides (docker-compose -p symbia-fresh)
 .env.fresh
+
+# standalone spike bundles (esbuild output inside service dirs)
+.standalone-routes.mjs

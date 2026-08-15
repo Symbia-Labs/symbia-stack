@@ -33,6 +33,10 @@ process.env.LOGGING_SERVICE_URL = `${BASE}/svc/logging`;
 // what imagine mode means. The library already says so loudly at boot.
 delete process.env.DATABASE_URL;
 process.env.SYMBIA_MODE = "imagine";
+// Ephemeral by construction: a secret that dies with the process is the
+// honest one for a mode whose whole claim is that nothing here persists.
+process.env.SESSION_SECRET =
+  process.env.SESSION_SECRET || `imagine-${Math.random().toString(36).slice(2)}`;
 process.env.MODELS_PATH = process.env.MODELS_PATH || "/tmp/standalone-models";
 
 console.log(`
@@ -95,15 +99,16 @@ async function mount(id, importer, opts = {}) {
   }
 }
 
-await mount("identity", () => import("../../identity/server/src/routes.js"));
-await mount("catalog", () => import("../../catalog/server/src/routes.js"), {
-  middleware: async () => {
-    const { authMiddleware } = await import("../../catalog/server/src/auth.js");
-    return [authMiddleware];
-  },
-});
-await mount("integrations", () => import("../../integrations/server/src/routes.js"));
-await mount("models", () => import("../../models/server/src/routes.js"));
+// Imported from per-service BUNDLES, not source: catalog, identity and
+// integrations each map `@shared/*` to their own `./shared/*`, so one
+// module graph cannot resolve three different files behind one specifier.
+// esbuild resolves the alias per service (01-bundle-routes.sh), which
+// makes the bundle the composable unit. Measured 15 Aug — importing the
+// sources directly fails with "Cannot find package '@shared/schema'".
+await mount("identity", () => import("../../identity/.standalone-routes.mjs"));
+await mount("catalog", () => import("../../catalog/.standalone-routes.mjs"));
+await mount("integrations", () => import("../../integrations/.standalone-routes.mjs"));
+await mount("models", () => import("../../models/.standalone-routes.mjs"));
 
 httpServer.listen(PORT, () => {
   const ok = mounted.filter((m) => m.ok).length;
