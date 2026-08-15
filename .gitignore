@@ -68,3 +68,6 @@ __pycache__/
 # `git add -A` would put a private key in history. Keys are machine-local,
 # never shared state.
 .identity/
+
+# Parallel-stack port overrides (docker-compose -p symbia-fresh)
+.env.fresh
