@@ -58,6 +58,34 @@ catalog logs sync failures (models still serve); an old models service
 against a new catalog keeps writing the old shape (accepted, migratable).
 Deploy both, then run the migration with `--apply`.
 
+## Addendum, same evening — the bytes now enter through integrations
+
+Brian's review caught a boundary breach in stage 4 as first landed: the
+models service opened the socket to HuggingFace itself. The 12 Aug ruling
+already said otherwise (integrations is the vault and the boundary; models
+decides what to call and hands the call over), and the ruling was restated
+15 Aug: models come in through the integrations service; the models service
+is orchestration, selection, application, management.
+
+Reworked and re-measured: `POST /api/integrations/download` (integrations)
+owns egress and attaches the org's HF credential from the vault when one
+exists; models' pull forwards the caller's bearer, streams from
+integrations, and keeps everything else — digest-during-stream, ledger
+event, card. `@symbia/egress` and the never-read `huggingfaceToken` config
+field (in models config since February, zero readers) are REMOVED from the
+models service: it now has no direct path to a third party and no
+credential slot.
+
+Measured against local builds of both services: unauth pull 401; authorized
+pull returned the SAME digest `sha256:74a4da8c…` as the direct-egress pull
+— the boundary moved and the artifact did not change by a byte; the ledger
+event now records the redirect's final host (`us.aws.cdn.hf.co`) via the
+X-Source-Url passthrough, which the direct pull had not captured; ledger
+verifies (M1–M3 green). M4 (card) FAILED against the deployed catalog with
+a loud `Failed to create resource: 400` — that is the stage-5 deploy
+coupling observed live, not a new defect: the old catalog rejects type
+`model`, models kept serving, nothing was half-written.
+
 ## Not established
 
 The `models/` write gate and the migration `--apply` path against a running
