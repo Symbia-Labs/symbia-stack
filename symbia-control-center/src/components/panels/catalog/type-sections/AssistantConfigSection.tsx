@@ -40,7 +40,7 @@ interface RegistryEntry {
     source: 'local' | 'remote';
     provider: string;
     brokered: boolean;
-    availability: 'available' | 'unavailable' | 'unknown';
+    availability: 'available' | 'standby' | 'unavailable' | 'unknown';
     availabilityReason: string;
     digest?: string;
   };

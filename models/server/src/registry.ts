@@ -48,7 +48,22 @@ export type ModelSource = "local" | "remote";
  * context. Reporting `available` without checking would be the same class of
  * lie as telling an operator to add an API key they already had.
  */
-export type Availability = "available" | "unavailable" | "unknown";
+/**
+ * `standby` was added 15 Aug 2026 after Brian read "unavailable — present
+ * on disk, not loaded" on a model that had just been pulled and asked why.
+ * Three different situations were collapsed into one word:
+ *
+ *   standby      on disk, not loaded, will load on first request
+ *   unavailable  a load was ATTEMPTED and did not work — reason attached
+ *   unknown      could not ask (remote model, no org credential here)
+ *
+ * The distinction is not cosmetic: the same evening, loading a 491 MB
+ * model in a 1.9 GB VM killed the service, and the registry reported that
+ * model exactly as it had before the attempt. `ready` was considered and
+ * rejected for this state — a word that promises service is the confident
+ * green this platform exists to avoid.
+ */
+export type Availability = "available" | "standby" | "unavailable" | "unknown";
 
 /** A caller's credentials, forwarded rather than held. */
 export interface AuthContext {
@@ -258,16 +273,18 @@ async function localModels(): Promise<RegistryEntry[]> {
       source: "local" as const,
       provider: config.providerName,
       brokered: true,
-      // A local model is available when it is LOADED. The service reporting
-      // healthy with zero models loaded is exactly why this distinction is
-      // recorded rather than assumed.
-      availability: m.status === "loaded" ? ("available" as const) : ("unavailable" as const),
-      availabilityReason:
-        m.status === "loaded"
-          ? "loaded and serving"
-          : m.status === "available"
-            ? "present on disk, not loaded"
-            : `present but ${m.status ?? "not loaded"}`,
+      // Loaded is available; a failed attempt is unavailable WITH ITS
+      // REASON; anything else on disk is standby.
+      availability: m.status === "loaded"
+        ? ("available" as const)
+        : m.loadFailure
+          ? ("unavailable" as const)
+          : ("standby" as const),
+      availabilityReason: m.status === "loaded"
+        ? "loaded and serving"
+        : m.loadFailure
+          ? `load failed ${m.loadFailure.at.slice(0, 16).replace("T", " ")} — ${m.loadFailure.reason}`
+          : "on disk; loads on first request",
       contextLength: m.contextLength,
       capabilities: m.capabilities,
       status: m.status,

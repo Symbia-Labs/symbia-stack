@@ -34,7 +34,7 @@ interface RegistryModel {
     source: 'local' | 'remote';
     provider: string;
     brokered: boolean;
-    availability: 'available' | 'unavailable' | 'unknown';
+    availability: 'available' | 'standby' | 'unavailable' | 'unknown';
     availabilityReason: string;
     idSource?: string;
     verified?: boolean;
@@ -51,9 +51,12 @@ interface PullReceipt {
   registered?: { eventId: string; checksum: string; signed: boolean } | null;
 }
 
+// Four states, four colours. `standby` is not a failure — it is the
+// resting state of a model on disk — so it must not wear the red one.
 const AVAILABILITY_STYLE: Record<string, string> = {
   available: 'bg-emerald-500/15 text-emerald-300 ring-emerald-500/30',
-  unavailable: 'bg-slate-500/15 text-slate-300 ring-slate-500/30',
+  standby: 'bg-sky-500/15 text-sky-300 ring-sky-500/30',
+  unavailable: 'bg-red-500/15 text-red-300 ring-red-500/30',
   unknown: 'bg-amber-500/15 text-amber-300 ring-amber-500/30',
 };
 
