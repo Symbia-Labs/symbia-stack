@@ -179,6 +179,19 @@ app.post("/session/seal", async (_req, res) => {
       artifactsDigest,
     });
     bundle.seal = { eventId: sealEvent.event_id, checksum: sealEvent.checksum, artifactsDigest };
+    // Check the claim before making it. A bundle that fails its own chain
+    // walk should not be written — otherwise the contamination surfaces
+    // later, in a different tool, as "verification failed" rather than as
+    // "this session's ledger is not this session's alone".
+    const selfCheck = ledger.verify();
+    if (!selfCheck.ok) {
+      return res.status(500).json({
+        error: "refusing to seal: this session's own ledger does not verify",
+        detail: selfCheck,
+        meaning:
+          "The trace contains events this session did not write, or wrote under another key. Nothing was sealed.",
+      });
+    }
     // Re-read so the bundle's trace ENDS with the seal event. Without this
     // the digest that protects the artifacts is not in the chain the
     // importer walks, and the protection is decorative.

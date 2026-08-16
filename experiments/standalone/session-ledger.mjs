@@ -36,7 +36,28 @@ export function createSessionLedger({ path, pubKeyPath }) {
   let chain = GENESIS;
   let count = 0;
 
+  // ONE FILE PER SESSION, NAMED BY THE SESSION'S OWN KEY.
+  //
+  // These paths were fixed names in a shared directory, and every sidecar
+  // truncated the file on start and then appended to it. Measured 16 Aug:
+  // one ledger.jsonl held 185 events under THREE session identities, first
+  // appearing at lines 0, 1 and 15, because the connector keeps a sidecar
+  // running while a script starts another. The public key file held
+  // whichever key wrote last, so a sealed bundle carried one key and a
+  // trace signed by three, and verification failed at event 0.
+  //
+  // The claim on the bundle is "these came from one imagine session".
+  // Sharing a file with another session makes that false, and running more
+  // than one sidecar is the normal case rather than the edge case. Suffix
+  // both paths with the key fingerprint: sessions cannot collide, and a
+  // stale file from a dead session is inert rather than contaminating.
+  const suffix = identity.fingerprint.slice(0, 16);
+  const scoped = (p) => (p ? p.replace(/(\.[^.]+)$/, `.${suffix}$1`) : p);
+  path = scoped(path);
+  pubKeyPath = scoped(pubKeyPath);
+
   if (pubKeyPath) writeFileSync(pubKeyPath, identity.publicKeyPem);
+  // Truncate is now safe: this name belongs to this process alone.
   if (path && existsSync(path)) writeFileSync(path, "");
 
   function append(eventType, payload) {
@@ -105,6 +126,28 @@ export function createSessionLedger({ path, pubKeyPath }) {
     read() {
       if (!path || !existsSync(path)) return [];
       return readFileSync(path, "utf8").split("\n").filter(Boolean).map((l) => JSON.parse(l));
+    },
+    /**
+     * Walk our own chain the way an importer will.
+     *
+     * The seal should never emit a bundle that fails its own claim. Before
+     * the per-session file fix, sealing happily produced bundles that were
+     * refused at event 0 by the first thing that checked them — the failure
+     * surfaced minutes later, in a different tool, as a verification error
+     * rather than as "this session's ledger is contaminated".
+     */
+    verify() {
+      let head = GENESIS;
+      const events = this.read();
+      for (const [i, ev] of events.entries()) {
+        const expected = advance(head, eventDigest(ev));
+        if (ev.checksum !== `sha256:${expected}`) {
+          return { ok: false, at: i, of: events.length, event: ev.event_id, actor: ev.actor_identity,
+                   reason: "checksum does not follow from the previous head" };
+        }
+        head = expected;
+      }
+      return { ok: true, of: events.length, head: `sha256:${head}` };
     },
   };
 }

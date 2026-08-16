@@ -27,6 +27,22 @@ function run(path) {
   }
 }
 
+// CONTROL FIRST. A refusal only means something if the unaltered bundle is
+// accepted. On 16 Aug this test printed "I3 HELD" while every case was
+// being refused, including the clean one — the ledger was contaminated by a
+// second sidecar, so the tamper cases were right for the wrong reason and
+// the test could not tell the difference.
+const control = run(src);
+console.log(`CONTROL unaltered bundle -> ${control.refused ? "REFUSED" : "accepted"}`);
+if (control.refused) {
+  console.log("  " + control.out.split("\n").filter((l) => /REFUSED|reason/.test(l)).join("\n  "));
+  console.log(
+    "\nI3 CANNOT BE MEASURED. The clean bundle does not verify, so a refusal\n" +
+    "of an altered one proves nothing. Fix the bundle before reading this test."
+  );
+  process.exit(1);
+}
+
 // A — tamper the trace
 const a = JSON.parse(readFileSync(src, "utf8"));
 const mid = Math.floor(a.trace.length / 2);

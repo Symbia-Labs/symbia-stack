@@ -77,6 +77,42 @@ for a field the server owns outright, and it is a choice rather than an
 inevitability. Rejecting with "isBootstrap is server-owned" tells the caller
 something; stripping tells them nothing unless they diff the response.
 
+### D6 — sessions shared one ledger file, and sealing did not check its own claim
+
+**Found by Brian running the Track 4 commands from a terminal**, minutes
+after this file first said the track was closed. A freshly sealed bundle was
+refused at event 0 of 89.
+
+`createSessionLedger` took fixed paths in a shared directory:
+`.session/ledger.jsonl` and `.session/session.pub.pem`. Every sidecar
+truncated the file on start and then appended to it. The connector keeps a
+sidecar running permanently, so a script that starts another is the normal
+case. One file held 185 events under **three** session identities, first
+appearing at lines 0, 1 and 15, while the public key file held whichever key
+wrote last. The bundle therefore carried one key and a trace signed by three.
+
+The seal's claim is "these artifacts and this trace came from one imagine
+session". Sharing a file with another session makes that sentence false, and
+nothing checked it before writing the bundle.
+
+Two changes:
+
+- Both paths are suffixed with the session key's fingerprint, so sessions
+  cannot collide and a stale file from a dead session is inert rather than
+  contaminating. Truncate-on-start is now safe because the name belongs to
+  one process.
+- `/session/seal` walks its own chain before writing and returns 500 with
+  the failing event rather than emitting a bundle that fails its own claim.
+
+**The test was also wrong.** `tamper.mjs` printed `I3 HELD` while every case
+was refused, including the unaltered control it never ran. A refusal only
+means something if the clean bundle is accepted. It now runs the control
+first and reports that I3 cannot be measured when the control fails, rather
+than passing on a coincidence.
+
+Re-measured after the fix, with the connector's sidecars still running:
+control accepted, both tamper cases refused, `I3 HELD`.
+
 ## Not established
 
 Import against a deployed stack. The Track 4 target was a second sidecar —
@@ -92,4 +128,9 @@ Branch `fix/2026-08-06-api-gaps`, four commits ahead. Probes live in
 `TRACK-2.md`) and `experiments/imagine-import/` (Track 4, with
 `PREDICTIONS.md` and `RESULTS.md`). `experiments/standalone/03-seal-bundle.mjs`
 produces a fresh bundle; `tamper.mjs` is the fastest single check that the
-seal covers what it claims.
+seal covers what it claims — it runs an unaltered control first, so a pass
+means something.
+
+**Existing bundles sealed before D6 are contaminated** and will be refused.
+The old shared ledger is kept at `.session/contaminated-16aug/` as the
+evidence for that defect. Re-seal rather than trying to repair one.

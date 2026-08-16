@@ -318,6 +318,14 @@ One day's arc, every stage measured against running code; records in
      either serve one or stop listing them.
    - **D5 — server-owned fields are stripped silently.** A create carrying
      `isBootstrap: true` succeeds with no 400 and no warning.
+   - **D6 — FIXED same day, but read it.** Every imagine sidecar wrote to
+     one `.session/ledger.jsonl`, truncating on start and then appending, so
+     one file held 185 events under three session identities and a sealed
+     bundle carried one public key with a trace signed by three. Ledger
+     paths are per-session now and `/session/seal` verifies its own chain
+     before writing. Found by running the documented commands by hand
+     **after** this defect list was first written — the automated probes had
+     all passed, because each ran while only its own sidecar existed.
 
 1. **There is no path from an edited bootstrap file to a running database.**
    *Corrected 11 Aug — the earlier entry described a mechanism that does not
