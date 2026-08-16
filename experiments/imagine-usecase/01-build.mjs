@@ -67,6 +67,12 @@ send({ jsonrpc: "2.0", method: "notifications/initialized", params: {} });
 await new Promise((r) => setTimeout(r, 4000));
 
 // --- PU1: author a component manifest ---------------------------------------
+// The catalog's manifest contract, not the executor's shape. My first
+// attempt invented the latter and was rejected — correctly. Recorded
+// because the contract is NOT discoverable through the API: the OpenAPI
+// for POST /api/resources types metadata as a bare object, so an agent
+// cannot learn what a component manifest requires without reading the
+// source. That is the finding, not the rejection.
 const manifest = {
   key: "components/verify.computed",
   name: "Computed Verification",
@@ -75,20 +81,21 @@ const manifest = {
   tags: ["verify", "canonical"],
   metadata: {
     manifest: {
-      id: "symbia.verify.computed",
-      name: "Computed Verification",
+      key: "symbia.verify.computed",
+      version: "1.0.0",
+      implementation: "expression",
       description:
-        "Recompute a claimed value from its stated inputs and report agreement. Canonical: the check is redoable by anyone holding the inputs.",
-      inputs: ["in"],
-      outputs: ["verified", "refuted", "error"],
+        "Recompute a claimed value from its stated inputs and report agreement. Canonical: redoable by anyone holding the inputs.",
+      capability: "compute",
+      inputs: [{ name: "in" }],
+      outputs: [
+        { name: "verified", lane: "canonical", laneNote: "recomputed from stated inputs" },
+        { name: "refuted", lane: "canonical", laneNote: "a disagreement is as checkable as an agreement" },
+        { name: "error", lane: "apocryphal", laneNote: "a refusal is not a recomputable value" },
+      ],
       config: {
         expression: { type: "string", required: true, description: "Arithmetic over {placeholders} from the message." },
-        claimField: { type: "string", required: true, description: "Field holding the claimed value to compare against." },
-      },
-      lanes: {
-        verified: { lane: "canonical", note: "recomputed from stated inputs" },
-        refuted: { lane: "canonical", note: "a disagreement is as checkable as an agreement" },
-        error: { lane: "apocryphal", note: "a refusal is not a recomputable value" },
+        claimField: { type: "string", required: true, description: "Field holding the claimed value." },
       },
     },
   },
