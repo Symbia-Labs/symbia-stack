@@ -532,8 +532,19 @@ async function allOperations(): Promise<{ ops: OperationInfo[]; unavailable: Arr
   const unavailable: Array<{ service: string; error: string }> = [];
   await Promise.all(
     (RunningServices as ServiceName[]).map(async (svc) => {
+      // THE SPEC FETCH NEEDS THE HOST TOKEN TOO.
+      //
+      // This was a bare fetch because a spec is public in every deployment
+      // this server was written against. Against a gated imagine host it 401s,
+      // and the consequence was not a 401 anywhere a caller could see it: the
+      // dispatcher found no operations, so `symbia_call` answered "No such
+      // operation" for every path on every service. The message described a
+      // dispatcher state and named nothing that could lead back to the gate.
+      //
+      // Measured directly after the gate shipped: twelve services, twelve
+      // 401s, zero operations, and an error about the wrong subject.
       const entry = await operationsFor(svc, serviceBase(svc), (url) =>
-        fetch(url, { signal: AbortSignal.timeout(8000) }).then((r) => {
+        fetch(url, { headers: hostHeader(), signal: AbortSignal.timeout(8000) }).then((r) => {
           if (!r.ok) throw new Error(`${r.status}`);
           return r.json();
         })
@@ -651,7 +662,7 @@ server.registerTool(
   },
   async (args): Promise<ToolResult> => {
     try {
-      const { ops } = await allOperations();
+      const { ops, unavailable } = await allOperations();
       const op = ops.find((o) =>
         args.operationId
           ? o.operationId === args.operationId
@@ -659,7 +670,40 @@ server.registerTool(
             o.method === (args.method ?? "").toUpperCase() &&
             o.path === args.path
       );
-      if (!op) return fail("No such operation. Use symbia_list_operations first.");
+      if (!op) {
+        // DISTINGUISH "THIS OPERATION DOES NOT EXIST" FROM "I COULD NOT ASK".
+        //
+        // Those are different states and this returned the same sentence for
+        // both. When the imagine gate shipped, every spec fetch 401'd, the
+        // operation table was empty, and every call reported a missing
+        // operation — an answer about the dispatcher, describing nothing a
+        // reader could act on. An empty table is not evidence of absence.
+        const refused = unavailable.filter((u) => /^40[13]$/.test(u.error));
+        if (ops.length === 0 && refused.length > 0) {
+          return fail(
+            `Cannot answer whether that operation exists: ${refused.length} of ` +
+              `${unavailable.length + 0} services refused their specification with ` +
+              `${refused[0].error}. This host authorises by session token — the client is ` +
+              `attached but not authorised, which usually means it read the address file ` +
+              `before the host last restarted and minted a new token. Restart the client. ` +
+              `Services refusing: ${refused.map((r) => r.service).join(", ")}.`
+          );
+        }
+        if (ops.length === 0 && unavailable.length > 0) {
+          return fail(
+            `Cannot answer whether that operation exists: no service returned a ` +
+              `specification. ${unavailable.map((u) => `${u.service} (${u.error})`).join(", ")}.`
+          );
+        }
+        return fail(
+          `No such operation among the ${ops.length} available. Use symbia_list_operations first.` +
+            (unavailable.length > 0
+              ? ` Note ${unavailable.length} service(s) could not be asked: ${unavailable
+                  .map((u) => `${u.service} (${u.error})`)
+                  .join(", ")}.`
+              : "")
+        );
+      }
       if (op.destructive && !args.confirmDestructive) {
         return fail(
           `${op.operationId} is a DELETE. Re-issue with confirmDestructive: true if that is intended.`
