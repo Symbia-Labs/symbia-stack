@@ -117,6 +117,18 @@ const app = express();
 const httpServer = createServer(app);
 const mounted = [];
 
+// LISTENING IS NOT READY.
+//
+// Services call each other over HTTP, so the socket must be open before any
+// of them is mounted — which means `/` answers while the stack is still
+// assembling. Measured 16 Aug: a reload script polled `/`, got 200, and
+// reported "7 services" for a stack that had ten a moment later. It read a
+// half-built list and called it a result.
+//
+// A caller that waits for a 200 is waiting for the wrong thing. `ready`
+// flips once boot has finished, so "answering" and "usable" are separable.
+let ready = false;
+
 // Recorded before anything is routed, so a mutation is in the trace even
 // when the service it addressed refused it or does not exist.
 // 2 MB, not 10: an imagine session authors artifacts, it does not upload
@@ -160,6 +172,10 @@ app.use(ledger.middleware);
 app.get("/", (_req, res) =>
   res.json({
     mode: "imagine",
+    ready,
+    readiness: ready
+      ? "boot complete — every service that will mount has mounted"
+      : "still booting — the socket is open because services address each other over it; this list is incomplete",
     transport: "stdio-mcp",
     enforcement: "off — canon is checked when this is grounded, not here",
     warning: "in-memory, ephemeral keys, restart-lossy — a sketch, not a record",
@@ -509,6 +525,8 @@ if (!process.env.IMAGINE_HOST_MODE) {
   process.stdin.on("close", () => void takedown("stdin closed"));
   process.stdin.on("end", () => void takedown("stdin ended"));
 }
+
+ready = true;
 
 if (process.env.IMAGINE_HOST_MODE) {
   // HOST MODE. No MCP here — a shim owns that, in the process Claude
