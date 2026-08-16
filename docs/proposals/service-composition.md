@@ -1,38 +1,96 @@
-# Service composition: `createService()` as the unit
+# Service composition: the service is a value, the host is a choice
 
-Status: PAPER, with the measurements that motivate it. Proposed 15 Aug
-2026 after the standalone and sidecar spikes
-(`experiments/standalone/RESULTS.md`, `SIDECAR.md`). Nothing here is
-built. This is the refactor that makes imagine mode real and pays for
-itself in three other places.
+Status: PAPER, with measurements, and now the STATED DIRECTION for core
+(Brian, 15 Aug 2026 — "move everything over to this model for core, and
+build design and deploy off it"). Written after the standalone and sidecar
+spikes (`experiments/standalone/RESULTS.md`, `SIDECAR.md`) and revised the
+same night once five services had actually been extracted.
+
+## The direction, in one line
+
+**A service becomes a value that describes itself. A host decides what to
+do with it.** Containers are one host, a single process is another, and
+neither is privileged. Design and deploy are then not different
+architectures — they are the same services handed different things (real
+Postgres, persistent identity, signatures) and enclosed differently.
+
+The distinction worth holding: *composition* is primary, not *single
+process*. Making one-process the primary host would trade away per-service
+isolation, resource limits, and independent restart — which deploy mode
+genuinely needs. Making the service value primary costs nothing and gives
+every host the same material.
 
 ## The problem, counted
 
 A service today is a file that *runs* rather than a thing you can *hold*.
 `index.ts` builds middleware, telemetry, database wiring, routes, health,
 service identity, relay and bootstrap inline, executes `server.start()`
-at import time, and exports none of it. Consequences measured 15 Aug:
+at import time, and exports none of it. Measured 15 Aug, before the work
+below started:
 
 | shape | services | importable |
 |---|---|---|
 | `export registerRoutes` in `routes.ts` | identity, catalog, integrations, models, logging | yes |
-| `export createRouter()` in `routes.ts` | directory | yes, adapted |
+| `export createRouter()` | directory | yes, adapted |
 | routes inline in `index.ts` | assistants, messaging, runtime, network | **no** |
 | no server source | service-admin | n/a |
 
-Three shapes for one job. And even the importable ones arrive
-incomplete: with six services mounted, `symbia_stack_health` reported
-**2 of 12 healthy**, because `/health`, readiness, telemetry and service
-identity come from `createSymbiaServer`. The standalone catalog served
-**0 resources** against the container's 54, because
-`seedFromDataFiles()` is private to `catalog/server/src/index.ts`.
+Even the importable ones arrived incomplete: with six mounted,
+`symbia_stack_health` reported **2 of 12 healthy**, because health comes
+from `createSymbiaServer`. The standalone catalog served **0 resources**
+against the container's 54, because the seed was private to `index.ts`.
 
-Nothing is wrong with any single `index.ts`. The defect is that the
-composition root is not a value.
+## What is already done (15 Aug, measured)
 
-## The shape proposed
+- Route tables extracted for **network, messaging, runtime, assistants**;
+  runtime's shared `graphExecutor`/`catalogSync` moved to `executor.ts`.
+  Ten services now mount in one process.
+- **`service.ts` on identity and catalog** — routes AND bootstrap in one
+  exported module. This is `createService()` in miniature and it fixed two
+  real failures: registration died on a memberships FK because the system
+  org is created by a bootstrap only `index.ts` called, and the sidecar's
+  catalog was invisible because API-seeded rows differ from bootstrapped
+  ones.
+- **One hard constraint learned:** whatever a host needs must ship in ONE
+  entry per service. Each esbuild bundle owns its module graph, so a
+  separately bundled bootstrap holds a *second* pg-mem and seeds a store
+  nobody reads. This is why `createService()` must return everything, not
+  a set of separately importable helpers.
+- Along the way, §4 of the 12 Aug EC2 findings was closed: the catalog
+  bootstrap data directory now resolves across container, source and
+  bundle layouts instead of only the first.
 
-Each service exports one function; nothing runs at import.
+Result: 38 resources and 14 components readable through MCP over stdio,
+from ten services in a single process with no Docker and no Postgres.
+
+## What is NOT proven — and this is the half that is left
+
+The extraction was easy because the services were uniform. These four are
+where the uniformity ends, and each is now a first-class stage rather than
+a footnote:
+
+1. **Health, readiness, telemetry, service identity.** All provided by
+   `createSymbiaServer`. A composed service currently has none of them —
+   the 2/12 measurement. These must move onto the service value, or every
+   host reimplements them differently, which is the defect this proposal
+   exists to prevent.
+2. **Relay.** Untouched. Ten services in one heap still believe they dial
+   a network service over the wire. Needs an in-process transport, chosen
+   by the host rather than detected by the client.
+3. **Sockets.** messaging and network both set up socket.io handlers. Two
+   services wanting sockets on one HTTP server is a namespace question
+   nobody has answered; the sidecar mounts no sockets at all today.
+4. **Per-service middleware.** Auth differs per service and lives in the
+   `createSymbiaServer` config. The sidecar mounts almost none of it, so
+   its services are less protected than their container equivalents —
+   fine in imagine, unacceptable anywhere else.
+
+Plus one that is independent but blocks tidiness: **`@shared/*` collides**
+across catalog, identity and integrations, forcing the per-service bundle
+step. Renaming to unique aliases or real package names deletes the
+bundling entirely.
+
+## The shape
 
 ```ts
 // <service>/server/src/service.ts
@@ -40,109 +98,84 @@ export function createService(opts?: ServiceOptions): SymbiaService {
   return {
     id: ServiceId.CATALOG,
     middleware: [...],
-    registerRoutes,          // what routes.ts already exports
+    registerRoutes,
     health: { checks: [...] },
+    sockets: (io) => { ... },          // stage 3
     database: { schema, migrations },
-    bootstrap: async () => { ... },   // seedFromDataFiles lives here
-    relay: { capabilities: [...] },
+    bootstrap: async () => { ... },
+    relay: { capabilities: [...] },    // transport supplied by the host
     shutdown: async () => { ... },
   };
 }
 ```
 
-Two hosts consume it, and neither is privileged:
+Two hosts, equal:
 
-- **`index.ts`** (the container entrypoint) becomes three lines:
-  `createSymbiaServer(createService()).start()`. Behaviour identical;
-  this is a move, not a redesign.
-- **A composition root** (the sidecar) takes many services, mounts each
-  under `/svc/<id>` in one process, and can call `bootstrap()`,
-  `health`, and `relay` because they are now values it can reach.
+- **Container entrypoint** — `createSymbiaServer(createService()).start()`.
+  Behaviour identical to today; a move, not a redesign.
+- **Composition root** — mounts many under `/svc/<id>`, calls `bootstrap()`,
+  wires an in-process relay, and can run headless (the imagine sidecar).
 
-`createSymbiaServer` keeps doing exactly what it does today — it just
-receives a `SymbiaService` rather than a hand-written object literal.
+## Stages
 
-## Why it pays for itself outside imagine mode
+**S1 — the type.** `SymbiaService` and `ServiceOptions` in `@symbia/http`,
+plus an overload of `createSymbiaServer` accepting it. No service moves.
+Exit: `npm run check` clean.
 
-1. **Testing.** A service becomes constructible in a test process
-   without listening on a port or standing up Docker. There is no
-   in-process integration test in this repo today, and this is why.
-2. **Health becomes real everywhere.** Health checks declared by the
-   service rather than assembled at the entrypoint means the sidecar,
-   the container, and any future host report the same thing.
-3. **Bootstrap stops being a boot-order secret.** `runFirstTimeBootstrap`
-   and the identity default-admin seed are the two places where "how
-   this stack gets its initial contents" is knowledge held only by a
-   file that also happens to start a server. §6.1's bootstrap-vs-gated-
-   write question gets easier to answer when bootstrap is a callable.
-4. **It is the ground/deploy machinery.** operating-modes.md needs the
-   same artifact runnable three ways. A service you can only start as a
-   container cannot be run in imagine mode by definition.
+**S2 — settle the shape on catalog.** Already half done (`service.ts`
+exists with routes + bootstrap). Extend it to middleware, health and
+database; make `index.ts` the three-line host. Exit: container behaviour
+unchanged (38 resources on a fresh volume) AND the sidecar identical.
 
-## Stages, each independently landable
+**S3 — health, telemetry and identity onto the value.** The 2/12
+measurement becomes 10/10 in the sidecar and unchanged in containers.
+This is the stage that makes a composed service a real service.
 
-**S1 — the type.** Add `SymbiaService` and `ServiceOptions` to
-`@symbia/http` beside `createSymbiaServer`, plus an overload accepting
-it. No service changes. Exit: `npm run check` clean, nothing else moves.
+**S4 — the remaining nine services** adopt `createService()`. Mechanical
+once S2 and S3 have settled the shape. `verify-assistants.mts` is the
+evidence for assistants; each service re-measured against its container.
 
-**S2 — one service end to end.** Do `catalog` first: it has the worst
-of the problem (private `seedFromDataFiles`, `isBootstrapCompleted`,
-`markBootstrapCompleted`, 200 lines of bootstrap in `index.ts`). Extract
-to `service.ts` + `bootstrap.ts`; `index.ts` becomes the three-line host.
-Exit: container behaviour unchanged (54 resources on a fresh volume,
-measured against the fresh stack), AND the sidecar seeds 54 rather than
-20 through `bootstrap()`.
+**S5 — relay in one process.** Host supplies the transport: loopback
+in-process for the sidecar, wire for containers. The client must not
+detect its own co-location.
 
-**S3 — the four that cannot be imported at all.** assistants, messaging,
-runtime, network. Same extraction, in that order — assistants first
-because it is what makes the sidecar interesting to an MCP client. Each
-lands with its container behaviour re-measured (assistants has
-`verify-assistants.mts` as its evidence; use it).
+**S6 — sockets.** Namespace per service on the shared server, or a
+host-provided socket factory. Decide with messaging and network side by
+side.
 
-**S4 — the remainder.** identity, integrations, models, logging,
-directory (which also drops `createRouter` for the common shape).
-Smaller, because their routes already separate.
+**S7 — delete the bundle step.** Rename `@shared/*` per service; the
+composition root imports sources directly and `01-bundle-routes.sh` goes
+away.
 
-**S5 — relay in one process.** `initServiceRelay` currently dials the
-network service. In a single process it must short-circuit to an
-in-memory transport. Decide: does the composition root provide a loopback
-relay, or does the relay client detect co-location? Recommendation: the
-root provides it, because "am I co-located" is not a question a client
-should answer about itself.
+**S8 — hosts become thin, and modes become real.** imagine = composition
+root, in-mem, ephemeral keys. design = composition root or containers,
+grounded Postgres, persistent identity. deploy = containers, signed
+composition, digest-pinned weights. Same services throughout; the mode is
+what the host supplies and what the gates check
+(`docs/proposals/operating-modes.md`).
 
-**S6 — the sidecar becomes the product.** All eleven mounted, real
-health, `bootstrap()` called per service, relay short-circuited. Then
-the two open items from SIDECAR.md are the only things left:
-imagine-mode auth (pg-mem rejects `POST /api/auth/register` on an
-organizations/memberships FK, so there is no principal), and packaging
-it as one command.
+## Risks
 
-## Risks, stated
-
-- **Eleven services, one pattern, many hands.** The refactor is
-  mechanical but broad; a half-migrated tree with two conventions is
-  worse than one convention badly chosen. S1 and S2 should settle the
-  shape before S3 starts.
+- **Eleven services, one pattern.** Broad and mechanical, but a
+  half-migrated tree with two conventions is worse than one convention
+  chosen badly. S1–S3 settle the shape before S4 starts.
 - **Import-time side effects.** Several services do real work at module
-  load (registry population, provider registration). Moving that into
-  `createService()` changes *when* it happens; anything depending on the
-  old timing will surface as a boot-order bug. Expect one per service.
-- **`@shared/*` still collides.** Independent of this proposal, three
-  services map the specifier to different files, so a composition root
-  needs per-service bundles regardless. Fix separately with unique
-  aliases or real package names; it is a small change and it removes the
-  bundle step from the sidecar entirely.
-- **The measurement to hold onto:** container behaviour must not change.
-  Every stage carries a before/after on the fresh stack, not an argument.
+  load (registry population, provider registration, seeding). Moving that
+  into `createService()` changes *when* it happens; expect one boot-order
+  bug per service and budget for it.
+- **The easy half is done.** Route extraction took an hour; health,
+  relay, sockets and middleware are the parts where services differ, and
+  they are the parts that make a composed service trustworthy rather than
+  merely reachable.
+- **Container behaviour must not change.** Every stage carries a
+  before/after measurement on a running stack, not an argument.
 
-## Decisions to make before S1
+## Decisions before S1
 
-1. Does `createService()` take options (config injection), or read
-   `process.env` as services do today? (Options are testable; env is
-   a smaller diff.)
-2. Does bootstrap belong on the service object, or stay a separate
-   exported function the host may call? (On the object is tidier; separate
-   keeps "who is allowed to seed" visible.)
-3. Is the sidecar's home `experiments/` or a real workspace
-   (`symbia-imagine`)? It stops being an experiment the moment anyone
-   configures Claude Desktop to spawn it.
+1. Does `createService()` take injected options, or read `process.env` as
+   services do today? (Options are testable; env is a smaller diff.)
+2. Does the host own the relay transport (recommended) or does the relay
+   client detect co-location?
+3. Does the sidecar move out of `experiments/` into a real workspace
+   (`symbia-imagine`) at S8, or earlier? It stops being an experiment the
+   moment anyone configures Claude Desktop to spawn it.
