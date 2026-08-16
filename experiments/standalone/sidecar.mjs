@@ -59,6 +59,41 @@ const HOST_TOKEN = process.env.IMAGINE_HOST_TOKEN || randomBytes(32).toString("b
  * shim refuses a host it does not match.
  */
 const BUILD_MARKER = process.env.IMAGINE_BUILD || "dev";
+
+/**
+ * THE STACK HAS TO GET PAST ITS OWN GATE.
+ *
+ * Services here are ordinary HTTP clients of each other — the runtime reads
+ * component manifests from the catalog, the assistant loader reads its roster —
+ * and every one of those calls goes out through the same loopback origin an
+ * outside process would use. There is no address, port or socket property that
+ * separates them: same host, same port, same request.
+ *
+ * So the gate refused them. Measured immediately after it shipped:
+ *
+ *   start FAILED runtime: Catalog GET /api/resources?type=component -> 401
+ *   [Assistant Loader] Catalog returned 401 for type=assistant (attempt 5/5)
+ *
+ * and the catalog held zero resources where it had held fifty-four. The
+ * A-series predictions checked that an outsider was refused and never that an
+ * insider still got through, which is the shape of the mistake rather than the
+ * mistake itself.
+ *
+ * Patching fetch is the narrow fix: requests this process makes TO ITSELF carry
+ * the token, everything else is untouched, and no service's code changes. The
+ * alternative — exempting loopback — would exempt every other process on the
+ * machine, which is the thing the gate exists to stop.
+ */
+function admitInternalCalls(base) {
+  const original = globalThis.fetch;
+  globalThis.fetch = (input, init = {}) => {
+    const url = typeof input === "string" ? input : input?.url ?? "";
+    if (!url.startsWith(base)) return original(input, init);
+    const headers = new Headers(init.headers ?? (typeof input === "object" ? input.headers : undefined));
+    headers.set("x-imagine-token", HOST_TOKEN);
+    return original(input, { ...init, headers });
+  };
+}
 import { createSessionLedger, completenessOf } from "./session-ledger.mjs";
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -109,6 +144,25 @@ process.env.MODELS_PATH = process.env.MODELS_PATH || join(repo, "experiments/sta
 // did was open a temp file into nothing. A filesystem error surfaced as a
 // server error, for what is a setup step nobody had taken.
 mkdirSync(process.env.MODELS_PATH, { recursive: true });
+
+// A BUNDLE RESOLVES ITS DATA RELATIVE TO ITSELF, NOT ONLY ITS PACKAGES.
+//
+// Moving the bundles into ./services/ broke resolution twice, and the M-series
+// predicted only once. Packages were the visible half, fixed by the
+// package.json beside them. The second half surfaced as a catalog holding 16
+// resources where it had held 54: `seedFromDataFiles` walks candidate paths
+// relative to the bundle's own location, found none of them, and said so —
+// "No bootstrap data found to load" — while every service reported healthy.
+//
+// A stack that boots clean with an empty catalog is the failure this project
+// keeps naming: nothing errored, nothing was missing that anyone could see,
+// and the assistant loader retried five times against a catalog that was
+// simply empty.
+//
+// The service already publishes an escape hatch for exactly this. Using it is
+// cheaper than teaching every bundle where it lives, and it keeps the fix
+// inside the sidecar rather than in code the sidecar only borrows.
+process.env.CATALOG_DATA_DIR = process.env.CATALOG_DATA_DIR || join(here, "services", "data");
 // LAX ABOUT CANON, STRICT ABOUT RECORDING (ruling 15 Aug).
 // The whole session is apocryphal, so enforcing lane and manifest
 // contracts here would police a distinction that does not apply yet.
@@ -510,6 +564,10 @@ const port = await new Promise((resolve) => {
   httpServer.listen(wanted, "127.0.0.1", () => resolve(httpServer.address().port));
 });
 const BASE = `http://127.0.0.1:${port}`;
+// Before any service is mounted, so no service can make a call that predates
+// the patch. Order is load-bearing here for the same reason the listen-then-
+// mount order is: services read and call at import time.
+admitInternalCalls(BASE);
 log(`services on ${BASE} (ephemeral, loopback only)`);
 
 for (const [k, id] of [

@@ -5,5 +5,6 @@
 # marker in the handshake is what makes the difference visible at runtime. The
 # release step that produces the plugin is where they get attached.
 services/*.mjs
+services/data/
 node_modules/
 .session/
