@@ -295,6 +295,30 @@ One day's arc, every stage measured against running code; records in
 
 ## 6. Open defects — ranked
 
+0. **Five defects opened 16 Aug, during gap closure.** Full write-up in
+   `docs/2026-08-16-session-close.md`; summarised here so they are findable.
+
+   - **D1 — sealing counts seeded resources as session-authored.**
+     `/session/seal` separates sandbox furniture from session work on
+     `isBootstrap === false`, and the seed writes that value. A session that
+     authored three artifacts sealed nineteen. Entangled with the same day's
+     fix making `isBootstrap` server-owned: the flag is now trustworthy and
+     uninformative at once. Do not fix by letting clients set it again.
+   - **D2 — a repeat import is refused for the wrong reason.** `400 "A
+     resource with this key already exists"` is an answer about keys.
+     Nothing is keyed on provenance, so re-importing a bundle cannot be
+     told apart from a name collision with unrelated content.
+   - **D3 — the logging service 500s on its read paths in imagine.**
+     `POST /api/logs/query` and `GET /api/logs/streams`, both generic.
+     Store-uninitialised versus service fault is not established. The
+     consequence is that the sink half of a graph execution is unverified:
+     the runtime's report of delivery is its own account of its own work.
+   - **D4 — `control-center` and `api` serve no spec.** Reported on every
+     `symbia_list_operations` call. Neither may be meant to; decide, then
+     either serve one or stop listing them.
+   - **D5 — server-owned fields are stripped silently.** A create carrying
+     `isBootstrap: true` succeeds with no 400 and no warning.
+
 1. **There is no path from an edited bootstrap file to a running database.**
    *Corrected 11 Aug — the earlier entry described a mechanism that does not
    exist.* `seedFromDataFiles()` merges the snapshot and every bootstrap file
@@ -515,6 +539,12 @@ Moved to `docs/proposals/`. Nothing here exists in code.
 
 ## 8. Findings — recorded, not proposals
 
+Newest first: **`2026-08-16-session-close`** — four gap-closure tracks with
+their measurements, and the five defects they opened (D1–D5, §6 item 0).
+Probes and their registered predictions are in `experiments/imagine-security/`
+(`TRACKS.md`, `TRACK-2.md`) and `experiments/imagine-import/`
+(`PREDICTIONS.md`, `RESULTS.md`).
+
 In `docs/`, dated. Start with **`2026-08-10-lanes-claims-and-lineage`** — it is
 the conceptual spine: port lanes, the claims vocabulary, attestation levels and
 the GKS Lineage grounding, all describing shipped behaviour. Then
@@ -523,10 +553,9 @@ the GKS Lineage grounding, all describing shipped behaviour. Then
 
 ## 9. Git
 
-- Working branch `fix/2026-08-06-api-gaps`, **276 commits ahead of `main`**
-  (measured 15 Aug evening: `git rev-list --count main..HEAD`; the figure
-  was 176 at the 11 Aug measurement — this file does not get to carry
-  guesses.) Every GitHub release (`v1.0.0`–`v1.2.0`, Jan–Feb 2026)
+- Working branch `fix/2026-08-06-api-gaps`, **308 commits ahead of `main`**
+  (measured 16 Aug: `git rev-list --count main..HEAD`; 276 on 15 Aug, 176 on
+  11 Aug — this file does not get to carry guesses.) Every GitHub release (`v1.0.0`–`v1.2.0`, Jan–Feb 2026)
   predates the rebuild.
 - `work/2026-08-05-energy-and-honesty-repairs` — **stranded**, 25 commits never
   merged forward.

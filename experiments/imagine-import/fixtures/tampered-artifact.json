@@ -169,7 +169,8 @@
               "port": "in"
             }
           }
-        }
+        },
+        "injected": "a node nobody authored"
       },
       "currentVersion": 1,
       "createdAt": "2026-08-15T23:13:45.000Z",
