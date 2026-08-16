@@ -33,9 +33,14 @@ export const COMPONENT_KEY_PREFIX = 'components/';
  * 1.4.0: manifests are signed (docs/proposals/signed-composition.md §4). The
  * bump forces the reconcile pass to re-write every 1.3.0 entry, which is how
  * the existing unsigned manifests acquire signatures without a special case.
+ *
+ * 1.5.0: ports declare a `receipt` — the evidence the runtime requires before
+ * the port may carry its declared lane. Same reasoning as 1.4.0's bump: an
+ * existing 1.4.0 manifest would otherwise keep describing ports whose lane the
+ * runtime now enforces differently.
  */
 export const COMPONENT_CONTRACT_VERSION =
-  process.env.RUNTIME_COMPONENT_CONTRACT_VERSION ?? '1.4.0';
+  process.env.RUNTIME_COMPONENT_CONTRACT_VERSION ?? '1.5.0';
 
 /** Capability a caller must hold to execute a runtime component. */
 export const COMPONENT_CAPABILITY =
@@ -72,6 +77,19 @@ export interface ManifestPort {
   lane?: 'inherit' | 'canonical' | 'apocryphal' | 'conditional';
   /** What decides the lane. Present when lane is 'conditional'. */
   laneNote?: string;
+  /**
+   * Evidence the runtime requires before this port may carry its declared lane.
+   *
+   *   recipe   the operation and its resolved inputs, so the value can be
+   *            computed again by something that never saw this process
+   *   witness  a digest of the bytes as received, and where from
+   *   none     an explicit opt-out; `laneNote` says why
+   *
+   * A port declared `canonical` requires a recipe unless it says `none` here.
+   * The declaration was previously read by nobody: `normaliseEmission` took a
+   * boolean and the per-port block reached no code path (D20).
+   */
+  receipt?: 'recipe' | 'witness' | 'none';
 }
 
 export interface ManifestConfigField {
@@ -112,9 +130,17 @@ export function buildManifests(): ComponentManifest[] {
       // that here rather than asking each registration to repeat it keeps the
       // published contract consistent with what normaliseEmission actually does.
       const lane = declared?.lane ?? (c.emitsApocryphal ? 'apocryphal' : 'inherit');
-      return declared?.note
-        ? { name, lane, laneNote: declared.note }
-        : { name, lane };
+      // Publish the requirement the runtime will actually apply, including the
+      // one it derives: a canonical port that named no receipt still needs a
+      // recipe, and a reader of the contract should see that without knowing
+      // the defaulting rule.
+      const receipt = declared?.receipt ?? (lane === 'canonical' ? 'recipe' : undefined);
+      return {
+        name,
+        lane,
+        ...(declared?.note ? { laneNote: declared.note } : {}),
+        ...(receipt ? { receipt } : {}),
+      };
     }),
     config: c.config,
     capability: COMPONENT_CAPABILITY,
@@ -214,7 +240,8 @@ function portsEqual(a: ManifestPort[], b: ManifestPort[]): boolean {
     (p, i) =>
       p.name === b[i]?.name &&
       (p.lane ?? 'inherit') === (b[i]?.lane ?? 'inherit') &&
-      (p.laneNote ?? '') === (b[i]?.laneNote ?? '')
+      (p.laneNote ?? '') === (b[i]?.laneNote ?? '') &&
+      (p.receipt ?? 'none') === (b[i]?.receipt ?? 'none')
   );
 }
 

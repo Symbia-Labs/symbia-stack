@@ -37,12 +37,29 @@ export type ComponentImplKind =
 export const portLanes = ["inherit", "canonical", "apocryphal", "conditional"] as const;
 export type PortLane = (typeof portLanes)[number];
 
+/**
+ * What a port must ship as evidence for its lane.
+ *
+ *   recipe   the operation and its resolved inputs — enough to compute the
+ *            value again without the process that produced it.
+ *   witness  a digest of the bytes as received, and where from. You cannot
+ *            recompute a remote body; you can recognise the same bytes.
+ *   none     an explicit opt-out. `laneNote` must say why.
+ *
+ * Omission is the strict path: a port declared `canonical` requires a recipe
+ * unless it says otherwise here, so an unevidenced canonical claim cannot be
+ * made by forgetting to write anything down.
+ */
+export const receiptKinds = ["recipe", "witness", "none"] as const;
+export type ReceiptKind = (typeof receiptKinds)[number];
+
 export interface ComponentPort {
   name: string;
   schema?: Record<string, unknown>; // JSON Schema for the port payload (optional)
   required?: boolean;
   lane?: PortLane;                  // absent means "inherit"
   laneNote?: string;                // what decides it, when lane is "conditional"
+  receipt?: ReceiptKind;            // evidence the runtime requires for the lane
 }
 
 /**
@@ -83,6 +100,7 @@ export const componentPortSchema = z.object({
   required: z.boolean().optional(),
   lane: z.enum(portLanes).optional(),
   laneNote: z.string().optional(),
+  receipt: z.enum(receiptKinds).optional(),
 });
 export const componentConfigFieldSchema = z.object({
   type: z.enum(["string", "number", "boolean", "object", "array"]),

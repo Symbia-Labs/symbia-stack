@@ -19,14 +19,47 @@
  * reference implementation, flags left to author discipline were dropped at
  * two separate nodes, while the lane rule never once broke.
  */
+import { createHash } from 'node:crypto';
 import { preview } from './preview.js';
 import { safeFetch } from '@symbia/egress';
 
 export type Lane = 'canonical' | 'apocryphal';
 
+/**
+ * What a value ships alongside itself so a reader need not trust the runtime.
+ *
+ *   recipe   the operation and its resolved inputs, enough to compute the value
+ *            again without this process. The receipt for a canonical value.
+ *   witness  a digest of the bytes as they arrived, and where from. You cannot
+ *            recompute a remote body; you can prove you received these bytes.
+ *
+ * A lane says what KIND of thing a value is. A receipt is the evidence for the
+ * lane. Until this existed, `symbia.compute.arithmetic` shipped its expression
+ * inside `value` because its author chose to, and nothing else shipped anything.
+ */
+export type ReceiptKind = 'recipe' | 'witness';
+
+export interface Receipt {
+  kind: ReceiptKind;
+  /** What produced the value: a component id, a URL, a model identity. */
+  source: string;
+  /** Present when kind is 'recipe'. Enough to redo the work elsewhere. */
+  recipe?: { operation: string; inputs: Record<string, unknown> };
+  /** Present when kind is 'witness'. Enough to recognise the same bytes again. */
+  witness?: { algorithm: string; digest: string; bytes?: number; transport?: string };
+}
+
 export interface FlowValue {
   value: unknown;
   lane: Lane;
+  /** Evidence for the lane. Required for a declared-canonical port. */
+  receipt?: Receipt;
+  /**
+   * Set by the executor when it assigned a lane the handler did not ask for.
+   * A downgrade that says nothing is indistinguishable from a component that
+   * was always apocryphal.
+   */
+  laneReason?: string;
 }
 
 export interface ComponentContext {
@@ -89,6 +122,19 @@ export interface PortLaneDeclaration {
   lane: PortLane;
   /** Required when lane is 'conditional'. */
   note?: string;
+  /**
+   * What this port must ship as evidence.
+   *
+   * OMISSION IS THE STRICT PATH. A port declared `canonical` requires a
+   * `recipe` receipt unless it declares `receipt: 'none'` — and an opt-out
+   * needs a `note`, so it is recorded in the public contract rather than
+   * achieved by forgetting. A port that declares canonical and emits without
+   * evidence is downgraded to apocryphal, and `laneReason` says so.
+   *
+   * The same shape as `symbia.state.rollup`: a partial total does not become
+   * a refusal, it becomes apocryphal. No new failure path, one fewer claim.
+   */
+  receipt?: ReceiptKind | 'none';
 }
 
 export interface ComponentDefinition {
@@ -136,12 +182,32 @@ export function listComponents(): Omit<ComponentDefinition, 'handler'>[] {
   return Array.from(registry.values()).map(({ handler: _h, ...rest }) => rest);
 }
 
-/** Normalise a handler's return into FlowValues, tightening the lane. */
+/**
+ * Normalise a handler's return into FlowValues, tightening the lane.
+ *
+ * WHY THIS TAKES THE COMPONENT. It used to take a boolean, so the per-port
+ * `lanes` block — the thing published in the manifest as the public contract —
+ * was never consulted here. Exactly one component set the boolean, and every
+ * other declaration was enforced by its handler restating the lane by hand at
+ * each return; `symbia.compute.arithmetic` does it five times. Measured 16 Aug
+ * as D20: `symbia.state.aggregate`'s `pending` port declares apocryphal and
+ * emitted canonical, because its handler returns a bare value and the
+ * declaration reached nothing.
+ *
+ * The declaration is now the enforcement point. A handler may still tighten;
+ * it can no longer widen, and it can no longer contradict its own manifest.
+ */
 export function normaliseEmission(
   emitted: Record<string, FlowValue | unknown>,
   incoming: FlowValue,
-  forceApocryphal = false
+  component?: Pick<ComponentDefinition, 'id' | 'emitsApocryphal' | 'lanes'> | boolean
 ): Record<string, FlowValue> {
+  // Callers predating the manifest passed a boolean. Kept so a component
+  // registered through POST /api/components does not have to know about this.
+  const legacyForce = component === true;
+  const def = typeof component === 'object' ? component : undefined;
+  const force = legacyForce || def?.emitsApocryphal === true;
+
   const out: Record<string, FlowValue> = {};
   for (const [port, raw] of Object.entries(emitted ?? {})) {
     const isFlow =
@@ -149,12 +215,42 @@ export function normaliseEmission(
     const candidate: FlowValue = isFlow
       ? (raw as FlowValue)
       : { value: raw, lane: incoming.lane };
-    // Lanes only tighten. Never widen back to canonical.
-    const lane: Lane =
-      incoming.lane === 'apocryphal' || forceApocryphal || candidate.lane === 'apocryphal'
+
+    const decl = def?.lanes?.[port];
+    let lane: Lane =
+      incoming.lane === 'apocryphal' || force || candidate.lane === 'apocryphal'
         ? 'apocryphal'
         : 'canonical';
-    out[port] = { value: candidate.value, lane };
+    let laneReason: string | undefined;
+
+    if (incoming.lane === 'apocryphal') {
+      laneReason = 'the input arrived apocryphal; lanes only tighten';
+    } else if (force) {
+      laneReason = `${def?.id ?? 'this component'} declares that it cannot emit a recomputable value`;
+    }
+
+    // A declared apocryphal port is apocryphal whatever the handler returned.
+    if (decl?.lane === 'apocryphal' && lane === 'canonical') {
+      lane = 'apocryphal';
+      laneReason = decl.note ?? `port "${port}" is declared apocryphal in the manifest`;
+    }
+
+    // NO RECEIPT, NO CANONICAL.
+    const wants: ReceiptKind | 'none' | undefined =
+      decl?.lane === 'canonical' ? (decl.receipt ?? 'recipe') : decl?.receipt;
+    if (lane === 'canonical' && wants && wants !== 'none' && !candidate.receipt) {
+      lane = 'apocryphal';
+      laneReason =
+        `port "${port}" is declared canonical and requires a ${wants} receipt; ` +
+        `none was emitted, so the value is not verifiable by recomputation`;
+    }
+
+    out[port] = {
+      value: candidate.value,
+      lane,
+      ...(candidate.receipt ? { receipt: candidate.receipt } : {}),
+      ...(laneReason && lane !== candidate.lane ? { laneReason } : {}),
+    };
   }
   return out;
 }
@@ -327,7 +423,11 @@ registerComponent({
     },
   },
   lanes: {
-    out: { lane: 'canonical', note: 'recomputable from the expression and its inputs' },
+    out: {
+      lane: 'canonical',
+      receipt: 'recipe',
+      note: 'recomputable from the expression and its inputs, which the receipt carries',
+    },
     error: { lane: 'apocryphal', note: 'a refusal is not a recomputable value' },
   },
   handler: (input, ctx) => {
@@ -420,10 +520,21 @@ registerComponent({
         };
       }
 
+      // The recipe was already in `value` — `expression: filled` — because this
+      // component's author put it there. Moving it into a receipt is what makes
+      // it checkable by something that does not know what arithmetic is.
       return {
         out: {
           value: { result, method: 'arithmetic', expression: filled, exact: true },
           lane: 'canonical' as Lane,
+          receipt: {
+            kind: 'recipe',
+            source: 'symbia.compute.arithmetic',
+            recipe: {
+              operation: expr,
+              inputs: Object.fromEntries(referenced.map((k) => [k, src[k]])),
+            },
+          },
         },
       };
     } catch (e) {
@@ -452,7 +563,11 @@ registerComponent({
     },
   },
   lanes: {
-    out: { lane: 'apocryphal', note: 'a remote body cannot be recomputed from the graph' },
+    out: {
+      lane: 'apocryphal',
+      receipt: 'witness',
+      note: 'a remote body cannot be recomputed from the graph; the witness records which bytes arrived, from where',
+    },
     error: { lane: 'apocryphal' },
   },
   handler: async (_input, ctx) => {
@@ -466,8 +581,24 @@ registerComponent({
       const text = await res.text();
       let body: unknown = text;
       try { body = JSON.parse(text); } catch { /* keep text */ }
+      // A witness over the bytes AS RECEIVED, before the JSON.parse above,
+      // because the parse is lossy about whitespace and key order and the
+      // thing worth recognising again is what came off the wire.
       return {
-        out: { value: { status: res.status, body }, lane: 'apocryphal' as Lane },
+        out: {
+          value: { status: res.status, body },
+          lane: 'apocryphal' as Lane,
+          receipt: {
+            kind: 'witness',
+            source: url,
+            witness: {
+              algorithm: 'sha256',
+              digest: createHash('sha256').update(text).digest('hex'),
+              bytes: Buffer.byteLength(text),
+              transport: `${method} ${res.status}`,
+            },
+          },
+        },
       };
     } catch (e) {
       return { error: { value: { error: (e as Error).message }, lane: 'apocryphal' as Lane } };

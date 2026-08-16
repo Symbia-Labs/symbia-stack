@@ -36,6 +36,10 @@ export interface TraceEntry {
   lane: 'canonical' | 'apocryphal';
   ms: number;
   summary: string;
+  /** Which kind of evidence the value shipped, when it shipped any. */
+  receipt?: 'recipe' | 'witness';
+  /** Why the executor assigned a lane the handler did not ask for. */
+  laneReason?: string;
 }
 
 /**
@@ -94,18 +98,45 @@ export class GraphExecutor extends EventEmitter {
       const cfg = (node.config ?? {}) as Record<string, unknown>;
       const intervalMs = Math.max(100, Number(cfg.intervalMs ?? 5000));
       let tick = 0;
+
+      // t(0) FOR THIS EXECUTION. One clock reading, taken once.
+      //
+      // Each tick used to carry `ts: new Date().toISOString()` — a fresh
+      // wall-clock reading per tick, on a port declared canonical, with
+      // nothing marking it as a reading. A clock cannot be recomputed from the
+      // graph, so every tick was an apocryphal value travelling on a canonical
+      // declaration, and the declaration reached no code that could object.
+      //
+      // The tick's position in the sequence IS recomputable: t0 + n·interval.
+      // That is what the recipe carries, and it is the whole value now. The
+      // one reading is recorded once, as the anchor the offsets are measured
+      // from, and it is what the frame is for.
+      const t0 = new Date().toISOString();
+
       handles.push(setInterval(() => {
         const current = this.executions.get(execution.id);
         if (!current || current.state !== 'running') return;
         tick += 1;
         const payload = {
           tick,
-          ts: new Date().toISOString(),
+          // Offset from the anchor, not a reading. `setInterval` drifts, so
+          // this is where the tick BELONGS in the spine, which is a different
+          // and more defensible claim than when it happened to fire.
+          offsetMs: tick * intervalMs,
+          t0,
           ...((cfg.payload as Record<string, unknown>) ?? {}),
         };
         void this.runFlow(current, graph, node.id, 'in', {
           value: payload,
           lane: 'canonical',
+          receipt: {
+            kind: 'recipe',
+            source: TIMER_COMPONENT,
+            recipe: {
+              operation: 't0 + n * intervalMs',
+              inputs: { t0, intervalMs, n: tick },
+            },
+          },
         }).catch((err) => {
           console.error(`[GraphExecutor] timer flow failed (${node.id}):`, err);
         });
@@ -260,7 +291,11 @@ export class GraphExecutor extends EventEmitter {
             config: (node.config ?? {}) as Record<string, unknown>,
             log: (m) => trace.push({ node: nodeId, port: 'log', lane: msg.lane, ms: 0, summary: m }),
           });
-          emitted = normaliseEmission(raw, msg, component.emitsApocryphal);
+          // The COMPONENT, not a boolean. Its per-port `lanes` block is the
+          // published contract; passing only `emitsApocryphal` meant the
+          // contract was enforced by whichever handler remembered to restate
+          // it. See normaliseEmission for what that cost (D20, 16 Aug).
+          emitted = normaliseEmission(raw, msg, component);
         } catch (err) {
           execution.metrics.errorCount++;
           emitted = {
@@ -286,6 +321,8 @@ export class GraphExecutor extends EventEmitter {
             lane: outMsg.lane,
             ms,
             summary: preview(outMsg.value, 160),
+            ...(outMsg.receipt ? { receipt: outMsg.receipt.kind } : {}),
+            ...(outMsg.laneReason ? { laneReason: outMsg.laneReason } : {}),
           });
 
           const targets = edgesFrom.get(`${nodeId}:${port}`) ?? [];
