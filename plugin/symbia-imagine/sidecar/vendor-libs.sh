@@ -15,7 +15,17 @@
 set -euo pipefail
 cd "$(dirname "$0")"
 root="../.."
-out="vendor/@symbia"
+# FLAT NAMES, NO "@" ANYWHERE IN A SHIPPED PATH.
+#
+# These lived at vendor/@symbia/<name> because that mirrors how Node lays out a
+# scoped package. Measured 16 Aug: the plugin archive was refused on install
+# with "Zip file contains path with invalid characters" — 281 of 320 entries,
+# and the only offending character in any of them was the "@".
+#
+# The scope still exists where it matters. Each package.json inside declares
+# its own name as @symbia/<name>, so npm installs it to node_modules/@symbia/
+# regardless of the directory it was read from. Only the shipped path changes.
+out="vendor"
 mkdir -p "$out"
 # ONLY WHAT IS ACTUALLY IMPORTED.
 #
@@ -35,11 +45,14 @@ for name in $wanted; do
   link="$root/node_modules/@symbia/$name"
   target=$(cd "$link" 2>/dev/null && pwd) || { echo "  MISSING @symbia/$name"; continue; }
   [ -d "$target/dist" ] || continue
-  rm -rf "${out:?}/$name"
-  mkdir -p "$out/$name"
-  cp -R "$target/dist" "$out/$name/dist"
-  rm -rf "$out/$name/dist/node_modules"
-  cp "$target/package.json" "$out/$name/package.json"
+  rm -rf "${out:?}/symbia-$name"
+  mkdir -p "$out/symbia-$name"
+  cp -R "$target/dist" "$out/symbia-$name/dist"
+  # Every node_modules under a vendored package, not just the one under dist.
+  # A nested @types directory survived the first prune and put "@" back into
+  # 350 archive paths — the same refusal, one level deeper.
+  find "$out/symbia-$name" -name node_modules -type d -prune -exec rm -rf {} + 2>/dev/null || true
+  cp "$target/package.json" "$out/symbia-$name/package.json"
   n=$((n+1))
 done
 echo "vendored $n @symbia libraries into $out"

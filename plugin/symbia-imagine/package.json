@@ -14,7 +14,8 @@
     "The bundles in ./services/ keep third-party packages external \u2014 node-llama-cpp is native and cannot be bundled \u2014 and Node resolves those from the importing file upward. Emitting a bundle into a directory with nothing to resolve against fails at import, which is what 01-bundle-routes.sh's comment records from 15 Aug.",
     "Measured 16 Aug: with the bundles copied here and nothing else changed, 8 of 10 failed to resolve and directory and models succeeded. The survivors were an accident of which packages happen to sit in the workspace root, not a property of those services.",
     "The dependencies below are the union of what the ten bundles import and could not find. Declaring them here is what lets ./services/ be the mount point, which is what lets this directory leave the machine it was built on.",
-    "Builtins left unprefixed by esbuild (child_process, crypto, events, fs, path, url) resolve without declaration and are deliberately absent below."
+    "Builtins left unprefixed by esbuild (child_process, crypto, events, fs, path, url) resolve without declaration and are deliberately absent below.",
+    "Vendored libraries live at vendor/symbia-<name>, not vendor/@symbia/<name>: a plugin archive containing '@' in any path is refused on install. Each package.json inside still declares the scoped name, so npm places them under node_modules/@symbia."
   ],
   "dependencies": {
     "bcryptjs": "^2.4.3",
@@ -31,19 +32,20 @@
     "pg": "^8.13.1",
     "zod": "^3.24.1",
     "node-llama-cpp": "^3.3.2",
-    "@symbia/auth": "file:./vendor/@symbia/auth",
-    "@symbia/crypto": "file:./vendor/@symbia/crypto",
-    "@symbia/db": "file:./vendor/@symbia/db",
-    "@symbia/egress": "file:./vendor/@symbia/egress",
-    "@symbia/id": "file:./vendor/@symbia/id",
-    "@symbia/lineage": "file:./vendor/@symbia/lineage",
-    "@symbia/logging-client": "file:./vendor/@symbia/logging-client",
-    "@symbia/md": "file:./vendor/@symbia/md",
-    "@symbia/messaging-client": "file:./vendor/@symbia/messaging-client",
-    "@symbia/pathguard": "file:./vendor/@symbia/pathguard",
-    "@symbia/redact": "file:./vendor/@symbia/redact",
-    "@symbia/relay": "file:./vendor/@symbia/relay",
-    "@symbia/seed": "file:./vendor/@symbia/seed",
-    "@symbia/sys": "file:./vendor/@symbia/sys"
+    "@symbia/auth": "file:./vendor/symbia-auth",
+    "@symbia/crypto": "file:./vendor/symbia-crypto",
+    "@symbia/db": "file:./vendor/symbia-db",
+    "@symbia/egress": "file:./vendor/symbia-egress",
+    "@symbia/id": "file:./vendor/symbia-id",
+    "@symbia/lineage": "file:./vendor/symbia-lineage",
+    "@symbia/logging-client": "file:./vendor/symbia-logging-client",
+    "@symbia/md": "file:./vendor/symbia-md",
+    "@symbia/messaging-client": "file:./vendor/symbia-messaging-client",
+    "@symbia/pathguard": "file:./vendor/symbia-pathguard",
+    "@symbia/redact": "file:./vendor/symbia-redact",
+    "@symbia/relay": "file:./vendor/symbia-relay",
+    "@symbia/seed": "file:./vendor/symbia-seed",
+    "@symbia/sys": "file:./vendor/symbia-sys",
+    "cookie-parser": "^1.4.7"
   }
 }
