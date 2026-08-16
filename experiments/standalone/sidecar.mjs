@@ -28,6 +28,8 @@ import { createServer } from "node:http";
 import { readFileSync, readdirSync, existsSync } from "node:fs";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
+import { mkdirSync, writeFileSync } from "node:fs";
+import { createSessionLedger } from "./session-ledger.mjs";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const repo = join(here, "..", "..");
@@ -45,19 +47,92 @@ process.env.NODE_ENV = process.env.NODE_ENV || "development";
 process.env.SESSION_SECRET =
   process.env.SESSION_SECRET || `imagine-${Math.random().toString(36).slice(2)}`;
 process.env.MODELS_PATH = process.env.MODELS_PATH || join(repo, "experiments/standalone/.models");
+// LAX ABOUT CANON, STRICT ABOUT RECORDING (ruling 15 Aug).
+// The whole session is apocryphal, so enforcing lane and manifest
+// contracts here would police a distinction that does not apply yet.
+// Design mode postprocesses the exported bundle; that is where claims get
+// checked. Imagine's job is to let a client build whatever the APIs
+// allow — and to record every bit of it.
+process.env.RUNTIME_MANIFEST_ENFORCEMENT = process.env.RUNTIME_MANIFEST_ENFORCEMENT || "off";
+process.env.SYMBIA_ENFORCEMENT = "off";
+
+const sessionDir = join(here, ".session");
+mkdirSync(sessionDir, { recursive: true });
+const ledger = createSessionLedger({
+  path: join(sessionDir, "ledger.jsonl"),
+  pubKeyPath: join(sessionDir, "session.pub.pem"),
+});
 
 const app = express();
 const httpServer = createServer(app);
 const mounted = [];
 
+// Recorded before anything is routed, so a mutation is in the trace even
+// when the service it addressed refused it or does not exist.
+app.use(express.json({ limit: "10mb" }));
+app.use(ledger.middleware);
+
 app.get("/", (_req, res) =>
   res.json({
     mode: "imagine",
     transport: "stdio-mcp",
-    warning: "in-memory, unsigned, restart-lossy — not a record",
+    enforcement: "off — canon is checked when this is grounded, not here",
+    warning: "in-memory, ephemeral keys, restart-lossy — a sketch, not a record",
     services: mounted,
+    session: ledger.summary,
   })
 );
+
+// The session trace: every mutation this sidecar saw, signed and chained.
+app.get("/session", (_req, res) =>
+  res.json({ mode: "imagine", ...ledger.summary, entries: ledger.read() })
+);
+
+/**
+ * Seal the session: artifacts + trace + the public key that verifies it.
+ *
+ * This is the imagine -> design handoff in one file. It asserts only that
+ * these bytes came from this session unaltered; it asserts nothing about
+ * authorship or soundness, because the signing key is ephemeral and
+ * travels inside the bundle. Design mode postprocesses it.
+ */
+app.post("/session/seal", async (_req, res) => {
+  try {
+    const catalogUrl = process.env.CATALOG_SERVICE_URL;
+    const rows = catalogUrl
+      ? await fetch(`${catalogUrl}/api/resources`, { headers: { "X-Service-Auth": "internal" } })
+          .then((r) => (r.ok ? r.json() : []))
+          .catch(() => [])
+      : [];
+    // Authored, not seeded: isBootstrap is the boundary between what the
+    // sandbox shipped with and what this session made.
+    const authored = Array.isArray(rows) ? rows.filter((r) => r.isBootstrap === false) : [];
+    const bundle = {
+      mode: "imagine",
+      sealedAt: new Date().toISOString(),
+      session: ledger.summary,
+      publicKeyPem: ledger.publicKeyPem,
+      claim: {
+        asserts: "These artifacts and this trace came from one imagine session, unaltered since sealing.",
+        does_not_assert:
+          "Anything about who ran the session, whether the artifacts are sound, or whether their declared lanes are true. The signing key is ephemeral and travels inside the bundle; ground it to find out.",
+      },
+      authoredCount: authored.length,
+      artifacts: authored,
+      trace: ledger.read(),
+    };
+    const sealEvent = ledger.append("imagine.session.sealed", {
+      authoredCount: authored.length,
+      traceEntries: bundle.trace.length,
+    });
+    bundle.seal = { eventId: sealEvent.event_id, checksum: sealEvent.checksum };
+    const out = join(sessionDir, `bundle-${Date.now()}.json`);
+    writeFileSync(out, JSON.stringify(bundle, null, 2));
+    res.json({ mode: "imagine", sealed: out, authoredCount: authored.length, traceEntries: bundle.trace.length, seal: bundle.seal });
+  } catch (err) {
+    res.status(500).json({ error: err instanceof Error ? err.message : String(err) });
+  }
+});
 
 async function mount(id, spec, attach) {
   const sub = express();

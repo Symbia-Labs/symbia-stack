@@ -77,3 +77,6 @@ __pycache__/
 
 # sidecar in-memory model dir
 experiments/standalone/.models/
+
+# imagine session artifacts
+experiments/standalone/.session/
