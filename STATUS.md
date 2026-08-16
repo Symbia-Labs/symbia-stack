@@ -318,6 +318,14 @@ One day's arc, every stage measured against running code; records in
      either serve one or stop listing them.
    - **D5 — server-owned fields are stripped silently.** A create carrying
      `isBootstrap: true` succeeds with no 400 and no warning.
+   - **D8 — FIXED same day.** There was no takedown at all: no SIGTERM,
+     SIGINT or stdin handler, and `runtime`'s exported `stop()` was never
+     called. Worse, the ledger had no terminator, so an ended session, a
+     killed one, and a deliberately truncated trace were byte-identical to
+     a verifier — a truncated chain is a valid chain. Events now carry a
+     signed `seq`, an `imagine.session.closed` event declares the total on
+     the way out, and `completenessOf()` reports "24 of 27, partial" the
+     way `_truncated` and `unavailable[]` already do. 7/7 predictions held.
    - **D6 — FIXED same day, but read it.** Every imagine sidecar wrote to
      one `.session/ledger.jsonl`, truncating on start and then appending, so
      one file held 185 events under three session identities and a sealed

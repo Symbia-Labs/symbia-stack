@@ -141,6 +141,66 @@ sessions live at once throughout:
 The stale unscoped `ledger.jsonl` is left in place with no writer. It is
 the pre-fix artifact and any bundle referencing it is refused.
 
+### D8 — there was no takedown, and a trace had no terminator — FIXED 16 Aug
+
+Brian, on being told the connector runs two sidecars: *"I would have thought
+there would be some takedown process."* There was none. The complete list of
+handlers in `sidecar.mjs` was `uncaughtException` and `unhandledRejection`.
+No SIGTERM, no SIGINT, nothing for stdin closing — and `runtime/service.ts`
+had exported a `stop()` since 15 Aug that nothing ever called.
+
+Operationally that was survivable: imagine is ephemeral and nothing was
+meant to persist. The provenance consequence was not. **A hash chain proves
+each event follows the one before it. It cannot prove the last event you
+hold is the last event written** — a truncated chain is a valid chain. So
+these three were byte-identical to a verifier:
+
+- a session that ended
+- a session killed mid-write
+- a trace someone cut the tail off
+
+Ruling (Brian): *"we already handle missing items in other functions — we
+just need to be clear about 23/87 steps or similar."* Report the count, do
+not refuse. Same shape as `_truncated: {of, shown}` in `symbia_call` and
+`unavailable: [...]` in `symbia_list_operations`.
+
+Three parts:
+
+- **Every event carries `seq`**, inside the signed payload, so a position
+  cannot be forged and a gap in the middle is detectable.
+- **`imagine.session.closed`** is appended on SIGTERM, SIGINT, or stdin
+  closing, declaring a total equal to its own seq. Services exporting
+  `stop()` are stopped first.
+- **`completenessOf()`** reports `held`, `declared`, `gaps` and a state.
+  `sealed` and `closed` both declare a total but mean different things: a
+  seal is a cut taken while the session continues, a close is an ending.
+  Counting only `closed` would have made every bundle ever produced report
+  "unterminated", which is noise on every artifact rather than a warning on
+  the ones that matter.
+
+Measured, predictions in `07-takedown.mjs` committed at `257897d` before the
+run — **7/7 held**:
+
+```
+K1 closed on "SIGTERM" after 27 events
+K2 declared total 27, own seq 27
+K3 seqs 1..27, contiguous
+K4 mid-session slice -> unterminated, complete: false
+K5 events cut from the middle -> gap reported between seq 5 and 9
+K6 events cut from the TAIL -> 24 of 27, partial
+K7 stopped runtime before the ledger closed
+```
+
+K6 is the one the chain alone could never catch. A bundle now reads:
+
+```
+chain     VERIFIED — 40 events, head 593fbcc8bca696ed…
+artifacts VERIFIED — 19 match the digest sealed into the chain
+trace     SEALED — 40 of 40 events — everything up to the seal.
+          The session continued after this point; a bundle is a cut,
+          not an ending.
+```
+
 ## Not established
 
 Import against a deployed stack. The Track 4 target was a second sidecar —

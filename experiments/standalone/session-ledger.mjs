@@ -39,8 +39,19 @@ const sha = (v) =>
  * "refused".
  */
 export function completenessOf(events) {
-  const closing = events.find((e) => e.event_type === "imagine.session.closed");
+  // TWO EVENTS CAN DECLARE A TOTAL, AND THEY MEAN DIFFERENT THINGS.
+  //
+  // `closed` means the session ended and this is all of it. `sealed` means
+  // a bundle was cut at that point while the session kept running — which
+  // is the normal way a bundle is made, since the seal endpoint is
+  // reachable at any time. Without counting `sealed`, every bundle ever
+  // produced would report "unterminated" and the signal would be noise on
+  // every artifact instead of a warning on the ones that matter.
+  const closing = [...events].reverse().find(
+    (e) => e.event_type === "imagine.session.closed" || e.event_type === "imagine.session.sealed"
+  );
   const declared = closing?.payload?.total ?? null;
+  const sealedNotClosed = closing?.event_type === "imagine.session.sealed";
   const seqs = events.map((e) => e.payload?.seq).filter((n) => Number.isInteger(n));
   const gaps = [];
   for (let i = 1; i < seqs.length; i += 1) {
@@ -63,18 +74,21 @@ export function completenessOf(events) {
       },
     };
   }
+  const whole = held === declared && gaps.length === 0;
   return {
     completeness: {
       held,
       declared,
-      complete: held === declared && gaps.length === 0,
+      complete: whole,
       gaps,
-      state: held === declared && gaps.length === 0 ? "complete" : "partial",
-      note:
-        held === declared && gaps.length === 0
-          ? `${held} of ${declared} events — the whole session.`
-          : `${held} of ${declared} events${gaps.length ? `, ${gaps.length} gap(s)` : ""}. ` +
-            `The session declared ${declared}; this file holds ${held}.`,
+      state: whole ? (sealedNotClosed ? "sealed" : "complete") : "partial",
+      note: whole
+        ? sealedNotClosed
+          ? `${held} of ${declared} events — everything up to the seal. The session ` +
+            `continued after this point; a bundle is a cut, not an ending.`
+          : `${held} of ${declared} events — the whole session, closed.`
+        : `${held} of ${declared} events${gaps.length ? `, ${gaps.length} gap(s)` : ""}. ` +
+          `The trace declared ${declared}; this holds ${held}.`,
     },
   };
 }

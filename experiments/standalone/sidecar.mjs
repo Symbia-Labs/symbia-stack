@@ -177,6 +177,12 @@ app.post("/session/seal", async (_req, res) => {
       authoredCount: authored.length,
       traceEntries: bundle.trace.length,
       artifactsDigest,
+      // The seal declares its own position as the total, so a bundle cut
+      // here reads "40 of 40 at the seal" rather than "unterminated". A
+      // session that is later killed still writes a closing event with a
+      // higher total; the two do not conflict, they date-stamp different
+      // moments.
+      total: ledger.summary.entries + 1,
     });
     bundle.seal = { eventId: sealEvent.event_id, checksum: sealEvent.checksum, artifactsDigest };
     // Check the claim before making it. A bundle that fails its own chain
