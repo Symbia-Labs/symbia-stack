@@ -274,16 +274,34 @@ app.post("/session/seal", async (_req, res) => {
     //   integration  createdBy=null              isBootstrap=true    23
     //   component    createdBy=service:internal  isBootstrap=false   16
     //   context      createdBy=<user uuid>       isBootstrap=false    1
+    // AUTHORSHIP IS NOT CAUSATION, AND A BUNDLE NEEDS BOTH.
+    //
+    // The first version excluded every service-authored row, which was right
+    // for the runtime's boot-time component manifests and wrong for
+    // everything a client CAUSES a service to write. Measured 16 Aug: a
+    // model pulled through the API registered its card under
+    // `service:internal`, so the model this session acquired was absent from
+    // the bundle while the pull sat in the trace at seq 18. A recipient
+    // could see that a model was fetched and not which one.
+    //
+    // The line is boot. A service writing before boot completed is
+    // furniture; a service writing after it is acting on a client's
+    // instruction, because nothing else is acting.
+    const bootAt = globalThis.__imagineBootCompletedAt;
+    const attribute = (r) => {
+      if (r.isBootstrap) return null;
+      if (!r.createdBy) return null;
+      if (!String(r.createdBy).startsWith("service:")) return "client";
+      if (bootAt && r.createdAt && new Date(r.createdAt) > new Date(bootAt)) return "caused";
+      return null;
+    };
     const authored = Array.isArray(rows)
-      ? rows.filter((r) => {
-          if (r.isBootstrap) return false;
-          // No author recorded: either seed data or a row written before
-          // authorship existed. Neither is this session's work.
-          if (!r.createdBy) return false;
-          // A service registering its own manifests is not a client authoring.
-          if (String(r.createdBy).startsWith("service:")) return false;
-          return true;
-        })
+      ? rows
+          .map((r) => ({ r, how: attribute(r) }))
+          .filter((x) => x.how !== null)
+          // Each artifact says how it got here, so a reader can tell a thing
+          // the client wrote from a thing the client caused a service to write.
+          .map(({ r, how }) => ({ ...r, attribution: how }))
       : [];
     // THE ARTIFACTS MUST BE INSIDE THE SEAL, NOT BESIDE IT.
     //
@@ -561,6 +579,12 @@ if (!process.env.IMAGINE_HOST_MODE) {
 }
 
 ready = true;
+// Everything a service registers before this instant is furniture: the
+// runtime's 16 component manifests, the seed, the network entries. Anything
+// a service registers AFTER it was caused by a client request, because the
+// client is the only thing that acts once boot is done.
+const bootCompletedAt = new Date().toISOString();
+globalThis.__imagineBootCompletedAt = bootCompletedAt;
 
 if (process.env.IMAGINE_HOST_MODE) {
   // HOST MODE. No MCP here — a shim owns that, in the process Claude
