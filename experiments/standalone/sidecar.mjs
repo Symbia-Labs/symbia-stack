@@ -339,7 +339,11 @@ async function mount(id, spec, attach) {
 // behind it. Every authenticated write then failed 403 — the token was
 // valid and the verifier was talking to no one.
 const port = await new Promise((resolve) => {
-  httpServer.listen(0, "127.0.0.1", () => resolve(httpServer.address().port));
+  // Ephemeral by default. In HOST mode a fixed port is used so a shim can
+  // find the stack again after the host restarts — an ephemeral port would
+  // move on every restart, which is the thing this split exists to avoid.
+  const wanted = process.env.IMAGINE_HOST_MODE ? Number(process.env.IMAGINE_HOST_PORT || 7717) : 0;
+  httpServer.listen(wanted, "127.0.0.1", () => resolve(httpServer.address().port));
 });
 const BASE = `http://127.0.0.1:${port}`;
 log(`services on ${BASE} (ephemeral, loopback only)`);
@@ -467,7 +471,7 @@ process.env.SYMBIA_PASSWORD = IMAGINE_PASSWORD;
 // written. Declaring the total on the way out turns "trust this trace" into
 // "23 of 87", which a reader can act on.
 let shuttingDown = false;
-async function takedown(reason, code = 0) {
+let takedown = async (reason, code = 0) => {
   if (shuttingDown) return;
   shuttingDown = true;
   log(`takedown (${reason})`);
@@ -493,15 +497,36 @@ async function takedown(reason, code = 0) {
   }
 
   process.exit(code);
-}
+};
 
 process.on("SIGTERM", () => void takedown("SIGTERM"));
 process.on("SIGINT", () => void takedown("SIGINT"));
 // The client going away is the ordinary end of an imagine session, not an
 // error. Without this the common case — Claude Desktop closing — is the one
 // that never writes a closing event.
-process.stdin.on("close", () => void takedown("stdin closed"));
-process.stdin.on("end", () => void takedown("stdin ended"));
+if (!process.env.IMAGINE_HOST_MODE) {
+  // Only a shim has a client on stdin. A host is nobody's child.
+  process.stdin.on("close", () => void takedown("stdin closed"));
+  process.stdin.on("end", () => void takedown("stdin ended"));
+}
 
-log("starting MCP on stdio — stdout is the protocol from here");
-await import("../../symbia-mcp-server/dist/index.js");
+if (process.env.IMAGINE_HOST_MODE) {
+  // HOST MODE. No MCP here — a shim owns that, in the process Claude
+  // Desktop spawned. Publish the address and stay up.
+  const { ADDRESS_FILE, clearAddress } = await import("./host.mjs");
+  writeFileSync(ADDRESS_FILE, JSON.stringify({
+    base: BASE,
+    pid: process.pid,
+    session: ledger.summary.actor,
+    startedAt: new Date().toISOString(),
+  }, null, 2));
+  // Removed on the way out so a stale file is a signal that the host died
+  // badly rather than a lie about where to connect.
+  const wasTakedown = takedown;
+  takedown = async (reason, code = 0) => { clearAddress(); return wasTakedown(reason, code); };
+  log(`host mode: stack on ${BASE}, address at ${ADDRESS_FILE}`);
+  log("no MCP in this process — start a shim to attach a client");
+} else {
+  log("starting MCP on stdio — stdout is the protocol from here");
+  await import("../../symbia-mcp-server/dist/index.js");
+}
