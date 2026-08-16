@@ -69,6 +69,7 @@ async function mount(id, spec, attach) {
     app.use(`/svc/${id}`, sub);
     mounted.push({ id, ok: true });
     log(`mounted /svc/${id}`);
+    return mod;
   } catch (err) {
     const detail = err instanceof Error ? err.message : String(err);
     mounted.push({ id, ok: false, error: detail });
@@ -85,8 +86,8 @@ async function mount(id, spec, attach) {
 // messaging, runtime, network, service-admin — build their routes inline
 // inside index.ts and export nothing, so there is no module to import.
 // Counted rather than glossed: that ratio IS the PS4 finding.
-await mount("identity", "../../identity/.standalone-routes.mjs");
-await mount("catalog", "../../catalog/.standalone-routes.mjs");
+const identityMod = await mount("identity", "../../identity/.standalone-routes.mjs");
+const catalogMod = await mount("catalog", "../../catalog/.standalone-routes.mjs");
 await mount("integrations", "../../integrations/.standalone-routes.mjs");
 await mount("models", "../../models/.standalone-routes.mjs");
 await mount("logging", "../../logging/.standalone-routes.mjs");
@@ -99,6 +100,7 @@ await mount("directory", "../../directory/.standalone-routes.mjs", (mod, sub) =>
 await mount("network", "../../network/.standalone-routes.mjs");
 await mount("messaging", "../../messaging/.standalone-routes.mjs");
 await mount("runtime", "../../runtime/.standalone-routes.mjs");
+await mount("assistants", "../../assistants/.standalone-routes.mjs");
 
 // 3. Listen on an ephemeral port — internal plumbing, not a product surface.
 const port = await new Promise((resolve) => {
@@ -123,52 +125,43 @@ const IMAGINE_EMAIL = "imagine@symbia.local";
 const IMAGINE_PASSWORD = `imagine-${Math.random().toString(36).slice(2, 10)}`;
 
 async function seed() {
+  // Bootstrap FIRST: the system org must exist before any membership can
+  // reference it. Called on the service's own module, so it writes to the
+  // same pg-mem the routes read (measured — a second bundle would not).
+  try {
+    await identityMod?.bootstrap?.();
+    log("identity bootstrap: ok");
+  } catch (err) {
+    log(`identity bootstrap failed: ${err.message}`);
+  }
+
   // A user, so the MCP server has something to authenticate as.
   try {
     const r = await fetch(`${BASE}/svc/identity/api/auth/register`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email: IMAGINE_EMAIL, password: IMAGINE_PASSWORD, name: "Imagine" }),
+      // orgName is load-bearing: a user with no membership has no org
+      // context, and every org-scoped read returns empty rather than
+      // refusing — measured, list_resources said total 0 with 20 seeded.
+      body: JSON.stringify({
+        email: IMAGINE_EMAIL, password: IMAGINE_PASSWORD, name: "Imagine",
+        orgName: "Imagine",
+      }),
     });
     log(`seed user: ${r.status === 201 || r.ok ? "created" : `register said ${r.status}`}`);
   } catch (err) {
     log(`seed user failed: ${err.message}`);
   }
 
-  // Catalog contents, from the same bootstrap files the container reads —
-  // but through /api/resources, because seedFromDataFiles is private.
-  const dataDir = join(repo, "catalog", "data");
-  if (!existsSync(dataDir)) return log("no catalog/data — starting empty");
-  let loaded = 0;
-  for (const file of readdirSync(dataDir).filter((f) => f.endsWith(".json"))) {
-    let rows;
-    try {
-      const parsed = JSON.parse(readFileSync(join(dataDir, file), "utf8"));
-      rows = Array.isArray(parsed) ? parsed : parsed.resources ?? [];
-    } catch {
-      continue;
-    }
-    for (const row of rows) {
-      if (!row?.key || !row?.type) continue;
-      try {
-        const r = await fetch(`${BASE}/svc/catalog/api/resources`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json", "X-Service-Auth": "internal" },
-          body: JSON.stringify({
-            key: row.key,
-            name: row.name ?? row.key,
-            description: row.description ?? undefined,
-            type: row.type,
-            status: row.status ?? "published",
-            tags: row.tags ?? undefined,
-            metadata: row.metadata ?? undefined,
-          }),
-        });
-        if (r.ok) loaded += 1;
-      } catch { /* keep going; a partial catalog is honest, a crash is not */ }
-    }
+  // Catalog contents via the service's OWN bootstrap — the same call the
+  // container makes. Seeding through /api/resources instead produced rows
+  // the reader could not see (measured: 20 written, list_resources 0).
+  try {
+    await catalogMod?.bootstrap?.();
+    log("catalog bootstrap: ok");
+  } catch (err) {
+    log(`catalog bootstrap failed: ${err.message}`);
   }
-  log(`seed catalog: ${loaded} resources`);
 }
 
 await seed();

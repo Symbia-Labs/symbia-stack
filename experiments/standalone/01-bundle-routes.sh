@@ -14,7 +14,7 @@ mkdir -p build
 # runtime and network define their routes inline inside index.ts (as a
 # `registerRoutes:` property of the createSymbiaServer config), so they
 # cannot be imported at all — that is the PS4 finding, counted.
-for svc in catalog identity integrations models logging directory network messaging runtime; do
+for svc in catalog identity integrations models logging directory network messaging runtime assistants; do
   echo "bundling ${svc}..."
   # Output lands INSIDE the service directory on purpose: third-party
   # packages stay external (node-llama-cpp is native and cannot be
@@ -22,7 +22,12 @@ for svc in catalog identity integrations models logging directory network messag
   # upward — which finds `<svc>/node_modules` only if the bundle lives
   # there. Measured 15 Aug: emitting to this directory instead fails with
   # "Cannot find package 'drizzle-orm'".
-  npx esbuild "../../$svc/server/src/routes.ts" \
+  # identity ships a service.ts (routes + bootstrap in one module graph —
+  # a second bundle would carry a second pg-mem and seed a store nobody
+  # reads). Others still expose routes.ts only.
+  entry="../../$svc/server/src/routes.ts"
+  [ -f "../../$svc/server/src/service.ts" ] && entry="../../$svc/server/src/service.ts"
+  npx esbuild "$entry" \
     --bundle --format=esm --platform=node --target=node20 \
     --packages=external \
     --tsconfig="../../$svc/tsconfig.json" \
