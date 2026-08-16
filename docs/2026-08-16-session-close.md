@@ -196,7 +196,7 @@ K6 is the one the chain alone could never catch. A bundle now reads:
 ```
 chain     VERIFIED — 40 events, head 593fbcc8bca696ed…
 artifacts VERIFIED — 19 match the digest sealed into the chain
-trace     SEALED — 40 of 40 events — everything up to the seal.
+trace     SEALED — 40 of 40 events, up to the seal.
           The session continued after this point; a bundle is a cut,
           not an ending.
 ```

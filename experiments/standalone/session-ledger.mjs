@@ -42,11 +42,11 @@ export function completenessOf(events) {
   // TWO EVENTS CAN DECLARE A TOTAL, AND THEY MEAN DIFFERENT THINGS.
   //
   // `closed` means the session ended and this is all of it. `sealed` means
-  // a bundle was cut at that point while the session kept running — which
-  // is the normal way a bundle is made, since the seal endpoint is
-  // reachable at any time. Without counting `sealed`, every bundle ever
-  // produced would report "unterminated" and the signal would be noise on
-  // every artifact instead of a warning on the ones that matter.
+  // a bundle was cut at that point while the session kept running — the
+  // normal way a bundle is made, since the seal endpoint is reachable at
+  // any time. Without counting `sealed`, every bundle ever produced would
+  // report "unterminated": a warning on every artifact, which is the same
+  // as a warning on none.
   const closing = [...events].reverse().find(
     (e) => e.event_type === "imagine.session.closed" || e.event_type === "imagine.session.sealed"
   );
@@ -84,8 +84,8 @@ export function completenessOf(events) {
       state: whole ? (sealedNotClosed ? "sealed" : "complete") : "partial",
       note: whole
         ? sealedNotClosed
-          ? `${held} of ${declared} events — everything up to the seal. The session ` +
-            `continued after this point; a bundle is a cut, not an ending.`
+          ? `${held} of ${declared} events, up to the seal. The session continued ` +
+            `after this point; later events are not in this bundle.`
           : `${held} of ${declared} events — the whole session, closed.`
         : `${held} of ${declared} events${gaps.length ? `, ${gaps.length} gap(s)` : ""}. ` +
           `The trace declared ${declared}; this holds ${held}.`,
