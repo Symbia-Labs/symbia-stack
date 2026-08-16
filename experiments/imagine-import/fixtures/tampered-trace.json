@@ -1,242 +1,22 @@
 {
   "mode": "imagine",
-  "sealedAt": "2026-08-16T03:16:11.809Z",
+  "sealedAt": "2026-08-16T03:20:52.031Z",
   "session": {
-    "actor": "imagine:session:46cb13d551347211",
-    "entries": 39,
-    "head": "sha256:8476c1f6ec757488fab89ae32ae08f63634e00bdfd7380a72192d53daf75a483",
-    "ledger": "/Users/briangilmore/symbia-stack/experiments/standalone/.session/ledger.46cb13d551347211.jsonl"
+    "actor": "imagine:session:2cfd377efb69d102",
+    "entries": 87,
+    "head": "sha256:44878322cf52d95e332b126108b03e73f103f5cfaaee0d10ed77f64380d58169",
+    "ledger": "/Users/briangilmore/symbia-stack/experiments/standalone/.session/ledger.2cfd377efb69d102.jsonl"
   },
-  "publicKeyPem": "-----BEGIN PUBLIC KEY-----\nMCowBQYDK2VwAyEAJHTqW6nBF0650M3O4VcqokL25KFTfXCyipwiJfUy26A=\n-----END PUBLIC KEY-----",
+  "publicKeyPem": "-----BEGIN PUBLIC KEY-----\nMCowBQYDK2VwAyEAIB1dH3jmQWnn13Ikp8TFJ3RgozCAQQ/sVIiqp2C/xMg=\n-----END PUBLIC KEY-----",
   "claim": {
     "asserts": "These artifacts and this trace came from one imagine session, unaltered since sealing.",
     "does_not_assert": "Anything about who ran the session, whether the artifacts are sound, or whether their declared lanes are true. The signing key is ephemeral and travels inside the bundle; ground it to find out."
   },
-  "authoredCount": 19,
-  "artifactsDigest": "sha256:0b6427b0036110b2b3aa8289dce8436d51050c19e3ff9709c1b7fbec7d6f2b47",
+  "authoredCount": 16,
+  "artifactsDigest": "sha256:0a5b5db7e0fdb7deeda962d23d1da4636bc6014210f482bee4732b328e9ef978",
   "artifacts": [
     {
-      "id": "acb681ac-6bc0-4d30-867c-ef2e8c3f31cd",
-      "key": "assistants/incident-reader",
-      "name": "Incident reader",
-      "description": null,
-      "type": "assistant",
-      "status": "published",
-      "isBootstrap": false,
-      "tags": null,
-      "orgId": null,
-      "accessPolicy": {
-        "visibility": "private",
-        "actions": {
-          "read": {
-            "anyOf": [
-              "role:admin",
-              "cap:registry.write"
-            ]
-          },
-          "write": {
-            "anyOf": [
-              "cap:registry.write",
-              "role:admin"
-            ]
-          },
-          "publish": {
-            "anyOf": [
-              "cap:registry.publish",
-              "role:publisher",
-              "role:admin"
-            ]
-          },
-          "sign": {
-            "anyOf": [
-              "cap:registry.sign",
-              "role:admin"
-            ]
-          },
-          "certify": {
-            "anyOf": [
-              "cap:registry.certify",
-              "role:admin"
-            ]
-          },
-          "delete": {
-            "anyOf": [
-              "role:admin"
-            ]
-          }
-        }
-      },
-      "metadata": {
-        "alias": "incident-reader",
-        "rules": []
-      },
-      "currentVersion": 1,
-      "createdAt": "2026-08-15T23:16:11.000Z",
-      "updatedAt": "2026-08-15T23:16:11.000Z"
-    },
-    {
-      "id": "824560ad-5a63-46cb-881d-070fcbe6765c",
-      "key": "graphs/incident-digest",
-      "name": "Incident digest",
-      "description": null,
-      "type": "graph",
-      "status": "published",
-      "isBootstrap": false,
-      "tags": null,
-      "orgId": null,
-      "accessPolicy": {
-        "visibility": "private",
-        "actions": {
-          "read": {
-            "anyOf": [
-              "role:admin",
-              "cap:registry.write"
-            ]
-          },
-          "write": {
-            "anyOf": [
-              "cap:registry.write",
-              "role:admin"
-            ]
-          },
-          "publish": {
-            "anyOf": [
-              "cap:registry.publish",
-              "role:publisher",
-              "role:admin"
-            ]
-          },
-          "sign": {
-            "anyOf": [
-              "cap:registry.sign",
-              "role:admin"
-            ]
-          },
-          "certify": {
-            "anyOf": [
-              "cap:registry.certify",
-              "role:admin"
-            ]
-          },
-          "delete": {
-            "anyOf": [
-              "role:admin"
-            ]
-          }
-        }
-      },
-      "metadata": {
-        "role": "pipeline",
-        "ingress": {
-          "node": "entry",
-          "port": "in"
-        },
-        "definition": {
-          "symbia": "graph/1.0",
-          "name": "incident-digest",
-          "version": "0.1.0",
-          "nodes": [
-            {
-              "id": "entry",
-              "component": "symbia.io.passthrough"
-            },
-            {
-              "id": "log",
-              "component": "symbia.sink.log",
-              "config": {
-                "level": "info",
-                "message": "incident-digest:"
-              }
-            }
-          ],
-          "edges": [
-            {
-              "id": "e1",
-              "source": {
-                "node": "entry",
-                "port": "out"
-              },
-              "target": {
-                "node": "log",
-                "port": "in"
-              }
-            }
-          ],
-          "metadata": {
-            "role": "pipeline",
-            "ingress": {
-              "node": "entry",
-              "port": "in"
-            }
-          }
-        }
-      },
-      "currentVersion": 1,
-      "createdAt": "2026-08-15T23:16:11.000Z",
-      "updatedAt": "2026-08-15T23:16:11.000Z"
-    },
-    {
-      "id": "15ccd425-de60-431b-9574-d39e19b0e6c7",
-      "key": "contexts/incident-window",
-      "name": "Incident window",
-      "description": null,
-      "type": "context",
-      "status": "published",
-      "isBootstrap": false,
-      "tags": null,
-      "orgId": null,
-      "accessPolicy": {
-        "visibility": "private",
-        "actions": {
-          "read": {
-            "anyOf": [
-              "role:admin",
-              "cap:registry.write"
-            ]
-          },
-          "write": {
-            "anyOf": [
-              "cap:registry.write",
-              "role:admin"
-            ]
-          },
-          "publish": {
-            "anyOf": [
-              "cap:registry.publish",
-              "role:publisher",
-              "role:admin"
-            ]
-          },
-          "sign": {
-            "anyOf": [
-              "cap:registry.sign",
-              "role:admin"
-            ]
-          },
-          "certify": {
-            "anyOf": [
-              "cap:registry.certify",
-              "role:admin"
-            ]
-          },
-          "delete": {
-            "anyOf": [
-              "role:admin"
-            ]
-          }
-        }
-      },
-      "metadata": {
-        "note": "The interval under review",
-        "start": "2026-08-16T00:00:00Z",
-        "end": "2026-08-16T06:00:00Z"
-      },
-      "currentVersion": 1,
-      "createdAt": "2026-08-15T23:16:11.000Z",
-      "updatedAt": "2026-08-15T23:16:11.000Z"
-    },
-    {
-      "id": "e4b8f406-dff4-4e2f-9fba-28bd16294982",
+      "id": "efc90719-7ec6-44af-bdf2-1280a175b204",
       "key": "components/symbia.sink.log",
       "name": "symbia.sink.log",
       "description": "Writes the message to the Logging service log stream (config.level, default \"info\"; config.message template prefix optional) and passes the input through on \"out\". Unlike symbia.io.log, which only writes to the execution trace, this persists to the platform log store.",
@@ -313,23 +93,14 @@
           },
           "capability": "cap:runtime.execute",
           "description": "Writes the message to the Logging service log stream (config.level, default \"info\"; config.message template prefix optional) and passes the input through on \"out\". Unlike symbia.io.log, which only writes to the execution trace, this persists to the platform log store."
-        },
-        "manifestSignature": {
-          "signature": "ed25519:PeYsrxJXPojHJjGKNg0f3xom45tjECSAdCnd8QtBvG8Plzke5HphnJhAZJdfTissMvp1kxmpn2PLAwljlZTbAw==",
-          "signer": {
-            "id": "symbia:service:c9ee213303b288c7",
-            "role_claimed": "runtime",
-            "fingerprint": "c9ee213303b288c72d7eebed39c4b7f6b7a440e4d75a887d0aaa83a3979f22f0",
-            "publicKeyPem": "-----BEGIN PUBLIC KEY-----\nMCowBQYDK2VwAyEApwtM0KAiUjNZdzN1K18mWt1riYjZ/5bcTh3sxBdy9q8=\n-----END PUBLIC KEY-----"
-          }
         }
       },
       "currentVersion": 1,
-      "createdAt": "2026-08-15T23:15:55.000Z",
-      "updatedAt": "2026-08-15T23:15:55.000Z"
+      "createdAt": "2026-08-15T23:19:03.000Z",
+      "updatedAt": "2026-08-15T23:19:03.000Z"
     },
     {
-      "id": "b5c118b3-6baa-4abc-80e4-e03ccc0c3f51",
+      "id": "7f39cd4f-57ba-45a3-902e-985bd3abda47",
       "key": "components/symbia.sink.metric",
       "name": "symbia.sink.metric",
       "description": "Writes a numeric data point to the Logging metrics service, attributed to the org that owns the graph. config.name is the metric name (a gauge series is resolved or created on first use); config.valueField (default \"value\") locates the number in the message — dotted paths supported (e.g. \"out.result\"); config.labels attaches labels. Passes the input through on \"out\"; non-numeric values and failed writes exit on \"error\".",
@@ -413,23 +184,14 @@
           },
           "capability": "cap:runtime.execute",
           "description": "Writes a numeric data point to the Logging metrics service, attributed to the org that owns the graph. config.name is the metric name (a gauge series is resolved or created on first use); config.valueField (default \"value\") locates the number in the message — dotted paths supported (e.g. \"out.result\"); config.labels attaches labels. Passes the input through on \"out\"; non-numeric values and failed writes exit on \"error\"."
-        },
-        "manifestSignature": {
-          "signature": "ed25519:Dfpo0nm+aoNDy+jn0UZvkcQ8r1hXa4Q9TC3aKMMxxZ4sJsGQUe5MHQinYqxE/aaWj/p4cB+tNa/a/1k5ixdDCA==",
-          "signer": {
-            "id": "symbia:service:c9ee213303b288c7",
-            "role_claimed": "runtime",
-            "fingerprint": "c9ee213303b288c72d7eebed39c4b7f6b7a440e4d75a887d0aaa83a3979f22f0",
-            "publicKeyPem": "-----BEGIN PUBLIC KEY-----\nMCowBQYDK2VwAyEApwtM0KAiUjNZdzN1K18mWt1riYjZ/5bcTh3sxBdy9q8=\n-----END PUBLIC KEY-----"
-          }
         }
       },
       "currentVersion": 1,
-      "createdAt": "2026-08-15T23:15:55.000Z",
-      "updatedAt": "2026-08-15T23:15:55.000Z"
+      "createdAt": "2026-08-15T23:19:03.000Z",
+      "updatedAt": "2026-08-15T23:19:03.000Z"
     },
     {
-      "id": "a96ef6cd-4231-49c4-9e1a-2a3b6b4f01c4",
+      "id": "e0569f71-4b9b-422b-83fd-09b551cebffb",
       "key": "components/symbia.source.timer",
       "name": "symbia.source.timer",
       "description": "Emits {tick, ts} on \"out\" every config.intervalMs milliseconds (default 5000, min 100) while the execution is running. config.payload (object) is merged into each tick. Driven by the executor; injecting into a timer node manually also works and emits one tick.",
@@ -504,23 +266,14 @@
           },
           "capability": "cap:runtime.execute",
           "description": "Emits {tick, ts} on \"out\" every config.intervalMs milliseconds (default 5000, min 100) while the execution is running. config.payload (object) is merged into each tick. Driven by the executor; injecting into a timer node manually also works and emits one tick."
-        },
-        "manifestSignature": {
-          "signature": "ed25519:3cWkADUvrZcCn2IG3GkwZPNyFShzX7TB6iJmbA8pxPNYK8WcEF3AszzpaVq1TfTbCIu4umOvTZcBxKJjxlJCCw==",
-          "signer": {
-            "id": "symbia:service:c9ee213303b288c7",
-            "role_claimed": "runtime",
-            "fingerprint": "c9ee213303b288c72d7eebed39c4b7f6b7a440e4d75a887d0aaa83a3979f22f0",
-            "publicKeyPem": "-----BEGIN PUBLIC KEY-----\nMCowBQYDK2VwAyEApwtM0KAiUjNZdzN1K18mWt1riYjZ/5bcTh3sxBdy9q8=\n-----END PUBLIC KEY-----"
-          }
         }
       },
       "currentVersion": 1,
-      "createdAt": "2026-08-15T23:15:55.000Z",
-      "updatedAt": "2026-08-15T23:15:55.000Z"
+      "createdAt": "2026-08-15T23:19:03.000Z",
+      "updatedAt": "2026-08-15T23:19:03.000Z"
     },
     {
-      "id": "81f25d1c-d187-40ed-81aa-827b4396deb3",
+      "id": "4ffdd406-2c91-4426-9695-9ccc29be2d56",
       "key": "components/symbia.state.rollup",
       "name": "symbia.state.rollup",
       "description": "Aggregates the latest values of an expected key set (config.expected: [keys], config.op: sum|mean|min|max, keyField (default \"key\") / valueField as in join). Emits {value, op, coverage, present, missing} on \"out\". A rollup with missing inputs is emitted on the apocryphal lane: a partial total must not pass as the total.",
@@ -612,23 +365,14 @@
           },
           "capability": "cap:runtime.execute",
           "description": "Aggregates the latest values of an expected key set (config.expected: [keys], config.op: sum|mean|min|max, keyField (default \"key\") / valueField as in join). Emits {value, op, coverage, present, missing} on \"out\". A rollup with missing inputs is emitted on the apocryphal lane: a partial total must not pass as the total."
-        },
-        "manifestSignature": {
-          "signature": "ed25519:mHXSZGBKt+wg92XPngLB9hyHdKGlI9g5YWO7hrKZn4Fnq2rdgp1bf0jrgJwTYXMr6NGkYfW2dF5gU6cb/np6Cw==",
-          "signer": {
-            "id": "symbia:service:c9ee213303b288c7",
-            "role_claimed": "runtime",
-            "fingerprint": "c9ee213303b288c72d7eebed39c4b7f6b7a440e4d75a887d0aaa83a3979f22f0",
-            "publicKeyPem": "-----BEGIN PUBLIC KEY-----\nMCowBQYDK2VwAyEApwtM0KAiUjNZdzN1K18mWt1riYjZ/5bcTh3sxBdy9q8=\n-----END PUBLIC KEY-----"
-          }
         }
       },
       "currentVersion": 1,
-      "createdAt": "2026-08-15T23:15:55.000Z",
-      "updatedAt": "2026-08-15T23:15:55.000Z"
+      "createdAt": "2026-08-15T23:19:03.000Z",
+      "updatedAt": "2026-08-15T23:19:03.000Z"
     },
     {
-      "id": "0c0650e4-3285-41a0-8a82-7aa849664d64",
+      "id": "a0f503a2-6a38-48b6-96f9-ad75e9584166",
       "key": "components/symbia.state.window",
       "name": "symbia.state.window",
       "description": "Keeps the last config.size (default 60) numeric values of config.field (default \"value\") and emits {count, sum, mean, min, max, last} on every input.",
@@ -707,23 +451,14 @@
           },
           "capability": "cap:runtime.execute",
           "description": "Keeps the last config.size (default 60) numeric values of config.field (default \"value\") and emits {count, sum, mean, min, max, last} on every input."
-        },
-        "manifestSignature": {
-          "signature": "ed25519:VrDVoXFh4aqWUdEqXHhJTsC29B0dgm+KZnSvOJsbFQPGVjS2xL24dndfhR9taUd+h0xMwSCNLxFYhQOt9aY/Cw==",
-          "signer": {
-            "id": "symbia:service:c9ee213303b288c7",
-            "role_claimed": "runtime",
-            "fingerprint": "c9ee213303b288c72d7eebed39c4b7f6b7a440e4d75a887d0aaa83a3979f22f0",
-            "publicKeyPem": "-----BEGIN PUBLIC KEY-----\nMCowBQYDK2VwAyEApwtM0KAiUjNZdzN1K18mWt1riYjZ/5bcTh3sxBdy9q8=\n-----END PUBLIC KEY-----"
-          }
         }
       },
       "currentVersion": 1,
-      "createdAt": "2026-08-15T23:15:55.000Z",
-      "updatedAt": "2026-08-15T23:15:55.000Z"
+      "createdAt": "2026-08-15T23:19:03.000Z",
+      "updatedAt": "2026-08-15T23:19:03.000Z"
     },
     {
-      "id": "fbcc26b1-1d37-4bc6-829d-4352470ce9e4",
+      "id": "70e0b9fb-a00c-4af4-901c-9746f0af6342",
       "key": "components/symbia.state.join",
       "name": "symbia.state.join",
       "description": "Joins the latest values of selected keys from a keyed stream. config.select maps output fields to key values, e.g. {\"x\": \"key.one\", \"y\": \"key.two\"}; config.keyField (default \"key\") and config.valueField (default \"value\") locate key and value in each message. Emits the joined object on \"out\" once every selected key has been seen (then on every update); until then emits {have, need} on \"pending\".",
@@ -807,23 +542,14 @@
           },
           "capability": "cap:runtime.execute",
           "description": "Joins the latest values of selected keys from a keyed stream. config.select maps output fields to key values, e.g. {\"x\": \"key.one\", \"y\": \"key.two\"}; config.keyField (default \"key\") and config.valueField (default \"value\") locate key and value in each message. Emits the joined object on \"out\" once every selected key has been seen (then on every update); until then emits {have, need} on \"pending\"."
-        },
-        "manifestSignature": {
-          "signature": "ed25519:CtrflLICFxLYHmra4BnkNbY8o4OfiNu/xtN4QOEDvmtzDR7R3okJbsTY7u1aQBkv4MjQQp8Ak35FZ/lcYCPuAw==",
-          "signer": {
-            "id": "symbia:service:c9ee213303b288c7",
-            "role_claimed": "runtime",
-            "fingerprint": "c9ee213303b288c72d7eebed39c4b7f6b7a440e4d75a887d0aaa83a3979f22f0",
-            "publicKeyPem": "-----BEGIN PUBLIC KEY-----\nMCowBQYDK2VwAyEApwtM0KAiUjNZdzN1K18mWt1riYjZ/5bcTh3sxBdy9q8=\n-----END PUBLIC KEY-----"
-          }
         }
       },
       "currentVersion": 1,
-      "createdAt": "2026-08-15T23:15:55.000Z",
-      "updatedAt": "2026-08-15T23:15:55.000Z"
+      "createdAt": "2026-08-15T23:19:03.000Z",
+      "updatedAt": "2026-08-15T23:19:03.000Z"
     },
     {
-      "id": "e061d417-e2df-4990-bb58-d86ad2f18488",
+      "id": "7bc5ab5d-a6de-4627-a8cc-2f50c514a95a",
       "key": "components/symbia.state.latest",
       "name": "symbia.state.latest",
       "description": "Remembers the most recent message per config.keyField (default \"key\") and passes the message through. The current snapshot {key: message} is available downstream via the \"snapshot\" port.",
@@ -896,23 +622,14 @@
           },
           "capability": "cap:runtime.execute",
           "description": "Remembers the most recent message per config.keyField (default \"key\") and passes the message through. The current snapshot {key: message} is available downstream via the \"snapshot\" port."
-        },
-        "manifestSignature": {
-          "signature": "ed25519:paPLJqJHw5r0n2HbVSrnRZBoDHQtqtWgR54Z0BlqiJL7Wa2deAEesi89BqLcmBhbTlBOWqdpRcbiVSCTKBAGCQ==",
-          "signer": {
-            "id": "symbia:service:c9ee213303b288c7",
-            "role_claimed": "runtime",
-            "fingerprint": "c9ee213303b288c72d7eebed39c4b7f6b7a440e4d75a887d0aaa83a3979f22f0",
-            "publicKeyPem": "-----BEGIN PUBLIC KEY-----\nMCowBQYDK2VwAyEApwtM0KAiUjNZdzN1K18mWt1riYjZ/5bcTh3sxBdy9q8=\n-----END PUBLIC KEY-----"
-          }
         }
       },
       "currentVersion": 1,
-      "createdAt": "2026-08-15T23:15:55.000Z",
-      "updatedAt": "2026-08-15T23:15:55.000Z"
+      "createdAt": "2026-08-15T23:19:03.000Z",
+      "updatedAt": "2026-08-15T23:19:03.000Z"
     },
     {
-      "id": "3087109b-1e17-4318-ada9-7eaf2114a375",
+      "id": "d73e4def-fb6a-4831-8a86-3cd4f80b2e9e",
       "key": "components/symbia.io.delay",
       "name": "symbia.io.delay",
       "description": "Waits config.ms milliseconds, then passes through.",
@@ -980,23 +697,14 @@
           },
           "capability": "cap:runtime.execute",
           "description": "Waits config.ms milliseconds, then passes through."
-        },
-        "manifestSignature": {
-          "signature": "ed25519:zecVzqfH5GHNxaA8W8YxGYVLRL1ilQJ4C/yLaZ4TvQht5Ln0CKTiWluB5vIBq4+tQPjv+el2naSuGorgj5y+Bw==",
-          "signer": {
-            "id": "symbia:service:c9ee213303b288c7",
-            "role_claimed": "runtime",
-            "fingerprint": "c9ee213303b288c72d7eebed39c4b7f6b7a440e4d75a887d0aaa83a3979f22f0",
-            "publicKeyPem": "-----BEGIN PUBLIC KEY-----\nMCowBQYDK2VwAyEApwtM0KAiUjNZdzN1K18mWt1riYjZ/5bcTh3sxBdy9q8=\n-----END PUBLIC KEY-----"
-          }
         }
       },
       "currentVersion": 1,
-      "createdAt": "2026-08-15T23:15:55.000Z",
-      "updatedAt": "2026-08-15T23:15:55.000Z"
+      "createdAt": "2026-08-15T23:19:03.000Z",
+      "updatedAt": "2026-08-15T23:19:03.000Z"
     },
     {
-      "id": "e78560bb-0969-466e-bd65-c18d2adf5586",
+      "id": "7e4e7c02-5162-4f93-a140-bf97e62b311c",
       "key": "components/symbia.io.http-request",
       "name": "symbia.io.http-request",
       "description": "Fetches config.url. Output is apocryphal: a remote body cannot be recomputed from the graph.",
@@ -1074,23 +782,14 @@
           },
           "capability": "cap:runtime.execute",
           "description": "Fetches config.url. Output is apocryphal: a remote body cannot be recomputed from the graph."
-        },
-        "manifestSignature": {
-          "signature": "ed25519:wrAxHCbN7TWRE7Op9hvmLAQhTn3GlsUW13dXX95Fssp/o7sflSGnn5AapLRxim1YC2mUsvSQY8pwuWP3OhfnBQ==",
-          "signer": {
-            "id": "symbia:service:c9ee213303b288c7",
-            "role_claimed": "runtime",
-            "fingerprint": "c9ee213303b288c72d7eebed39c4b7f6b7a440e4d75a887d0aaa83a3979f22f0",
-            "publicKeyPem": "-----BEGIN PUBLIC KEY-----\nMCowBQYDK2VwAyEApwtM0KAiUjNZdzN1K18mWt1riYjZ/5bcTh3sxBdy9q8=\n-----END PUBLIC KEY-----"
-          }
         }
       },
       "currentVersion": 1,
-      "createdAt": "2026-08-15T23:15:55.000Z",
-      "updatedAt": "2026-08-15T23:15:55.000Z"
+      "createdAt": "2026-08-15T23:19:03.000Z",
+      "updatedAt": "2026-08-15T23:19:03.000Z"
     },
     {
-      "id": "1661a4ec-fd69-4204-b704-adb4964def8f",
+      "id": "89fecc1d-0301-4cf9-8ee2-b1a020aa7ee2",
       "key": "components/symbia.compute.arithmetic",
       "name": "symbia.compute.arithmetic",
       "description": "Exact arithmetic over config.expression with {placeholders} from the message. Canonical: recomputable.",
@@ -1163,23 +862,14 @@
           },
           "capability": "cap:runtime.execute",
           "description": "Exact arithmetic over config.expression with {placeholders} from the message. Canonical: recomputable."
-        },
-        "manifestSignature": {
-          "signature": "ed25519:0Sc2Y3xCNLeTmtUg8syGdFagC3RRUtMC5QY9JeOpK8z+A2n9bFoYI5m+WUwm03nYxBAZ1TZYfL2A38yxOJUnAQ==",
-          "signer": {
-            "id": "symbia:service:c9ee213303b288c7",
-            "role_claimed": "runtime",
-            "fingerprint": "c9ee213303b288c72d7eebed39c4b7f6b7a440e4d75a887d0aaa83a3979f22f0",
-            "publicKeyPem": "-----BEGIN PUBLIC KEY-----\nMCowBQYDK2VwAyEApwtM0KAiUjNZdzN1K18mWt1riYjZ/5bcTh3sxBdy9q8=\n-----END PUBLIC KEY-----"
-          }
         }
       },
       "currentVersion": 1,
-      "createdAt": "2026-08-15T23:15:55.000Z",
-      "updatedAt": "2026-08-15T23:15:55.000Z"
+      "createdAt": "2026-08-15T23:19:03.000Z",
+      "updatedAt": "2026-08-15T23:19:03.000Z"
     },
     {
-      "id": "b76c03b4-3923-4dac-ab97-02749e67c0ea",
+      "id": "eb91ffba-ce22-4c18-b207-536942004eac",
       "key": "components/symbia.logic.switch",
       "name": "symbia.logic.switch",
       "description": "Emits on the port named by config.field's value, if that port is listed in config.ports; otherwise \"default\".",
@@ -1253,23 +943,14 @@
           },
           "capability": "cap:runtime.execute",
           "description": "Emits on the port named by config.field's value, if that port is listed in config.ports; otherwise \"default\"."
-        },
-        "manifestSignature": {
-          "signature": "ed25519:pPhBal+XQzDD9lzoreH0PvPpm3U6PCTAhy8a9DwP1Jj77tPVizDRcE0019Vh6DztLfWPi1zQ4q6TwdyuGndrDQ==",
-          "signer": {
-            "id": "symbia:service:c9ee213303b288c7",
-            "role_claimed": "runtime",
-            "fingerprint": "c9ee213303b288c72d7eebed39c4b7f6b7a440e4d75a887d0aaa83a3979f22f0",
-            "publicKeyPem": "-----BEGIN PUBLIC KEY-----\nMCowBQYDK2VwAyEApwtM0KAiUjNZdzN1K18mWt1riYjZ/5bcTh3sxBdy9q8=\n-----END PUBLIC KEY-----"
-          }
         }
       },
       "currentVersion": 1,
-      "createdAt": "2026-08-15T23:15:55.000Z",
-      "updatedAt": "2026-08-15T23:15:55.000Z"
+      "createdAt": "2026-08-15T23:19:03.000Z",
+      "updatedAt": "2026-08-15T23:19:03.000Z"
     },
     {
-      "id": "03622e8e-6d55-4281-9848-53517b628702",
+      "id": "da13b8d8-09fa-4fef-b066-87af0bfa2667",
       "key": "components/symbia.logic.filter",
       "name": "symbia.logic.filter",
       "description": "Routes on a predicate: config.field / config.op (eq,neq,gt,lt,contains,exists) / config.value.",
@@ -1359,23 +1040,14 @@
           },
           "capability": "cap:runtime.execute",
           "description": "Routes on a predicate: config.field / config.op (eq,neq,gt,lt,contains,exists) / config.value."
-        },
-        "manifestSignature": {
-          "signature": "ed25519:/Wx8glSos/SJ4kI2s+83XGTaXH35PvmOFFSxCIdDOevL4HgqI0ntxbzmB2IkPLVbGS3pjBr3ElLwpU1OEbLZAA==",
-          "signer": {
-            "id": "symbia:service:c9ee213303b288c7",
-            "role_claimed": "runtime",
-            "fingerprint": "c9ee213303b288c72d7eebed39c4b7f6b7a440e4d75a887d0aaa83a3979f22f0",
-            "publicKeyPem": "-----BEGIN PUBLIC KEY-----\nMCowBQYDK2VwAyEApwtM0KAiUjNZdzN1K18mWt1riYjZ/5bcTh3sxBdy9q8=\n-----END PUBLIC KEY-----"
-          }
         }
       },
       "currentVersion": 1,
-      "createdAt": "2026-08-15T23:15:55.000Z",
-      "updatedAt": "2026-08-15T23:15:55.000Z"
+      "createdAt": "2026-08-15T23:19:03.000Z",
+      "updatedAt": "2026-08-15T23:19:03.000Z"
     },
     {
-      "id": "889c0662-2664-43bb-9da5-1a99aa0ae4c7",
+      "id": "f94978dc-ee32-47d7-ac53-425c2e2de2f4",
       "key": "components/symbia.transform.map",
       "name": "symbia.transform.map",
       "description": "Reshapes an object using config.mapping — {newKey: \"sourceKey\"}. Deterministic.",
@@ -1448,23 +1120,14 @@
           },
           "capability": "cap:runtime.execute",
           "description": "Reshapes an object using config.mapping — {newKey: \"sourceKey\"}. Deterministic."
-        },
-        "manifestSignature": {
-          "signature": "ed25519:O1U/7kvmi348RrwPONfiBr9D9o5f/E5NO88MF+HBaeTq5xx9+RHkfyploTvIjA+7ninpm78VXEkbFYGnSacOCQ==",
-          "signer": {
-            "id": "symbia:service:c9ee213303b288c7",
-            "role_claimed": "runtime",
-            "fingerprint": "c9ee213303b288c72d7eebed39c4b7f6b7a440e4d75a887d0aaa83a3979f22f0",
-            "publicKeyPem": "-----BEGIN PUBLIC KEY-----\nMCowBQYDK2VwAyEApwtM0KAiUjNZdzN1K18mWt1riYjZ/5bcTh3sxBdy9q8=\n-----END PUBLIC KEY-----"
-          }
         }
       },
       "currentVersion": 1,
-      "createdAt": "2026-08-15T23:15:55.000Z",
-      "updatedAt": "2026-08-15T23:15:55.000Z"
+      "createdAt": "2026-08-15T23:19:03.000Z",
+      "updatedAt": "2026-08-15T23:19:03.000Z"
     },
     {
-      "id": "4e70d03e-a0b1-4c31-8d1b-f4818be665f5",
+      "id": "c9e1434a-f78a-44c1-92d3-50e39d53abb7",
       "key": "components/symbia.io.log",
       "name": "symbia.io.log",
       "description": "Writes the value to the execution log and passes it through.",
@@ -1525,23 +1188,14 @@
           "config": {},
           "capability": "cap:runtime.execute",
           "description": "Writes the value to the execution log and passes it through."
-        },
-        "manifestSignature": {
-          "signature": "ed25519:V9YZCoVjIJ9J5/Y5obIcdhC03YVBkr3jOdLscdMYRAT44GuLD9Mkcu8KnIY9YFluAH4bRN7AU5KFHSriDrrHCw==",
-          "signer": {
-            "id": "symbia:service:c9ee213303b288c7",
-            "role_claimed": "runtime",
-            "fingerprint": "c9ee213303b288c72d7eebed39c4b7f6b7a440e4d75a887d0aaa83a3979f22f0",
-            "publicKeyPem": "-----BEGIN PUBLIC KEY-----\nMCowBQYDK2VwAyEApwtM0KAiUjNZdzN1K18mWt1riYjZ/5bcTh3sxBdy9q8=\n-----END PUBLIC KEY-----"
-          }
         }
       },
       "currentVersion": 1,
-      "createdAt": "2026-08-15T23:15:55.000Z",
-      "updatedAt": "2026-08-15T23:15:55.000Z"
+      "createdAt": "2026-08-15T23:19:03.000Z",
+      "updatedAt": "2026-08-15T23:19:03.000Z"
     },
     {
-      "id": "6b19c53e-ff80-409f-a334-548092353213",
+      "id": "2bcbb24e-fce4-4b43-bafe-63ee02ff349e",
       "key": "components/symbia.io.collect",
       "name": "symbia.io.collect",
       "description": "Terminal node. Collects results for the execution output.",
@@ -1602,23 +1256,14 @@
           "config": {},
           "capability": "cap:runtime.execute",
           "description": "Terminal node. Collects results for the execution output."
-        },
-        "manifestSignature": {
-          "signature": "ed25519:BUWTL6aP5scyiNCFBtq+cRakLnbH0jR0s5xSVP3KHA6eG1gKQh1+esPNjM8pCTct2jLeFtH5BYQCeC1DrNntDA==",
-          "signer": {
-            "id": "symbia:service:c9ee213303b288c7",
-            "role_claimed": "runtime",
-            "fingerprint": "c9ee213303b288c72d7eebed39c4b7f6b7a440e4d75a887d0aaa83a3979f22f0",
-            "publicKeyPem": "-----BEGIN PUBLIC KEY-----\nMCowBQYDK2VwAyEApwtM0KAiUjNZdzN1K18mWt1riYjZ/5bcTh3sxBdy9q8=\n-----END PUBLIC KEY-----"
-          }
         }
       },
       "currentVersion": 1,
-      "createdAt": "2026-08-15T23:15:55.000Z",
-      "updatedAt": "2026-08-15T23:15:55.000Z"
+      "createdAt": "2026-08-15T23:19:03.000Z",
+      "updatedAt": "2026-08-15T23:19:03.000Z"
     },
     {
-      "id": "91d376ed-a02c-4a7e-b070-cbd0051773b7",
+      "id": "8e9b4500-3d9d-4f17-8852-81c853437647",
       "key": "components/symbia.io.passthrough",
       "name": "symbia.io.passthrough",
       "description": "Emits its input unchanged. Graph entry point.",
@@ -1679,27 +1324,18 @@
           "config": {},
           "capability": "cap:runtime.execute",
           "description": "Emits its input unchanged. Graph entry point."
-        },
-        "manifestSignature": {
-          "signature": "ed25519:AhYrw9sgwOePgzRWEB6NBbOT4V1dHWtoqB5JpCvfbapBqnxJeRzfLSqOJti6+5JAuvmqGxVxnfLHBSMzakJ7BA==",
-          "signer": {
-            "id": "symbia:service:c9ee213303b288c7",
-            "role_claimed": "runtime",
-            "fingerprint": "c9ee213303b288c72d7eebed39c4b7f6b7a440e4d75a887d0aaa83a3979f22f0",
-            "publicKeyPem": "-----BEGIN PUBLIC KEY-----\nMCowBQYDK2VwAyEApwtM0KAiUjNZdzN1K18mWt1riYjZ/5bcTh3sxBdy9q8=\n-----END PUBLIC KEY-----"
-          }
         }
       },
       "currentVersion": 1,
-      "createdAt": "2026-08-15T23:15:55.000Z",
-      "updatedAt": "2026-08-15T23:15:55.000Z"
+      "createdAt": "2026-08-15T23:19:03.000Z",
+      "updatedAt": "2026-08-15T23:19:03.000Z"
     }
   ],
   "trace": [
     {
-      "event_id": "467d4a0c-1958-4003-aaf2-e5845f9ac279",
-      "timestamp": "2026-08-16T03:15:54.623Z",
-      "actor_identity": "imagine:session:46cb13d551347211",
+      "event_id": "eee275c8-1967-4ba3-a8f9-207639006df8",
+      "timestamp": "2026-08-16T03:19:02.606Z",
+      "actor_identity": "imagine:session:2cfd377efb69d102",
       "event_type": "imagine.mutation",
       "payload": {
         "method": "POST",
@@ -1715,13 +1351,13 @@
       "parent_links": [
         null
       ],
-      "checksum": "sha256:cce4891f6bb159ecb5bc6d7bcdb27a76e3ef1070cd5686bad2dce82c72760a90",
-      "signature": "ed25519:l2VX+2xtI0GMA3avsYn/wndBkjoFjx0K/Du+/WGkHmzHcu2oY4G5ht9EpqrWby63HkniJTKcBcRIyb+l1BF0CQ=="
+      "checksum": "sha256:57cbc3f5b1d1f1c3de8fb5b1989a8f7c0e6ed2b60913d9c5e6a55d364bd9573a",
+      "signature": "ed25519:nXGmt5RuAgC0TuHqh7csJIUtqKVLX56tAIRe9QQm+qRnOtNzHHH6704nZWdiN8LOvSLBHC6sdIc2EDUktG7BDA=="
     },
     {
-      "event_id": "448f34c8-58a8-41ef-b798-278a801763ea",
-      "timestamp": "2026-08-16T03:15:55.631Z",
-      "actor_identity": "imagine:session:46cb13d551347211",
+      "event_id": "31412558-b1e1-4970-80c1-20e29b499477",
+      "timestamp": "2026-08-16T03:19:03.662Z",
+      "actor_identity": "imagine:session:2cfd377efb69d102",
       "event_type": "imagine.mutation",
       "payload": {
         "method": "POST",
@@ -1731,27 +1367,27 @@
         "requestDigest": "sha256:e60247e2c577a32c3e8abf0de716954ccd553d383528a5590213b1e0c3400f58",
         "resultDigest": "sha256:de1e3257f890e7570b1fead7d29d7a211574b461b4873458569669abcdbe970d",
         "resourceKey": null,
-        "ms": 2
+        "ms": 0
       },
       "continuity_context": null,
       "parent_links": [
         null
       ],
-      "checksum": "sha256:d7e41eb358f245de674d4a1a3ef976dee2f222d1e74a016ae2c02ecfef9cbb0f",
-      "signature": "ed25519:kJqyUEyafxyjF+g/ixZv3g/gojLo9Xh4Zbkg8Mij3VNVB2Iw/pnAoKakbdS3y+/TTHFbwL0BHEzpb+JspJ9/CA=="
+      "checksum": "sha256:d761363250b91e6ac9c2fb0ae8332f6f94c58ccb4dff81bd993dc7c1fd00afd9",
+      "signature": "ed25519:B3QxuHDH9NuU56Nsq7k5M0L10hGMK9khZzy6VXi3HItl4PtlyiscaWp3He+90wz+Nh0wxchRGYerKh/nuDB5CA=="
     },
     {
-      "event_id": "afa1107d-094e-4799-bcb8-5656fe24f164",
-      "timestamp": "2026-08-16T03:15:55.867Z",
-      "actor_identity": "imagine:session:46cb13d551347211",
+      "event_id": "781ce532-1b69-4a01-884c-00651d484885",
+      "timestamp": "2026-08-16T03:19:03.725Z",
+      "actor_identity": "imagine:session:2cfd377efb69d102",
       "event_type": "imagine.mutation",
       "payload": {
         "method": "POST",
         "path": "/svc/catalog/api/resources",
         "status": 201,
         "accepted": true,
-        "requestDigest": "sha256:6a9664a797a488542dbcd305b8bdfdfee9042e7746a5c045fa59347486ed5efc",
-        "resultDigest": "sha256:a888c8dae25f157df4c29e5930a3e6dc399e85c449291f0d3cfdb2d0de90ff27",
+        "requestDigest": "sha256:bbceda27dc4fc61a8055ddf5c678ff953a00f52a1b4cbc2373c737d8c05f4bf9",
+        "resultDigest": "sha256:43f2ee20d40f2f2aa3fa57e53ccac4fb065144c0c89543c775bdad99e039f26b",
         "resourceKey": "components/symbia.io.passthrough",
         "ms": 5
       },
@@ -1759,21 +1395,21 @@
       "parent_links": [
         null
       ],
-      "checksum": "sha256:dabcf79d5af3b37c4502bd5adecec111ad21580ae9f8e14be9527e169ac49824",
-      "signature": "ed25519:HpZqTbvjZk4yDX1IO5W6vQl8HBvw5dP1F6GuYTA6boEzjZ4S32Vh23FW/TSmcO7SEVGkrmeSCJmZU2ZvHNhCDQ=="
+      "checksum": "sha256:4f4dafb887fb1f6e76409544b3211073ae42ec37f101daac59c53359182c07cb",
+      "signature": "ed25519:4K3NAijiASOxEAakDhyokyZyXQkw3VvJ+RdE3kYZl8QVUKKEEGiZFr+TV7xAmIG0XnhfYmw+n6DG03r3S8tjCA=="
     },
     {
-      "event_id": "0204314a-fd6e-4f9b-b95a-53b519d41c9b",
-      "timestamp": "2026-08-16T03:15:55.872Z",
-      "actor_identity": "imagine:session:46cb13d551347211",
+      "event_id": "7d4d9c3d-b2fa-41f8-b338-c9b0f26da717",
+      "timestamp": "2026-08-16T03:19:03.730Z",
+      "actor_identity": "imagine:session:2cfd377efb69d102",
       "event_type": "imagine.mutation",
       "payload": {
         "method": "POST",
         "path": "/svc/catalog/api/resources",
         "status": 201,
         "accepted": true,
-        "requestDigest": "sha256:2843799eed791d271d4fe8550bdb2b8976948c539ce334ddaffdca9ed60ad63f",
-        "resultDigest": "sha256:b7896cc0509303c611ce774058fdec5a9dabd4e248c13723fe8cf65e9876064e",
+        "requestDigest": "sha256:837a28ca629f77bd3bc5803115f13c01e05838950927f1e995bd2370de9a6629",
+        "resultDigest": "sha256:0e13dce8d0c4b3c93ed47ec0027eab37097e421b9639fd16e0d13303ee64294d",
         "resourceKey": "components/symbia.io.collect",
         "ms": 4
       },
@@ -1781,43 +1417,43 @@
       "parent_links": [
         null
       ],
-      "checksum": "sha256:f59f1d98897c38a85f5ab6620ad62e4f329f2e0898ea0b33a8854b088924eae6",
-      "signature": "ed25519:3ptbx2bsXGUR1AJg2jL5Ao9nbkFvwHUFN65dVTOGNwvTOo/jwHJLU4gRI/Ypymk28eaCFp85oeT1Cw5GcAdwDg=="
+      "checksum": "sha256:4232e42a43060892d5435707ef228e120b894e88c8a316380f48fc3bcba06170",
+      "signature": "ed25519:0yfaN1arIRgdTGtHHZiizOwrjADQcgwK5SzkuI85hS3c0biq+ENK+y/cCiDl2W80Z5CC6V+fcfr8tXVuRluYDA=="
     },
     {
-      "event_id": "7732cf46-ca91-47d5-abdd-5ca052eda678",
-      "timestamp": "2026-08-16T03:15:55.877Z",
-      "actor_identity": "imagine:session:46cb13d551347211",
+      "event_id": "8ad36ac2-ada4-40c3-9208-9433968f3a1b",
+      "timestamp": "2026-08-16T03:19:03.735Z",
+      "actor_identity": "imagine:session:2cfd377efb69d102",
       "event_type": "imagine.mutation",
       "payload": {
         "method": "POST",
         "path": "/svc/catalog/api/resources",
         "status": 201,
         "accepted": true,
-        "requestDigest": "sha256:4b81010558a8fa249256adc6c12afa7874b02ece581620847706c42724146e22",
-        "resultDigest": "sha256:cb027a1a11f1081945e1549ae41d07df677965f3c436ab1167e00ef25a064485",
+        "requestDigest": "sha256:87d3658c05907bf828ab248253753af4335b95030d75822a29efbe65cbf1ae22",
+        "resultDigest": "sha256:4cd3d3db92056fc407750cd346bc779698d673e61e59875664edadec9188ac53",
         "resourceKey": "components/symbia.io.log",
-        "ms": 4
+        "ms": 5
       },
       "continuity_context": null,
       "parent_links": [
         null
       ],
-      "checksum": "sha256:cab721386a547040e38fd2d0366dd2218563949829e4fada4c084bf137cba970",
-      "signature": "ed25519:FdXx4fnKeDo1x2neQwynektZDe+Zw7w+vEw4dFuvqE/jne1d+auC8ZG7b+n7gvzPj/U01ooxtxxryylRFib/Aw=="
+      "checksum": "sha256:76fc4f7ba1abf266f38a882f290dd613be1e8b10a178c740a2fffb291e766680",
+      "signature": "ed25519:+6DXwTqRo+Zkju0Hh7xsW4KEk/b34ln7KwpY4TzENo8TsBioA+rSWHrAUJaNyL/1FM3FSyCjmBB/sBhvpE3uCw=="
     },
     {
-      "event_id": "0e1b3187-e29f-4ae2-939b-60c48239150a",
-      "timestamp": "2026-08-16T03:15:55.882Z",
-      "actor_identity": "imagine:session:46cb13d551347211",
+      "event_id": "c2eb20ff-5a9c-4b5a-ab6f-d52f462449f9",
+      "timestamp": "2026-08-16T03:19:03.740Z",
+      "actor_identity": "imagine:session:2cfd377efb69d102",
       "event_type": "imagine.mutation",
       "payload": {
         "method": "POST",
         "path": "/svc/catalog/api/resources",
         "status": 201,
         "accepted": true,
-        "requestDigest": "sha256:beed58f708e4aa8fe672a10b70e7be3ebf65f1e218f2bdaecf58ae70f92111ab",
-        "resultDigest": "sha256:8b8c145635cf7fc910fcede81e0301b2db02043bf288078c9e34722b1a908127",
+        "requestDigest": "sha256:50df94295cbda1fb4642847c049008616eb24b9f36a1637a0a111d59a0bee0ce",
+        "resultDigest": "sha256:e88864235336a5846d30f6ed36d3fa278b6ec6b074f3937662f498646ec82ddf",
         "resourceKey": "components/symbia.transform.map",
         "ms": 4
       },
@@ -1825,87 +1461,87 @@
       "parent_links": [
         null
       ],
-      "checksum": "sha256:6369ceb57445066368844bbc20aaae98142d7c7a4182756faec95e7572d6c259",
-      "signature": "ed25519:r870rNz6zekSHhs/XOc+N2kJ5o6zhyb2pLAsAY+NlenFszlyff+eB4P2O4InV1VI59h2YkHqzoEQL400wrK1Bg=="
+      "checksum": "sha256:aa18cf5d2d6442c32839e1afeb6928a4dddabf9e8c00b09fe1d3700e75664567",
+      "signature": "ed25519:ua7Wmo1+mGK2VeEpr8EcrWnk9XCPsMHzUDca2uUmKwrpJXtK8IDCrA+KNFbGcUgBjwf2mzMrmBX0QyFBN/4cDA=="
     },
     {
-      "event_id": "8722312e-4e70-4567-a09c-076fb29a38f2",
-      "timestamp": "2026-08-16T03:15:55.886Z",
-      "actor_identity": "imagine:session:46cb13d551347211",
+      "event_id": "202634bd-cde2-4d5a-83d1-cfa7d57d1eba",
+      "timestamp": "2026-08-16T03:19:03.744Z",
+      "actor_identity": "imagine:session:2cfd377efb69d102",
       "event_type": "imagine.mutation",
       "payload": {
         "method": "POST",
         "path": "/svc/catalog/api/resources",
         "status": 201,
         "accepted": true,
-        "requestDigest": "sha256:a9f5de0da2a3b1685d2234a53a472bda96924218dc04cfe964e02ebe75ab56c8",
-        "resultDigest": "sha256:c1ae81f778e9756fbf86a90f9d875dc31d35ce503789d70db73cb45633e4cf35",
+        "requestDigest": "sha256:1b744539d1523610cc4c5b08dd6721c42f53ffe07ac173712f965b5d2c00641a",
+        "resultDigest": "sha256:2821ec46c34a35e8b4b2ac1dd5b912696d16f8e2dcf4af8e9a996be01669191d",
         "resourceKey": "components/symbia.logic.filter",
-        "ms": 3
-      },
-      "continuity_context": null,
-      "parent_links": [
-        null
-      ],
-      "checksum": "sha256:cbc54146d34c2a94ba113f785f27d29d15271e883da4af4bcc78ada846116308",
-      "signature": "ed25519:OeecLGbh15Tmgfbjy1sOOnpZoIF5vcKl+GD8nG/xecCjZ5LVCqnL+nTS1bGz0eWCme6uTDuwfkSk3Bcsny69CA=="
-    },
-    {
-      "event_id": "6a8bfec6-6637-4b2d-ba32-fe84ef61f47e",
-      "timestamp": "2026-08-16T03:15:55.891Z",
-      "actor_identity": "imagine:session:46cb13d551347211",
-      "event_type": "imagine.mutation",
-      "payload": {
-        "method": "POST",
-        "path": "/svc/catalog/api/resources",
-        "status": 201,
-        "accepted": true,
-        "requestDigest": "sha256:618297053396f03ad41def2182ddbb3972a8eded65084b9480e40241748314c7",
-        "resultDigest": "sha256:c798a1c016eab9b69d6ac9315314ba968b2b43fc6611583c43c05b970d17422a",
-        "resourceKey": "components/symbia.logic.switch",
         "ms": 4
       },
       "continuity_context": null,
       "parent_links": [
         null
       ],
-      "checksum": "sha256:d0a5413df93426895689c7a8872e3145aee6201b9e54a429d97fc2cdd768a0d5",
-      "signature": "ed25519:aQETasdluUouDErHzV5XUhXS0y6zjhi8SmdwNPZ58LKETwPwtNOuDvu50Q3kN/LXNXHvomSRgf67USaUiTGVDw=="
+      "checksum": "sha256:1d89c7d612987470123cb5e0695c485ca4477bad11acb40ca2a4d1369312aaac",
+      "signature": "ed25519:szUeq/CJbCHY4n1dQDmso8eSFMvXTHUVsV6tkTDRwvD51JMvmEMgPXt1Fv4OrQMMzh/lDPB6nF5ViqM2JAMCCQ=="
     },
     {
-      "event_id": "53985b7f-b898-46ef-ac5e-dbc57d48f169",
-      "timestamp": "2026-08-16T03:15:55.896Z",
-      "actor_identity": "imagine:session:46cb13d551347211",
+      "event_id": "69a3815d-8bab-4430-ad0a-9bc69e976379",
+      "timestamp": "2026-08-16T03:19:03.748Z",
+      "actor_identity": "imagine:session:2cfd377efb69d102",
       "event_type": "imagine.mutation",
       "payload": {
         "method": "POST",
         "path": "/svc/catalog/api/resources",
         "status": 201,
         "accepted": true,
-        "requestDigest": "sha256:919adbacc0a2b8c11f03e6bb791733786e5e92fc04855f321434c597f15c6b86",
-        "resultDigest": "sha256:e49706f746e273b764437cb8a52f8a70fdf56faad00db5d5c20908259c98be54",
-        "resourceKey": "components/symbia.compute.arithmetic",
-        "ms": 5
+        "requestDigest": "sha256:65dbf34153726d8e63e47c264470cbae44178ea52034933c4ef8e3cd701ffd35",
+        "resultDigest": "sha256:44de929467f37422702f048a7dc44a6e4ae325ced4e45e4b18bd43d895528b58",
+        "resourceKey": "components/symbia.logic.switch",
+        "ms": 3
       },
       "continuity_context": null,
       "parent_links": [
         null
       ],
-      "checksum": "sha256:5179755515cceb258f0025e2c8aac0ee71ce10776a96a57c05f8e3c38a6d0b78",
-      "signature": "ed25519:mOw32UbxZ497GITYvzzUzVfq85XDWAlZ+ud5dTWqHaoI4R3tULBHXcgUXm/oSWjH7aSy0J0rm0XSRoNXsmOTBQ=="
+      "checksum": "sha256:7fe3f585db282168877512cde41f0fa39e388c13d44422d7c707e00fc72d25a5",
+      "signature": "ed25519:tViQV9WuE1eG3jlqAvMQQSSKhwVJpz2tFNI+cX15+SUlmneXGvKADzwfoukGIRPTKtfzAHf/XKl05E1E1LJMAg=="
     },
     {
-      "event_id": "bf8d4782-369a-46f1-8ae6-cd9f0eac62b6",
-      "timestamp": "2026-08-16T03:15:55.900Z",
-      "actor_identity": "imagine:session:46cb13d551347211",
+      "event_id": "3bacb764-046d-4e80-ade1-85a954456f94",
+      "timestamp": "2026-08-16T03:19:03.752Z",
+      "actor_identity": "imagine:session:2cfd377efb69d102",
       "event_type": "imagine.mutation",
       "payload": {
         "method": "POST",
         "path": "/svc/catalog/api/resources",
         "status": 201,
         "accepted": true,
-        "requestDigest": "sha256:00e0ba653047e7318c7ffda43705b1264f3c05a5463f120ea8da4e295603fb7d",
-        "resultDigest": "sha256:448004ed6bc13576df31471edf1b41600def0f49971f5fcf3e39d45157acb189",
+        "requestDigest": "sha256:7d6d1b5a5b6775436267bad5de9d542d6ec0d2087aca7bcedfb1bac8924945c4",
+        "resultDigest": "sha256:c580a3a0eca85a07b818f1c88d70c6b422b535fe3df527e67520761bc1012c5e",
+        "resourceKey": "components/symbia.compute.arithmetic",
+        "ms": 3
+      },
+      "continuity_context": null,
+      "parent_links": [
+        null
+      ],
+      "checksum": "sha256:077b709cbca3a31493cc371422008e006ad457bc09855b4b44698f85cb464181",
+      "signature": "ed25519:CRqFYMvCq+KUSXsqorLLq6D+ki613gdRwcTEwaRjmHYVs6kc4ct0Xhdl1BP8tnlfN2zz3X8fq9eNKO+QLOL/BQ=="
+    },
+    {
+      "event_id": "6a274b84-b750-4b24-a439-e42b5fd01499",
+      "timestamp": "2026-08-16T03:19:03.756Z",
+      "actor_identity": "imagine:session:2cfd377efb69d102",
+      "event_type": "imagine.mutation",
+      "payload": {
+        "method": "POST",
+        "path": "/svc/catalog/api/resources",
+        "status": 201,
+        "accepted": true,
+        "requestDigest": "sha256:de8fa37d74fb80ea6ebefe797ce59fcba42191d12e0aea7ea1775a0c8b711387",
+        "resultDigest": "sha256:639389de9495891017ee2009ec2d1ccc53f05bb847e8297585b123be00a92e31",
         "resourceKey": "components/symbia.io.http-request",
         "ms": 3
       },
@@ -1913,21 +1549,21 @@
       "parent_links": [
         null
       ],
-      "checksum": "sha256:4fb6ad833cb3bb47152e571c91c44897a3ef3c7cb07bbf41dcee33bb51212e33",
-      "signature": "ed25519:jeAlANPJkaxu7Rw3v2p0S6tb2vPz4GX+q/SXLKGLwH/zLarnKCaoJ6iilTN2pWxPYKvEIqzkfKRDZiY4AuLwDw=="
+      "checksum": "sha256:8fe1886c17bbc525175018d03d19766df39d65ce5bd465b2a082d8323e15ebb2",
+      "signature": "ed25519:BWDpFH/vYZvs7l3i/K1esLBIEKsPC1xCBBBglIZSLKPFnq7XwWvkSCmeyG9OFYd7mUsPUWFgHVczEg9HqWI/Bw=="
     },
     {
-      "event_id": "a3c0310d-1286-4c16-8a27-de6ce05f44f8",
-      "timestamp": "2026-08-16T03:15:55.904Z",
-      "actor_identity": "imagine:session:46cb13d551347211",
+      "event_id": "1ba99258-aac8-468c-ab6b-788265b4292c",
+      "timestamp": "2026-08-16T03:19:03.760Z",
+      "actor_identity": "imagine:session:2cfd377efb69d102",
       "event_type": "imagine.mutation",
       "payload": {
         "method": "POST",
         "path": "/svc/catalog/api/resources",
         "status": 201,
         "accepted": true,
-        "requestDigest": "sha256:90361f8cd0dbf5ada91b0a3a748be8f332cab59a145aa58c50edc83aaa9f5c71",
-        "resultDigest": "sha256:29af2144c3430b318ec7dc6f263e519a472dcf7413d2a9d8f2328938dd947313",
+        "requestDigest": "sha256:e501e7b4805235fe8473840e4a6f1a79df4ac9d316990e9bc62e0453ff02c6ec",
+        "resultDigest": "sha256:afbcaf881bc3329d697b208553625ca770e9f45960825fd1cb153f98b4cdfdf4",
         "resourceKey": "components/symbia.io.delay",
         "ms": 3
       },
@@ -1935,21 +1571,21 @@
       "parent_links": [
         null
       ],
-      "checksum": "sha256:93cb8ca9c3fb38edf50c6638ec9f7b303647a0858c443d328d307a150b9e708e",
-      "signature": "ed25519:1uZAa7yA2e+ltBDzN8lkt4RCGQdbMk0PQJ1dBoKJt+EiR4R+xzSBhkj7R7tP4pNBUKfDAAjcI7ir1TZGstJQDA=="
+      "checksum": "sha256:7d7b0c43582fbebb367da088598fadada2a17c3c4518086b7869672d20badd52",
+      "signature": "ed25519:ParxXB2kI1micqiVPvOdf/z8BRM/GVlwzUgRbFkR8qOe86fua/bDlEkYjLgIBnZAxRXRRn/17rzqBQnW2i8xDA=="
     },
     {
-      "event_id": "079cb5d2-bbf7-4bfe-b536-4613927caafd",
-      "timestamp": "2026-08-16T03:15:55.909Z",
-      "actor_identity": "imagine:session:46cb13d551347211",
+      "event_id": "3a75bd05-c8a4-4b6c-91e4-d147d2fa09b2",
+      "timestamp": "2026-08-16T03:19:03.765Z",
+      "actor_identity": "imagine:session:2cfd377efb69d102",
       "event_type": "imagine.mutation",
       "payload": {
         "method": "POST",
         "path": "/svc/catalog/api/resources",
         "status": 201,
         "accepted": true,
-        "requestDigest": "sha256:8296ec245643b75fdf6cfc49ca2b6e118f797b27b9a04764d45f70e0da5c04b5",
-        "resultDigest": "sha256:4629b540d51354ae04e739f43660e864d0b62f9dd315491004585a5a056824ef",
+        "requestDigest": "sha256:4cd31ef2708e8a9cd2803b3386e181f65e982c1002b7967388cd37c2763f28a3",
+        "resultDigest": "sha256:fcb5b7f9b3db0f521863dc901e9af2c0e836d237e1f77e94e6aafca1aa85437e",
         "resourceKey": "components/symbia.state.latest",
         "ms": 4
       },
@@ -1957,109 +1593,109 @@
       "parent_links": [
         null
       ],
-      "checksum": "sha256:9b9e9fb4789b2352d836ab2391d77a38ba075b9ae9c8a71c61aa62186c47b496",
-      "signature": "ed25519:Q/ufRaFvJAGHzMIhl6uv2AE7hlio18vIT0YGsEYCuyYgWfxemmR22F4X1hnhotHQlEZ4/ZhYTJLkLDFpPR+hAA=="
+      "checksum": "sha256:7f94403afb4b520714e1cc9d64c05b763a9299cf4543417b1a637cabfaa38fbc",
+      "signature": "ed25519:25eId0zNIHl63MhYe1fE5KkCTREbW3oP1LMvLpznq7Skr57qB1frhRcnnCUcQCXW9bntsqk55PN1t7xwHN3xDw=="
     },
     {
-      "event_id": "88cfd161-75cd-4d4a-9178-b46dd4d1c544",
-      "timestamp": "2026-08-16T03:15:55.913Z",
-      "actor_identity": "imagine:session:46cb13d551347211",
+      "event_id": "4ca16506-fdcf-4a8e-923f-a9b881b9fc33",
+      "timestamp": "2026-08-16T03:19:03.769Z",
+      "actor_identity": "imagine:session:2cfd377efb69d102",
       "event_type": "imagine.mutation",
       "payload": {
         "method": "POST",
         "path": "/svc/catalog/api/resources",
         "status": 201,
         "accepted": true,
-        "requestDigest": "sha256:ed47bb3c7daae130c55f4f969590b192a141596fd96ba598fafc7c9da9c675fc",
-        "resultDigest": "sha256:7f5d822b5606d531f2008050bd80a51afe3891db7cf07d1611ce307903849c0a",
+        "requestDigest": "sha256:ced416e13bf732e0056b99ceef8993d60a809c6804cbb4fc99054bff20928bbe",
+        "resultDigest": "sha256:1f1086869df45828bc2e586fd93ebc17549dc4e526ccc3c385b13b463994dfb2",
         "resourceKey": "components/symbia.state.join",
-        "ms": 4
+        "ms": 3
       },
       "continuity_context": null,
       "parent_links": [
         null
       ],
-      "checksum": "sha256:befbf3162ae543be2fe38c3f4f35b06b47ae0aa82ab85da58873f162eda27ce7",
-      "signature": "ed25519:BgLLG3+tlRdNM6ly0upI/cdV3SqcPhBQVryj27QgsrYTECppL9UsOMpt4+au9ndZsztS3bHu3jAJqLz7FHDbBQ=="
+      "checksum": "sha256:19c6b03db6d805a7cbd00d69199462758c794b58f20c849a9389fa7bfc6ad08f",
+      "signature": "ed25519:I3vuWfrGDR+Rpry03/7gAk/YTnhI9qWOcTju7g3XIeUbBxCGn9wtFbnDkA6D1lbaf0jHJoRVs6cwzh368iDEBQ=="
     },
     {
-      "event_id": "bd34eaaf-6cd6-4684-a220-b29a58927736",
-      "timestamp": "2026-08-16T03:15:55.917Z",
-      "actor_identity": "imagine:session:46cb13d551347211",
+      "event_id": "16e1acc7-983a-4714-b1a4-b3ca10fa9d7c",
+      "timestamp": "2026-08-16T03:19:03.773Z",
+      "actor_identity": "imagine:session:2cfd377efb69d102",
       "event_type": "imagine.mutation",
       "payload": {
         "method": "POST",
         "path": "/svc/catalog/api/resources",
         "status": 201,
         "accepted": true,
-        "requestDigest": "sha256:c9a26d6f71e9e2269bb2965d0e708e0459934e9a9b21956fd92d57cdbdd9eafe",
-        "resultDigest": "sha256:5b573d757c35da44d3a9f27399f0013ef5fa713ed07d225d43f3d487f1c6279e",
+        "requestDigest": "sha256:297c54b0fda5d4596e815b69f6c61f47f1468d945614a7e2a50a23c7b6207d64",
+        "resultDigest": "sha256:9b7f3f0aa54fc3f61cb10e58f6c8b510b97021a1c7202f753ac3fb5eab22dc25",
         "resourceKey": "components/symbia.state.window",
-        "ms": 4
+        "ms": 3
       },
       "continuity_context": null,
       "parent_links": [
         null
       ],
-      "checksum": "sha256:dd7976312d531598823d40e488808c502a8f4b5ee9fe218278e3683bf405be06",
-      "signature": "ed25519:WbRLn2OgZxn/7UjSHTCcm0LB+6tjkotxF8ATiuzGntbch8X3Qz+dZmBNlQdB9q0PN6pSh25Xp7+EXa+UZGOAAg=="
+      "checksum": "sha256:4edfb6266cd5a4cc11136d64e707bf1d3031fcd10d2ba7da6f93cdab08911dcd",
+      "signature": "ed25519:royqCWQjlekJTgnpQDolL2k67ZQxa5iZHXGUYv2BeI1P4M/hqdd7nrqjhftEWmEtdItloyLFUBvuO7u0h12NBg=="
     },
     {
-      "event_id": "e0e2932d-425d-431d-9be3-c2baa7b346ef",
-      "timestamp": "2026-08-16T03:15:55.921Z",
-      "actor_identity": "imagine:session:46cb13d551347211",
+      "event_id": "1459415d-de7d-4c91-9e8e-a41bc0fcaec5",
+      "timestamp": "2026-08-16T03:19:03.777Z",
+      "actor_identity": "imagine:session:2cfd377efb69d102",
       "event_type": "imagine.mutation",
       "payload": {
         "method": "POST",
         "path": "/svc/catalog/api/resources",
         "status": 201,
         "accepted": true,
-        "requestDigest": "sha256:071a51d27ff87d0b60a19029f3fa71565e8b3e323d70ac703a2a5625dd9a5ddb",
-        "resultDigest": "sha256:d640d9bebc5a004e1a44e0d938c5cb3f29f44623ebe14b2cecf581cf98a97d16",
+        "requestDigest": "sha256:ff5c1b053c4877168828dbde8fe026a66da6fd9105543607f664a7d8fcc24484",
+        "resultDigest": "sha256:61e379c11e862dff98b4feffb9387e2c6c3f7b0cad0c285c507ba4e8e9372a19",
         "resourceKey": "components/symbia.state.rollup",
-        "ms": 4
+        "ms": 3
       },
       "continuity_context": null,
       "parent_links": [
         null
       ],
-      "checksum": "sha256:14fe8082760935c96b6074dbd65ecac252ebb8ee6bf6ee90b7f0ce6c7ca950c4",
-      "signature": "ed25519:T9GLlIu0LYs+CrAWeb3SL1bkZ99/oTdofDDaM2knqXZ8NAyy0vTqmv0FPmaXVKU7CA/F8s6gRi5+MeYXhir9BA=="
+      "checksum": "sha256:25c2192f2246255142d33142ba1723812a84aff28d3464e0b553563957cef18f",
+      "signature": "ed25519:v88T3uismj4rrK+DNTK4aX9kYK1dnjhAAtukfnwIWeTa7wks0H8K7LdlJouv+HQgF4dy6JDZP00ylVqb8Jb6DA=="
     },
     {
-      "event_id": "5d846c71-b3b9-48ee-b8e9-d8ce5333d72e",
-      "timestamp": "2026-08-16T03:15:55.926Z",
-      "actor_identity": "imagine:session:46cb13d551347211",
+      "event_id": "795d0443-b0ae-44c7-94bc-a214097a5c8a",
+      "timestamp": "2026-08-16T03:19:03.781Z",
+      "actor_identity": "imagine:session:2cfd377efb69d102",
       "event_type": "imagine.mutation",
       "payload": {
         "method": "POST",
         "path": "/svc/catalog/api/resources",
         "status": 201,
         "accepted": true,
-        "requestDigest": "sha256:be39a16dd54656fabe65b1f8840d5e18cfe0fdf4e9a18d9cf88e1bd7076c0321",
-        "resultDigest": "sha256:97a3c2dfd2251a819810ab136aecf1400dd545c735b99fc34dbcbeb1f134d4bc",
+        "requestDigest": "sha256:72871ad9dfe90a9da89b8b8785fd3f45b50f7ba307b6005a6e0be3cd8b32bd34",
+        "resultDigest": "sha256:fdac22ea216a7ea56fa07158c5f1be2dff59d2de7bf863e6aa9159642ae55509",
         "resourceKey": "components/symbia.source.timer",
-        "ms": 4
+        "ms": 3
       },
       "continuity_context": null,
       "parent_links": [
         null
       ],
-      "checksum": "sha256:db03e3cb7b751834713858216e36fe28dc7f23f202c41ce4b480f0bbe269b3b1",
-      "signature": "ed25519:11fIAEGQ9aQVBrLttwpLGrQnIRFZLWfjvtRZfUnrGVoMyGqC9TiabeOLWRaWKB4MknGdv5mpQWvtBKzxjjr5Bw=="
+      "checksum": "sha256:686f4f983429bea5eee31bcc0b465d97e96cf0240a32d0f9811fb799ac3c6562",
+      "signature": "ed25519:w0T6l0KX6WT/wv44M/m+rLkaZMAcLvgQZlcKt97/2HTfKndIwPhKN/JTMPdzz0NEdE4pCbx4iRTYvXg/DLEPAw=="
     },
     {
-      "event_id": "c37fa09e-1df8-4221-ac71-fb02c4bb9d4e",
-      "timestamp": "2026-08-16T03:15:55.930Z",
-      "actor_identity": "imagine:session:46cb13d551347211",
+      "event_id": "4037f19f-8cb1-4950-b687-3c494401b256",
+      "timestamp": "2026-08-16T03:19:03.785Z",
+      "actor_identity": "imagine:session:2cfd377efb69d102",
       "event_type": "imagine.mutation",
       "payload": {
         "method": "POST",
         "path": "/svc/catalog/api/resources",
         "status": 201,
         "accepted": true,
-        "requestDigest": "sha256:8f43868869a49d9936cf3060eb8083274fdf41a58181b338d3813e2d38a9b9d9",
-        "resultDigest": "sha256:1d6cbc209bf9fe2da0ae2eabf17ad4c3796d9274ac20a6527b8cbecc63977f83",
+        "requestDigest": "sha256:b4f2e82a0cc9591b04134ddfbbc4b95fc419b615866f3001c121c2be366428a9",
+        "resultDigest": "sha256:25bc7a1e574ee48c9623c0dfd29f9adcd9ebf458fd7dc75144750a9819ec46ff",
         "resourceKey": "components/symbia.sink.metric",
         "ms": 3
       },
@@ -2067,21 +1703,21 @@
       "parent_links": [
         null
       ],
-      "checksum": "sha256:e0b17d6800338928a292bea85352e73d7a2342ae6a9142a2b984a5e8f4a39cd1",
-      "signature": "ed25519:xHq8Bpgsz2DZ//8up/iLwv/ckf5M0nDcOJemHtRwNmS2WN3MgyeAjg1esIXOqbTVYMEPDLuNtrln+dAfqQaSAg=="
+      "checksum": "sha256:e6c029c9b799ee0de9bc3b0a09dd46e753d5d7873508d53387375118a2845860",
+      "signature": "ed25519:vG64cW3WEp+VfXccjlLJyD91eUa83/6c3TYKNopGR3TovLYiXNJRqUQXui8kCZhRRS3zdfcpjAGLigEmrVx2Aw=="
     },
     {
-      "event_id": "59145369-26bf-4656-89d1-dd096c378150",
-      "timestamp": "2026-08-16T03:15:55.935Z",
-      "actor_identity": "imagine:session:46cb13d551347211",
+      "event_id": "8d431d1d-aee6-426d-a5de-564b95dd56e5",
+      "timestamp": "2026-08-16T03:19:03.789Z",
+      "actor_identity": "imagine:session:2cfd377efb69d102",
       "event_type": "imagine.mutation",
       "payload": {
         "method": "POST",
         "path": "/svc/catalog/api/resources",
         "status": 201,
         "accepted": true,
-        "requestDigest": "sha256:6729d412924765a167452d14199a43a7b82bc6434d32fe10f8e88e4a35dfbb18",
-        "resultDigest": "sha256:debc44f08df709388ef717868153517b8c6990f5436dba7e0bcb6f636c3f4162",
+        "requestDigest": "sha256:31a685b2f3aa73d1cf972ea44e7aa7791d5f604f2393976a1d407eb995405c1c",
+        "resultDigest": "sha256:b2f0b3a5d3ac4e2929b62d8d686b2c618f75d9005f550f98277c0cee9c624d28",
         "resourceKey": "components/symbia.sink.log",
         "ms": 4
       },
@@ -2089,13 +1725,13 @@
       "parent_links": [
         null
       ],
-      "checksum": "sha256:c62004313dac7e88c4853aeec3526542f3f7a1d865b6b6b26b3a729755b5c556",
-      "signature": "ed25519:+yaVLl5jl0fzkPxy9AntQVYbzNrKlOCyujVsU8rLNQxanTJfElMJl/vVHnHRnQtXgMKTyyidifbS2vEfKZcQBg=="
+      "checksum": "sha256:8a788fbdd816a627a67ce28fa372330221a155ab3cd6eaf5be515bf58ab8d78d",
+      "signature": "ed25519:FRXIT7OKpUJDD6iWzO7X0S/t/XJUUDSYo5iTqA5G8pffkL9toxJi1mM+3wDYTR4Ja/kSI2Dnfb3mmPUPBR6LBQ=="
     },
     {
-      "event_id": "80210d36-25e6-4fc6-ae4c-fcd21a54c078",
-      "timestamp": "2026-08-16T03:15:57.637Z",
-      "actor_identity": "imagine:session:46cb13d551347211",
+      "event_id": "478e3e61-84d0-4f3e-b0c6-4b9f0e7a90d0",
+      "timestamp": "2026-08-16T03:19:05.669Z",
+      "actor_identity": "imagine:session:2cfd377efb69d102",
       "event_type": "imagine.mutation",
       "payload": {
         "method": "POST",
@@ -2111,13 +1747,13 @@
       "parent_links": [
         null
       ],
-      "checksum": "sha256:f8eb9bedc5b554e392057eb5c6d393009c39f51152d0deef0fe7204eb65dae62",
-      "signature": "ed25519:CQ14/DAqtDVzswg1GBpF2tgABgjXvF5ISlvYl/z6gAre4PNQqY1Ytc0dOm6DiRAlB+AuXiTmeWlVwR67G57UBA=="
+      "checksum": "sha256:dc195efd1b955a6605bcee199a5646ad0adbbc45670aad6279a8bb2bd33ab46f",
+      "signature": "ed25519:Xbzy6NorA3oBUZ3s2hKbrItXHbh37XPqPVXtzSTPFshwlwUq/bknpu2QGM38zItS+heb72CdqN5iLYKYdEyjBw=="
     },
     {
-      "event_id": "eeaf56c1-c699-4545-992c-4c315fd47d3b",
-      "timestamp": "2026-08-16T03:16:00.645Z",
-      "actor_identity": "imagine:session:46cb13d551347211",
+      "event_id": "210987ee-d5b0-40b7-8621-e035bd9dee64",
+      "timestamp": "2026-08-16T03:19:08.675Z",
+      "actor_identity": "imagine:session:2cfd377efb69d102",
       "event_type": "imagine.mutation",
       "payload": {
         "method": "POST",
@@ -2133,13 +1769,13 @@
       "parent_links": [
         null
       ],
-      "checksum": "sha256:535ca0e557c0698b67e16d012f9999b021299beaed0e066485291e35f9a76b34",
-      "signature": "ed25519:S5S7qsmVIacnCSifpmWop40You7TRiUqHjpGjEdZau06oFT+wuK2BfB6KRt3k2RMO1EB1IOJo7CcusN5OczQAQ=="
+      "checksum": "sha256:b3331d3968588bdd3b6909ccf2ef09d20550dbd8406a7063ab53249df36e8b5c",
+      "signature": "ed25519:3yIGEdp+jw4fqrUg+9SrImjq4Q5F26sujqXVW5gVe+ovgIwCeBBUjXU+4MIlLM4f9YdN+exzqYkZ8Gzysb9gBA=="
     },
     {
-      "event_id": "19641276-3e41-4bfa-a3e2-e96f08a3e6da",
-      "timestamp": "2026-08-16T03:16:00.648Z",
-      "actor_identity": "imagine:session:46cb13d551347211",
+      "event_id": "7f09a1e7-09d0-4918-bb9f-5165f26722f7",
+      "timestamp": "2026-08-16T03:19:08.680Z",
+      "actor_identity": "imagine:session:2cfd377efb69d102",
       "event_type": "imagine.mutation",
       "payload": {
         "method": "POST",
@@ -2149,71 +1785,555 @@
         "requestDigest": "sha256:d5e72c1f613ef6baf53137c49ff739d3787c9038ab1ab9140c7d0edb1986fae4",
         "resultDigest": "sha256:559b2391b2fcea7c91bda8dd280fcc4aa6d084d3748f272e7a7b92d625e0b905",
         "resourceKey": null,
-        "ms": 1,
+        "ms": 1
+      },
+      "continuity_context": null,
+      "parent_links": [
+        null
+      ],
+      "checksum": "sha256:73c2977b21b6bfa29e9fcb9c6f8772b547e06c032a393a2ab9834ba599d0fb57",
+      "signature": "ed25519:PAQ+jLuehbyZlK9sJ7S7XnStekYzdvuZB0wWNBean81JAs8SzyErrWpH+R1CexjTWH7XVNZQoSFalRYHQKR0Dg=="
+    },
+    {
+      "event_id": "aaa5da41-5bbc-498a-81e8-ff19a507fac4",
+      "timestamp": "2026-08-16T03:19:09.685Z",
+      "actor_identity": "imagine:session:2cfd377efb69d102",
+      "event_type": "imagine.mutation",
+      "payload": {
+        "method": "POST",
+        "path": "/svc/logging/api/metrics",
+        "status": 500,
+        "accepted": false,
+        "requestDigest": "sha256:d5e72c1f613ef6baf53137c49ff739d3787c9038ab1ab9140c7d0edb1986fae4",
+        "resultDigest": "sha256:559b2391b2fcea7c91bda8dd280fcc4aa6d084d3748f272e7a7b92d625e0b905",
+        "resourceKey": null,
+        "ms": 1
+      },
+      "continuity_context": null,
+      "parent_links": [
+        null
+      ],
+      "checksum": "sha256:c74e6873d8a6d97decabc445989d8fe51f38b918c8080a30b95ef00555312185",
+      "signature": "ed25519:a2v5hDvfzbI399wZ39XuBhZwaYJ6kcfEqhzCgM5te1c8oAO1nts5pWCBnbRgL1msx6RidLiVWz4FuJ+WwWiWCg=="
+    },
+    {
+      "event_id": "e101b256-e7c1-4ba5-bdaa-092ad61b1c09",
+      "timestamp": "2026-08-16T03:19:11.692Z",
+      "actor_identity": "imagine:session:2cfd377efb69d102",
+      "event_type": "imagine.mutation",
+      "payload": {
+        "method": "POST",
+        "path": "/svc/logging/api/metrics",
+        "status": 500,
+        "accepted": false,
+        "requestDigest": "sha256:d5e72c1f613ef6baf53137c49ff739d3787c9038ab1ab9140c7d0edb1986fae4",
+        "resultDigest": "sha256:559b2391b2fcea7c91bda8dd280fcc4aa6d084d3748f272e7a7b92d625e0b905",
+        "resourceKey": null,
+        "ms": 0
+      },
+      "continuity_context": null,
+      "parent_links": [
+        null
+      ],
+      "checksum": "sha256:79bf95e7ec00e02a87a1175abef242d946a1a408f9f489959da060627d431595",
+      "signature": "ed25519:wQ8leW5bN2Us6oo6u2VbHIHCPw/pg5xmljGaQiK/Dsafxzc5CZzmPXZYnrWInaAXW4+aQPxubyOPl6WgmHRfBw=="
+    },
+    {
+      "event_id": "e6db6de8-6b14-411a-a411-6ebb23a58266",
+      "timestamp": "2026-08-16T03:19:14.700Z",
+      "actor_identity": "imagine:session:2cfd377efb69d102",
+      "event_type": "imagine.mutation",
+      "payload": {
+        "method": "POST",
+        "path": "/svc/logging/api/metrics",
+        "status": 500,
+        "accepted": false,
+        "requestDigest": "sha256:d5e72c1f613ef6baf53137c49ff739d3787c9038ab1ab9140c7d0edb1986fae4",
+        "resultDigest": "sha256:559b2391b2fcea7c91bda8dd280fcc4aa6d084d3748f272e7a7b92d625e0b905",
+        "resourceKey": null,
+        "ms": 1
+      },
+      "continuity_context": null,
+      "parent_links": [
+        null
+      ],
+      "checksum": "sha256:83552748de5258537a4d9c1432647e88e2bed58fb07fb432cf000df45974cd48",
+      "signature": "ed25519:LX0FsQx8yD+6jX735yolDRnZPMuYeQGs/4j0qfEIgE5B+fyJ8WqcEfbGTykM11mbTfKKcldJhjTX5BecraTPCw=="
+    },
+    {
+      "event_id": "d24b5275-2fcf-4b18-86b1-658443270793",
+      "timestamp": "2026-08-16T03:19:14.703Z",
+      "actor_identity": "imagine:session:2cfd377efb69d102",
+      "event_type": "imagine.mutation",
+      "payload": {
+        "method": "POST",
+        "path": "/svc/logging/api/metrics",
+        "status": 500,
+        "accepted": false,
+        "requestDigest": "sha256:6729954a483b621fc7347850b966396dab0640ed42797b252d8e62eae0bbc344",
+        "resultDigest": "sha256:559b2391b2fcea7c91bda8dd280fcc4aa6d084d3748f272e7a7b92d625e0b905",
+        "resourceKey": null,
+        "ms": 0
+      },
+      "continuity_context": null,
+      "parent_links": [
+        null
+      ],
+      "checksum": "sha256:d09d4ce7a300e325e038e925a6a216f727c6ea6a3e2077cdaa0093f34ced2315",
+      "signature": "ed25519:roMB568oRFGxGRBR0i+Pxv+PNH9zgtS5UPFEegJ4dzsq5Ov27/Y7uzSx1XBLoD0/rmLEyovjKemV1jMkpquOCg=="
+    },
+    {
+      "event_id": "f9544741-0323-40d4-b42e-82140fcbc03a",
+      "timestamp": "2026-08-16T03:19:15.709Z",
+      "actor_identity": "imagine:session:2cfd377efb69d102",
+      "event_type": "imagine.mutation",
+      "payload": {
+        "method": "POST",
+        "path": "/svc/logging/api/metrics",
+        "status": 500,
+        "accepted": false,
+        "requestDigest": "sha256:6729954a483b621fc7347850b966396dab0640ed42797b252d8e62eae0bbc344",
+        "resultDigest": "sha256:559b2391b2fcea7c91bda8dd280fcc4aa6d084d3748f272e7a7b92d625e0b905",
+        "resourceKey": null,
+        "ms": 1
+      },
+      "continuity_context": null,
+      "parent_links": [
+        null
+      ],
+      "checksum": "sha256:ec9a7ac9e54c2db2aaa5b2c5344f13b2a80ac225106950d0a453dcf4b79b02ca",
+      "signature": "ed25519:mEP2lkMW9S5rOyl9/kt6AAHymrOOx5e8gQyWnqSogg4B3VTqKdKrFM/EXQqsOZs6Ql40kWX9wg9sOay3hpyLCQ=="
+    },
+    {
+      "event_id": "a61a8c0e-e18c-4b34-95e8-adefa93746b7",
+      "timestamp": "2026-08-16T03:19:17.712Z",
+      "actor_identity": "imagine:session:2cfd377efb69d102",
+      "event_type": "imagine.mutation",
+      "payload": {
+        "method": "POST",
+        "path": "/svc/logging/api/metrics",
+        "status": 500,
+        "accepted": false,
+        "requestDigest": "sha256:6729954a483b621fc7347850b966396dab0640ed42797b252d8e62eae0bbc344",
+        "resultDigest": "sha256:559b2391b2fcea7c91bda8dd280fcc4aa6d084d3748f272e7a7b92d625e0b905",
+        "resourceKey": null,
+        "ms": 0
+      },
+      "continuity_context": null,
+      "parent_links": [
+        null
+      ],
+      "checksum": "sha256:cde5e03649ec44598248b2d6e67d1f5fb67142e3f13c7527462dd2cf1578f6e3",
+      "signature": "ed25519:okAuckl+wzsQuy2WTY+HPU1MWOTQkc6en9vfdFFUlP1h5a0XSAxbAbEW3f/Lssbmwozq++isg9O/6lzRv0+eAg=="
+    },
+    {
+      "event_id": "cbb0c15c-9b6f-469e-9691-f6fdee6b8af8",
+      "timestamp": "2026-08-16T03:19:20.719Z",
+      "actor_identity": "imagine:session:2cfd377efb69d102",
+      "event_type": "imagine.mutation",
+      "payload": {
+        "method": "POST",
+        "path": "/svc/logging/api/metrics",
+        "status": 500,
+        "accepted": false,
+        "requestDigest": "sha256:6729954a483b621fc7347850b966396dab0640ed42797b252d8e62eae0bbc344",
+        "resultDigest": "sha256:559b2391b2fcea7c91bda8dd280fcc4aa6d084d3748f272e7a7b92d625e0b905",
+        "resourceKey": null,
+        "ms": 1
+      },
+      "continuity_context": null,
+      "parent_links": [
+        null
+      ],
+      "checksum": "sha256:0f9167d3cdee526d21ea2bd0fd30f9c54181304faf8bd5e48f077fa6e19ef4d0",
+      "signature": "ed25519:4I8QCo2V+3uM7waMu1+ls5l8AQioJyoWvFpijiiMafyFD0uWV8+S7MdVO4QA2ieKcGw9WEhFxsfRIKhq20CIDg=="
+    },
+    {
+      "event_id": "527b056e-4ce2-471e-b2d8-b9ea14b44d38",
+      "timestamp": "2026-08-16T03:19:20.725Z",
+      "actor_identity": "imagine:session:2cfd377efb69d102",
+      "event_type": "imagine.mutation",
+      "payload": {
+        "method": "POST",
+        "path": "/svc/logging/api/metrics",
+        "status": 500,
+        "accepted": false,
+        "requestDigest": "sha256:18c2c658e4e7cb87b761653cbc83024fecaa6dcce409347214fb9460d2e7b8c7",
+        "resultDigest": "sha256:559b2391b2fcea7c91bda8dd280fcc4aa6d084d3748f272e7a7b92d625e0b905",
+        "resourceKey": null,
+        "ms": 1
+      },
+      "continuity_context": null,
+      "parent_links": [
+        null
+      ],
+      "checksum": "sha256:48432842786f1e2f0c8e29a50f7f174951df0504fbda9607489783fd88bbb054",
+      "signature": "ed25519:2Zp5A8O0DfoRvRiPbe1MD/CI5onaGqt3uXzP7RWjrUYjGtLkhzvZbRzsHFyaeb2ajgRW1oHN1oJmf0iBhVpOCQ=="
+    },
+    {
+      "event_id": "e8003c20-a4a3-4a99-b811-dec1607d16fb",
+      "timestamp": "2026-08-16T03:19:21.728Z",
+      "actor_identity": "imagine:session:2cfd377efb69d102",
+      "event_type": "imagine.mutation",
+      "payload": {
+        "method": "POST",
+        "path": "/svc/logging/api/metrics",
+        "status": 500,
+        "accepted": false,
+        "requestDigest": "sha256:18c2c658e4e7cb87b761653cbc83024fecaa6dcce409347214fb9460d2e7b8c7",
+        "resultDigest": "sha256:559b2391b2fcea7c91bda8dd280fcc4aa6d084d3748f272e7a7b92d625e0b905",
+        "resourceKey": null,
+        "ms": 0
+      },
+      "continuity_context": null,
+      "parent_links": [
+        null
+      ],
+      "checksum": "sha256:7e966bee8f589592e54d7195e48597c9f290d2f67adb68eb9cca22a233cffe19",
+      "signature": "ed25519:tQY9+xPjxwGEUcV1yObObCpJxGsqCVj0tsRfo4cdjYM5lg5t9sd4GYrWdy8TbGiCw2e9sfidZi7z52k1B/JtDw=="
+    },
+    {
+      "event_id": "41c703d7-636a-428c-a526-bbd1bac4038c",
+      "timestamp": "2026-08-16T03:19:23.731Z",
+      "actor_identity": "imagine:session:2cfd377efb69d102",
+      "event_type": "imagine.mutation",
+      "payload": {
+        "method": "POST",
+        "path": "/svc/logging/api/metrics",
+        "status": 500,
+        "accepted": false,
+        "requestDigest": "sha256:18c2c658e4e7cb87b761653cbc83024fecaa6dcce409347214fb9460d2e7b8c7",
+        "resultDigest": "sha256:559b2391b2fcea7c91bda8dd280fcc4aa6d084d3748f272e7a7b92d625e0b905",
+        "resourceKey": null,
+        "ms": 1
+      },
+      "continuity_context": null,
+      "parent_links": [
+        null
+      ],
+      "checksum": "sha256:6e6ea5b8df53fc405202ab9bb1a116b02060717a945f1e02ab2b626f1ce8f0d5",
+      "signature": "ed25519:whpeQJlaiZWAkmJkVS9jr+Z/R1eD3FNE2bwvrOSNxDcrOdWqd5wPpe4uZIuCoXKtFzdcLsKIdOll8zGvdd7XDA=="
+    },
+    {
+      "event_id": "2aacc191-4003-4347-b53c-31f5806d3608",
+      "timestamp": "2026-08-16T03:19:26.736Z",
+      "actor_identity": "imagine:session:2cfd377efb69d102",
+      "event_type": "imagine.mutation",
+      "payload": {
+        "method": "POST",
+        "path": "/svc/logging/api/metrics",
+        "status": 500,
+        "accepted": false,
+        "requestDigest": "sha256:18c2c658e4e7cb87b761653cbc83024fecaa6dcce409347214fb9460d2e7b8c7",
+        "resultDigest": "sha256:559b2391b2fcea7c91bda8dd280fcc4aa6d084d3748f272e7a7b92d625e0b905",
+        "resourceKey": null,
+        "ms": 1
+      },
+      "continuity_context": null,
+      "parent_links": [
+        null
+      ],
+      "checksum": "sha256:d1ed74108fccedfa81cb22686a3c36d039e066e1bc5d37d01864b58dcc3677da",
+      "signature": "ed25519:GK46PvLNh4Ydp83cUopZ1runRfQwAW0Cb9hget8UuCeksgumnHMAQkgke/eQiuoXM5OBTy9ZPDcG+fOkzbq/CQ=="
+    },
+    {
+      "event_id": "9a7364a9-5433-459a-9500-d78e402c96ca",
+      "timestamp": "2026-08-16T03:19:26.740Z",
+      "actor_identity": "imagine:session:2cfd377efb69d102",
+      "event_type": "imagine.mutation",
+      "payload": {
+        "method": "POST",
+        "path": "/svc/logging/api/metrics",
+        "status": 500,
+        "accepted": false,
+        "requestDigest": "sha256:0893e8ebf9b2d05d69bebaf9bedb5127e59689f5dc98f92215523de43430fd1e",
+        "resultDigest": "sha256:559b2391b2fcea7c91bda8dd280fcc4aa6d084d3748f272e7a7b92d625e0b905",
+        "resourceKey": null,
+        "ms": 1
+      },
+      "continuity_context": null,
+      "parent_links": [
+        null
+      ],
+      "checksum": "sha256:b94c82ef366f7682678a4254575de6ef109db9c53c86f0336cba6699c68fbbd8",
+      "signature": "ed25519:m7mWkp0wv1spAQEYOdJN25M7GDz/itEMQcyftXzoBxfvapnqEJfUgCYLZXeKZ3M0YMMBIuq+bWdk1zNTj92gBw=="
+    },
+    {
+      "event_id": "e131116a-2fc0-40cc-b0c0-58c8dfe56741",
+      "timestamp": "2026-08-16T03:19:27.744Z",
+      "actor_identity": "imagine:session:2cfd377efb69d102",
+      "event_type": "imagine.mutation",
+      "payload": {
+        "method": "POST",
+        "path": "/svc/logging/api/metrics",
+        "status": 500,
+        "accepted": false,
+        "requestDigest": "sha256:0893e8ebf9b2d05d69bebaf9bedb5127e59689f5dc98f92215523de43430fd1e",
+        "resultDigest": "sha256:559b2391b2fcea7c91bda8dd280fcc4aa6d084d3748f272e7a7b92d625e0b905",
+        "resourceKey": null,
+        "ms": 1
+      },
+      "continuity_context": null,
+      "parent_links": [
+        null
+      ],
+      "checksum": "sha256:adbc8d8b892285edc05ed5ad3da2550c634022afc16f573fb171812db6b57175",
+      "signature": "ed25519:6xGV8ql9zmY4JQtLihDpW0gjqdwZgo3zq3A0qfvZEra7xheXZmeQ7ghxOemrsL+A6nYnz7MDB51MCSUKEzMMCA=="
+    },
+    {
+      "event_id": "6beee0ed-6db3-4509-8c84-93f6ceea876c",
+      "timestamp": "2026-08-16T03:19:29.746Z",
+      "actor_identity": "imagine:session:2cfd377efb69d102",
+      "event_type": "imagine.mutation",
+      "payload": {
+        "method": "POST",
+        "path": "/svc/logging/api/metrics",
+        "status": 500,
+        "accepted": false,
+        "requestDigest": "sha256:0893e8ebf9b2d05d69bebaf9bedb5127e59689f5dc98f92215523de43430fd1e",
+        "resultDigest": "sha256:559b2391b2fcea7c91bda8dd280fcc4aa6d084d3748f272e7a7b92d625e0b905",
+        "resourceKey": null,
+        "ms": 1
+      },
+      "continuity_context": null,
+      "parent_links": [
+        null
+      ],
+      "checksum": "sha256:67932b29270c0fc2e77aac5826538f4cad80115b261837a856b28f9d768165ea",
+      "signature": "ed25519:4ssPm1UhwWiNBJI+04d9dXIca0ksG5GVb6srMP7rvkz5fpvjCGG+Yzgp1DZf0EFOsoSjtvutRVmVgGfnkcWXBQ=="
+    },
+    {
+      "event_id": "777428d7-7685-4a53-9528-605a72f7c0b8",
+      "timestamp": "2026-08-16T03:19:32.749Z",
+      "actor_identity": "imagine:session:2cfd377efb69d102",
+      "event_type": "imagine.mutation",
+      "payload": {
+        "method": "POST",
+        "path": "/svc/logging/api/metrics",
+        "status": 500,
+        "accepted": false,
+        "requestDigest": "sha256:0893e8ebf9b2d05d69bebaf9bedb5127e59689f5dc98f92215523de43430fd1e",
+        "resultDigest": "sha256:559b2391b2fcea7c91bda8dd280fcc4aa6d084d3748f272e7a7b92d625e0b905",
+        "resourceKey": null,
+        "ms": 0
+      },
+      "continuity_context": null,
+      "parent_links": [
+        null
+      ],
+      "checksum": "sha256:fa5a6c2186ceaf43ede96a490be6cc93a0d2aa464d968de4a2842522fba064fa",
+      "signature": "ed25519:0JcSl6m6rRoQ2IExffYO9wQ3MTQ2+rAelp9YRCusF5l+Ilxw/kD7icVySW1SAQvWvJT6uDZbnX4/5CJsHCIOBg=="
+    },
+    {
+      "event_id": "f95b37b8-c07b-4494-bea1-dc39b6ae88c1",
+      "timestamp": "2026-08-16T03:19:33.691Z",
+      "actor_identity": "imagine:session:2cfd377efb69d102",
+      "event_type": "imagine.mutation",
+      "payload": {
+        "method": "POST",
+        "path": "/svc/logging/api/logs/streams",
+        "status": 500,
+        "accepted": false,
+        "requestDigest": "sha256:e60247e2c577a32c3e8abf0de716954ccd553d383528a5590213b1e0c3400f58",
+        "resultDigest": "sha256:de1e3257f890e7570b1fead7d29d7a211574b461b4873458569669abcdbe970d",
+        "resourceKey": null,
+        "ms": 1
+      },
+      "continuity_context": null,
+      "parent_links": [
+        null
+      ],
+      "checksum": "sha256:3fe1f907a2521671e139074b382fd5c1db3ea3b7112505d3ab55e942470f4c08",
+      "signature": "ed25519:Q6tPiwFf1qW9sGitXa87td2MeZbBeJqCA6oeIJycp9ZkBu7+ciOXbCA/u0XVFpkq4ErG3I6Zy8Iy0ontCKPSAw=="
+    },
+    {
+      "event_id": "402eb491-1554-4a1f-b833-0d2342f8d558",
+      "timestamp": "2026-08-16T03:19:34.695Z",
+      "actor_identity": "imagine:session:2cfd377efb69d102",
+      "event_type": "imagine.mutation",
+      "payload": {
+        "method": "POST",
+        "path": "/svc/logging/api/logs/streams",
+        "status": 500,
+        "accepted": false,
+        "requestDigest": "sha256:e60247e2c577a32c3e8abf0de716954ccd553d383528a5590213b1e0c3400f58",
+        "resultDigest": "sha256:de1e3257f890e7570b1fead7d29d7a211574b461b4873458569669abcdbe970d",
+        "resourceKey": null,
+        "ms": 1
+      },
+      "continuity_context": null,
+      "parent_links": [
+        null
+      ],
+      "checksum": "sha256:0d60dd56d9fb1a183651690e9db04847302d25dd70021384e5bb3232a4ae7f7a",
+      "signature": "ed25519:/Dn73RONZzjhlWFTHqITyIUacVz2/RsStbdGtiehrMj1zu7Ynl4k4bdccpudacl1y3FRZOUabO+3574RVKvKCg=="
+    },
+    {
+      "event_id": "f24b27bd-6665-4a1d-96f5-92256c3bf9a1",
+      "timestamp": "2026-08-16T03:19:36.700Z",
+      "actor_identity": "imagine:session:2cfd377efb69d102",
+      "event_type": "imagine.mutation",
+      "payload": {
+        "method": "POST",
+        "path": "/svc/logging/api/logs/streams",
+        "status": 500,
+        "accepted": false,
+        "requestDigest": "sha256:e60247e2c577a32c3e8abf0de716954ccd553d383528a5590213b1e0c3400f58",
+        "resultDigest": "sha256:de1e3257f890e7570b1fead7d29d7a211574b461b4873458569669abcdbe970d",
+        "resourceKey": null,
+        "ms": 1
+      },
+      "continuity_context": null,
+      "parent_links": [
+        null
+      ],
+      "checksum": "sha256:687920808fd84281ce4f8ea9bf0d5c6386b842f354c4e7470ffc4ed91041fe22",
+      "signature": "ed25519:arDpSETTIlfKXe70ODhcD0dusRobqmBfUMNFlnwcEFAP1qDDxhjOFADF4S/+ShjF1HXVhjFAH4Q+13J1hnJoBw=="
+    },
+    {
+      "event_id": "df25ee44-81a7-4b52-af90-66ff22c8411a",
+      "timestamp": "2026-08-16T03:19:39.706Z",
+      "actor_identity": "imagine:session:2cfd377efb69d102",
+      "event_type": "imagine.mutation",
+      "payload": {
+        "method": "POST",
+        "path": "/svc/logging/api/logs/streams",
+        "status": 500,
+        "accepted": false,
+        "requestDigest": "sha256:e60247e2c577a32c3e8abf0de716954ccd553d383528a5590213b1e0c3400f58",
+        "resultDigest": "sha256:de1e3257f890e7570b1fead7d29d7a211574b461b4873458569669abcdbe970d",
+        "resourceKey": null,
+        "ms": 1
+      },
+      "continuity_context": null,
+      "parent_links": [
+        null
+      ],
+      "checksum": "sha256:077a9c75d37179e8af137a2688fe2438a029df30e491fae40b1543557dba81cd",
+      "signature": "ed25519:VBcOIatoNxCQDRJwJUZCvEUEoWfdOQ965M1Yw3vzMxdHW8JQtH3UkHprSdMQAgV2qIsVLgEnU8TxzhthEbcRAA=="
+    },
+    {
+      "event_id": "fc316079-2f97-4e46-ab81-779d5f1e6d50",
+      "timestamp": "2026-08-16T03:19:39.709Z",
+      "actor_identity": "imagine:session:2cfd377efb69d102",
+      "event_type": "imagine.mutation",
+      "payload": {
+        "method": "POST",
+        "path": "/svc/logging/api/metrics",
+        "status": 500,
+        "accepted": false,
+        "requestDigest": "sha256:18c2c658e4e7cb87b761653cbc83024fecaa6dcce409347214fb9460d2e7b8c7",
+        "resultDigest": "sha256:559b2391b2fcea7c91bda8dd280fcc4aa6d084d3748f272e7a7b92d625e0b905",
+        "resourceKey": null,
+        "ms": 0
+      },
+      "continuity_context": null,
+      "parent_links": [
+        null
+      ],
+      "checksum": "sha256:3aa0d522948eddce1b312aeae44940348d8ee1623dd141d71671861d017eeb99",
+      "signature": "ed25519:KNSCbcmqrTQucMcMinS3JrPrLKehFKDlISC/ZY9DUT7ZvWTgnIhiWFw3pg0NGkwgOR4L7mMTfaonyToaV4HcBA=="
+    },
+    {
+      "event_id": "d0b847d0-70d9-4a4c-a61d-9bde3dfc9903",
+      "timestamp": "2026-08-16T03:19:40.712Z",
+      "actor_identity": "imagine:session:2cfd377efb69d102",
+      "event_type": "imagine.mutation",
+      "payload": {
+        "method": "POST",
+        "path": "/svc/logging/api/metrics",
+        "status": 500,
+        "accepted": false,
+        "requestDigest": "sha256:18c2c658e4e7cb87b761653cbc83024fecaa6dcce409347214fb9460d2e7b8c7",
+        "resultDigest": "sha256:559b2391b2fcea7c91bda8dd280fcc4aa6d084d3748f272e7a7b92d625e0b905",
+        "resourceKey": null,
+        "ms": 0
+      },
+      "continuity_context": null,
+      "parent_links": [
+        null
+      ],
+      "checksum": "sha256:b3b0f95337dac5e4acb01dbbc23c35fac2df824d7bc14a8a7dad6bfa2b59d8cf",
+      "signature": "ed25519:iM8ieUyr/QL3JAGyfWhaxct06797muWc3wlLD9EJgD/tGJFDiJ+pykl1OTsARIsA0pMDL60SSlJML96SbB3xCQ=="
+    },
+    {
+      "event_id": "a0099258-4a55-49e1-90d7-32e24e507bd9",
+      "timestamp": "2026-08-16T03:19:42.714Z",
+      "actor_identity": "imagine:session:2cfd377efb69d102",
+      "event_type": "imagine.mutation",
+      "payload": {
+        "method": "POST",
+        "path": "/svc/logging/api/metrics",
+        "status": 500,
+        "accepted": false,
+        "requestDigest": "sha256:18c2c658e4e7cb87b761653cbc83024fecaa6dcce409347214fb9460d2e7b8c7",
+        "resultDigest": "sha256:559b2391b2fcea7c91bda8dd280fcc4aa6d084d3748f272e7a7b92d625e0b905",
+        "resourceKey": null,
+        "ms": 0
+      },
+      "continuity_context": null,
+      "parent_links": [
+        null
+      ],
+      "checksum": "sha256:be572b046ce4360eeeaeacbc543c69e8cb2d6502d4d4a20e49ff59a228b6a4a6",
+      "signature": "ed25519:n3zrRCwimyRycwvnouFOc8t8+s1OQTB9Nyzm/+kU33Zp5xQX5Lyi3A1v/xK+ii2/sFQUzfWZ4E8ZhFDDef6UDA=="
+    },
+    {
+      "event_id": "fa505170-3169-4a31-87d9-ca0499cf180a",
+      "timestamp": "2026-08-16T03:19:45.717Z",
+      "actor_identity": "imagine:session:2cfd377efb69d102",
+      "event_type": "imagine.mutation",
+      "payload": {
+        "method": "POST",
+        "path": "/svc/logging/api/metrics",
+        "status": 500,
+        "accepted": false,
+        "requestDigest": "sha256:18c2c658e4e7cb87b761653cbc83024fecaa6dcce409347214fb9460d2e7b8c7",
+        "resultDigest": "sha256:559b2391b2fcea7c91bda8dd280fcc4aa6d084d3748f272e7a7b92d625e0b905",
+        "resourceKey": null,
+        "ms": 0
+      },
+      "continuity_context": null,
+      "parent_links": [
+        null
+      ],
+      "checksum": "sha256:9567652f51cdc51462485c6af8cde14ca600a3841035cad85ac68f544be766f8",
+      "signature": "ed25519:7Zaj+ADrgs88cyf9fmHJYH802zXAY2vyixaXTjpg7k6Ep6eyy2V6Z2xOLFKmx4CZEvkWp3NZz6vBPsn9OsEmCA=="
+    },
+    {
+      "event_id": "5ecd73a7-75a5-4885-bbfd-fb4225d3d566",
+      "timestamp": "2026-08-16T03:19:45.718Z",
+      "actor_identity": "imagine:session:2cfd377efb69d102",
+      "event_type": "imagine.mutation",
+      "payload": {
+        "method": "POST",
+        "path": "/svc/logging/api/metrics",
+        "status": 500,
+        "accepted": false,
+        "requestDigest": "sha256:0893e8ebf9b2d05d69bebaf9bedb5127e59689f5dc98f92215523de43430fd1e",
+        "resultDigest": "sha256:559b2391b2fcea7c91bda8dd280fcc4aa6d084d3748f272e7a7b92d625e0b905",
+        "resourceKey": null,
+        "ms": 0,
         "tampered": true
       },
       "continuity_context": null,
       "parent_links": [
         null
       ],
-      "checksum": "sha256:d1329a84ea144ec5c196142e76384baeef5451e947ab43e78f84a62cfb743881",
-      "signature": "ed25519:ok2AXFk0JrtmtmqoX4eNbf9UNo0bWPE+KPotEFwD/bPeiiawF0g7ZU7vAM9Dq/7QoDapZMbfPr0uuWbvSc6+Dw=="
+      "checksum": "sha256:fd7c15e75fdf5d2e971c2b292122fdd1acde7d27f1574f8f80b2bab92c7b8af8",
+      "signature": "ed25519:7KD4mndiq1dX7ECiXgGCEIvTrBFbi9aJP/wS+5ReeBStXlKT8QBHpS4sReXbyc3hb8OOKAZPMIKcQQbkNub5BA=="
     },
     {
-      "event_id": "df041c91-7f91-47a8-8cad-91a3a87b49fd",
-      "timestamp": "2026-08-16T03:16:01.653Z",
-      "actor_identity": "imagine:session:46cb13d551347211",
+      "event_id": "a416f164-91ab-4c80-826c-f6be04d74c8b",
+      "timestamp": "2026-08-16T03:19:46.721Z",
+      "actor_identity": "imagine:session:2cfd377efb69d102",
       "event_type": "imagine.mutation",
       "payload": {
         "method": "POST",
         "path": "/svc/logging/api/metrics",
         "status": 500,
         "accepted": false,
-        "requestDigest": "sha256:d5e72c1f613ef6baf53137c49ff739d3787c9038ab1ab9140c7d0edb1986fae4",
-        "resultDigest": "sha256:559b2391b2fcea7c91bda8dd280fcc4aa6d084d3748f272e7a7b92d625e0b905",
-        "resourceKey": null,
-        "ms": 1
-      },
-      "continuity_context": null,
-      "parent_links": [
-        null
-      ],
-      "checksum": "sha256:54b0cb648bbfde95be2739be8cefb22e50b51f748acda5eeb82d7d062faab45b",
-      "signature": "ed25519:xqlWeUtHGrTZFi7LryUob9eqb/wIb63PdZmv4Lj3NkhFT/pV0FqXPbrbEJuTuQ0uTKFIJB9F9K4MXC1hiPyCDA=="
-    },
-    {
-      "event_id": "3aa2275f-f013-4e92-93cc-5dd07198a9e9",
-      "timestamp": "2026-08-16T03:16:03.660Z",
-      "actor_identity": "imagine:session:46cb13d551347211",
-      "event_type": "imagine.mutation",
-      "payload": {
-        "method": "POST",
-        "path": "/svc/logging/api/metrics",
-        "status": 500,
-        "accepted": false,
-        "requestDigest": "sha256:d5e72c1f613ef6baf53137c49ff739d3787c9038ab1ab9140c7d0edb1986fae4",
-        "resultDigest": "sha256:559b2391b2fcea7c91bda8dd280fcc4aa6d084d3748f272e7a7b92d625e0b905",
-        "resourceKey": null,
-        "ms": 1
-      },
-      "continuity_context": null,
-      "parent_links": [
-        null
-      ],
-      "checksum": "sha256:e45a097e2333d492c79a708902e84d73de66198db5fee3d8dd285419f6b3cee8",
-      "signature": "ed25519:8lOxqUrui4roVAf1MCeTPpDEXTwkBh5I84p7hKZxa6O1uzEVyjVdc2ewQfra4ZnEOFwtte+jvU+FH8y9ViWXAQ=="
-    },
-    {
-      "event_id": "62411a2c-1e08-4dde-90b5-3485037f7696",
-      "timestamp": "2026-08-16T03:16:06.665Z",
-      "actor_identity": "imagine:session:46cb13d551347211",
-      "event_type": "imagine.mutation",
-      "payload": {
-        "method": "POST",
-        "path": "/svc/logging/api/metrics",
-        "status": 500,
-        "accepted": false,
-        "requestDigest": "sha256:d5e72c1f613ef6baf53137c49ff739d3787c9038ab1ab9140c7d0edb1986fae4",
+        "requestDigest": "sha256:0893e8ebf9b2d05d69bebaf9bedb5127e59689f5dc98f92215523de43430fd1e",
         "resultDigest": "sha256:559b2391b2fcea7c91bda8dd280fcc4aa6d084d3748f272e7a7b92d625e0b905",
         "resourceKey": null,
         "ms": 0
@@ -2222,20 +2342,42 @@
       "parent_links": [
         null
       ],
-      "checksum": "sha256:bfba6ae79116f0ca243fb56ab45e0569516676fad48306100cd0f4c044468622",
-      "signature": "ed25519:UnMVknrcqw4gAT6y9NzOMjnnMVfmG2V3NMbrxPSoszqk3YIFXCsKFy/pB5Bj8FR+MhAylwQtFP0h4ozXp8ZzBQ=="
+      "checksum": "sha256:faa281582adec67b8707d2b0d11de723a4760bf33c1fa01c5ef1c985be12ec01",
+      "signature": "ed25519:GYRNQa62kewWk/DMV6AL+IONvziNTbeIZDvYoB3k+n1DqeQzxXCdPB9bwtf887tZQXrY1ni6ckPtASls3utjBA=="
     },
     {
-      "event_id": "d893063e-0015-442a-90d4-3d07cbd1a8ca",
-      "timestamp": "2026-08-16T03:16:06.667Z",
-      "actor_identity": "imagine:session:46cb13d551347211",
+      "event_id": "9d0fa1b9-71d0-458c-a75a-e041eeadbb8c",
+      "timestamp": "2026-08-16T03:19:48.724Z",
+      "actor_identity": "imagine:session:2cfd377efb69d102",
       "event_type": "imagine.mutation",
       "payload": {
         "method": "POST",
         "path": "/svc/logging/api/metrics",
         "status": 500,
         "accepted": false,
-        "requestDigest": "sha256:6729954a483b621fc7347850b966396dab0640ed42797b252d8e62eae0bbc344",
+        "requestDigest": "sha256:0893e8ebf9b2d05d69bebaf9bedb5127e59689f5dc98f92215523de43430fd1e",
+        "resultDigest": "sha256:559b2391b2fcea7c91bda8dd280fcc4aa6d084d3748f272e7a7b92d625e0b905",
+        "resourceKey": null,
+        "ms": 1
+      },
+      "continuity_context": null,
+      "parent_links": [
+        null
+      ],
+      "checksum": "sha256:09ef589853e700fbacfafd6251107841baa327c731998c10539b4480fc2f65ad",
+      "signature": "ed25519:t9B6+hky2hS7D/lIYj/sQWuZ7Wz3rZuHLMiwU9eMFuMUlH1pxMZ/Y3HM958mooq/52jCZlX+gJAndMcx/UlJBQ=="
+    },
+    {
+      "event_id": "9dee4d84-eff7-49c1-8bb2-a28666b44fb4",
+      "timestamp": "2026-08-16T03:19:51.728Z",
+      "actor_identity": "imagine:session:2cfd377efb69d102",
+      "event_type": "imagine.mutation",
+      "payload": {
+        "method": "POST",
+        "path": "/svc/logging/api/metrics",
+        "status": 500,
+        "accepted": false,
+        "requestDigest": "sha256:0893e8ebf9b2d05d69bebaf9bedb5127e59689f5dc98f92215523de43430fd1e",
         "resultDigest": "sha256:559b2391b2fcea7c91bda8dd280fcc4aa6d084d3748f272e7a7b92d625e0b905",
         "resourceKey": null,
         "ms": 0
@@ -2244,20 +2386,20 @@
       "parent_links": [
         null
       ],
-      "checksum": "sha256:4719ae34707381e5e7522a8afec44d368e739ad0b55840630455f1ef0bdf380a",
-      "signature": "ed25519:QRxXDsxq9vyDDWOBGm/D5Hlk+AlwdFN/SRMADNpoHy9l8ToaAR9gwP+aEt2DqJAHVjuFwOELdZ48DKxfPySOCg=="
+      "checksum": "sha256:8b84d3f7b995439dca4c4d9e6be315a30c4ba1d6e73f0e8713927f4e852d69a2",
+      "signature": "ed25519:myCYKAHCKyCcD6hH/Lev6nfE1mxZS/T2WcWReEzA6VK0rrs1X4sd7vRb9CLnsTcIp+76Gn50xbkTvswRAw16DA=="
     },
     {
-      "event_id": "a9209dc1-9f81-4085-8ecd-503a52b930d6",
-      "timestamp": "2026-08-16T03:16:07.670Z",
-      "actor_identity": "imagine:session:46cb13d551347211",
+      "event_id": "bc5bc4fb-b7ed-49aa-b86c-cd92c5e892c5",
+      "timestamp": "2026-08-16T03:19:51.729Z",
+      "actor_identity": "imagine:session:2cfd377efb69d102",
       "event_type": "imagine.mutation",
       "payload": {
         "method": "POST",
         "path": "/svc/logging/api/metrics",
         "status": 500,
         "accepted": false,
-        "requestDigest": "sha256:6729954a483b621fc7347850b966396dab0640ed42797b252d8e62eae0bbc344",
+        "requestDigest": "sha256:944d39d82d414b71e1b87bb95667b9a5b5a14694c0eccdd86bbadf06bbe163b7",
         "resultDigest": "sha256:559b2391b2fcea7c91bda8dd280fcc4aa6d084d3748f272e7a7b92d625e0b905",
         "resourceKey": null,
         "ms": 0
@@ -2266,20 +2408,42 @@
       "parent_links": [
         null
       ],
-      "checksum": "sha256:0720e6651e6393dbcfc5acb266b63081a866fe5f9fd852d5b77788db1d387917",
-      "signature": "ed25519:y8M3L8YBSslD5Z6palqEwL1xkHitjv+5DxYc9JVlF0OxZoOJS3PTSMeDpFIF5l6TgPSIV931z2vR4AXLFrl7BQ=="
+      "checksum": "sha256:75fd3d248145b7f7dfc3cc1593ba697520c2b885a54d3cb674e640cc6a7fa3e5",
+      "signature": "ed25519:JyzXmhdlzTqRRsV3Z61l3Kprlfjzl4g8sPj+oQIMrinsZoOZoac1ESXSQp7BIDCoVebSG1H8POZY+BX9freBAg=="
     },
     {
-      "event_id": "e782e55a-ac8d-4fbf-8acd-40d993821aaa",
-      "timestamp": "2026-08-16T03:16:09.675Z",
-      "actor_identity": "imagine:session:46cb13d551347211",
+      "event_id": "cb1864e9-9b19-4b34-b852-99ee74ca67de",
+      "timestamp": "2026-08-16T03:19:52.732Z",
+      "actor_identity": "imagine:session:2cfd377efb69d102",
       "event_type": "imagine.mutation",
       "payload": {
         "method": "POST",
         "path": "/svc/logging/api/metrics",
         "status": 500,
         "accepted": false,
-        "requestDigest": "sha256:6729954a483b621fc7347850b966396dab0640ed42797b252d8e62eae0bbc344",
+        "requestDigest": "sha256:944d39d82d414b71e1b87bb95667b9a5b5a14694c0eccdd86bbadf06bbe163b7",
+        "resultDigest": "sha256:559b2391b2fcea7c91bda8dd280fcc4aa6d084d3748f272e7a7b92d625e0b905",
+        "resourceKey": null,
+        "ms": 0
+      },
+      "continuity_context": null,
+      "parent_links": [
+        null
+      ],
+      "checksum": "sha256:c46bac7a3dcb1d110279af8b63d4596ef27f1926b9d3e420c0e51a29c88c011a",
+      "signature": "ed25519:SbopHT/WuZ5D1wGXGrA4v/e9dQJd/HojpGDjdYNOrd3g2A7rem4IlP5Vr55ifv4jesG8Q5f/9Q2Mz8GRy0ioBg=="
+    },
+    {
+      "event_id": "98bafa44-66a5-4e1b-951f-29bcb2f498f0",
+      "timestamp": "2026-08-16T03:19:54.736Z",
+      "actor_identity": "imagine:session:2cfd377efb69d102",
+      "event_type": "imagine.mutation",
+      "payload": {
+        "method": "POST",
+        "path": "/svc/logging/api/metrics",
+        "status": 500,
+        "accepted": false,
+        "requestDigest": "sha256:944d39d82d414b71e1b87bb95667b9a5b5a14694c0eccdd86bbadf06bbe163b7",
         "resultDigest": "sha256:559b2391b2fcea7c91bda8dd280fcc4aa6d084d3748f272e7a7b92d625e0b905",
         "resourceKey": null,
         "ms": 1
@@ -2288,131 +2452,65 @@
       "parent_links": [
         null
       ],
-      "checksum": "sha256:efa92250451f68041e6a37e4623ecdf04ac0e6ac54f8ab49d87f7c622ed79a4f",
-      "signature": "ed25519:TYHfLIXYP6dglxgU9H6dMixmRB4EBJVtLHI2G2o5SJt+bCjsdrlE0OqjccRMO8SHHx8KOxG84YMwClwXPnbnAg=="
+      "checksum": "sha256:e552c4c4e4e921e96df3c448a6047cade63e9a59df75757c9c1e83635421f25d",
+      "signature": "ed25519:02XcRzRZCR3cf7nJo6JFOGonaVuFvRpysTUZ7kvYAqI7HaK+z6khmUlW5VfcEIz2uAtlBcE5RJUNup8DGmGpCw=="
     },
     {
-      "event_id": "9e4d0f94-aa49-4310-8216-abd3a31c1580",
-      "timestamp": "2026-08-16T03:16:11.160Z",
-      "actor_identity": "imagine:session:46cb13d551347211",
+      "event_id": "a6539754-0f57-4d9d-9f3a-82bdf70d4297",
+      "timestamp": "2026-08-16T03:19:57.738Z",
+      "actor_identity": "imagine:session:2cfd377efb69d102",
       "event_type": "imagine.mutation",
       "payload": {
         "method": "POST",
-        "path": "/svc/identity/api/auth/login",
-        "status": 200,
-        "accepted": true,
-        "requestDigest": "sha256:695954c2ec8d1c66a6291ca6cbd3111927f8f7bd00711d69882e7ffac371f3c6",
-        "resultDigest": "sha256:1e4199fe8cfdb9a20f2a3a54dbf08b2982e9e1afa605ed5061f74b1080e9d911",
+        "path": "/svc/logging/api/metrics",
+        "status": 500,
+        "accepted": false,
+        "requestDigest": "sha256:944d39d82d414b71e1b87bb95667b9a5b5a14694c0eccdd86bbadf06bbe163b7",
+        "resultDigest": "sha256:559b2391b2fcea7c91bda8dd280fcc4aa6d084d3748f272e7a7b92d625e0b905",
         "resourceKey": null,
-        "ms": 91
+        "ms": 0
       },
       "continuity_context": null,
       "parent_links": [
         null
       ],
-      "checksum": "sha256:5ed4b1d82e6fada11d50c5e174268d75722c950e3eca2858ac6b53efb9f7050e",
-      "signature": "ed25519:kuAsvmjm0ZjpSBgUVKQtER/dhTinZ7TC4qa7xqGeQOYH6oG0yCVKoGaA1lUgWMG82vJC542aBa1NK3R7dJoKCw=="
+      "checksum": "sha256:cd5687af9e145fe95c00f888affc26bf01f82382ae08e616d67e60b7fed00c64",
+      "signature": "ed25519:MSdvp2nTl72oe4nZ+040nMdgAJeMzT08QKIRSHamzbuf2UJQPGuajM3p4jLRM5OTuZ3n/ZRXFCp/TQkqQ5sRAg=="
     },
     {
-      "event_id": "937e989f-90fd-4195-b7be-fa34e2e2df11",
-      "timestamp": "2026-08-16T03:16:11.167Z",
-      "actor_identity": "imagine:session:46cb13d551347211",
+      "event_id": "2b5cdc4e-530d-48fd-8927-664a467a4c2c",
+      "timestamp": "2026-08-16T03:19:57.739Z",
+      "actor_identity": "imagine:session:2cfd377efb69d102",
       "event_type": "imagine.mutation",
       "payload": {
         "method": "POST",
-        "path": "/svc/identity/api/auth/introspect",
-        "status": 200,
-        "accepted": true,
-        "requestDigest": "sha256:ff05a09a198cbc7bf6255e64360d2002edb62e3f76d38ed71f5be5f1d1108c03",
-        "resultDigest": "sha256:02bfe396081d85141f6185296faef0ca91da0258154a2f4cde87a579754952f2",
+        "path": "/svc/logging/api/metrics",
+        "status": 500,
+        "accepted": false,
+        "requestDigest": "sha256:aab364840621c340956a580c25847a26cf97b5219e4d95e5d411079fbfe0631e",
+        "resultDigest": "sha256:559b2391b2fcea7c91bda8dd280fcc4aa6d084d3748f272e7a7b92d625e0b905",
         "resourceKey": null,
-        "ms": 6
+        "ms": 0
       },
       "continuity_context": null,
       "parent_links": [
         null
       ],
-      "checksum": "sha256:04afbad1e810bcd9221f55a4c39dfd5dd4d0905e064d1af0645ca5123b143d97",
-      "signature": "ed25519:CrcEM34/nMqqRrzsRSr+mJmcRXysxj9pFGj7K47RG90j1mKEarDOo3FAzvs1EZLUjdS2yfnNoHNhC02huuKQDA=="
+      "checksum": "sha256:0fe21a1833b85e81392ccac7780b98b454a379097333c1c61e095bbb4ddadfbd",
+      "signature": "ed25519:BGOISxIvauvnqolbz/n8CD8iscKi2xxO8qxpBEKADiMSiZYPiadHFKfQU0c0bttYePrBxhwspGEJDRtI1KiwBA=="
     },
     {
-      "event_id": "29f8fb0c-8010-4806-b124-066c19907719",
-      "timestamp": "2026-08-16T03:16:11.170Z",
-      "actor_identity": "imagine:session:46cb13d551347211",
+      "event_id": "6611b835-6bfb-4a51-aac0-95e63c4f0fb5",
+      "timestamp": "2026-08-16T03:19:58.745Z",
+      "actor_identity": "imagine:session:2cfd377efb69d102",
       "event_type": "imagine.mutation",
       "payload": {
         "method": "POST",
-        "path": "/svc/identity/api/auth/introspect",
-        "status": 200,
-        "accepted": true,
-        "requestDigest": "sha256:ff05a09a198cbc7bf6255e64360d2002edb62e3f76d38ed71f5be5f1d1108c03",
-        "resultDigest": "sha256:02bfe396081d85141f6185296faef0ca91da0258154a2f4cde87a579754952f2",
-        "resourceKey": null,
-        "ms": 2
-      },
-      "continuity_context": null,
-      "parent_links": [
-        null
-      ],
-      "checksum": "sha256:50820b58958e29e03369b7d10adb8fa96d78a3257cada0772ce9bb6fdef2572e",
-      "signature": "ed25519:vVwON+UjEAcZFo+Ck73lk4tZX2yxVBngd/cvw6LTu6sxMlYy1a5wtD9wjuG2Gi6T2fghNCUQnfn0V/kxS+1hCw=="
-    },
-    {
-      "event_id": "9bb51224-cb92-43bb-af65-2a4b507a85ab",
-      "timestamp": "2026-08-16T03:16:11.175Z",
-      "actor_identity": "imagine:session:46cb13d551347211",
-      "event_type": "imagine.mutation",
-      "payload": {
-        "method": "POST",
-        "path": "/svc/catalog/api/resources",
-        "status": 201,
-        "accepted": true,
-        "requestDigest": "sha256:0602b5c8c1b7d09b972243588fe6b7518543fc0065ca37c5d0c952949ac17676",
-        "resultDigest": "sha256:8e178154069f2b027a0696fe4ceb6441d4bd6fd33b3d260360a1884a794b3359",
-        "resourceKey": "contexts/incident-window",
-        "ms": 14
-      },
-      "continuity_context": null,
-      "parent_links": [
-        null
-      ],
-      "checksum": "sha256:ea5a71fec4addff9d246690476f22b2e24e0b1ec5a968bea2457307ec286bacc",
-      "signature": "ed25519:7T2g2lw/70y4kgNsjcyIqZ8UhELTkmAuy0Xjr95WuH5u516KxPfPc3P/I/q/AmptknMuT7iTs0g5SKzK55dYDQ=="
-    },
-    {
-      "event_id": "34352f99-8034-4f4d-a2bb-b4166089eb60",
-      "timestamp": "2026-08-16T03:16:11.296Z",
-      "actor_identity": "imagine:session:46cb13d551347211",
-      "event_type": "imagine.mutation",
-      "payload": {
-        "method": "POST",
-        "path": "/svc/identity/api/auth/introspect",
-        "status": 200,
-        "accepted": true,
-        "requestDigest": "sha256:ff05a09a198cbc7bf6255e64360d2002edb62e3f76d38ed71f5be5f1d1108c03",
-        "resultDigest": "sha256:02bfe396081d85141f6185296faef0ca91da0258154a2f4cde87a579754952f2",
-        "resourceKey": null,
-        "ms": 3
-      },
-      "continuity_context": null,
-      "parent_links": [
-        null
-      ],
-      "checksum": "sha256:e974ebdd1d76a6a4d42221d8a1cb13b96cbbe8c458e86313d06bab52dfbec100",
-      "signature": "ed25519:IiwOJG2Oe4iAK2Bi9GvUwQcpBFJ4k4bNX2onRCuS9tE2nxJcs5FwlO1Yruq7ZNc8z1UARRHcK3jNtujuBZ9HAw=="
-    },
-    {
-      "event_id": "115a9009-fbd0-48ed-8d49-82a5a1f744d3",
-      "timestamp": "2026-08-16T03:16:11.298Z",
-      "actor_identity": "imagine:session:46cb13d551347211",
-      "event_type": "imagine.mutation",
-      "payload": {
-        "method": "POST",
-        "path": "/svc/identity/api/auth/introspect",
-        "status": 200,
-        "accepted": true,
-        "requestDigest": "sha256:ff05a09a198cbc7bf6255e64360d2002edb62e3f76d38ed71f5be5f1d1108c03",
-        "resultDigest": "sha256:02bfe396081d85141f6185296faef0ca91da0258154a2f4cde87a579754952f2",
+        "path": "/svc/logging/api/metrics",
+        "status": 500,
+        "accepted": false,
+        "requestDigest": "sha256:aab364840621c340956a580c25847a26cf97b5219e4d95e5d411079fbfe0631e",
+        "resultDigest": "sha256:559b2391b2fcea7c91bda8dd280fcc4aa6d084d3748f272e7a7b92d625e0b905",
         "resourceKey": null,
         "ms": 1
       },
@@ -2420,65 +2518,21 @@
       "parent_links": [
         null
       ],
-      "checksum": "sha256:10a80a0633a825e35478fe799afa57bba629b31fa375cfe0c0ab37671ae9a695",
-      "signature": "ed25519:RVWo+oPb0jP5fGFq9IlnC9f0P7OHCJraEBdJcpm0tMUiqkvP4YrgkNmiEhRpggrhxw7ZDMOJyLW94Q1QmWkOAQ=="
+      "checksum": "sha256:1b9d1fcab641a5e3e7c2391e198d818da0f9361b9c8368688aacc9a312010cd9",
+      "signature": "ed25519:oFLpsIMPmKgk/tE9JW7NLw0Ez8jdwJH47Ae7lBygNFeNeAb3pSJ2Kb8MonIt3n9hTvf209l4BnqhbTUN+S0pDg=="
     },
     {
-      "event_id": "b4bc5aae-87ab-40f3-9081-ec5984e8ddd0",
-      "timestamp": "2026-08-16T03:16:11.306Z",
-      "actor_identity": "imagine:session:46cb13d551347211",
+      "event_id": "79e1b233-4ba5-4215-8e6e-68d7cae60889",
+      "timestamp": "2026-08-16T03:20:00.751Z",
+      "actor_identity": "imagine:session:2cfd377efb69d102",
       "event_type": "imagine.mutation",
       "payload": {
         "method": "POST",
-        "path": "/svc/catalog/api/resources",
-        "status": 201,
-        "accepted": true,
-        "requestDigest": "sha256:95fc4e09846c2dc346ee623f755ca32024639e5679906c2256a81c26dcbfd034",
-        "resultDigest": "sha256:81be903cdbd1404ca3b039284a67ddd74fac79c4b5f7a77f07d948e3f07db18e",
-        "resourceKey": "graphs/incident-digest",
-        "ms": 13
-      },
-      "continuity_context": null,
-      "parent_links": [
-        null
-      ],
-      "checksum": "sha256:08147677594807a6d4c569bfb2c5987de50f4c0c3fefa401fb5788bb0b4bb597",
-      "signature": "ed25519:dJbCr5gSzrfpY/BMWDjy9LAQB5AsZDSe7+1SkxlkKqMBp1gaVPurUg+fX6gV3l4/+vbt9C4gxVvLDJUUtFtdBQ=="
-    },
-    {
-      "event_id": "eb14fa52-4b13-4c6d-b75a-a7ce2716a01a",
-      "timestamp": "2026-08-16T03:16:11.417Z",
-      "actor_identity": "imagine:session:46cb13d551347211",
-      "event_type": "imagine.mutation",
-      "payload": {
-        "method": "POST",
-        "path": "/svc/identity/api/auth/introspect",
-        "status": 200,
-        "accepted": true,
-        "requestDigest": "sha256:ff05a09a198cbc7bf6255e64360d2002edb62e3f76d38ed71f5be5f1d1108c03",
-        "resultDigest": "sha256:02bfe396081d85141f6185296faef0ca91da0258154a2f4cde87a579754952f2",
-        "resourceKey": null,
-        "ms": 3
-      },
-      "continuity_context": null,
-      "parent_links": [
-        null
-      ],
-      "checksum": "sha256:c5b3adfde18b63094aeab8745bad4418a09fdb3794bd97b2875bfa9df67b8ad6",
-      "signature": "ed25519:V1K2khZhCHKVGh3fRZKFT+wNNfBwWNJCox58a0FJjVcZtFxRIQ+gEsTrQd4aEDjj451alP7w2cVYOGczxuFbBg=="
-    },
-    {
-      "event_id": "744ed616-6bbd-4768-91f5-e23717ae3736",
-      "timestamp": "2026-08-16T03:16:11.419Z",
-      "actor_identity": "imagine:session:46cb13d551347211",
-      "event_type": "imagine.mutation",
-      "payload": {
-        "method": "POST",
-        "path": "/svc/identity/api/auth/introspect",
-        "status": 200,
-        "accepted": true,
-        "requestDigest": "sha256:ff05a09a198cbc7bf6255e64360d2002edb62e3f76d38ed71f5be5f1d1108c03",
-        "resultDigest": "sha256:02bfe396081d85141f6185296faef0ca91da0258154a2f4cde87a579754952f2",
+        "path": "/svc/logging/api/metrics",
+        "status": 500,
+        "accepted": false,
+        "requestDigest": "sha256:aab364840621c340956a580c25847a26cf97b5219e4d95e5d411079fbfe0631e",
+        "resultDigest": "sha256:559b2391b2fcea7c91bda8dd280fcc4aa6d084d3748f272e7a7b92d625e0b905",
         "resourceKey": null,
         "ms": 1
       },
@@ -2486,96 +2540,734 @@
       "parent_links": [
         null
       ],
-      "checksum": "sha256:27ee6833937bcbd23652ff017e5dfbe7544b1fb5a8434fae2ddfcc4f98101030",
-      "signature": "ed25519:JGfOXjgx8Wkt86rQ70XhZSKRlvokCE1LbO5REbMAy0qctu5bn6QPzOWl8qfVXEKl/zagIFmacAjQK+n1dSwBDA=="
+      "checksum": "sha256:d5d9ce1023389746a1c7b8f4e5435cbe1e374a525bf141b721a75eb7ddec4681",
+      "signature": "ed25519:6UWW9W4p0HRvUOKrQE7+6Scews935J17uDZ9L47Q0q+nXlELHvCYVwe6AWe8FFwLhyeUszcItl1oWd0haXssDw=="
     },
     {
-      "event_id": "080ecdf2-4a55-4ef0-ac1d-244c8fd3ca69",
-      "timestamp": "2026-08-16T03:16:11.426Z",
-      "actor_identity": "imagine:session:46cb13d551347211",
+      "event_id": "23087a0e-54cb-4b69-ab55-0fa298b93048",
+      "timestamp": "2026-08-16T03:20:03.756Z",
+      "actor_identity": "imagine:session:2cfd377efb69d102",
       "event_type": "imagine.mutation",
       "payload": {
         "method": "POST",
-        "path": "/svc/catalog/api/resources",
-        "status": 201,
-        "accepted": true,
-        "requestDigest": "sha256:0f971916a17a3548070816bf203df2f2210304e1a7d8b475d28b660e154d34ee",
-        "resultDigest": "sha256:93e97800000052e69bbab5b53eacaa0c4d22dd858418f290b91c435e0ce8b4e0",
-        "resourceKey": "assistants/incident-reader",
-        "ms": 13
-      },
-      "continuity_context": null,
-      "parent_links": [
-        null
-      ],
-      "checksum": "sha256:24b861d3e08d08701e828622b37b28710181d790386f7bfca9dedf9edf8ff17d",
-      "signature": "ed25519:5HR6LUL983ZnRoofio3C2dnOrxkI1XWpn9N8VhAafDcTstoJUlrscFkpSZiTyQv9nt8dAM0P9dVjFQJfuFp0Aw=="
-    },
-    {
-      "event_id": "f2b88858-fe3c-420e-920d-1d7f91346a6a",
-      "timestamp": "2026-08-16T03:16:11.537Z",
-      "actor_identity": "imagine:session:46cb13d551347211",
-      "event_type": "imagine.mutation",
-      "payload": {
-        "method": "POST",
-        "path": "/svc/identity/api/auth/introspect",
-        "status": 200,
-        "accepted": true,
-        "requestDigest": "sha256:ff05a09a198cbc7bf6255e64360d2002edb62e3f76d38ed71f5be5f1d1108c03",
-        "resultDigest": "sha256:02bfe396081d85141f6185296faef0ca91da0258154a2f4cde87a579754952f2",
+        "path": "/svc/logging/api/metrics",
+        "status": 500,
+        "accepted": false,
+        "requestDigest": "sha256:aab364840621c340956a580c25847a26cf97b5219e4d95e5d411079fbfe0631e",
+        "resultDigest": "sha256:559b2391b2fcea7c91bda8dd280fcc4aa6d084d3748f272e7a7b92d625e0b905",
         "resourceKey": null,
-        "ms": 2
+        "ms": 1
       },
       "continuity_context": null,
       "parent_links": [
         null
       ],
-      "checksum": "sha256:40287d9921c1f214df38a3a949eb9ebada8596a9a41b693d88d70a9d3b8281ea",
-      "signature": "ed25519:Pl1liRVTxbDYMO5RzRbHAC/IlLMeCNCdNOSO+J3Iamis3ESFviyeEKbkG1XyrQOLlYJRBsjw8eO0WYHP5sgACQ=="
+      "checksum": "sha256:985ef994bd3047f73fabbd9c3684de1aaeff0e1fa61c05cdd804ea9f3b9c30b6",
+      "signature": "ed25519:s+/cdsd3ovnONp/l/Ue4KQEcAwezpF9vlItmmX+xufLAAZ55GPWHhiPgLjf1XOC0g+LOjbN9SNHKO4N1n4c8Cw=="
     },
     {
-      "event_id": "babc21aa-317a-406d-a37b-d71bf166bdb2",
-      "timestamp": "2026-08-16T03:16:11.540Z",
-      "actor_identity": "imagine:session:46cb13d551347211",
+      "event_id": "a76b9113-feb1-4dac-8f77-6d93a08e7531",
+      "timestamp": "2026-08-16T03:20:03.759Z",
+      "actor_identity": "imagine:session:2cfd377efb69d102",
       "event_type": "imagine.mutation",
       "payload": {
         "method": "POST",
-        "path": "/svc/identity/api/auth/introspect",
-        "status": 200,
-        "accepted": true,
-        "requestDigest": "sha256:ff05a09a198cbc7bf6255e64360d2002edb62e3f76d38ed71f5be5f1d1108c03",
-        "resultDigest": "sha256:02bfe396081d85141f6185296faef0ca91da0258154a2f4cde87a579754952f2",
+        "path": "/svc/logging/api/metrics",
+        "status": 500,
+        "accepted": false,
+        "requestDigest": "sha256:a91be5d1cd885a2d48e773a635551d799506704de801d932cc2f9ef2415a779e",
+        "resultDigest": "sha256:559b2391b2fcea7c91bda8dd280fcc4aa6d084d3748f272e7a7b92d625e0b905",
         "resourceKey": null,
-        "ms": 2
+        "ms": 0
       },
       "continuity_context": null,
       "parent_links": [
         null
       ],
-      "checksum": "sha256:8476c1f6ec757488fab89ae32ae08f63634e00bdfd7380a72192d53daf75a483",
-      "signature": "ed25519:iyBtiPIkmlYCcLcuOuEd6dzKtuq0t7LizSV5kazmHDY33UTwwDzu5kRVzxQKkKy7OzwbuLv8PEt4AVudhPsQAA=="
+      "checksum": "sha256:2269d42881dfc62e0d11138d07153f699b993ddd06fe7824b17ffd4aff33c079",
+      "signature": "ed25519:KfbYDJmv11Ku9txB4+0AZz5HVqHxwWYFS5XJcpPXEnYyh8QFXKLRYTs1msWOOs2ex+ZFGsS6Gtf1uTmGXKu7BQ=="
     },
     {
-      "event_id": "d7e2a37b-e982-422a-bfa4-a7ec5d6c2b99",
-      "timestamp": "2026-08-16T03:16:11.809Z",
-      "actor_identity": "imagine:session:46cb13d551347211",
+      "event_id": "77d3103a-38c1-42ed-b909-bd199039c23a",
+      "timestamp": "2026-08-16T03:20:04.762Z",
+      "actor_identity": "imagine:session:2cfd377efb69d102",
+      "event_type": "imagine.mutation",
+      "payload": {
+        "method": "POST",
+        "path": "/svc/logging/api/metrics",
+        "status": 500,
+        "accepted": false,
+        "requestDigest": "sha256:a91be5d1cd885a2d48e773a635551d799506704de801d932cc2f9ef2415a779e",
+        "resultDigest": "sha256:559b2391b2fcea7c91bda8dd280fcc4aa6d084d3748f272e7a7b92d625e0b905",
+        "resourceKey": null,
+        "ms": 0
+      },
+      "continuity_context": null,
+      "parent_links": [
+        null
+      ],
+      "checksum": "sha256:ece79e0c4988d1cc69083607f20793d69cc2a65c8db56c2886ff9ff1ddcb5d7b",
+      "signature": "ed25519:TfH/u/X9irsKwHIpbaSwwqmJq213y7YQVug/NgqkfX+y/jPYufEbJkkM7AL4h0plDe4GfsdFlwJ13eBHHEnpDg=="
+    },
+    {
+      "event_id": "5523422b-23e0-4431-9cb6-fe9c661917ac",
+      "timestamp": "2026-08-16T03:20:06.766Z",
+      "actor_identity": "imagine:session:2cfd377efb69d102",
+      "event_type": "imagine.mutation",
+      "payload": {
+        "method": "POST",
+        "path": "/svc/logging/api/metrics",
+        "status": 500,
+        "accepted": false,
+        "requestDigest": "sha256:a91be5d1cd885a2d48e773a635551d799506704de801d932cc2f9ef2415a779e",
+        "resultDigest": "sha256:559b2391b2fcea7c91bda8dd280fcc4aa6d084d3748f272e7a7b92d625e0b905",
+        "resourceKey": null,
+        "ms": 0
+      },
+      "continuity_context": null,
+      "parent_links": [
+        null
+      ],
+      "checksum": "sha256:279cfeb9fc4a14c0497e68b3074e7f4bfe9bb52c2e636ff603e029f3387da873",
+      "signature": "ed25519:uV5lyCW6ofHSXNbQLBRALifP004kSNTh8sepShFq6SjXhAV7Q/yKuRTE54M0o+4M8WEhsFNFWwdp9SfRfIXFBg=="
+    },
+    {
+      "event_id": "ec71ee2c-29f6-4827-a7bd-283869667258",
+      "timestamp": "2026-08-16T03:20:09.770Z",
+      "actor_identity": "imagine:session:2cfd377efb69d102",
+      "event_type": "imagine.mutation",
+      "payload": {
+        "method": "POST",
+        "path": "/svc/logging/api/metrics",
+        "status": 500,
+        "accepted": false,
+        "requestDigest": "sha256:a91be5d1cd885a2d48e773a635551d799506704de801d932cc2f9ef2415a779e",
+        "resultDigest": "sha256:559b2391b2fcea7c91bda8dd280fcc4aa6d084d3748f272e7a7b92d625e0b905",
+        "resourceKey": null,
+        "ms": 1
+      },
+      "continuity_context": null,
+      "parent_links": [
+        null
+      ],
+      "checksum": "sha256:b7d5d6356d7941495a0a73dde8b18e19c2439e3a1f3429d40ed8f337aa8e6a32",
+      "signature": "ed25519:+Rbt3rfLNCogb3pSHsKYX+Arlln1J8qKFaq+9IBtzFRuUTFBprStwYg6QnLl8S5VP7xTOq+xx+8+r7Yk3bTkCQ=="
+    },
+    {
+      "event_id": "17218a36-40b2-470f-8318-0bf28b47163d",
+      "timestamp": "2026-08-16T03:20:09.773Z",
+      "actor_identity": "imagine:session:2cfd377efb69d102",
+      "event_type": "imagine.mutation",
+      "payload": {
+        "method": "POST",
+        "path": "/svc/logging/api/metrics",
+        "status": 500,
+        "accepted": false,
+        "requestDigest": "sha256:1cf37e8807976ddb059695cd1c1e16e5fe207fabe71ee882bba7d97f0b632200",
+        "resultDigest": "sha256:559b2391b2fcea7c91bda8dd280fcc4aa6d084d3748f272e7a7b92d625e0b905",
+        "resourceKey": null,
+        "ms": 0
+      },
+      "continuity_context": null,
+      "parent_links": [
+        null
+      ],
+      "checksum": "sha256:6aa9b74c6900f67ec487f6ddd8881bc3d743c12466bbdd53a7cd47d3d8e903b0",
+      "signature": "ed25519:2mSMLhcCmi1gD6h5fPf4UIGC2woJZ/z11pdZhbgztuGZDPJNQu1KIM47JjvTzQWSExm9jlLghD5OVESSdjnADg=="
+    },
+    {
+      "event_id": "af1afd72-d80c-4cc9-bdb0-70a49d3f9337",
+      "timestamp": "2026-08-16T03:20:10.779Z",
+      "actor_identity": "imagine:session:2cfd377efb69d102",
+      "event_type": "imagine.mutation",
+      "payload": {
+        "method": "POST",
+        "path": "/svc/logging/api/metrics",
+        "status": 500,
+        "accepted": false,
+        "requestDigest": "sha256:1cf37e8807976ddb059695cd1c1e16e5fe207fabe71ee882bba7d97f0b632200",
+        "resultDigest": "sha256:559b2391b2fcea7c91bda8dd280fcc4aa6d084d3748f272e7a7b92d625e0b905",
+        "resourceKey": null,
+        "ms": 1
+      },
+      "continuity_context": null,
+      "parent_links": [
+        null
+      ],
+      "checksum": "sha256:dc22f63ef15e96711daaf0de533b1c61367f35487f22f33af17601198a6fdcaa",
+      "signature": "ed25519:Y2opfluJ0ntl27BfbGPW2U5UrG3aZCCfXBYekq6BynF4qi/TERz0sd7tp7cLhbOGyqOJyTXcO1XTS+SQ23kbCw=="
+    },
+    {
+      "event_id": "76e11f8e-f6f0-48de-bdb4-58aa9fe073ef",
+      "timestamp": "2026-08-16T03:20:12.784Z",
+      "actor_identity": "imagine:session:2cfd377efb69d102",
+      "event_type": "imagine.mutation",
+      "payload": {
+        "method": "POST",
+        "path": "/svc/logging/api/metrics",
+        "status": 500,
+        "accepted": false,
+        "requestDigest": "sha256:1cf37e8807976ddb059695cd1c1e16e5fe207fabe71ee882bba7d97f0b632200",
+        "resultDigest": "sha256:559b2391b2fcea7c91bda8dd280fcc4aa6d084d3748f272e7a7b92d625e0b905",
+        "resourceKey": null,
+        "ms": 0
+      },
+      "continuity_context": null,
+      "parent_links": [
+        null
+      ],
+      "checksum": "sha256:e06dc5347b8fa5a66a0687755df2b96de0b66eebb03d19e4642302f25ef0f424",
+      "signature": "ed25519:LNirbdxfeZIeRfeNSM36WaOk+tMjCCBU1UbuHDC7R5cEpb4nWzsX0Kdi4cdLa5/URuBznhbo5zv1BOEu5kqCCg=="
+    },
+    {
+      "event_id": "16e4d4ac-005c-43e4-8c66-0c4d8b9498e0",
+      "timestamp": "2026-08-16T03:20:15.789Z",
+      "actor_identity": "imagine:session:2cfd377efb69d102",
+      "event_type": "imagine.mutation",
+      "payload": {
+        "method": "POST",
+        "path": "/svc/logging/api/metrics",
+        "status": 500,
+        "accepted": false,
+        "requestDigest": "sha256:1cf37e8807976ddb059695cd1c1e16e5fe207fabe71ee882bba7d97f0b632200",
+        "resultDigest": "sha256:559b2391b2fcea7c91bda8dd280fcc4aa6d084d3748f272e7a7b92d625e0b905",
+        "resourceKey": null,
+        "ms": 0
+      },
+      "continuity_context": null,
+      "parent_links": [
+        null
+      ],
+      "checksum": "sha256:ed68537bd74b07e7aceabe3f3ffdae5897dba198f7bd93fcc9c98562ee9a0c13",
+      "signature": "ed25519:W8SIg4QHY06Ixxh0cSeG5dEuUnen3G+moVopx9s31EUyvmoeQfRZPQriZSxlAqsICpTu9LudFWNE1sBNvEzzAg=="
+    },
+    {
+      "event_id": "e88b9177-9824-4569-8e58-2122372736d1",
+      "timestamp": "2026-08-16T03:20:15.791Z",
+      "actor_identity": "imagine:session:2cfd377efb69d102",
+      "event_type": "imagine.mutation",
+      "payload": {
+        "method": "POST",
+        "path": "/svc/logging/api/metrics",
+        "status": 500,
+        "accepted": false,
+        "requestDigest": "sha256:42f6d806d0ed49ed9790fa73dcb65803c886c17ea02173e23f52c11eb089e53f",
+        "resultDigest": "sha256:559b2391b2fcea7c91bda8dd280fcc4aa6d084d3748f272e7a7b92d625e0b905",
+        "resourceKey": null,
+        "ms": 0
+      },
+      "continuity_context": null,
+      "parent_links": [
+        null
+      ],
+      "checksum": "sha256:acb9c5f0c02c69a6098ebd8cbb7fa7631c473efcab3225da6b08d7d74cfc54bc",
+      "signature": "ed25519:NWtLKEeZdHGo0TnTF8CLjKRFXO2vwLs09jv/iK7TnBWnXpmCv2veSXs1uwgxq9zjovNZUsPpE0YsyJOsG+E3Cg=="
+    },
+    {
+      "event_id": "2c63e99d-915c-439c-80b4-fe39432d187a",
+      "timestamp": "2026-08-16T03:20:16.797Z",
+      "actor_identity": "imagine:session:2cfd377efb69d102",
+      "event_type": "imagine.mutation",
+      "payload": {
+        "method": "POST",
+        "path": "/svc/logging/api/metrics",
+        "status": 500,
+        "accepted": false,
+        "requestDigest": "sha256:42f6d806d0ed49ed9790fa73dcb65803c886c17ea02173e23f52c11eb089e53f",
+        "resultDigest": "sha256:559b2391b2fcea7c91bda8dd280fcc4aa6d084d3748f272e7a7b92d625e0b905",
+        "resourceKey": null,
+        "ms": 1
+      },
+      "continuity_context": null,
+      "parent_links": [
+        null
+      ],
+      "checksum": "sha256:1ef15db7fa6e7b7485b3ea02c62a82adf4f38870d4000e1966deac7330daa2f7",
+      "signature": "ed25519:3oJazxXcKVP6CNPCbyxS0TIqWlxbpisfavsmCUVJzHzrUM14eTNFCjYMRU4pmuukJ1Q7jlvdCrePJby5Cd0cDQ=="
+    },
+    {
+      "event_id": "d1943ef4-19e3-4d1b-a834-acede1e2977d",
+      "timestamp": "2026-08-16T03:20:18.801Z",
+      "actor_identity": "imagine:session:2cfd377efb69d102",
+      "event_type": "imagine.mutation",
+      "payload": {
+        "method": "POST",
+        "path": "/svc/logging/api/metrics",
+        "status": 500,
+        "accepted": false,
+        "requestDigest": "sha256:42f6d806d0ed49ed9790fa73dcb65803c886c17ea02173e23f52c11eb089e53f",
+        "resultDigest": "sha256:559b2391b2fcea7c91bda8dd280fcc4aa6d084d3748f272e7a7b92d625e0b905",
+        "resourceKey": null,
+        "ms": 0
+      },
+      "continuity_context": null,
+      "parent_links": [
+        null
+      ],
+      "checksum": "sha256:4bb8fa963d37460eea6d10fbe88167b018174ed95850fd5004542ebf937bfc89",
+      "signature": "ed25519:tLkB7QNTg7MyQ4V8/pdxCYZD10Oj2eSWjMTVwRXF8RB3TtvXkH7wzFzlIgVN3pN1iBE8sjYUu9oc4sZxL+4dAA=="
+    },
+    {
+      "event_id": "b383c532-f914-420d-9185-7b994d60c9bd",
+      "timestamp": "2026-08-16T03:20:21.807Z",
+      "actor_identity": "imagine:session:2cfd377efb69d102",
+      "event_type": "imagine.mutation",
+      "payload": {
+        "method": "POST",
+        "path": "/svc/logging/api/metrics",
+        "status": 500,
+        "accepted": false,
+        "requestDigest": "sha256:42f6d806d0ed49ed9790fa73dcb65803c886c17ea02173e23f52c11eb089e53f",
+        "resultDigest": "sha256:559b2391b2fcea7c91bda8dd280fcc4aa6d084d3748f272e7a7b92d625e0b905",
+        "resourceKey": null,
+        "ms": 1
+      },
+      "continuity_context": null,
+      "parent_links": [
+        null
+      ],
+      "checksum": "sha256:67dc97e1533d3be7fd90b22570907b6159e813fb85ec876d6ca4ce36d196c5ac",
+      "signature": "ed25519:9bjEJ6Av/EpIgw1tSqW6370Z13RL5eGofaUS2o9dl2QeQfUdxxmaVmFFwFwaxcG6yNPpfZBnfwyEUIo8j4IZDA=="
+    },
+    {
+      "event_id": "01c94201-c6b8-4f7e-a126-bbe180b3ab31",
+      "timestamp": "2026-08-16T03:20:21.810Z",
+      "actor_identity": "imagine:session:2cfd377efb69d102",
+      "event_type": "imagine.mutation",
+      "payload": {
+        "method": "POST",
+        "path": "/svc/logging/api/metrics",
+        "status": 500,
+        "accepted": false,
+        "requestDigest": "sha256:e5347461b92ca7f5636534b03dd2d166907a9c26883cce099881e3079db8bba4",
+        "resultDigest": "sha256:559b2391b2fcea7c91bda8dd280fcc4aa6d084d3748f272e7a7b92d625e0b905",
+        "resourceKey": null,
+        "ms": 0
+      },
+      "continuity_context": null,
+      "parent_links": [
+        null
+      ],
+      "checksum": "sha256:51ac59fd60363067617f41637fae695b46cb5ecc425cbf5eeb10d47ff62d7ceb",
+      "signature": "ed25519:XkPzTmFiOytzYs5vBHZBPdaCQ+f+2cfLbNO3Ip8eWVGVUPzbqd5hP6Xfeuu2JmTyTcvZu/K0RpO+XsF0CpXHBw=="
+    },
+    {
+      "event_id": "3c6a5086-cead-485f-b190-7cd7a550ef61",
+      "timestamp": "2026-08-16T03:20:22.813Z",
+      "actor_identity": "imagine:session:2cfd377efb69d102",
+      "event_type": "imagine.mutation",
+      "payload": {
+        "method": "POST",
+        "path": "/svc/logging/api/metrics",
+        "status": 500,
+        "accepted": false,
+        "requestDigest": "sha256:e5347461b92ca7f5636534b03dd2d166907a9c26883cce099881e3079db8bba4",
+        "resultDigest": "sha256:559b2391b2fcea7c91bda8dd280fcc4aa6d084d3748f272e7a7b92d625e0b905",
+        "resourceKey": null,
+        "ms": 1
+      },
+      "continuity_context": null,
+      "parent_links": [
+        null
+      ],
+      "checksum": "sha256:f535b0950503f03ada666978e8c2f1755ac8c3621c06d6082bebd7a940d960b5",
+      "signature": "ed25519:6y6ByIw9bESX9PEW5fxQZYqf48J+E/O4QjDzZr916Uoz2heugq/VxX+Vy7y0rSiBun8iV0TwP7i9KoT8+TCsDQ=="
+    },
+    {
+      "event_id": "1395b8a3-79ab-4ff1-96c4-2f37d5c2035f",
+      "timestamp": "2026-08-16T03:20:24.815Z",
+      "actor_identity": "imagine:session:2cfd377efb69d102",
+      "event_type": "imagine.mutation",
+      "payload": {
+        "method": "POST",
+        "path": "/svc/logging/api/metrics",
+        "status": 500,
+        "accepted": false,
+        "requestDigest": "sha256:e5347461b92ca7f5636534b03dd2d166907a9c26883cce099881e3079db8bba4",
+        "resultDigest": "sha256:559b2391b2fcea7c91bda8dd280fcc4aa6d084d3748f272e7a7b92d625e0b905",
+        "resourceKey": null,
+        "ms": 1
+      },
+      "continuity_context": null,
+      "parent_links": [
+        null
+      ],
+      "checksum": "sha256:691763f82255078593698edd2516f4ea0409ed559756f3b346c9fa92566aab77",
+      "signature": "ed25519:97syHv9mWnAllbIDE7YtrC8Lp3WaZ/yKVyjDYhpgnNbgIfio8+7Dq5HUiO78Z6IDHLWK5dZFkknjN0CC8gofCA=="
+    },
+    {
+      "event_id": "289aea0e-8263-4195-86e8-e5a666c67340",
+      "timestamp": "2026-08-16T03:20:27.817Z",
+      "actor_identity": "imagine:session:2cfd377efb69d102",
+      "event_type": "imagine.mutation",
+      "payload": {
+        "method": "POST",
+        "path": "/svc/logging/api/metrics",
+        "status": 500,
+        "accepted": false,
+        "requestDigest": "sha256:e5347461b92ca7f5636534b03dd2d166907a9c26883cce099881e3079db8bba4",
+        "resultDigest": "sha256:559b2391b2fcea7c91bda8dd280fcc4aa6d084d3748f272e7a7b92d625e0b905",
+        "resourceKey": null,
+        "ms": 0
+      },
+      "continuity_context": null,
+      "parent_links": [
+        null
+      ],
+      "checksum": "sha256:ebf71364dcdd55a3443baa95db95a33cc6e54684ac2caf4659580ec06792b05b",
+      "signature": "ed25519:cfaCcMK5Xqzn6F9gsCXHfPChlzxRzCBFPgEDiwuXeJFlmW5duj1fmVOQyRwaL4ag1up+2fTyDnK61ACD6J4NDw=="
+    },
+    {
+      "event_id": "efcbd0dd-b72a-4b06-b813-0d3852e6bb4c",
+      "timestamp": "2026-08-16T03:20:27.826Z",
+      "actor_identity": "imagine:session:2cfd377efb69d102",
+      "event_type": "imagine.mutation",
+      "payload": {
+        "method": "POST",
+        "path": "/svc/logging/api/metrics",
+        "status": 500,
+        "accepted": false,
+        "requestDigest": "sha256:e56d61c24a9489bc907541d86e300cbe97a4b33dca05f82e07ce84459519858c",
+        "resultDigest": "sha256:559b2391b2fcea7c91bda8dd280fcc4aa6d084d3748f272e7a7b92d625e0b905",
+        "resourceKey": null,
+        "ms": 0
+      },
+      "continuity_context": null,
+      "parent_links": [
+        null
+      ],
+      "checksum": "sha256:7f5f51f66d162cd8e4d7796d0e3df10b4069969d23042e3858ac95c05cb9e9f4",
+      "signature": "ed25519:DYDuxnDv+7952fAwzufHVjL8m3vlPmguHFMvArsPdlgI0iYThuBO2OryMmSZEVjwDzd1Awm8qJACuWhEj2cRBA=="
+    },
+    {
+      "event_id": "f236fdd0-1790-4535-9db6-9792562475fd",
+      "timestamp": "2026-08-16T03:20:28.831Z",
+      "actor_identity": "imagine:session:2cfd377efb69d102",
+      "event_type": "imagine.mutation",
+      "payload": {
+        "method": "POST",
+        "path": "/svc/logging/api/metrics",
+        "status": 500,
+        "accepted": false,
+        "requestDigest": "sha256:e56d61c24a9489bc907541d86e300cbe97a4b33dca05f82e07ce84459519858c",
+        "resultDigest": "sha256:559b2391b2fcea7c91bda8dd280fcc4aa6d084d3748f272e7a7b92d625e0b905",
+        "resourceKey": null,
+        "ms": 1
+      },
+      "continuity_context": null,
+      "parent_links": [
+        null
+      ],
+      "checksum": "sha256:8f6e4ac894e67f3480dc46def57632b9ac56a842d090e2223dec243c0e0e76aa",
+      "signature": "ed25519:GRsrW0Biv5T9FhO/EQbB5l160iX4PFRA0Af6lGh4fFbENMukO/KbDxlGAU7z0NcfkUX6yKLvxslh9J8kbupWCA=="
+    },
+    {
+      "event_id": "877a5b3e-e84e-4b54-bc37-6ccaea6732f1",
+      "timestamp": "2026-08-16T03:20:30.834Z",
+      "actor_identity": "imagine:session:2cfd377efb69d102",
+      "event_type": "imagine.mutation",
+      "payload": {
+        "method": "POST",
+        "path": "/svc/logging/api/metrics",
+        "status": 500,
+        "accepted": false,
+        "requestDigest": "sha256:e56d61c24a9489bc907541d86e300cbe97a4b33dca05f82e07ce84459519858c",
+        "resultDigest": "sha256:559b2391b2fcea7c91bda8dd280fcc4aa6d084d3748f272e7a7b92d625e0b905",
+        "resourceKey": null,
+        "ms": 0
+      },
+      "continuity_context": null,
+      "parent_links": [
+        null
+      ],
+      "checksum": "sha256:2351143b79f962952522fffe029bf3f6fc95719034cf5698dd4c16e34e0ffb1b",
+      "signature": "ed25519:+WwOIyhQGGwukToamrhIq3Knc5StoVnqhNwCaFA4J9IPgGaNGsiXMRUVxFFWA/5Jv6/03/+ctEr0RrC+jSYvAw=="
+    },
+    {
+      "event_id": "b8008ee3-3be8-4db6-bd2b-1e5aadf4370f",
+      "timestamp": "2026-08-16T03:20:33.835Z",
+      "actor_identity": "imagine:session:2cfd377efb69d102",
+      "event_type": "imagine.mutation",
+      "payload": {
+        "method": "POST",
+        "path": "/svc/logging/api/metrics",
+        "status": 500,
+        "accepted": false,
+        "requestDigest": "sha256:e56d61c24a9489bc907541d86e300cbe97a4b33dca05f82e07ce84459519858c",
+        "resultDigest": "sha256:559b2391b2fcea7c91bda8dd280fcc4aa6d084d3748f272e7a7b92d625e0b905",
+        "resourceKey": null,
+        "ms": 0
+      },
+      "continuity_context": null,
+      "parent_links": [
+        null
+      ],
+      "checksum": "sha256:c85d00d417ee9f0f9c9c904fb5f8aa6b1c6d566af1b6eeefe1fb4ad24c8c2477",
+      "signature": "ed25519:KCLnHbc5P3GKgjORNRxiHdHdwVFq0xy9Xf2GSwBKUDWcyPRbzj3Op3sFNxrp0rY4NETz6aUzPXpAYyeh4J1sAQ=="
+    },
+    {
+      "event_id": "af4891a1-fdf6-4ae3-99ce-aa197f7c39a3",
+      "timestamp": "2026-08-16T03:20:34.734Z",
+      "actor_identity": "imagine:session:2cfd377efb69d102",
+      "event_type": "imagine.mutation",
+      "payload": {
+        "method": "POST",
+        "path": "/svc/logging/api/logs/streams",
+        "status": 500,
+        "accepted": false,
+        "requestDigest": "sha256:e60247e2c577a32c3e8abf0de716954ccd553d383528a5590213b1e0c3400f58",
+        "resultDigest": "sha256:de1e3257f890e7570b1fead7d29d7a211574b461b4873458569669abcdbe970d",
+        "resourceKey": null,
+        "ms": 1
+      },
+      "continuity_context": null,
+      "parent_links": [
+        null
+      ],
+      "checksum": "sha256:19438e247f3f338c798d61eab357184c6b4f2caf1da0ea4082d9662dc9357910",
+      "signature": "ed25519:YB1+2p41RvIqpUkwZYsBotQsDMD66TlQKN4JuLpRcvifJwuIEe8KHlSs+v4EHVnq/hgxdB2inChgcztsaOYvAQ=="
+    },
+    {
+      "event_id": "2400643a-598e-4955-a3e5-995952d93bed",
+      "timestamp": "2026-08-16T03:20:35.735Z",
+      "actor_identity": "imagine:session:2cfd377efb69d102",
+      "event_type": "imagine.mutation",
+      "payload": {
+        "method": "POST",
+        "path": "/svc/logging/api/logs/streams",
+        "status": 500,
+        "accepted": false,
+        "requestDigest": "sha256:e60247e2c577a32c3e8abf0de716954ccd553d383528a5590213b1e0c3400f58",
+        "resultDigest": "sha256:de1e3257f890e7570b1fead7d29d7a211574b461b4873458569669abcdbe970d",
+        "resourceKey": null,
+        "ms": 0
+      },
+      "continuity_context": null,
+      "parent_links": [
+        null
+      ],
+      "checksum": "sha256:edf019e0e1c57b96ad89a96ab551be10fdb519d7e2a2585ca08723680ed40e2a",
+      "signature": "ed25519:vyGZV8ZQSk5GzzoAq1IMprZwFIzaZ5NBkQFpijonASIMblkFDJR3lUKQT9PDoe4ZEQ18+4n/ibJxYfCWWTcmDA=="
+    },
+    {
+      "event_id": "bcc7e385-1c8f-4ea1-a044-85dc795866cc",
+      "timestamp": "2026-08-16T03:20:37.741Z",
+      "actor_identity": "imagine:session:2cfd377efb69d102",
+      "event_type": "imagine.mutation",
+      "payload": {
+        "method": "POST",
+        "path": "/svc/logging/api/logs/streams",
+        "status": 500,
+        "accepted": false,
+        "requestDigest": "sha256:e60247e2c577a32c3e8abf0de716954ccd553d383528a5590213b1e0c3400f58",
+        "resultDigest": "sha256:de1e3257f890e7570b1fead7d29d7a211574b461b4873458569669abcdbe970d",
+        "resourceKey": null,
+        "ms": 1
+      },
+      "continuity_context": null,
+      "parent_links": [
+        null
+      ],
+      "checksum": "sha256:6d4f437ea1f5fefa902bd434dca11cd8a2e3cc73bbb19f7b5c6d1324eb2120bc",
+      "signature": "ed25519:W4o/78Y7jJ99Q0skwzf/ochz9ahDl6dHFZ9+p9O5iFOxorxCGEGC/zqceB5jybAmInNjvplpJlEH5rCnF42cBw=="
+    },
+    {
+      "event_id": "f6ae6dff-4a0b-45d9-9f08-d5814c4cdfb6",
+      "timestamp": "2026-08-16T03:20:40.749Z",
+      "actor_identity": "imagine:session:2cfd377efb69d102",
+      "event_type": "imagine.mutation",
+      "payload": {
+        "method": "POST",
+        "path": "/svc/logging/api/logs/streams",
+        "status": 500,
+        "accepted": false,
+        "requestDigest": "sha256:e60247e2c577a32c3e8abf0de716954ccd553d383528a5590213b1e0c3400f58",
+        "resultDigest": "sha256:de1e3257f890e7570b1fead7d29d7a211574b461b4873458569669abcdbe970d",
+        "resourceKey": null,
+        "ms": 1
+      },
+      "continuity_context": null,
+      "parent_links": [
+        null
+      ],
+      "checksum": "sha256:c667185e5385a318e48c0a8e03f54b14542dc29ad3a3b8059f4ba99d92807456",
+      "signature": "ed25519:glflgLV9bvfNakUPy9zUTSB4VHJ0L7Cs0au1JV9e9+74WdPKY1vZFmf1NDuyFRLZ0Ds+KjQUdk3uu4R+5SWnBA=="
+    },
+    {
+      "event_id": "7cad9099-ab4f-4838-ae44-cf515ea56f08",
+      "timestamp": "2026-08-16T03:20:40.753Z",
+      "actor_identity": "imagine:session:2cfd377efb69d102",
+      "event_type": "imagine.mutation",
+      "payload": {
+        "method": "POST",
+        "path": "/svc/logging/api/metrics",
+        "status": 500,
+        "accepted": false,
+        "requestDigest": "sha256:e56d61c24a9489bc907541d86e300cbe97a4b33dca05f82e07ce84459519858c",
+        "resultDigest": "sha256:559b2391b2fcea7c91bda8dd280fcc4aa6d084d3748f272e7a7b92d625e0b905",
+        "resourceKey": null,
+        "ms": 0
+      },
+      "continuity_context": null,
+      "parent_links": [
+        null
+      ],
+      "checksum": "sha256:47a0ed590e6d8bc8e4e064ab465784abe287fe59e0360bb725070ca7c79208bb",
+      "signature": "ed25519:yPY12ATCbzupwVmzWFopjVUXJUKXSxCXcvx+LGh/pzqpkP1OUx2C4t7L7v1uuQ6sNVdB1Dxlwr+l6mHCbF1zBQ=="
+    },
+    {
+      "event_id": "f58cdf1b-9f27-4c56-83b8-ca5198dc6a80",
+      "timestamp": "2026-08-16T03:20:41.759Z",
+      "actor_identity": "imagine:session:2cfd377efb69d102",
+      "event_type": "imagine.mutation",
+      "payload": {
+        "method": "POST",
+        "path": "/svc/logging/api/metrics",
+        "status": 500,
+        "accepted": false,
+        "requestDigest": "sha256:e56d61c24a9489bc907541d86e300cbe97a4b33dca05f82e07ce84459519858c",
+        "resultDigest": "sha256:559b2391b2fcea7c91bda8dd280fcc4aa6d084d3748f272e7a7b92d625e0b905",
+        "resourceKey": null,
+        "ms": 1
+      },
+      "continuity_context": null,
+      "parent_links": [
+        null
+      ],
+      "checksum": "sha256:ace33d504cec3f928efaab7ee1a16428ee4154a00a9275ee4afb216c90121d46",
+      "signature": "ed25519:fU/NLOs9E0j+9tyeOQabTaUI96HNmDvMRgeAzX6xC29IRx5lAlURHw1TPHlzT1xnzuRMfIHjm6SfIBY54EqEAw=="
+    },
+    {
+      "event_id": "e3229e38-5c98-4199-8015-f4d129cdfb09",
+      "timestamp": "2026-08-16T03:20:43.764Z",
+      "actor_identity": "imagine:session:2cfd377efb69d102",
+      "event_type": "imagine.mutation",
+      "payload": {
+        "method": "POST",
+        "path": "/svc/logging/api/metrics",
+        "status": 500,
+        "accepted": false,
+        "requestDigest": "sha256:e56d61c24a9489bc907541d86e300cbe97a4b33dca05f82e07ce84459519858c",
+        "resultDigest": "sha256:559b2391b2fcea7c91bda8dd280fcc4aa6d084d3748f272e7a7b92d625e0b905",
+        "resourceKey": null,
+        "ms": 1
+      },
+      "continuity_context": null,
+      "parent_links": [
+        null
+      ],
+      "checksum": "sha256:546874fdfd9e98c3754a3947719c1cdf6e97e0a3f27943a3f61dc27065f1f621",
+      "signature": "ed25519:CiHcNzhdrwN9Mmreqk6niAk5cFUtPWOcGzk4SxlELEvPRol87LGgvbQz/QPe26Q21Zh6AqtGTEBPqgbXzC5ABw=="
+    },
+    {
+      "event_id": "cbfeb3e8-16ad-4753-874f-b943ddc8d6ed",
+      "timestamp": "2026-08-16T03:20:46.771Z",
+      "actor_identity": "imagine:session:2cfd377efb69d102",
+      "event_type": "imagine.mutation",
+      "payload": {
+        "method": "POST",
+        "path": "/svc/logging/api/metrics",
+        "status": 500,
+        "accepted": false,
+        "requestDigest": "sha256:e56d61c24a9489bc907541d86e300cbe97a4b33dca05f82e07ce84459519858c",
+        "resultDigest": "sha256:559b2391b2fcea7c91bda8dd280fcc4aa6d084d3748f272e7a7b92d625e0b905",
+        "resourceKey": null,
+        "ms": 1
+      },
+      "continuity_context": null,
+      "parent_links": [
+        null
+      ],
+      "checksum": "sha256:80a92f4260174c546987a358ac820f0613c1382bfd48c2a9d7f794cbfa1f140c",
+      "signature": "ed25519:wMV7owAGUkdZnkmpJV/WDF5yDbY9oqEsKkIoQ68iXfiVZrAS0r4LP3OCyDM6uvulw9I0W7lPOF33LhZjFH99BA=="
+    },
+    {
+      "event_id": "b885f252-e556-49a6-88a0-335c4c59d010",
+      "timestamp": "2026-08-16T03:20:46.772Z",
+      "actor_identity": "imagine:session:2cfd377efb69d102",
+      "event_type": "imagine.mutation",
+      "payload": {
+        "method": "POST",
+        "path": "/svc/logging/api/metrics",
+        "status": 500,
+        "accepted": false,
+        "requestDigest": "sha256:944d39d82d414b71e1b87bb95667b9a5b5a14694c0eccdd86bbadf06bbe163b7",
+        "resultDigest": "sha256:559b2391b2fcea7c91bda8dd280fcc4aa6d084d3748f272e7a7b92d625e0b905",
+        "resourceKey": null,
+        "ms": 0
+      },
+      "continuity_context": null,
+      "parent_links": [
+        null
+      ],
+      "checksum": "sha256:c44c38f1124d74821f1cc3bc73c2d14870676e7b59121d5d688603ff2180f3dc",
+      "signature": "ed25519:Oe5+lwhFwwQNrvMvtoEBP0uyWafY34+uQ6MNHmivCzIeD2uUQKYcm01XwliGg3JN8I9vxEG3xgP27oK8KE4+Dg=="
+    },
+    {
+      "event_id": "68518dcf-cc6f-4351-83a8-ae5ce69ce8ef",
+      "timestamp": "2026-08-16T03:20:47.777Z",
+      "actor_identity": "imagine:session:2cfd377efb69d102",
+      "event_type": "imagine.mutation",
+      "payload": {
+        "method": "POST",
+        "path": "/svc/logging/api/metrics",
+        "status": 500,
+        "accepted": false,
+        "requestDigest": "sha256:944d39d82d414b71e1b87bb95667b9a5b5a14694c0eccdd86bbadf06bbe163b7",
+        "resultDigest": "sha256:559b2391b2fcea7c91bda8dd280fcc4aa6d084d3748f272e7a7b92d625e0b905",
+        "resourceKey": null,
+        "ms": 1
+      },
+      "continuity_context": null,
+      "parent_links": [
+        null
+      ],
+      "checksum": "sha256:2124ae45d8e4247f6211d0114ad599d12d787f0bc8137839853633f8eb117020",
+      "signature": "ed25519:xwHKQXmozUf6BbDQq2jEvx3Uo9tkBLN+ChjgQ8kQbF4J/yvqLp95mH1vxY4O+Opz32v5d7h7kgzMzFdC8QEKAA=="
+    },
+    {
+      "event_id": "b820e041-448c-40de-b658-0d654eda6293",
+      "timestamp": "2026-08-16T03:20:49.783Z",
+      "actor_identity": "imagine:session:2cfd377efb69d102",
+      "event_type": "imagine.mutation",
+      "payload": {
+        "method": "POST",
+        "path": "/svc/logging/api/metrics",
+        "status": 500,
+        "accepted": false,
+        "requestDigest": "sha256:944d39d82d414b71e1b87bb95667b9a5b5a14694c0eccdd86bbadf06bbe163b7",
+        "resultDigest": "sha256:559b2391b2fcea7c91bda8dd280fcc4aa6d084d3748f272e7a7b92d625e0b905",
+        "resourceKey": null,
+        "ms": 1
+      },
+      "continuity_context": null,
+      "parent_links": [
+        null
+      ],
+      "checksum": "sha256:44878322cf52d95e332b126108b03e73f103f5cfaaee0d10ed77f64380d58169",
+      "signature": "ed25519:xi4ZYW2kwWpiKXMIhT6K31ftdpnz8EMeBYvoeJmTRL6cztwMakJou2aXTnnxRWJhngzV2S5SorkHcva21bpICQ=="
+    },
+    {
+      "event_id": "889d5586-989f-4da0-b89b-34b9cd8bbb06",
+      "timestamp": "2026-08-16T03:20:52.032Z",
+      "actor_identity": "imagine:session:2cfd377efb69d102",
       "event_type": "imagine.session.sealed",
       "payload": {
-        "authoredCount": 19,
-        "traceEntries": 39,
-        "artifactsDigest": "sha256:0b6427b0036110b2b3aa8289dce8436d51050c19e3ff9709c1b7fbec7d6f2b47"
+        "authoredCount": 16,
+        "traceEntries": 87,
+        "artifactsDigest": "sha256:0a5b5db7e0fdb7deeda962d23d1da4636bc6014210f482bee4732b328e9ef978"
       },
       "continuity_context": null,
       "parent_links": [
         null
       ],
-      "checksum": "sha256:71e3e1cc6f0b2bfb2df7003b35d744f9bc5220ac1ebaa145fa05aa0de378ffb4",
-      "signature": "ed25519:A+3QuuwySNWQr6o203yHHlcd1IIgys6QyuYuu7U3PMSabds8uhvqu0nPEgw3D8E1+SgzMyrZPyGYpaDeFAYYCw=="
+      "checksum": "sha256:977de92dff5aadd86258802f8b61678dd69851e0d45e3c83f45ebbae8d28630b",
+      "signature": "ed25519:NBIjfaZfr2HEs45G03lF/nDLUpxEYU5drY9QOaMBg72oOfxp3vuR80g/xnjNH4TpmK7E8j1dI9y7zSR1cJoGAg=="
     }
   ],
   "seal": {
-    "eventId": "d7e2a37b-e982-422a-bfa4-a7ec5d6c2b99",
-    "checksum": "sha256:71e3e1cc6f0b2bfb2df7003b35d744f9bc5220ac1ebaa145fa05aa0de378ffb4",
-    "artifactsDigest": "sha256:0b6427b0036110b2b3aa8289dce8436d51050c19e3ff9709c1b7fbec7d6f2b47"
+    "eventId": "889d5586-989f-4da0-b89b-34b9cd8bbb06",
+    "checksum": "sha256:977de92dff5aadd86258802f8b61678dd69851e0d45e3c83f45ebbae8d28630b",
+    "artifactsDigest": "sha256:0a5b5db7e0fdb7deeda962d23d1da4636bc6014210f482bee4732b328e9ef978"
   }
 }

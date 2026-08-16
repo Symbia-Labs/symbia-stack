@@ -113,6 +113,34 @@ than passing on a coincidence.
 Re-measured after the fix, with the connector's sidecars still running:
 control accepted, both tamper cases refused, `I3 HELD`.
 
+**Verified again after a Claude Desktop restart, so the connector's own
+sidecars were running the fixed code.** Four measurements, with three
+sessions live at once throughout:
+
+- Sealed through the connector's own sidecar (pid 73689): 88 events, 16
+  artifacts, chain and artifacts both VERIFIED.
+- `tamper.mjs` against that bundle: control accepted, trace alteration
+  refused, artifact alteration refused, `I3 HELD`.
+- A script-spawned sidecar sealed its own bundle *while the connector's two
+  kept running*: 40 events, 19 artifacts, VERIFIED independently.
+- Every scoped ledger holds exactly one identity, and it is the one in the
+  filename:
+
+  ```
+  ledger.2a5d9821da5b5135.jsonl  ->  1  imagine:session:2a5d9821da5b5135
+  ledger.2cfd377efb69d102.jsonl  ->  1  imagine:session:2cfd377efb69d102
+  ledger.46cb13d551347211.jsonl  ->  1  imagine:session:46cb13d551347211
+  ledger.81e2180c16c7c5e0.jsonl  ->  1  imagine:session:81e2180c16c7c5e0
+  ledger.9aa86ccbf878953b.jsonl  ->  1  imagine:session:9aa86ccbf878953b
+  ```
+
+  Five sessions, five files, no file holding more than one signer. That is
+  the invariant the shared file could not hold, stated as something
+  checkable rather than as a claim about the fix.
+
+The stale unscoped `ledger.jsonl` is left in place with no writer. It is
+the pre-fix artifact and any bundle referencing it is refused.
+
 ## Not established
 
 Import against a deployed stack. The Track 4 target was a second sidecar —
