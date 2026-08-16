@@ -1,0 +1,4 @@
+node_modules/
+.identity/
+sidecar/.session/
+sidecar/.models/
