@@ -13,7 +13,7 @@
 import { spawn, execFileSync } from "node:child_process";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { readAddress } from "../standalone/host.mjs";
+import { readAddress } from "../standalone/host-address.mjs";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const stand = join(here, "..", "standalone");

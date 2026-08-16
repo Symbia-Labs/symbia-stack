@@ -18,7 +18,7 @@
 import { spawn } from "node:child_process";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { readAddress, ADDRESS_FILE } from "./host.mjs";
+import { readAddress, ADDRESS_FILE } from "./host-address.mjs";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const log = (...a) => console.error("[shim]", ...a);

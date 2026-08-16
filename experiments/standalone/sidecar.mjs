@@ -513,7 +513,7 @@ if (!process.env.IMAGINE_HOST_MODE) {
 if (process.env.IMAGINE_HOST_MODE) {
   // HOST MODE. No MCP here — a shim owns that, in the process Claude
   // Desktop spawned. Publish the address and stay up.
-  const { ADDRESS_FILE, clearAddress } = await import("./host.mjs");
+  const { ADDRESS_FILE, clearAddress } = await import("./host-address.mjs");
   writeFileSync(ADDRESS_FILE, JSON.stringify({
     base: BASE,
     pid: process.pid,
