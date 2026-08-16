@@ -58,3 +58,52 @@ and therefore cannot participate in a cycle.
 
 Worth keeping because of how it presented: a silent stop looks exactly like a
 slow boot, and the reflex is to wait longer.
+
+
+## Live, through Claude Desktop (16 Aug)
+
+The manifest was repointed at `shim.mjs`, a host was started, a marker was
+written to it, and Claude Desktop was restarted.
+
+```
+contexts/survives-the-restart  id 80630268-d82b-43cf-9a78-844cf87499c9
+written 10:24:07, before the restart, read back after it
+```
+
+Same id, same host. The shim attached to a stack that was already running
+rather than booting its own. S1 confirmed outside the probe.
+
+Also confirmed in the same session: `symbia_diagnose` is in the tool list,
+and logging answers `[]` where it returned 500 all morning — the host is
+running the D3 fix without anything being rebuilt inside Claude.
+
+`symbia_diagnose` immediately surfaced D4 unprompted:
+
+```
+GET /svc/control-center/docs/openapi.json -> 404
+GET /svc/api/docs/openapi.json            -> 404
+```
+
+with `attribution: "window only: no line was tagged with this request"` —
+saying the attached lines are probably unrelated rather than presenting
+them as a cause.
+
+### The first thing the split broke
+
+The first real call came back `"mode": "unknown"`. Every response carries
+that field, and the sidecar had set `SYMBIA_MODE` before importing the MCP
+server; splitting the process left nothing to set it.
+
+It is the one piece of state a transport must not guess at — it is the
+difference between "a write here is a sketch" and "a write here is a
+record". The shim now reads the mode from the host's own `/` response, so a
+shim pointed at a design-mode stack reports design.
+
+The evidence was visible in one response: `symbia_diagnose` said `imagine`
+(that JSON comes from the host) while `symbia_call` said `unknown` (that
+wrapper reads the shim's environment). Two answers, one session.
+
+**This fix needs one more client restart**, because it lives in the shim.
+That is the category the split does not help with — and it should be the
+last of its kind, since the shim's job is now fixed: read an address, hand
+over stdout.
