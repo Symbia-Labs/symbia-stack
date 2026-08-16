@@ -161,6 +161,36 @@ export function createSessionLedger({ path, pubKeyPath }) {
   }
 
   /**
+   * THE FIRST EVENT A SESSION WRITES: THAT IT BEGAN, AND WHEN.
+   *
+   * The envelope declared a stop and no start. `close()` has always written a
+   * total, so a reader could say "23 of 87" at the tail — and had no anchor at
+   * the head at all. The asymmetry was invisible because every event carried a
+   * wall-clock timestamp, so the first event's reading served as an origin by
+   * accident. It is not one: the first event is whenever something happened to
+   * be recorded, not when the session opened, and the interval between the two
+   * is exactly the part nobody measured.
+   *
+   * t(0) is a wall-clock reading and therefore apocryphal. It is recorded here
+   * as one of the two anchors an estimate is derived BETWEEN, and it says what
+   * it is rather than passing as a fact about the session's contents.
+   *
+   * The fingerprint travels with it because the session identity is generated
+   * per spawn: this anchor belongs to this key and to no other session.
+   */
+  function open() {
+    return append("imagine.session.opened", {
+      t0: new Date().toISOString(),
+      fingerprint: identity.fingerprint,
+      lane: "apocryphal",
+      does_not_assert:
+        "anything about the contents of the session. This is a clock reading taken " +
+        "at spawn — one of the two anchors placement is derived between, not a " +
+        "measurement of anything that happened inside them.",
+    });
+  }
+
+  /**
    * The last event a session writes: how many there were.
    *
    * Its own seq is included in the total it declares, so `total` equals the
@@ -212,6 +242,11 @@ export function createSessionLedger({ path, pubKeyPath }) {
     });
     next();
   }
+
+  // Written here, not exposed for a caller to remember. An anchor that depends
+  // on somebody calling it is an anchor that is missing from the sessions where
+  // it mattered most — the ones that died before anyone got to it.
+  open();
 
   return {
     middleware,
