@@ -37,10 +37,34 @@ const here = dirname(fileURLToPath(import.meta.url));
 const repo = join(here, "..", "..");
 
 // 1. stdout belongs to MCP. Everything else goes to stderr, starting now.
-const log = (...a) => console.error("[sidecar]", ...a);
-console.log = console.error;
-console.info = console.error;
-console.debug = console.error;
+//
+// AND INTO A RING BUFFER, so a host can ask WHY a service failed.
+//
+// D3 (16 Aug) took a shell to diagnose. Three logging endpoints returned
+// generic 500s — "Failed to query logs" — while the cause (no tables in
+// pg-mem) reached only stderr, which no API exposed. Services catch their
+// own errors and answer with a sentence that names the operation rather
+// than the fault, so the response can never carry the detail.
+//
+// Teeing every redirected line into a bounded buffer costs nothing and
+// makes the detail reachable. Correlation with the request in flight is
+// approximate on purpose — see `/session/diagnostics`.
+const RING = [];
+const RING_MAX = Number(process.env.IMAGINE_LOG_RING || 2000);
+let inFlight = null;
+function ring(args) {
+  const line = args.map((a) => (typeof a === "string" ? a : (() => { try { return JSON.stringify(a); } catch { return String(a); } })())).join(" ");
+  RING.push({ at: Date.now(), line, during: inFlight });
+  if (RING.length > RING_MAX) RING.shift();
+}
+const realError = console.error.bind(console);
+const log = (...a) => { ring(["[sidecar]", ...a]); realError("[sidecar]", ...a); };
+const tee = (...a) => { ring(a); realError(...a); };
+console.log = tee;
+console.info = tee;
+console.debug = tee;
+console.error = tee;
+console.warn = tee;
 
 // 2. imagine-mode environment, set before any service module is imported.
 delete process.env.DATABASE_URL; // pg-mem; the library announces it
@@ -109,6 +133,28 @@ app.use((err, _req, res, next) => {
   }
   return next(err);
 });
+// Non-2xx responses, kept with their timing so diagnostics can pair them
+// with what the service logged. Bodies are not stored — the ledger already
+// digests those, and a failing request's body is rarely the interesting part.
+const FAILURES = [];
+app.use((req, res, next) => {
+  const startedAt = Date.now();
+  const prev = inFlight;
+  inFlight = `${req.method} ${req.path}`;
+  res.on("finish", () => {
+    inFlight = prev;
+    if (res.statusCode < 400) return;
+    FAILURES.push({
+      method: req.method,
+      path: req.path,
+      status: res.statusCode,
+      startedAt,
+      endedAt: Date.now(),
+    });
+    if (FAILURES.length > 200) FAILURES.shift();
+  });
+  next();
+});
 app.use(ledger.middleware);
 
 app.get("/", (_req, res) =>
@@ -121,6 +167,49 @@ app.get("/", (_req, res) =>
     session: ledger.summary,
   })
 );
+
+/**
+ * Why did that fail?
+ *
+ * Pairs each non-2xx response with the log lines emitted while it was in
+ * flight. The pairing is a TIME WINDOW, not a causal link: two concurrent
+ * requests both claim lines written during their overlap, and a service
+ * that logs after responding (batched telemetry flush) writes its
+ * explanation outside its own window entirely. Both cases are stated in
+ * the response rather than smoothed over, because a diagnostic that
+ * quietly guesses is worse than one that says how it guessed.
+ */
+app.get("/session/diagnostics", (req, res) => {
+  const limit = Number(req.query.limit ?? 20);
+  const failures = FAILURES.slice(-limit).map((f) => {
+    const window = RING.filter((r) => r.at >= f.startedAt && r.at <= f.endedAt + 250);
+    // Every line records which request was in flight when it was written.
+    // Preferring the ones tagged with THIS request cuts the boot noise that
+    // otherwise dominates the window — measured 16 Aug, where a 503 came
+    // back attached to four lines about the huggingface registry. Fall back
+    // to the whole window when the tag matches nothing, and say which
+    // happened rather than presenting them as the same thing.
+    const tag = `${f.method} ${f.path}`;
+    const tagged = window.filter((r) => r.during === tag);
+    return {
+      ...f,
+      attribution: tagged.length ? "tagged: lines written while this request was in flight"
+                                 : "window only: no line was tagged with this request",
+      lines: (tagged.length ? tagged : window).map((r) => r.line),
+    };
+  });
+  res.json({
+    mode: "imagine",
+    correlation: "time window, approximate",
+    caveats: [
+      "concurrent requests overlap and will both claim the same lines",
+      "a service that logs after responding writes outside its own window; the 250ms tail is a guess, not a guarantee",
+    ],
+    failures,
+    ringHeld: RING.length,
+    ringMax: RING_MAX,
+  });
+});
 
 // The session trace: every mutation this sidecar saw, signed and chained.
 app.get("/session", (_req, res) =>

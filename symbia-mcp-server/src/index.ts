@@ -716,6 +716,40 @@ async function main(): Promise<void> {
   // land at SYMBIA_MAX_BODY_BYTES (1 MB, checked in symbia_call), which
   // returns a message naming the size and the limit. The buffer is set
   // well clear of that so the guard, not the transport, is what answers.
+server.tool(
+  "symbia_diagnose",
+  "Ask why a request failed. Pairs recent non-2xx responses with the log lines the service emitted while they were in flight. Use when an endpoint returns a generic error — services catch their own faults and answer with the operation name, not the cause, so the detail exists only in the process log. The pairing is a time window and says so.",
+  { limit: z.number().optional() },
+  async (args: { limit?: number }): Promise<ToolResult> => {
+    // A HOST MUST BE ABLE TO ASK WHY, NOT ONLY WHAT.
+    //
+    // D3 (16 Aug) needed a shell: three logging endpoints answered "Failed
+    // to query logs" while the real cause — no tables in pg-mem — reached
+    // only stderr. Nothing in the API surfaced it, so diagnosis left the
+    // platform. This is the endpoint that makes it unnecessary.
+    const base = BASE_URL ?? `http://${HOST}:${PORTS.identity}`;
+    try {
+      const r = await fetch(`${base}/session/diagnostics?limit=${args.limit ?? 10}`, {
+        signal: AbortSignal.timeout(8000),
+      });
+      if (!r.ok) {
+        return fail(
+          `Diagnostics returned ${r.status} from ${base}/session/diagnostics. ` +
+          `This endpoint belongs to the imagine host, not to a mounted service — ` +
+          `a deployed stack does not serve it.`
+        );
+      }
+      return respond(await r.json());
+    } catch (err) {
+      const cause = (err as { cause?: { code?: string } })?.cause;
+      return fail(
+        `Could not reach ${base}/session/diagnostics${cause?.code ? ` (${cause.code})` : ""}. ` +
+        `Available in imagine mode only.`
+      );
+    }
+  }
+);
+
   const transport = new StdioServerTransport(process.stdin, process.stdout, {
     maxBufferSize: Number(process.env.SYMBIA_MAX_STDIO_BYTES ?? 64 * 1024 * 1024),
   });
