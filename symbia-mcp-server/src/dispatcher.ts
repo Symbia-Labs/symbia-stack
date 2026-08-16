@@ -64,7 +64,16 @@ export async function operationsFor(
       servers?: Array<{ url?: string }>;
     };
     const ops: OperationInfo[] = [];
-    const basePath = (spec.servers?.[0]?.url ?? "").replace(/\/$/, "");
+    // A spec's server url may be a PATH PREFIX ("/api") or a whole ORIGIN
+    // ("http://localhost:5007/api"). Only the path part is ours to keep:
+    // the origin is wherever that service happened to be when the spec was
+    // written, and prepending it to our own base produced
+    // "/svc/integrationshttp://localhost:5007/..." — every integrations
+    // operation unreachable (measured 16 Aug through the connector).
+    const rawServer = (spec.servers?.[0]?.url ?? "").replace(/\/$/, "");
+    const basePath = /^https?:\/\//i.test(rawServer)
+      ? new URL(rawServer).pathname.replace(/\/$/, "")
+      : rawServer;
     for (const [path, methods] of Object.entries(spec.paths ?? {})) {
       for (const [method, op] of Object.entries(methods)) {
         if (!["get", "post", "put", "patch", "delete"].includes(method)) continue;

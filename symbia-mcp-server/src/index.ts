@@ -590,9 +590,21 @@ server.registerTool(
         Object.entries(query).map(([k, v]) => [k, String(v)] as [string, string])
       ).toString();
 
+      // A client may hand us a body as an object OR as a JSON string —
+      // the schema types it as free-form, and MCP clients differ. Sending
+      // a string through JSON.stringify double-encodes it, and the service
+      // rejects `"{\"key\":..."` with a parse error that names neither
+      // cause (measured 16 Aug: every write through this tool failed).
+      let body = args.body;
+      if (typeof body === "string") {
+        const trimmed = body.trim();
+        if (trimmed.startsWith("{") || trimmed.startsWith("[")) {
+          try { body = JSON.parse(trimmed); } catch { /* send as-is */ }
+        }
+      }
       const result = await api<unknown>(op.service as ServiceName, `${path}${qs ? `?${qs}` : ""}`, {
         method: op.method as never,
-        body: args.body,
+        body,
       });
       return withMode({
         called: { service: op.service, operationId: op.operationId, method: op.method, path },
