@@ -442,6 +442,33 @@ app.post("/session/seal", async (_req, res) => {
 
 const services = [];
 
+/**
+ * Where a service's bundle is.
+ *
+ * `./services/<id>.mjs` first, and only then the old `../../<id>/` path.
+ *
+ * The old path is why this spike could not leave the machine it was built on:
+ * it resolves inside a symbia-stack checkout and nowhere else, so the extracted
+ * repository could be read and not run. Preferring a directory the sidecar owns
+ * makes the bundles an INPUT — something dropped in a folder — rather than a
+ * live dependency on somebody else's source tree.
+ *
+ * The fallback stays because removing it would change what this host does today
+ * for no measurement. It is a compatibility path, not the design.
+ *
+ * Bundles keep their third-party imports external, so a bundle only works where
+ * Node can resolve those upward from it. `./services/` sits beside this file's
+ * own package.json, which declares the union of what the ten bundles import —
+ * measured, not guessed: with the bundles copied here and nothing else changed,
+ * 8 of 10 failed to resolve. `directory` and `models` survived by accident of
+ * which packages happen to sit in the workspace root.
+ */
+function bundlePath(id) {
+  const owned = join(here, "services", `${id}.mjs`);
+  if (existsSync(owned)) return owned;
+  return join(here, "..", "..", id, ".standalone-routes.mjs");
+}
+
 async function mount(id, spec, attach) {
   const sub = express();
   sub.use(express.json({ limit: "10mb" }));
@@ -505,20 +532,20 @@ for (const [k, id] of [
 // messaging, runtime, network, service-admin — build their routes inline
 // inside index.ts and export nothing, so there is no module to import.
 // Counted rather than glossed: that ratio IS the PS4 finding.
-const identityMod = await mount("identity", "../../identity/.standalone-routes.mjs");
-const catalogMod = await mount("catalog", "../../catalog/.standalone-routes.mjs");
-await mount("integrations", "../../integrations/.standalone-routes.mjs");
-await mount("models", "../../models/.standalone-routes.mjs");
-await mount("logging", "../../logging/.standalone-routes.mjs");
+const identityMod = await mount("identity", bundlePath("identity"));
+const catalogMod = await mount("catalog", bundlePath("catalog"));
+await mount("integrations", bundlePath("integrations"));
+await mount("models", bundlePath("models"));
+await mount("logging", bundlePath("logging"));
 // directory exported `createRouter()` and left the prefix to the caller, so
 // this host mounted it at the root while the stack mounted it at /api. It
 // exports registerRoutes now and the adapter is gone (16 Aug).
-await mount("directory", "../../directory/.standalone-routes.mjs");
+await mount("directory", bundlePath("directory"));
 // Extracted from their index.ts on 15 Aug so they could be imported at all.
-await mount("network", "../../network/.standalone-routes.mjs");
-await mount("messaging", "../../messaging/.standalone-routes.mjs");
-await mount("runtime", "../../runtime/.standalone-routes.mjs");
-await mount("assistants", "../../assistants/.standalone-routes.mjs");
+await mount("network", bundlePath("network"));
+await mount("messaging", bundlePath("messaging"));
+await mount("runtime", bundlePath("runtime"));
+await mount("assistants", bundlePath("assistants"));
 
 // --- seed, through the API only --------------------------------------------
 // The principal is the one identity's own bootstrap creates. Registering a

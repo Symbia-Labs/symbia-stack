@@ -1,0 +1,30 @@
+{
+  "name": "@symbia/imagine-sidecar",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "An ephemeral Symbia stack an AI client attaches to over MCP. Mounts service bundles from ./services/.",
+  "main": "host.mjs",
+  "scripts": {
+    "start": "node host.mjs",
+    "reload": "bash reload.sh"
+  },
+  "comment": [
+    "WHY THIS FILE EXISTS AT ALL.",
+    "The bundles in ./services/ keep third-party packages external — node-llama-cpp is native and cannot be bundled — and Node resolves those from the importing file upward. Emitting a bundle into a directory with nothing to resolve against fails at import, which is what 01-bundle-routes.sh's comment records from 15 Aug.",
+    "Measured 16 Aug: with the bundles copied here and nothing else changed, 8 of 10 failed to resolve and directory and models succeeded. The survivors were an accident of which packages happen to sit in the workspace root, not a property of those services.",
+    "The dependencies below are the union of what the ten bundles import and could not find. Declaring them here is what lets ./services/ be the mount point, which is what lets this directory leave the machine it was built on."
+  ],
+  "dependencies": {
+    "bcryptjs": "^2.4.3",
+    "dotenv": "^16.4.5",
+    "drizzle-orm": "^0.36.4",
+    "drizzle-zod": "^0.5.1",
+    "googleapis": "^144.0.0",
+    "jsonwebtoken": "^9.0.2",
+    "pg-mem": "^3.0.5",
+    "uuid": "^11.0.3",
+    "yaml": "^2.6.1",
+    "zod-validation-error": "^3.4.0"
+  }
+}
