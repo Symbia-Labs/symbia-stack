@@ -116,19 +116,48 @@ export interface ListFilter {
 }
 
 export function filterOperations(all: OperationInfo[], f: ListFilter): OperationInfo[] {
-  const q = f.q?.toLowerCase();
-  return all
+  const q = f.q?.toLowerCase().trim();
+  const scored = all
     .filter((o) => (f.service ? o.service === f.service : true))
     .filter((o) => (f.method ? o.method === f.method.toUpperCase() : true))
     .filter((o) => (f.includeWrites === false ? !o.writes : true))
-    .filter((o) =>
-      q
-        ? [o.path, o.operationId, o.summary, o.description]
-            .filter(Boolean)
-            .some((s) => String(s).toLowerCase().includes(q))
-        : true
-    )
-    .slice(0, f.limit ?? 100);
+    .slice(0, undefined);
+
+  // ADDING A WORD MUST NOT NARROW TO NOTHING.
+  //
+  // This matched the whole query as one substring, so `q="message invoke
+  // chat"` was looked for verbatim and found nowhere — while
+  // post_webhook_message, summarised "Handle incoming message", sat in the
+  // unfiltered list. Measured 16 Aug: an agent searching with synonyms got
+  // zero results and nearly concluded the capability did not exist.
+  //
+  // A caller adding terms is describing the thing more fully, not
+  // constraining it further. Score by how many terms hit and return
+  // anything that matches at least one, best first.
+  if (!q) return scored.slice(0, f.limit ?? 100);
+
+  // Short words match everything. Measured: "send a message to an
+  // assistant" returned every operation in the set, because "a" and "to"
+  // are substrings of almost any path. Ranking still put the right one
+  // first, but a list that includes everything has told the caller nothing.
+  // Terms under three characters are dropped from matching; if that leaves
+  // nothing, fall back to the whole query so a deliberate search for "id"
+  // is not silently ignored.
+  const words = q.split(/\s+/).filter(Boolean);
+  const meaningful = words.filter((t) => t.length >= 3);
+  const terms = meaningful.length ? meaningful : words;
+  const hits = scored
+    .map((o) => {
+      const hay = [o.path, o.operationId, o.summary, o.description]
+        .filter(Boolean)
+        .map((s) => String(s).toLowerCase());
+      const matched = terms.filter((t) => hay.some((h) => h.includes(t)));
+      return { o, score: matched.length };
+    })
+    .filter((x) => x.score > 0)
+    .sort((a, b) => b.score - a.score);
+
+  return hits.slice(0, f.limit ?? 100).map((x) => x.o);
 }
 
 /** Substitute `{id}`-style path params, and report any left unfilled. */

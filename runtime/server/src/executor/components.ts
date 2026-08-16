@@ -370,9 +370,25 @@ registerComponent({
 
     const filled = expr.replace(/\{(\w+)\}/g, (_m, k) => String(Number(src[k])));
     if (!/^[\d\s+\-*/().]+$/.test(filled)) {
+      // A REFUSAL SHOULD SAY WHAT IT ACCEPTS.
+      //
+      // This returned only 'non-arithmetic characters'. Measured 16 Aug: an
+      // agent wrote `value.pages / value.hoursAvailable`, got that message,
+      // and had no way to learn the {placeholder} form from it — the syntax
+      // is declared in this component's own signed manifest, which the
+      // error never mentioned. Naming the accepted form here turns three
+      // steps into one.
       return {
         error: {
-          value: { error: 'expression refused: non-arithmetic characters', expression: filled },
+          value: {
+            error: 'expression refused: non-arithmetic characters',
+            expression: filled,
+            afterSubstitution: filled !== expr ? `substituted from "${expr}"` : 'no placeholders were substituted',
+            accepts:
+              'Digits, whitespace and + - * / ( ) only, AFTER {placeholder} substitution. ' +
+              'Reference message fields as {name}, e.g. "{pages} / {hoursAvailable}". ' +
+              'Property paths like value.pages are not resolved and survive as letters, which is what this refusal is reporting.',
+          },
           lane: 'apocryphal' as Lane,
         },
       };

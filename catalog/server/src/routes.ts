@@ -160,6 +160,86 @@ function registryLedger(
   );
 }
 
+
+/**
+ * Check a graph's nodes against the component manifests, at authoring time.
+ *
+ * Why this exists, measured 16 Aug. An agent authored a graph whose
+ * arithmetic node used `value.pages / value.hoursAvailable`. The component
+ * takes `{placeholders}`, says so in its signed manifest, and the manifest
+ * was one call away. The graph stored cleanly, hydrated cleanly, and failed
+ * at EXECUTION with "expression refused: non-arithmetic characters" — three
+ * steps and a wrong mental model later.
+ *
+ * The declaration existed the whole time and was never in the author's path.
+ * This puts it there.
+ *
+ * What it deliberately does NOT do: refuse when a component declares no
+ * config. `componentManifestSchema.config` is optional on purpose — the
+ * schema comment says erasing that would lose the difference between "takes
+ * no config" and "has never declared its config". A gate that treated
+ * undeclared as empty would refuse working graphs, which is worse than the
+ * problem it solves.
+ */
+async function checkGraphAgainstManifests(
+  definition: any,
+  lookup: (key: string) => Promise<Resource | undefined>
+): Promise<Array<{ node: string; problem: string; hint?: string }>> {
+  const problems: Array<{ node: string; problem: string; hint?: string }> = [];
+  const nodes = Array.isArray(definition?.nodes) ? definition.nodes : [];
+
+  for (const node of nodes) {
+    const componentKey = node?.component;
+    if (typeof componentKey !== "string") continue;
+
+    const resource = await lookup(`components/${componentKey}`);
+    if (!resource) {
+      problems.push({
+        node: node.id ?? "(unnamed)",
+        problem: `no component "${componentKey}" is registered`,
+        hint: "list components with GET /api/resources?type=component",
+      });
+      continue;
+    }
+
+    const manifest = (resource.metadata as any)?.manifest;
+    const declared = manifest?.config as Record<string, any> | undefined;
+    // Undeclared config is not empty config. Say nothing.
+    if (!declared) continue;
+
+    const given = (node.config ?? {}) as Record<string, unknown>;
+
+    for (const [name, field] of Object.entries(declared)) {
+      if (field?.required && given[name] === undefined) {
+        problems.push({
+          node: node.id ?? "(unnamed)",
+          problem: `${componentKey} requires config.${name}`,
+          // The manifest's own words, not a paraphrase.
+          hint: field.description,
+        });
+      }
+      if (field?.enum && given[name] !== undefined && !field.enum.includes(given[name])) {
+        problems.push({
+          node: node.id ?? "(unnamed)",
+          problem: `config.${name} must be one of: ${field.enum.join(", ")}`,
+          hint: field.description,
+        });
+      }
+    }
+
+    for (const name of Object.keys(given)) {
+      if (!(name in declared)) {
+        problems.push({
+          node: node.id ?? "(unnamed)",
+          problem: `${componentKey} declares no config.${name}`,
+          hint: `it accepts: ${Object.keys(declared).join(", ") || "(nothing)"}`,
+        });
+      }
+    }
+  }
+  return problems;
+}
+
 export async function registerRoutes(
   httpServer: Server,
   app: Express
@@ -522,6 +602,22 @@ export async function registerRoutes(
           });
         }
         validatedData.metadata = { ...(raw as Record<string, unknown>), manifest: manifest.data };
+      }
+
+      // A graph is checked against the contracts it references, here, where
+      // the author can still act on the answer.
+      if (validatedData.type === "graph") {
+        const def = (validatedData.metadata as any)?.definition;
+        const problems = await checkGraphAgainstManifests(def, (k) => storage.getResourceByKey(k));
+        if (problems.length) {
+          return res.status(400).json({
+            error: "graph does not match the component manifests it references",
+            problems,
+            note:
+              "Every component declares its config in a signed manifest. " +
+              "Read one with GET /api/resources?key=components/<component-key>.",
+          });
+        }
       }
 
       // Apps carry a validated manifest for the same reason components do: an

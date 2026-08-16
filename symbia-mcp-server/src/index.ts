@@ -162,7 +162,23 @@ async function api<T>(service: ServiceName, path: string, opts: ApiOptions = {})
   }
   const text = await r.text();
   if (!r.ok) {
-    throw new Error(`${service} ${path} responded ${r.status}: ${text.slice(0, 300)}`);
+    // AN ERROR IS THE MOST USEFUL THING A SERVICE EVER SENDS AN AGENT.
+    //
+    // This truncated at 300 characters, which was fine when errors were
+    // "not found" and actively harmful once they started teaching. Measured
+    // 16 Aug: the catalog's graph gate returns three problems, each with the
+    // component manifest's own description of what it accepts — and the
+    // agent saw one problem, half a hint, and no note.
+    //
+    // `respond()` learned this for SUCCESS payloads this morning and shrinks
+    // them structurally. The failure path kept the naive slice, and failures
+    // are where an agent has the least other information to work from.
+    const ERROR_BUDGET = Number(process.env.SYMBIA_ERROR_BUDGET ?? 4000);
+    const body =
+      text.length <= ERROR_BUDGET
+        ? text
+        : `${text.slice(0, ERROR_BUDGET)}\n…[error truncated at ${ERROR_BUDGET} of ${text.length} characters]`;
+    throw new Error(`${service} ${path} responded ${r.status}: ${body}`);
   }
   try {
     return JSON.parse(text) as T;
