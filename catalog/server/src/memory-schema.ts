@@ -7,6 +7,7 @@ CREATE TABLE "resources" (
   "type" varchar(50) NOT NULL,
   "status" varchar(50) NOT NULL DEFAULT 'draft',
   "is_bootstrap" boolean NOT NULL DEFAULT false,
+  "created_by" varchar(255),
   "tags" text[],
   "org_id" varchar(255),
   "access_policy" jsonb,

@@ -560,7 +560,20 @@ export async function registerRoutes(
         accessPolicy: validatedData.accessPolicy || defaultAccessPolicy,
       };
 
-      const resource = await storage.createResource(resourceData as any);
+      // WHO WROTE THIS, recorded by the server on every create.
+      //
+      // `isBootstrap` says whether a row came from a bootstrap file. It does
+      // not say who made it, and those are different questions — the runtime
+      // registers 16 component manifests through this API at boot, which are
+      // ordinary writes and were indistinguishable from a client's. A sealed
+      // imagine bundle carried 18 artifacts for a session that authored 2.
+      //
+      // Taken from the authenticated principal, never from the request body,
+      // for the same reason isBootstrap is not accepted from a client.
+      const resource = await storage.createResource({
+        ...(resourceData as any),
+        createdBy: req.user?.id ?? null,
+      } as any);
       registryLedger(req, "register", resource);
       res.status(201).json(resource);
     } catch (error) {

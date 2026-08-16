@@ -300,6 +300,15 @@ export const resources = pgTable("resources", {
   type: varchar("type", { length: 50 }).notNull().$type<ResourceType>(),
   status: varchar("status", { length: 50 }).notNull().default("draft").$type<ResourceStatus>(),
   isBootstrap: boolean("is_bootstrap").notNull().default(false),
+  // WHO WROTE THIS. Server-owned, never accepted from a request body.
+  //
+  // isBootstrap answers "did this come from a bootstrap file", which is NOT
+  // the same question as "did this session make it". Measured 16 Aug: a
+  // sealed imagine bundle carried 18 artifacts for a session that authored
+  // 2, because the runtime registers 16 component manifests through this
+  // API at boot and those are ordinary writes. Nothing recorded the author,
+  // so nothing could tell them apart.
+  createdBy: varchar("created_by", { length: 255 }),
   tags: text("tags").array(),
   orgId: varchar("org_id", { length: 255 }),
   accessPolicy: jsonb("access_policy").$type<AccessPolicy>(),

@@ -248,9 +248,35 @@ app.post("/session/seal", async (_req, res) => {
           .then((r) => (r.ok ? r.json() : []))
           .catch(() => [])
       : [];
-    // Authored, not seeded: isBootstrap is the boundary between what the
-    // sandbox shipped with and what this session made.
-    const authored = Array.isArray(rows) ? rows.filter((r) => r.isBootstrap === false) : [];
+    // AUTHORED BY THE CLIENT, not merely written through the API.
+    //
+    // This filtered on `isBootstrap === false`, which answers "did this come
+    // from a bootstrap file" — a different question. Measured 16 Aug: 18
+    // artifacts in a bundle for a session that authored 2, because the
+    // runtime registers 16 component manifests through the catalog API at
+    // boot and those are ordinary writes.
+    //
+    // `createdBy` is the author, recorded by the catalog from the
+    // authenticated principal. Services register under their own identity;
+    // a client authors under the session principal. The seed carries
+    // isBootstrap and no author at all, so both are excluded.
+    // Measured, not guessed: services write under `service:internal`, the
+    // seed writes nothing at all, and a client writes under its user id.
+    //
+    //   integration  createdBy=null              isBootstrap=true    23
+    //   component    createdBy=service:internal  isBootstrap=false   16
+    //   context      createdBy=<user uuid>       isBootstrap=false    1
+    const authored = Array.isArray(rows)
+      ? rows.filter((r) => {
+          if (r.isBootstrap) return false;
+          // No author recorded: either seed data or a row written before
+          // authorship existed. Neither is this session's work.
+          if (!r.createdBy) return false;
+          // A service registering its own manifests is not a client authoring.
+          if (String(r.createdBy).startsWith("service:")) return false;
+          return true;
+        })
+      : [];
     // THE ARTIFACTS MUST BE INSIDE THE SEAL, NOT BESIDE IT.
     //
     // Measured 16 Aug (experiments/imagine-import/tamper.mjs): editing one

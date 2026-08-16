@@ -21,7 +21,50 @@ listings, a graph authored and hydrated at 03:08:35 three seconds after a
 
 ## Open defects
 
-### D1 — sealing counts seeded resources as session-authored
+### D1 — sealing could not tell a client's work from a service's — FIXED 16 Aug
+
+**The note below was wrong about its own cause for a day.** It said the seed
+writes `isBootstrap: false`. It writes `true`. Reading the catalog before
+touching it was the first thing that corrected the record.
+
+The 18 artifacts in a bundle broke down like this, once authorship was
+recorded:
+
+```
+integration  createdBy=None              isBootstrap=true    23   seed
+component    createdBy=service:internal  isBootstrap=false   16   runtime, at boot
+assistant    createdBy=None              isBootstrap=true    10   seed
+context      createdBy=None              isBootstrap=true     5   seed
+context      createdBy=<user uuid>       isBootstrap=false    1   the client
+```
+
+`isBootstrap` answers "did this come from a bootstrap file". Sealing was
+reading it as "did this session make it", and those are different questions
+— the runtime registers its 16 component manifests through the catalog API
+at boot, which are ordinary authenticated writes.
+
+`resources` now carries `createdBy`, taken from the authenticated principal
+and never from a request body, for the same reason `isBootstrap` is not
+accepted from a client. `resource_versions` already had the column; nothing
+had ever written it for a resource.
+
+| | prediction | verdict |
+|---|---|---|
+| P1 | the 16 are component manifests | HELD |
+| P2 | they are ordinary API writes by a service | HELD — `service:internal` |
+| P3 | nothing recorded who wrote a resource | HELD |
+| P4 | D2 is the same gap | **PARTIAL** |
+| P5 | one field closes both | HELD for D1, **BROKEN** for D2 |
+
+Measured: a seal taken after the fix carried **1 artifact** where the same
+shape of session produced 18.
+
+P5 is the useful failure. Recording the author separates a client's work
+from a service's, which is all D1 needed. It does not tell you which BUNDLE
+a resource came from, so a re-import still collides on key and D2 stays
+open — the field it needs now exists, and nothing keys on it.
+
+### D1 — the original note, wrong about its cause
 
 `/session/seal` separates sandbox furniture from session work on
 `isBootstrap === false`. The seed writes resources with that value, so the
