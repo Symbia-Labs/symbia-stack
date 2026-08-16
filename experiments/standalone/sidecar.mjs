@@ -29,6 +29,8 @@ import { readFileSync, readdirSync, existsSync } from "node:fs";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { mkdirSync, writeFileSync } from "node:fs";
+import { createHash } from "node:crypto";
+import { canonicalJson } from "@symbia/crypto";
 import { createSessionLedger } from "./session-ledger.mjs";
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -144,6 +146,18 @@ app.post("/session/seal", async (_req, res) => {
     // Authored, not seeded: isBootstrap is the boundary between what the
     // sandbox shipped with and what this session made.
     const authored = Array.isArray(rows) ? rows.filter((r) => r.isBootstrap === false) : [];
+    // THE ARTIFACTS MUST BE INSIDE THE SEAL, NOT BESIDE IT.
+    //
+    // Measured 16 Aug (experiments/imagine-import/tamper.mjs): editing one
+    // artifact's metadata after sealing left the chain verifying, because
+    // the chain covered the trace and the artifacts sat alongside it. The
+    // claim below said "these artifacts and this trace"; the mechanism
+    // covered only the trace. Digesting the artifacts into the sealed
+    // event's payload makes the sentence true — the digest is now chain-
+    // protected, so altering an artifact breaks verification.
+    const artifactsDigest = `sha256:${createHash("sha256")
+      .update(canonicalJson(authored))
+      .digest("hex")}`;
     const bundle = {
       mode: "imagine",
       sealedAt: new Date().toISOString(),
@@ -155,14 +169,20 @@ app.post("/session/seal", async (_req, res) => {
           "Anything about who ran the session, whether the artifacts are sound, or whether their declared lanes are true. The signing key is ephemeral and travels inside the bundle; ground it to find out.",
       },
       authoredCount: authored.length,
+      artifactsDigest,
       artifacts: authored,
       trace: ledger.read(),
     };
     const sealEvent = ledger.append("imagine.session.sealed", {
       authoredCount: authored.length,
       traceEntries: bundle.trace.length,
+      artifactsDigest,
     });
-    bundle.seal = { eventId: sealEvent.event_id, checksum: sealEvent.checksum };
+    bundle.seal = { eventId: sealEvent.event_id, checksum: sealEvent.checksum, artifactsDigest };
+    // Re-read so the bundle's trace ENDS with the seal event. Without this
+    // the digest that protects the artifacts is not in the chain the
+    // importer walks, and the protection is decorative.
+    bundle.trace = ledger.read();
     const out = join(sessionDir, `bundle-${Date.now()}.json`);
     writeFileSync(out, JSON.stringify(bundle, null, 2));
     res.json({ mode: "imagine", sealed: out, authoredCount: authored.length, traceEntries: bundle.trace.length, seal: bundle.seal });
