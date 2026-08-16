@@ -102,3 +102,71 @@ and no interface change here would have caught either. Whether that is
 reachable by design at all — some way for a system to notice that a probe's
 assertion and its evidence have come apart — is not established, and it is
 the most interesting open question this exercise produced.
+
+---
+
+# Dimension G — can a system catch a measurement that could not fail?
+
+The open question the previous section left. Two failures were invisible to
+every affordance built: a tamper test reporting HELD while every case
+including its unrun control was refused, and a restart probe claiming "the
+shim survives a host restart" from a public GET that would have succeeded
+either way. Both share one property: **the observation was compatible with
+the prediction being false.**
+
+Predictions: `contexts/map-discriminating-power`. Results:
+`contexts/map-discriminating-power-results`.
+
+## What was tried
+
+A MAP prediction declares `{ claim, refutedBy }`. A MAP result declares
+`{ verdict, observed }`. The catalog refuses a result reporting HELD with no
+observation behind it. Popper as a write gate.
+
+## What happened
+
+| | prediction | verdict |
+|---|---|---|
+| H1 | the gate can be a catalog write rule | **BROKEN — flagged in advance** |
+| H2 | replaying I3 is refused | HELD, weakly |
+| H3 | replaying S1 is refused | HELD, weakly |
+| H4 | it falsely refuses honest work | HELD |
+| H5 | writing `refutedBy` changes what gets measured | HELD |
+
+**H1 broke exactly where I said it would.** Replaying the restart result
+with the inadequate observation it actually made returns 201. The check
+sees a populated field, not a relevant one.
+
+**H2 and H3 held for the wrong reason.** Both replays were refused for a
+missing field, not for the flaw. Supply any string and both pass.
+
+**H4 is the damaging one.** A genuinely honest result — *"HELD — the
+arithmetic refusal went from OPAQUE to SELF-CORRECTING, it now reports…"* —
+is refused, because its observation is prose rather than a separable field.
+The gate rejects good records alongside empty ones.
+
+## The design change
+
+Refusal was tried, measured, and abandoned. It is theatre for the case it
+targeted and harmful for the case it was not aimed at. It now **discloses**
+— the same ruling already made for incomplete traces: hand back what is
+there and name what is missing.
+
+A MAP resource is stored either way and carries `mapDiscipline` when gaps
+exist: the gaps themselves, and an explicit statement of what the assessment
+cannot judge. A well-formed resource carries no annotation.
+
+## H5, which is the finding worth keeping
+
+Writing the refutation condition for S1 forces this sentence: *a write
+through the same shim after a restart returns 401 or 403.* That is precisely
+the measurement that was never made — and the one that, once made, exposed
+the auth defect.
+
+So the discipline works, and not where it was aimed. **A gate cannot judge
+whether evidence bears on a claim. An author forced to state what would
+refute a prediction runs a different experiment.** The value is at authoring
+time. The check is, at best, a reminder that authoring happened.
+
+That is a smaller claim than the one this section set out to make, and it is
+the one the measurements support.

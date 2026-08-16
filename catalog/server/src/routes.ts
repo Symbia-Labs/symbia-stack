@@ -240,6 +240,95 @@ async function checkGraphAgainstManifests(
   return problems;
 }
 
+
+/**
+ * A measurement that could not have failed has told you nothing.
+ *
+ * Two failures on 16 Aug were invisible to every other check. A tamper test
+ * reported HELD while every case — including the control it never ran — was
+ * being refused. A restart probe claimed "the shim survives a host restart"
+ * on the evidence of a public GET, which would have succeeded whether or not
+ * the claim was true. In both, the observation was compatible with the
+ * prediction being false.
+ *
+ * So a MAP resource declares, per prediction, what would REFUTE it, and a
+ * MAP result declares what was actually observed. A HELD verdict backed by
+ * no observation is refused here.
+ *
+ * MEASURED, AND IT DOES NOT WORK AS A GATE. Refusing was tried first and
+ * failed twice over:
+ *
+ *   - It is theatre for the case it was built for. Replaying the restart
+ *     probe with the inadequate observation it ACTUALLY made returns 201.
+ *     Filling the field satisfies the check; the measurement is no better.
+ *   - It refuses honest work. A real result written as prose — "HELD — the
+ *     refusal went from OPAQUE to SELF-CORRECTING, it now reports…" — has a
+ *     genuine observation in it and no separable field, so a gate rejects
+ *     the good record along with the empty one.
+ *
+ * So it discloses instead of refusing, which is the ruling this project
+ * already made for incomplete traces: hand back what is there and name what
+ * is missing. The assessment rides on the stored resource as
+ * `mapDiscipline`, where a reader — or a later audit — can act on it.
+ *
+ * The judgement that matters is still unmechanised. Whether an observation
+ * BEARS on a refutation condition is semantic, and nothing here decides it.
+ * What the discipline does buy is at authoring time: an author forced to
+ * write down what would refute a prediction designs a different experiment.
+ */
+function checkMapDiscipline(
+  metadata: any,
+  tags: string[] | null | undefined
+): Array<{ prediction: string; problem: string }> {
+  const problems: Array<{ prediction: string; problem: string }> = [];
+  const isMap = (tags ?? []).includes("map");
+  if (!isMap) return problems;
+
+  const predictions = metadata?.predictions;
+  const results = metadata?.results;
+
+  // A predictions resource: every prediction needs a refutation condition.
+  if (predictions && typeof predictions === "object" && !results) {
+    for (const [id, value] of Object.entries(predictions as Record<string, unknown>)) {
+      const refutedBy = (value as any)?.refutedBy;
+      if (typeof value === "string") {
+        problems.push({
+          prediction: id,
+          problem:
+            "a bare string states a claim without stating what would refute it — " +
+            'use { claim, refutedBy } so the measurement can be checked for discriminating power',
+        });
+        continue;
+      }
+      if (!refutedBy || String(refutedBy).trim().length < 10) {
+        problems.push({
+          prediction: id,
+          problem: "no refutedBy: name the observation that would show this prediction is false",
+        });
+      }
+    }
+  }
+
+  // A results resource: a HELD verdict needs an observation behind it.
+  if (results && typeof results === "object") {
+    for (const [id, value] of Object.entries(results as Record<string, unknown>)) {
+      const verdict = typeof value === "string" ? value : (value as any)?.verdict;
+      const observed = typeof value === "string" ? undefined : (value as any)?.observed;
+      if (typeof verdict === "string" && /^HELD/i.test(verdict.trim())) {
+        if (!observed || String(observed).trim().length < 10) {
+          problems.push({
+            prediction: id,
+            problem:
+              "HELD with no `observed`: state what was actually measured. " +
+              "A verdict with nothing behind it is the failure this gate exists for",
+          });
+        }
+      }
+    }
+  }
+  return problems;
+}
+
 export async function registerRoutes(
   httpServer: Server,
   app: Express
@@ -602,6 +691,31 @@ export async function registerRoutes(
           });
         }
         validatedData.metadata = { ...(raw as Record<string, unknown>), manifest: manifest.data };
+      }
+
+      // A MAP resource carries an assessment of its own discriminating
+      // power. Stored, not refused — see checkMapDiscipline.
+      {
+        const mapProblems = checkMapDiscipline(
+          validatedData.metadata as any,
+          validatedData.tags as string[] | null | undefined
+        );
+        if (mapProblems.length) {
+          validatedData.metadata = {
+            ...((validatedData.metadata as Record<string, unknown>) ?? {}),
+            mapDiscipline: {
+              assessed: new Date().toISOString(),
+              gaps: mapProblems,
+              meaning:
+                "These predictions or verdicts do not state, separably, what would have refuted them " +
+                "or what was observed. That does not make them wrong — it makes them uncheckable by " +
+                "anything but a reader.",
+              limit:
+                "This assessment is structural. Whether an observation bears on a refutation is a " +
+                "semantic judgement no write gate can make.",
+            },
+          };
+        }
       }
 
       // A graph is checked against the contracts it references, here, where
