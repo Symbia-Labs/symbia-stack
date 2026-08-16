@@ -482,7 +482,7 @@ One day's arc, every stage measured against running code; records in
     problem than the mess it tidies).
 
 15. **The catalog could not be asked by key — FOUND AND FIXED 15 Aug, route
-    change runtime-unverified.** `storage.getResourceByKey` had no route;
+    change RUNTIME-VERIFIED 16 Aug.** `storage.getResourceByKey` had no route;
     `/api/resources/:id` routes are id-only; the list route ignored unknown
     filters. model-sync's by-key check therefore always 404ed: its update
     branch had never run (the PUT it would use has no route), and every
@@ -490,7 +490,11 @@ One day's arc, every stage measured against running code; records in
     TESTING-REPORT "Model sync: Pass" was true once per model. Fixed: exact
     `key` filter on the list route; model-sync finds-by-key then PATCHes by
     id (works against pre-filter catalogs too, measured: second boot, 4
-    updates, 0 failures). The catalog route awaits a deployed rebuild.
+    updates, 0 failures). **The `?key=` filter is verified against a
+    running catalog** — Brian fetched `graphs/hello-world` by exact key
+    through the imagine sidecar on 16 Aug and got the resource back. The
+    "awaits a deployed rebuild" caveat is discharged for the filter; the
+    container image on the docker stack still predates it.
     Same day, same service: weights digests now flow engine → registry →
     API → card, with card/file mismatch disclosed at load (measured via a
     forced-mismatch card). Records: `docs/2026-08-15-models-stage2-*.md`,
