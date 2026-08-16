@@ -46,11 +46,36 @@ async function alive(base) {
   }
 }
 
+/**
+ * What this shim was built from. Compared against the host's own marker before
+ * any call is issued — see the refusal below for why that ordering matters.
+ */
+const SHIM_BUILD = process.env.IMAGINE_BUILD || "dev";
+
 async function findHost() {
   const addr = readAddress();
   if (!addr?.base) return null;
   const hello = await alive(addr.base);
-  return hello ? { ...addr, mode: hello.mode } : null;
+  if (!hello) return null;
+
+  // REFUSE A MISMATCHED HOST BEFORE ISSUING ANYTHING.
+  //
+  // The alternative is attaching and failing on the first real call, which
+  // produces an error about whatever that call happened to be rather than
+  // about the mismatch. Twice today a measurement was nearly filed against a
+  // bundle that predated the code under test; both times what saved it was a
+  // human habit of grepping a marker. A stranger has no such habit, so the
+  // check moves here and fails loudly with the two versions named.
+  if (hello.build && SHIM_BUILD !== "dev" && hello.build !== SHIM_BUILD) {
+    log(
+      `REFUSING: this shim is build ${SHIM_BUILD}, the host at ${addr.base} is build ${hello.build}. ` +
+      `A client talking to a host built from different source reports failures that belong to ` +
+      `neither. Restart the host from the same install.`
+    );
+    process.exit(1);
+  }
+
+  return { ...addr, mode: hello.mode, build: hello.build };
 }
 
 async function startHost() {
@@ -103,6 +128,24 @@ process.env.SYMBIA_BASE_URL = host.base;
 // transport must not guess at: it is the difference between "a write here
 // is a sketch" and "a write here is a record".
 process.env.SYMBIA_MODE = host.mode ?? "unknown";
+
+// THE TOKEN COMES FROM THE FILE, NOT FROM A CONFIG A USER EDITS.
+//
+// This is the line that makes the sidecar installable. Before it, attaching a
+// client meant a bearer token pasted into .mcp.json — a long-lived secret in a
+// file people commit by accident, which is exactly what happened in this
+// repository at 303c2df and cost a rotation before its history could be
+// pushed anywhere.
+//
+// Now the credential is minted by the host at spawn, readable only by the user
+// who started it, and worthless the moment that process exits. Nobody types
+// it, nobody stores it, nobody rotates it.
+if (host.token) process.env.SYMBIA_HOST_TOKEN = host.token;
+else log("WARNING: the host published no token — it predates the gate, and its routes are open");
+
+// Retained for a host that still seeds a named principal. The open question
+// recorded in contexts/map-attachment-hardening is whether a distributed build
+// should have one at all, or whether the session token should BE the principal.
 process.env.SYMBIA_EMAIL = process.env.SYMBIA_EMAIL || "dev@example.com";
 process.env.SYMBIA_PASSWORD = process.env.SYMBIA_PASSWORD || "password123";
 

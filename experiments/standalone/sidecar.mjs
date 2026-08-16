@@ -31,6 +31,34 @@ import { fileURLToPath } from "node:url";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { createHash } from "node:crypto";
 import { canonicalJson } from "@symbia/crypto";
+import { randomBytes } from "node:crypto";
+import { ADDRESS_FILE as ADDRESS_FILE_PATH } from "./host-address.mjs";
+
+/**
+ * The session token, and what it is worth.
+ *
+ * 32 random bytes, minted once per spawn, never written anywhere but the
+ * address file at 0600, gone when the process is. It authorises a local client
+ * to reach this stack and asserts nothing else — not who the user is, not what
+ * they may do, only that whoever presents it could read a file in this user's
+ * home directory.
+ *
+ * Deliberately not a JWT, not signed, not scoped. A capability whose whole
+ * lifetime is one process does not need structure; it needs to be unguessable
+ * and to die on time.
+ */
+const HOST_TOKEN = process.env.IMAGINE_HOST_TOKEN || randomBytes(32).toString("base64url");
+
+/**
+ * What source this host was built from.
+ *
+ * Two of today's measurements were nearly filed against a bundle that predated
+ * the code under test. On one machine that is a habit problem, caught by
+ * grepping a marker by hand. Shipped to strangers it becomes a class of bug
+ * report nobody can act on, so the marker moves into the handshake and the
+ * shim refuses a host it does not match.
+ */
+const BUILD_MARKER = process.env.IMAGINE_BUILD || "dev";
 import { createSessionLedger, completenessOf } from "./session-ledger.mjs";
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -175,11 +203,52 @@ app.use((req, res, next) => {
   });
   next();
 });
+// THE GATE. Everything below this line requires the session token.
+//
+// Measured before it existed: eight routes across four services answered an
+// unauthenticated caller with 200 — runtime graphs, executions and components,
+// the assistant roster, the model list, catalog stats. None of it exposed the
+// user's own artifacts, because the catalog filters private resources by
+// policy. All of it exposed the SHAPE of what they were doing to any process
+// on the machine that could reach the port.
+//
+// That is acceptable on one developer's laptop and not acceptable in something
+// a stranger installs. The token closes it without introducing a credential
+// anybody has to manage: it is minted at spawn, lives only in a 0600 file, and
+// dies with the process.
+//
+// `/` stays open on purpose. A shim must be able to ask "what are you, and are
+// you ready" before it holds anything, and the answer names no artifact.
+app.use((req, res, next) => {
+  if (req.path === "/" || req.path === "/health") return next();
+  const offered =
+    req.get("x-imagine-token") ||
+    (req.get("authorization") || "").replace(/^Bearer\s+/i, "");
+  if (offered && offered === HOST_TOKEN) return next();
+  // Say what is wrong and where the answer lives. A generic 401 here sends a
+  // reader looking for a password that does not exist.
+  return res.status(401).json({
+    error: offered ? "session token does not match this host" : "no session token offered",
+    detail:
+      "This host authorises by possession of its session token, which is written only to " +
+      "its address file with mode 0600 and dies with the process. Read the token from that " +
+      "file and send it as x-imagine-token. There is no password and nothing to rotate.",
+    addressFile: ADDRESS_FILE_PATH,
+    hint: offered
+      ? "A mismatch usually means the host restarted and minted a new token — re-read the file."
+      : undefined,
+  });
+});
+
 app.use(ledger.middleware);
 
 app.get("/", (_req, res) =>
   res.json({
     mode: "imagine",
+    // Published on the one open route on purpose: a shim has to be able to
+    // compare builds BEFORE it holds a token or issues a call, and a check
+    // that requires authorisation cannot run at the moment it is needed.
+    build: BUILD_MARKER,
     ready,
     readiness: ready
       ? "boot complete — every service that will mount has mounted"
@@ -611,13 +680,24 @@ globalThis.__imagineBootCompletedAt = bootCompletedAt;
 if (process.env.IMAGINE_HOST_MODE) {
   // HOST MODE. No MCP here — a shim owns that, in the process Claude
   // Desktop spawned. Publish the address and stay up.
-  const { ADDRESS_FILE, clearAddress } = await import("./host-address.mjs");
-  writeFileSync(ADDRESS_FILE, JSON.stringify({
+  const { ADDRESS_FILE, clearAddress, writeAddress } = await import("./host-address.mjs");
+  writeAddress({
     base: BASE,
     pid: process.pid,
     session: ledger.summary.actor,
     startedAt: new Date().toISOString(),
-  }, null, 2));
+    // The gate. Present only in this file, only at 0600, only for this
+    // process. A shim that can read the file is a shim the user could have
+    // read the file as — filesystem permission IS the authorisation, which
+    // is the same trust boundary the user already relies on for their ssh
+    // keys, rather than a second one invented here.
+    token: HOST_TOKEN,
+    // What this host is. A shim compares it against its own before issuing a
+    // call, because a client talking to a host built from different source is
+    // the stale-bundle failure promoted to something a stranger would hit on
+    // install and have no way to diagnose.
+    build: BUILD_MARKER,
+  });
   // Removed on the way out so a stale file is a signal that the host died
   // badly rather than a lie about where to connect.
   const wasTakedown = takedown;

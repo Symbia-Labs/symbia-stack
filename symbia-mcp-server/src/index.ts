@@ -76,13 +76,34 @@ function serviceBase(service: ServiceName): string {
 
 let token: string | null = TOKEN ?? null;
 
+/**
+ * The imagine host's session token, if we were attached to one.
+ *
+ * Two different questions are being answered by two different credentials here,
+ * and collapsing them would be a mistake. `Authorization` says which principal
+ * is acting, and the services check it. `x-imagine-token` says this process was
+ * started by the user who owns the host, and the host's own gate checks that
+ * before any service sees the request.
+ *
+ * A local stack reachable on loopback needs the second one: without it, any
+ * process on the machine can ask the runtime what graphs are loaded. With it,
+ * the answer requires having been able to read a 0600 file in that user's home
+ * directory.
+ *
+ * Absent when talking to a deployed stack, where the network boundary is doing
+ * this job — so it is added when present and never required.
+ */
+const HOST_TOKEN = process.env.SYMBIA_HOST_TOKEN;
+const hostHeader = (): Record<string, string> =>
+  HOST_TOKEN ? { "x-imagine-token": HOST_TOKEN } : {};
+
 async function login(): Promise<string> {
   // Preferred: resolve a session token to a fresh JWT. Refreshable (this runs
   // again on 401) and revocable server-side.
   if (SESSION_TOKEN) {
     const r = await fetch(`${serviceBase("identity" as ServiceName)}/api/auth/session/resolve`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json", ...hostHeader() },
       body: JSON.stringify({ token: SESSION_TOKEN }),
       signal: AbortSignal.timeout(10000),
     });
@@ -106,7 +127,7 @@ async function login(): Promise<string> {
   }
   const r = await fetch(`${serviceBase("identity" as ServiceName)}/api/auth/login`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json", ...hostHeader() },
     body: JSON.stringify({ email: EMAIL, password: PASSWORD }),
     signal: AbortSignal.timeout(10000),
   });
@@ -135,6 +156,7 @@ async function api<T>(service: ServiceName, path: string, opts: ApiOptions = {})
       method: opts.method ?? "GET",
       headers: {
         Accept: "application/json",
+        ...hostHeader(),
         ...(opts.body !== undefined ? { "Content-Type": "application/json" } : {}),
         ...(token && !opts.skipAuth ? { Authorization: `Bearer ${token}` } : {}),
       },
