@@ -135,3 +135,26 @@ export async function authMiddleware(
     }
   }
 }
+
+/**
+ * "Nobody is here" and "this person may not" are different answers.
+ *
+ * Measured 16 Aug: every catalog write answered 403 whether a caller sent a
+ * valid token, an expired one, or none at all — so a client whose session
+ * died could not tell that from a real permission denial, and no client
+ * retried. 401 invites re-authentication; 403 tells you to stop asking.
+ * The MCP server re-logs-in on 401 only, so a host restart left every shim
+ * permanently unable to write.
+ *
+ * logging and runtime already answered 401 here. Catalog was the outlier.
+ */
+export function requirePrincipal(req: any, res: any): boolean {
+  if (req.user) return true;
+  res.status(401).json({
+    error: "Not authenticated",
+    detail:
+      "No principal on this request. A token was absent, expired, or issued by a different host — " +
+      "which is a different thing from lacking permission. Authenticate and retry.",
+  });
+  return false;
+}

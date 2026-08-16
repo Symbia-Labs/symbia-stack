@@ -248,6 +248,68 @@ trace     SEALED — 40 of 40 events, up to the seal.
           not an ending.
 ```
 
+### D9 — an unauthenticated write returned 403, so no client ever re-authenticated — FIXED 16 Aug
+
+Found while starting on D1: a write through the connector came back
+`403 "You don't have permission to create resources"`. The host had been
+restarted by `reload.sh`, so the shim's token was issued by a process that
+no longer existed.
+
+```
+fresh token   -> 201
+no token      -> 403  "You don't have permission to create resources"
+invalid token -> 403  same message
+```
+
+401 means not authenticated and invites a retry. 403 means authenticated
+and refused, and invites giving up. Returning 403 for both made a dead
+session indistinguishable from a real permission denial — and
+`symbia-mcp-server` re-logs-in on 401 only, so every shim was permanently
+unable to write after a host restart.
+
+**How this got past the shim-split probe.** S1 asserted "the shim survives a
+host restart" and measured `GET /api/resources`, which is public. It
+confirmed reachability and never touched authentication, so it passed
+without exercising the thing that breaks. Third time today a green came from
+asking the wrong question — after I3's missing control and L3's malformed
+probe body.
+
+| | prediction | verdict |
+|---|---|---|
+| A1 | catalog answers 403 where 401 is correct | HELD |
+| A2 | the same across services, shared middleware | **BROKEN — predicted wrong, and was** |
+| A3 | the MCP server retries on 401 only | HELD |
+| A4 | fixing it lets the shim recover with no client restart | HELD |
+| A5 | a real permission denial still returns 403 | HELD |
+
+A2 is the useful correction. It is not platform-wide:
+
+```
+catalog:     403   <- the outlier
+logging:     401   already correct
+runtime:     401   already correct
+```
+
+So the fix is `requirePrincipal()` in `catalog/server/src/auth.ts`, used by
+the four write paths that were conflating the two. Everything else already
+distinguished them.
+
+A4 confirmed live: `contexts/a4-recovered`, written through the connector
+after two host restarts, with Claude Desktop untouched. The shim hit a 401,
+logged in against a host it had never seen, and retried.
+
+### D1 — the note was wrong about its own cause
+
+Reading the catalog before touching it: seeded resources carry
+`isBootstrap: **true**` (`context/integrations.provider` and siblings). D1 as
+recorded says the seed writes `false`. That is wrong, and the 16 extra
+artifacts in a sealed bundle come from somewhere else — most likely the
+component manifests the runtime registers through the API at boot, which are
+ordinary authenticated writes and indistinguishable from a client's.
+
+Not yet measured. Predictions are registered at
+`contexts/map-d1-d2-provenance`.
+
 ## Not established
 
 Import against a deployed stack. The Track 4 target was a second sidecar —

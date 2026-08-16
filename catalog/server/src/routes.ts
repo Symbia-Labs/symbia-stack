@@ -6,7 +6,7 @@ import { storage } from "./storage";
 import { insertResourceSchema, resourceTypes, resourceStatuses, visibilityLevels, defaultAccessPolicy, componentManifestSchema, appManifestSchema, type AccessPolicy, type Resource } from "@shared/schema";
 import { z } from "zod";
 import { openApiSpec } from "./openapi";
-import { authMiddleware, requireAuth, requireSuperAdmin, generateApiKey } from "./auth";
+import { requirePrincipal, authMiddleware, requireAuth, requireSuperAdmin, generateApiKey } from "./auth";
 import { getIdentityServiceUrl, getUserOrganizations } from "./identity";
 import { canPerformAction, filterResourcesByReadAccess, getPublicReadPolicy } from "./entitlements";
 import { writeRateLimiter, searchRateLimiter, uploadRateLimiter, RATE_LIMITS } from "./rate-limit";
@@ -482,6 +482,7 @@ export async function registerRoutes(
   app.post("/api/resources", authMiddleware, writeRateLimiter, async (req, res) => {
     try {
       if (!req.user?.isSuperAdmin && !canPerformAction(req.user, { accessPolicy: defaultAccessPolicy } as any, 'write')) {
+        if (!requirePrincipal(req, res)) return;
         return res.status(403).json({ error: "You don't have permission to create resources" });
       }
 
@@ -579,6 +580,7 @@ export async function registerRoutes(
       }
 
       if (!canPerformAction(req.user, resource, 'write')) {
+        if (!requirePrincipal(req, res)) return;
         return res.status(403).json({ error: "You don't have permission to edit this resource" });
       }
 
@@ -668,6 +670,7 @@ export async function registerRoutes(
       }
 
       if (!canPerformAction(req.user, resource, 'delete')) {
+        if (!requirePrincipal(req, res)) return;
         return res.status(403).json({ error: "You don't have permission to delete this resource" });
       }
 
@@ -793,6 +796,7 @@ export async function registerRoutes(
       }
 
       if (!canPerformAction(req.user, resource, 'publish')) {
+        if (!requirePrincipal(req, res)) return;
         return res.status(403).json({ error: "You don't have permission to publish this resource" });
       }
 
