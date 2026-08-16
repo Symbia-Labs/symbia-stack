@@ -237,11 +237,10 @@ const catalogMod = await mount("catalog", "../../catalog/.standalone-routes.mjs"
 await mount("integrations", "../../integrations/.standalone-routes.mjs");
 await mount("models", "../../models/.standalone-routes.mjs");
 await mount("logging", "../../logging/.standalone-routes.mjs");
-// directory exports `createRouter()` rather than `registerRoutes` — a
-// third shape for the same job, adapted here instead of being argued with.
-await mount("directory", "../../directory/.standalone-routes.mjs", (mod, sub) =>
-  sub.use(mod.createRouter())
-);
+// directory exported `createRouter()` and left the prefix to the caller, so
+// this host mounted it at the root while the stack mounted it at /api. It
+// exports registerRoutes now and the adapter is gone (16 Aug).
+await mount("directory", "../../directory/.standalone-routes.mjs");
 // Extracted from their index.ts on 15 Aug so they could be imported at all.
 await mount("network", "../../network/.standalone-routes.mjs");
 await mount("messaging", "../../messaging/.standalone-routes.mjs");

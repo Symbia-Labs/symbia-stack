@@ -95,6 +95,43 @@ export const apiDocumentation: OpenAPIDocument = {
         },
       },
     },
+    // Declared 16 Aug. The route has existed since the models rework, but
+    // an undeclared route is an unreachable one for any caller that
+    // resolves against this document — the MCP dispatcher reported models'
+    // weight download as "no such operation" while the handler sat there
+    // working. Spec completeness is a capability gap, measurably.
+    "/api/integrations/download": {
+      post: {
+        tags: ["Execute"],
+        summary: "Stream a file from a provider through this service",
+        description:
+          "Streams bytes from the provider to the caller. This service supplies the org's credential when it holds one, so gated repositories work and the key never leaves here. It makes no claim about what the bytes are — the caller hashes, ledgers and cards them.",
+        security: [{ bearerAuth: [] }],
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: {
+                type: "object",
+                required: ["provider", "repo", "file"],
+                properties: {
+                  provider: { type: "string", enum: ["huggingface"] },
+                  repo: { type: "string", example: "TheBloke/Llama-2-7B-GGUF" },
+                  file: { type: "string", description: "A plain .gguf file name, no path", example: "llama-2-7b.Q4_K_M.gguf" },
+                  revision: { type: "string", default: "main" },
+                },
+              },
+            },
+          },
+        },
+        responses: {
+          "200": { description: "The file, streamed", content: { "application/octet-stream": { schema: { type: "string", format: "binary" } } } },
+          "400": { description: "provider, repo and a plain .gguf file name required" },
+          "401": { description: "Authentication required" },
+          "500": { description: "The provider refused or the stream failed" },
+        },
+      },
+    },
     "/api/integrations/providers": {
       get: {
         tags: ["Providers"],
