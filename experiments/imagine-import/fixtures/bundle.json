@@ -1,0 +1,2561 @@
+{
+  "mode": "imagine",
+  "sealedAt": "2026-08-16T02:56:52.508Z",
+  "session": {
+    "actor": "imagine:session:8a0c63875b067e2b",
+    "entries": 39,
+    "head": "sha256:89d5c31f67d7c354c17b87952cca6f4e1256699764a864075516f920e78a2439",
+    "ledger": "/Users/briangilmore/symbia-stack/experiments/standalone/.session/ledger.jsonl"
+  },
+  "publicKeyPem": "-----BEGIN PUBLIC KEY-----\nMCowBQYDK2VwAyEATTM9eZg2sT9cgxhe7OD7LAwFrME6yGVUo9ZYOlkfjJE=\n-----END PUBLIC KEY-----",
+  "claim": {
+    "asserts": "These artifacts and this trace came from one imagine session, unaltered since sealing.",
+    "does_not_assert": "Anything about who ran the session, whether the artifacts are sound, or whether their declared lanes are true. The signing key is ephemeral and travels inside the bundle; ground it to find out."
+  },
+  "authoredCount": 19,
+  "artifacts": [
+    {
+      "id": "283ebefe-0210-4e8f-8706-69af8afd47cd",
+      "key": "assistants/incident-reader",
+      "name": "Incident reader",
+      "description": null,
+      "type": "assistant",
+      "status": "published",
+      "isBootstrap": false,
+      "tags": null,
+      "orgId": null,
+      "accessPolicy": {
+        "visibility": "private",
+        "actions": {
+          "read": {
+            "anyOf": [
+              "role:admin",
+              "cap:registry.write"
+            ]
+          },
+          "write": {
+            "anyOf": [
+              "cap:registry.write",
+              "role:admin"
+            ]
+          },
+          "publish": {
+            "anyOf": [
+              "cap:registry.publish",
+              "role:publisher",
+              "role:admin"
+            ]
+          },
+          "sign": {
+            "anyOf": [
+              "cap:registry.sign",
+              "role:admin"
+            ]
+          },
+          "certify": {
+            "anyOf": [
+              "cap:registry.certify",
+              "role:admin"
+            ]
+          },
+          "delete": {
+            "anyOf": [
+              "role:admin"
+            ]
+          }
+        }
+      },
+      "metadata": {
+        "alias": "incident-reader",
+        "rules": []
+      },
+      "currentVersion": 1,
+      "createdAt": "2026-08-15T22:56:52.000Z",
+      "updatedAt": "2026-08-15T22:56:52.000Z"
+    },
+    {
+      "id": "86ebddf0-bccb-4709-9773-7d526ed9bf8d",
+      "key": "graphs/incident-digest",
+      "name": "Incident digest",
+      "description": null,
+      "type": "graph",
+      "status": "published",
+      "isBootstrap": false,
+      "tags": null,
+      "orgId": null,
+      "accessPolicy": {
+        "visibility": "private",
+        "actions": {
+          "read": {
+            "anyOf": [
+              "role:admin",
+              "cap:registry.write"
+            ]
+          },
+          "write": {
+            "anyOf": [
+              "cap:registry.write",
+              "role:admin"
+            ]
+          },
+          "publish": {
+            "anyOf": [
+              "cap:registry.publish",
+              "role:publisher",
+              "role:admin"
+            ]
+          },
+          "sign": {
+            "anyOf": [
+              "cap:registry.sign",
+              "role:admin"
+            ]
+          },
+          "certify": {
+            "anyOf": [
+              "cap:registry.certify",
+              "role:admin"
+            ]
+          },
+          "delete": {
+            "anyOf": [
+              "role:admin"
+            ]
+          }
+        }
+      },
+      "metadata": {
+        "role": "pipeline",
+        "ingress": {
+          "node": "entry",
+          "port": "in"
+        },
+        "definition": {
+          "symbia": "graph/1.0",
+          "name": "incident-digest",
+          "version": "0.1.0",
+          "nodes": [
+            {
+              "id": "entry",
+              "component": "symbia.io.passthrough"
+            },
+            {
+              "id": "log",
+              "component": "symbia.sink.log",
+              "config": {
+                "level": "info",
+                "message": "incident-digest:"
+              }
+            }
+          ],
+          "edges": [
+            {
+              "id": "e1",
+              "source": {
+                "node": "entry",
+                "port": "out"
+              },
+              "target": {
+                "node": "log",
+                "port": "in"
+              }
+            }
+          ],
+          "metadata": {
+            "role": "pipeline",
+            "ingress": {
+              "node": "entry",
+              "port": "in"
+            }
+          }
+        }
+      },
+      "currentVersion": 1,
+      "createdAt": "2026-08-15T22:56:52.000Z",
+      "updatedAt": "2026-08-15T22:56:52.000Z"
+    },
+    {
+      "id": "f15eb3d4-eb61-4ed1-8b2e-573d8aed16f9",
+      "key": "contexts/incident-window",
+      "name": "Incident window",
+      "description": null,
+      "type": "context",
+      "status": "published",
+      "isBootstrap": false,
+      "tags": null,
+      "orgId": null,
+      "accessPolicy": {
+        "visibility": "private",
+        "actions": {
+          "read": {
+            "anyOf": [
+              "role:admin",
+              "cap:registry.write"
+            ]
+          },
+          "write": {
+            "anyOf": [
+              "cap:registry.write",
+              "role:admin"
+            ]
+          },
+          "publish": {
+            "anyOf": [
+              "cap:registry.publish",
+              "role:publisher",
+              "role:admin"
+            ]
+          },
+          "sign": {
+            "anyOf": [
+              "cap:registry.sign",
+              "role:admin"
+            ]
+          },
+          "certify": {
+            "anyOf": [
+              "cap:registry.certify",
+              "role:admin"
+            ]
+          },
+          "delete": {
+            "anyOf": [
+              "role:admin"
+            ]
+          }
+        }
+      },
+      "metadata": {
+        "note": "The interval under review",
+        "start": "2026-08-16T00:00:00Z",
+        "end": "2026-08-16T06:00:00Z"
+      },
+      "currentVersion": 1,
+      "createdAt": "2026-08-15T22:56:51.000Z",
+      "updatedAt": "2026-08-15T22:56:51.000Z"
+    },
+    {
+      "id": "2916c1a5-3d3f-4562-85f8-818aec36883c",
+      "key": "components/symbia.sink.log",
+      "name": "symbia.sink.log",
+      "description": "Writes the message to the Logging service log stream (config.level, default \"info\"; config.message template prefix optional) and passes the input through on \"out\". Unlike symbia.io.log, which only writes to the execution trace, this persists to the platform log store.",
+      "type": "component",
+      "status": "published",
+      "isBootstrap": false,
+      "tags": [
+        "runtime",
+        "component",
+        "builtin",
+        "sink"
+      ],
+      "orgId": null,
+      "accessPolicy": {
+        "visibility": "public",
+        "actions": {
+          "read": {
+            "anyOf": [
+              "public"
+            ]
+          },
+          "write": {
+            "anyOf": [
+              "cap:registry.write",
+              "role:admin"
+            ]
+          },
+          "publish": {
+            "anyOf": [
+              "cap:registry.publish",
+              "role:publisher",
+              "role:admin"
+            ]
+          },
+          "delete": {
+            "anyOf": [
+              "role:admin"
+            ]
+          }
+        }
+      },
+      "metadata": {
+        "manifest": {
+          "key": "symbia.sink.log",
+          "version": "1.4.0",
+          "implementation": "builtin",
+          "inputs": [
+            {
+              "name": "in"
+            }
+          ],
+          "outputs": [
+            {
+              "name": "out",
+              "lane": "inherit"
+            },
+            {
+              "name": "error",
+              "lane": "inherit"
+            }
+          ],
+          "config": {
+            "level": {
+              "type": "string",
+              "required": false,
+              "default": "info",
+              "description": "Log level written to the platform log store."
+            },
+            "message": {
+              "type": "string",
+              "required": false,
+              "description": "Optional prefix placed before the serialised message value."
+            }
+          },
+          "capability": "cap:runtime.execute",
+          "description": "Writes the message to the Logging service log stream (config.level, default \"info\"; config.message template prefix optional) and passes the input through on \"out\". Unlike symbia.io.log, which only writes to the execution trace, this persists to the platform log store."
+        },
+        "manifestSignature": {
+          "signature": "ed25519:PeYsrxJXPojHJjGKNg0f3xom45tjECSAdCnd8QtBvG8Plzke5HphnJhAZJdfTissMvp1kxmpn2PLAwljlZTbAw==",
+          "signer": {
+            "id": "symbia:service:c9ee213303b288c7",
+            "role_claimed": "runtime",
+            "fingerprint": "c9ee213303b288c72d7eebed39c4b7f6b7a440e4d75a887d0aaa83a3979f22f0",
+            "publicKeyPem": "-----BEGIN PUBLIC KEY-----\nMCowBQYDK2VwAyEApwtM0KAiUjNZdzN1K18mWt1riYjZ/5bcTh3sxBdy9q8=\n-----END PUBLIC KEY-----"
+          }
+        }
+      },
+      "currentVersion": 1,
+      "createdAt": "2026-08-15T22:56:36.000Z",
+      "updatedAt": "2026-08-15T22:56:36.000Z"
+    },
+    {
+      "id": "d39752d2-5cac-4a89-a43c-22c63e257616",
+      "key": "components/symbia.sink.metric",
+      "name": "symbia.sink.metric",
+      "description": "Writes a numeric data point to the Logging metrics service, attributed to the org that owns the graph. config.name is the metric name (a gauge series is resolved or created on first use); config.valueField (default \"value\") locates the number in the message — dotted paths supported (e.g. \"out.result\"); config.labels attaches labels. Passes the input through on \"out\"; non-numeric values and failed writes exit on \"error\".",
+      "type": "component",
+      "status": "published",
+      "isBootstrap": false,
+      "tags": [
+        "runtime",
+        "component",
+        "builtin",
+        "sink"
+      ],
+      "orgId": null,
+      "accessPolicy": {
+        "visibility": "public",
+        "actions": {
+          "read": {
+            "anyOf": [
+              "public"
+            ]
+          },
+          "write": {
+            "anyOf": [
+              "cap:registry.write",
+              "role:admin"
+            ]
+          },
+          "publish": {
+            "anyOf": [
+              "cap:registry.publish",
+              "role:publisher",
+              "role:admin"
+            ]
+          },
+          "delete": {
+            "anyOf": [
+              "role:admin"
+            ]
+          }
+        }
+      },
+      "metadata": {
+        "manifest": {
+          "key": "symbia.sink.metric",
+          "version": "1.4.0",
+          "implementation": "builtin",
+          "inputs": [
+            {
+              "name": "in"
+            }
+          ],
+          "outputs": [
+            {
+              "name": "out",
+              "lane": "inherit"
+            },
+            {
+              "name": "error",
+              "lane": "apocryphal",
+              "laneNote": "a write that failed, or a value that was not numeric — in neither case did the series receive what the graph computed"
+            }
+          ],
+          "config": {
+            "name": {
+              "type": "string",
+              "required": true,
+              "description": "Metric name. A gauge series is resolved or created on first use."
+            },
+            "valueField": {
+              "type": "string",
+              "required": false,
+              "default": "value",
+              "description": "Locates the number in the message. Dotted paths supported, e.g. \"out.result\"."
+            },
+            "labels": {
+              "type": "object",
+              "required": false,
+              "default": {},
+              "description": "Labels attached to the data point."
+            }
+          },
+          "capability": "cap:runtime.execute",
+          "description": "Writes a numeric data point to the Logging metrics service, attributed to the org that owns the graph. config.name is the metric name (a gauge series is resolved or created on first use); config.valueField (default \"value\") locates the number in the message — dotted paths supported (e.g. \"out.result\"); config.labels attaches labels. Passes the input through on \"out\"; non-numeric values and failed writes exit on \"error\"."
+        },
+        "manifestSignature": {
+          "signature": "ed25519:Dfpo0nm+aoNDy+jn0UZvkcQ8r1hXa4Q9TC3aKMMxxZ4sJsGQUe5MHQinYqxE/aaWj/p4cB+tNa/a/1k5ixdDCA==",
+          "signer": {
+            "id": "symbia:service:c9ee213303b288c7",
+            "role_claimed": "runtime",
+            "fingerprint": "c9ee213303b288c72d7eebed39c4b7f6b7a440e4d75a887d0aaa83a3979f22f0",
+            "publicKeyPem": "-----BEGIN PUBLIC KEY-----\nMCowBQYDK2VwAyEApwtM0KAiUjNZdzN1K18mWt1riYjZ/5bcTh3sxBdy9q8=\n-----END PUBLIC KEY-----"
+          }
+        }
+      },
+      "currentVersion": 1,
+      "createdAt": "2026-08-15T22:56:36.000Z",
+      "updatedAt": "2026-08-15T22:56:36.000Z"
+    },
+    {
+      "id": "d5ceda34-dccf-4ac8-805b-09a8833e52cf",
+      "key": "components/symbia.source.timer",
+      "name": "symbia.source.timer",
+      "description": "Emits {tick, ts} on \"out\" every config.intervalMs milliseconds (default 5000, min 100) while the execution is running. config.payload (object) is merged into each tick. Driven by the executor; injecting into a timer node manually also works and emits one tick.",
+      "type": "component",
+      "status": "published",
+      "isBootstrap": false,
+      "tags": [
+        "runtime",
+        "component",
+        "builtin",
+        "source"
+      ],
+      "orgId": null,
+      "accessPolicy": {
+        "visibility": "public",
+        "actions": {
+          "read": {
+            "anyOf": [
+              "public"
+            ]
+          },
+          "write": {
+            "anyOf": [
+              "cap:registry.write",
+              "role:admin"
+            ]
+          },
+          "publish": {
+            "anyOf": [
+              "cap:registry.publish",
+              "role:publisher",
+              "role:admin"
+            ]
+          },
+          "delete": {
+            "anyOf": [
+              "role:admin"
+            ]
+          }
+        }
+      },
+      "metadata": {
+        "manifest": {
+          "key": "symbia.source.timer",
+          "version": "1.4.0",
+          "implementation": "builtin",
+          "inputs": [
+            {
+              "name": "in"
+            }
+          ],
+          "outputs": [
+            {
+              "name": "out",
+              "lane": "canonical",
+              "laneNote": "a tick is generated by the platform from declared config; nothing external is asserted"
+            }
+          ],
+          "config": {
+            "intervalMs": {
+              "type": "number",
+              "required": false,
+              "default": 5000,
+              "description": "Milliseconds between ticks. Floored at 100 by the executor, which owns the interval."
+            },
+            "payload": {
+              "type": "object",
+              "required": false,
+              "default": {},
+              "description": "Merged into each tick alongside {tick, ts}."
+            }
+          },
+          "capability": "cap:runtime.execute",
+          "description": "Emits {tick, ts} on \"out\" every config.intervalMs milliseconds (default 5000, min 100) while the execution is running. config.payload (object) is merged into each tick. Driven by the executor; injecting into a timer node manually also works and emits one tick."
+        },
+        "manifestSignature": {
+          "signature": "ed25519:3cWkADUvrZcCn2IG3GkwZPNyFShzX7TB6iJmbA8pxPNYK8WcEF3AszzpaVq1TfTbCIu4umOvTZcBxKJjxlJCCw==",
+          "signer": {
+            "id": "symbia:service:c9ee213303b288c7",
+            "role_claimed": "runtime",
+            "fingerprint": "c9ee213303b288c72d7eebed39c4b7f6b7a440e4d75a887d0aaa83a3979f22f0",
+            "publicKeyPem": "-----BEGIN PUBLIC KEY-----\nMCowBQYDK2VwAyEApwtM0KAiUjNZdzN1K18mWt1riYjZ/5bcTh3sxBdy9q8=\n-----END PUBLIC KEY-----"
+          }
+        }
+      },
+      "currentVersion": 1,
+      "createdAt": "2026-08-15T22:56:36.000Z",
+      "updatedAt": "2026-08-15T22:56:36.000Z"
+    },
+    {
+      "id": "5bf99c71-cca0-4f0c-81f5-908ffb46a63f",
+      "key": "components/symbia.state.rollup",
+      "name": "symbia.state.rollup",
+      "description": "Aggregates the latest values of an expected key set (config.expected: [keys], config.op: sum|mean|min|max, keyField (default \"key\") / valueField as in join). Emits {value, op, coverage, present, missing} on \"out\". A rollup with missing inputs is emitted on the apocryphal lane: a partial total must not pass as the total.",
+      "type": "component",
+      "status": "published",
+      "isBootstrap": false,
+      "tags": [
+        "runtime",
+        "component",
+        "builtin",
+        "state"
+      ],
+      "orgId": null,
+      "accessPolicy": {
+        "visibility": "public",
+        "actions": {
+          "read": {
+            "anyOf": [
+              "public"
+            ]
+          },
+          "write": {
+            "anyOf": [
+              "cap:registry.write",
+              "role:admin"
+            ]
+          },
+          "publish": {
+            "anyOf": [
+              "cap:registry.publish",
+              "role:publisher",
+              "role:admin"
+            ]
+          },
+          "delete": {
+            "anyOf": [
+              "role:admin"
+            ]
+          }
+        }
+      },
+      "metadata": {
+        "manifest": {
+          "key": "symbia.state.rollup",
+          "version": "1.4.0",
+          "implementation": "builtin",
+          "inputs": [
+            {
+              "name": "in"
+            }
+          ],
+          "outputs": [
+            {
+              "name": "out",
+              "lane": "conditional",
+              "laneNote": "canonical only when missing is empty; a rollup with any expected key absent is emitted apocryphal, because a partial total must not pass as the total"
+            }
+          ],
+          "config": {
+            "expected": {
+              "type": "array",
+              "required": true,
+              "description": "The key set that constitutes a complete rollup. This is what makes \"missing\" meaningful — without it, coverage is 1 by vacuous default and every partial total looks complete."
+            },
+            "op": {
+              "type": "string",
+              "required": false,
+              "default": "sum",
+              "enum": [
+                "sum",
+                "mean",
+                "min",
+                "max"
+              ],
+              "description": "Aggregation applied to the present values."
+            },
+            "keyField": {
+              "type": "string",
+              "required": false,
+              "default": "key",
+              "description": "Field locating the key in each message."
+            },
+            "valueField": {
+              "type": "string",
+              "required": false,
+              "default": "value",
+              "description": "Field locating the numeric value in each message."
+            }
+          },
+          "capability": "cap:runtime.execute",
+          "description": "Aggregates the latest values of an expected key set (config.expected: [keys], config.op: sum|mean|min|max, keyField (default \"key\") / valueField as in join). Emits {value, op, coverage, present, missing} on \"out\". A rollup with missing inputs is emitted on the apocryphal lane: a partial total must not pass as the total."
+        },
+        "manifestSignature": {
+          "signature": "ed25519:mHXSZGBKt+wg92XPngLB9hyHdKGlI9g5YWO7hrKZn4Fnq2rdgp1bf0jrgJwTYXMr6NGkYfW2dF5gU6cb/np6Cw==",
+          "signer": {
+            "id": "symbia:service:c9ee213303b288c7",
+            "role_claimed": "runtime",
+            "fingerprint": "c9ee213303b288c72d7eebed39c4b7f6b7a440e4d75a887d0aaa83a3979f22f0",
+            "publicKeyPem": "-----BEGIN PUBLIC KEY-----\nMCowBQYDK2VwAyEApwtM0KAiUjNZdzN1K18mWt1riYjZ/5bcTh3sxBdy9q8=\n-----END PUBLIC KEY-----"
+          }
+        }
+      },
+      "currentVersion": 1,
+      "createdAt": "2026-08-15T22:56:36.000Z",
+      "updatedAt": "2026-08-15T22:56:36.000Z"
+    },
+    {
+      "id": "cf126059-1c34-4bd8-a07b-9401af5b7618",
+      "key": "components/symbia.state.window",
+      "name": "symbia.state.window",
+      "description": "Keeps the last config.size (default 60) numeric values of config.field (default \"value\") and emits {count, sum, mean, min, max, last} on every input.",
+      "type": "component",
+      "status": "published",
+      "isBootstrap": false,
+      "tags": [
+        "runtime",
+        "component",
+        "builtin",
+        "state"
+      ],
+      "orgId": null,
+      "accessPolicy": {
+        "visibility": "public",
+        "actions": {
+          "read": {
+            "anyOf": [
+              "public"
+            ]
+          },
+          "write": {
+            "anyOf": [
+              "cap:registry.write",
+              "role:admin"
+            ]
+          },
+          "publish": {
+            "anyOf": [
+              "cap:registry.publish",
+              "role:publisher",
+              "role:admin"
+            ]
+          },
+          "delete": {
+            "anyOf": [
+              "role:admin"
+            ]
+          }
+        }
+      },
+      "metadata": {
+        "manifest": {
+          "key": "symbia.state.window",
+          "version": "1.4.0",
+          "implementation": "builtin",
+          "inputs": [
+            {
+              "name": "in"
+            }
+          ],
+          "outputs": [
+            {
+              "name": "out",
+              "lane": "conditional",
+              "laneNote": "the aggregate is only as canonical as the values that entered the window, and a window that has not filled reports over fewer values without saying so — read \"count\" against \"size\""
+            },
+            {
+              "name": "error",
+              "lane": "apocryphal"
+            }
+          ],
+          "config": {
+            "size": {
+              "type": "number",
+              "required": false,
+              "default": 60,
+              "description": "How many values the window keeps. Floored at 1."
+            },
+            "field": {
+              "type": "string",
+              "required": false,
+              "default": "value",
+              "description": "Field holding the numeric value. Non-numeric exits on \"error\"."
+            }
+          },
+          "capability": "cap:runtime.execute",
+          "description": "Keeps the last config.size (default 60) numeric values of config.field (default \"value\") and emits {count, sum, mean, min, max, last} on every input."
+        },
+        "manifestSignature": {
+          "signature": "ed25519:VrDVoXFh4aqWUdEqXHhJTsC29B0dgm+KZnSvOJsbFQPGVjS2xL24dndfhR9taUd+h0xMwSCNLxFYhQOt9aY/Cw==",
+          "signer": {
+            "id": "symbia:service:c9ee213303b288c7",
+            "role_claimed": "runtime",
+            "fingerprint": "c9ee213303b288c72d7eebed39c4b7f6b7a440e4d75a887d0aaa83a3979f22f0",
+            "publicKeyPem": "-----BEGIN PUBLIC KEY-----\nMCowBQYDK2VwAyEApwtM0KAiUjNZdzN1K18mWt1riYjZ/5bcTh3sxBdy9q8=\n-----END PUBLIC KEY-----"
+          }
+        }
+      },
+      "currentVersion": 1,
+      "createdAt": "2026-08-15T22:56:36.000Z",
+      "updatedAt": "2026-08-15T22:56:36.000Z"
+    },
+    {
+      "id": "b90800d3-e9df-41a9-beff-b82faa530552",
+      "key": "components/symbia.state.join",
+      "name": "symbia.state.join",
+      "description": "Joins the latest values of selected keys from a keyed stream. config.select maps output fields to key values, e.g. {\"x\": \"key.one\", \"y\": \"key.two\"}; config.keyField (default \"key\") and config.valueField (default \"value\") locate key and value in each message. Emits the joined object on \"out\" once every selected key has been seen (then on every update); until then emits {have, need} on \"pending\".",
+      "type": "component",
+      "status": "published",
+      "isBootstrap": false,
+      "tags": [
+        "runtime",
+        "component",
+        "builtin",
+        "state"
+      ],
+      "orgId": null,
+      "accessPolicy": {
+        "visibility": "public",
+        "actions": {
+          "read": {
+            "anyOf": [
+              "public"
+            ]
+          },
+          "write": {
+            "anyOf": [
+              "cap:registry.write",
+              "role:admin"
+            ]
+          },
+          "publish": {
+            "anyOf": [
+              "cap:registry.publish",
+              "role:publisher",
+              "role:admin"
+            ]
+          },
+          "delete": {
+            "anyOf": [
+              "role:admin"
+            ]
+          }
+        }
+      },
+      "metadata": {
+        "manifest": {
+          "key": "symbia.state.join",
+          "version": "1.4.0",
+          "implementation": "builtin",
+          "inputs": [
+            {
+              "name": "in"
+            }
+          ],
+          "outputs": [
+            {
+              "name": "out",
+              "lane": "inherit"
+            },
+            {
+              "name": "pending",
+              "lane": "apocryphal",
+              "laneNote": "{have, need} is a statement about coverage, not a joined value — it must never be mistaken for the join"
+            }
+          ],
+          "config": {
+            "select": {
+              "type": "object",
+              "required": true,
+              "description": "Output field to key value, e.g. {\"x\": \"key.one\"}. Keys of this object become the fields of the joined result; an empty select can never complete."
+            },
+            "keyField": {
+              "type": "string",
+              "required": false,
+              "default": "key",
+              "description": "Field locating the key in each message."
+            },
+            "valueField": {
+              "type": "string",
+              "required": false,
+              "default": "value",
+              "description": "Field locating the value in each message."
+            }
+          },
+          "capability": "cap:runtime.execute",
+          "description": "Joins the latest values of selected keys from a keyed stream. config.select maps output fields to key values, e.g. {\"x\": \"key.one\", \"y\": \"key.two\"}; config.keyField (default \"key\") and config.valueField (default \"value\") locate key and value in each message. Emits the joined object on \"out\" once every selected key has been seen (then on every update); until then emits {have, need} on \"pending\"."
+        },
+        "manifestSignature": {
+          "signature": "ed25519:CtrflLICFxLYHmra4BnkNbY8o4OfiNu/xtN4QOEDvmtzDR7R3okJbsTY7u1aQBkv4MjQQp8Ak35FZ/lcYCPuAw==",
+          "signer": {
+            "id": "symbia:service:c9ee213303b288c7",
+            "role_claimed": "runtime",
+            "fingerprint": "c9ee213303b288c72d7eebed39c4b7f6b7a440e4d75a887d0aaa83a3979f22f0",
+            "publicKeyPem": "-----BEGIN PUBLIC KEY-----\nMCowBQYDK2VwAyEApwtM0KAiUjNZdzN1K18mWt1riYjZ/5bcTh3sxBdy9q8=\n-----END PUBLIC KEY-----"
+          }
+        }
+      },
+      "currentVersion": 1,
+      "createdAt": "2026-08-15T22:56:36.000Z",
+      "updatedAt": "2026-08-15T22:56:36.000Z"
+    },
+    {
+      "id": "6bab2932-a0ed-46e2-aea4-b12d125b89ca",
+      "key": "components/symbia.state.latest",
+      "name": "symbia.state.latest",
+      "description": "Remembers the most recent message per config.keyField (default \"key\") and passes the message through. The current snapshot {key: message} is available downstream via the \"snapshot\" port.",
+      "type": "component",
+      "status": "published",
+      "isBootstrap": false,
+      "tags": [
+        "runtime",
+        "component",
+        "builtin",
+        "state"
+      ],
+      "orgId": null,
+      "accessPolicy": {
+        "visibility": "public",
+        "actions": {
+          "read": {
+            "anyOf": [
+              "public"
+            ]
+          },
+          "write": {
+            "anyOf": [
+              "cap:registry.write",
+              "role:admin"
+            ]
+          },
+          "publish": {
+            "anyOf": [
+              "cap:registry.publish",
+              "role:publisher",
+              "role:admin"
+            ]
+          },
+          "delete": {
+            "anyOf": [
+              "role:admin"
+            ]
+          }
+        }
+      },
+      "metadata": {
+        "manifest": {
+          "key": "symbia.state.latest",
+          "version": "1.4.0",
+          "implementation": "builtin",
+          "inputs": [
+            {
+              "name": "in"
+            }
+          ],
+          "outputs": [
+            {
+              "name": "out",
+              "lane": "inherit"
+            },
+            {
+              "name": "snapshot",
+              "lane": "conditional",
+              "laneNote": "the snapshot is as canonical as the messages that built it; it carries no freshness guarantee and a key may be arbitrarily stale"
+            }
+          ],
+          "config": {
+            "keyField": {
+              "type": "string",
+              "required": false,
+              "default": "key",
+              "description": "Field locating the key in each message. A message without it is passed through and remembered under nothing."
+            }
+          },
+          "capability": "cap:runtime.execute",
+          "description": "Remembers the most recent message per config.keyField (default \"key\") and passes the message through. The current snapshot {key: message} is available downstream via the \"snapshot\" port."
+        },
+        "manifestSignature": {
+          "signature": "ed25519:paPLJqJHw5r0n2HbVSrnRZBoDHQtqtWgR54Z0BlqiJL7Wa2deAEesi89BqLcmBhbTlBOWqdpRcbiVSCTKBAGCQ==",
+          "signer": {
+            "id": "symbia:service:c9ee213303b288c7",
+            "role_claimed": "runtime",
+            "fingerprint": "c9ee213303b288c72d7eebed39c4b7f6b7a440e4d75a887d0aaa83a3979f22f0",
+            "publicKeyPem": "-----BEGIN PUBLIC KEY-----\nMCowBQYDK2VwAyEApwtM0KAiUjNZdzN1K18mWt1riYjZ/5bcTh3sxBdy9q8=\n-----END PUBLIC KEY-----"
+          }
+        }
+      },
+      "currentVersion": 1,
+      "createdAt": "2026-08-15T22:56:36.000Z",
+      "updatedAt": "2026-08-15T22:56:36.000Z"
+    },
+    {
+      "id": "60a3d34e-84f6-474f-b1b6-42006a90e045",
+      "key": "components/symbia.io.delay",
+      "name": "symbia.io.delay",
+      "description": "Waits config.ms milliseconds, then passes through.",
+      "type": "component",
+      "status": "published",
+      "isBootstrap": false,
+      "tags": [
+        "runtime",
+        "component",
+        "builtin",
+        "io"
+      ],
+      "orgId": null,
+      "accessPolicy": {
+        "visibility": "public",
+        "actions": {
+          "read": {
+            "anyOf": [
+              "public"
+            ]
+          },
+          "write": {
+            "anyOf": [
+              "cap:registry.write",
+              "role:admin"
+            ]
+          },
+          "publish": {
+            "anyOf": [
+              "cap:registry.publish",
+              "role:publisher",
+              "role:admin"
+            ]
+          },
+          "delete": {
+            "anyOf": [
+              "role:admin"
+            ]
+          }
+        }
+      },
+      "metadata": {
+        "manifest": {
+          "key": "symbia.io.delay",
+          "version": "1.4.0",
+          "implementation": "builtin",
+          "inputs": [
+            {
+              "name": "in"
+            }
+          ],
+          "outputs": [
+            {
+              "name": "out",
+              "lane": "inherit"
+            }
+          ],
+          "config": {
+            "ms": {
+              "type": "number",
+              "required": false,
+              "default": 100,
+              "description": "Milliseconds to wait. Capped at 5000 by the handler."
+            }
+          },
+          "capability": "cap:runtime.execute",
+          "description": "Waits config.ms milliseconds, then passes through."
+        },
+        "manifestSignature": {
+          "signature": "ed25519:zecVzqfH5GHNxaA8W8YxGYVLRL1ilQJ4C/yLaZ4TvQht5Ln0CKTiWluB5vIBq4+tQPjv+el2naSuGorgj5y+Bw==",
+          "signer": {
+            "id": "symbia:service:c9ee213303b288c7",
+            "role_claimed": "runtime",
+            "fingerprint": "c9ee213303b288c72d7eebed39c4b7f6b7a440e4d75a887d0aaa83a3979f22f0",
+            "publicKeyPem": "-----BEGIN PUBLIC KEY-----\nMCowBQYDK2VwAyEApwtM0KAiUjNZdzN1K18mWt1riYjZ/5bcTh3sxBdy9q8=\n-----END PUBLIC KEY-----"
+          }
+        }
+      },
+      "currentVersion": 1,
+      "createdAt": "2026-08-15T22:56:36.000Z",
+      "updatedAt": "2026-08-15T22:56:36.000Z"
+    },
+    {
+      "id": "3122b0a9-7e7b-4d5c-9d70-2fef2f32b4ef",
+      "key": "components/symbia.io.http-request",
+      "name": "symbia.io.http-request",
+      "description": "Fetches config.url. Output is apocryphal: a remote body cannot be recomputed from the graph.",
+      "type": "component",
+      "status": "published",
+      "isBootstrap": false,
+      "tags": [
+        "runtime",
+        "component",
+        "builtin",
+        "io"
+      ],
+      "orgId": null,
+      "accessPolicy": {
+        "visibility": "public",
+        "actions": {
+          "read": {
+            "anyOf": [
+              "public"
+            ]
+          },
+          "write": {
+            "anyOf": [
+              "cap:registry.write",
+              "role:admin"
+            ]
+          },
+          "publish": {
+            "anyOf": [
+              "cap:registry.publish",
+              "role:publisher",
+              "role:admin"
+            ]
+          },
+          "delete": {
+            "anyOf": [
+              "role:admin"
+            ]
+          }
+        }
+      },
+      "metadata": {
+        "manifest": {
+          "key": "symbia.io.http-request",
+          "version": "1.4.0",
+          "implementation": "builtin",
+          "inputs": [
+            {
+              "name": "in"
+            }
+          ],
+          "outputs": [
+            {
+              "name": "out",
+              "lane": "apocryphal",
+              "laneNote": "a remote body cannot be recomputed from the graph"
+            },
+            {
+              "name": "error",
+              "lane": "apocryphal"
+            }
+          ],
+          "config": {
+            "url": {
+              "type": "string",
+              "required": true,
+              "description": "Absolute URL to fetch."
+            },
+            "method": {
+              "type": "string",
+              "required": false,
+              "default": "GET",
+              "description": "HTTP method."
+            }
+          },
+          "capability": "cap:runtime.execute",
+          "description": "Fetches config.url. Output is apocryphal: a remote body cannot be recomputed from the graph."
+        },
+        "manifestSignature": {
+          "signature": "ed25519:wrAxHCbN7TWRE7Op9hvmLAQhTn3GlsUW13dXX95Fssp/o7sflSGnn5AapLRxim1YC2mUsvSQY8pwuWP3OhfnBQ==",
+          "signer": {
+            "id": "symbia:service:c9ee213303b288c7",
+            "role_claimed": "runtime",
+            "fingerprint": "c9ee213303b288c72d7eebed39c4b7f6b7a440e4d75a887d0aaa83a3979f22f0",
+            "publicKeyPem": "-----BEGIN PUBLIC KEY-----\nMCowBQYDK2VwAyEApwtM0KAiUjNZdzN1K18mWt1riYjZ/5bcTh3sxBdy9q8=\n-----END PUBLIC KEY-----"
+          }
+        }
+      },
+      "currentVersion": 1,
+      "createdAt": "2026-08-15T22:56:36.000Z",
+      "updatedAt": "2026-08-15T22:56:36.000Z"
+    },
+    {
+      "id": "f2ea1865-f220-4e68-9f06-8820b42a741e",
+      "key": "components/symbia.compute.arithmetic",
+      "name": "symbia.compute.arithmetic",
+      "description": "Exact arithmetic over config.expression with {placeholders} from the message. Canonical: recomputable.",
+      "type": "component",
+      "status": "published",
+      "isBootstrap": false,
+      "tags": [
+        "runtime",
+        "component",
+        "builtin",
+        "compute"
+      ],
+      "orgId": null,
+      "accessPolicy": {
+        "visibility": "public",
+        "actions": {
+          "read": {
+            "anyOf": [
+              "public"
+            ]
+          },
+          "write": {
+            "anyOf": [
+              "cap:registry.write",
+              "role:admin"
+            ]
+          },
+          "publish": {
+            "anyOf": [
+              "cap:registry.publish",
+              "role:publisher",
+              "role:admin"
+            ]
+          },
+          "delete": {
+            "anyOf": [
+              "role:admin"
+            ]
+          }
+        }
+      },
+      "metadata": {
+        "manifest": {
+          "key": "symbia.compute.arithmetic",
+          "version": "1.4.0",
+          "implementation": "builtin",
+          "inputs": [
+            {
+              "name": "in"
+            }
+          ],
+          "outputs": [
+            {
+              "name": "out",
+              "lane": "canonical",
+              "laneNote": "recomputable from the expression and its inputs"
+            },
+            {
+              "name": "error",
+              "lane": "apocryphal",
+              "laneNote": "a refusal is not a recomputable value"
+            }
+          ],
+          "config": {
+            "expression": {
+              "type": "string",
+              "required": true,
+              "description": "Arithmetic over {placeholders} resolved from fields of the incoming message, e.g. \"({a} - {b}) / {a}\". Only digits, whitespace and + - * / ( ) survive the guard."
+            }
+          },
+          "capability": "cap:runtime.execute",
+          "description": "Exact arithmetic over config.expression with {placeholders} from the message. Canonical: recomputable."
+        },
+        "manifestSignature": {
+          "signature": "ed25519:0Sc2Y3xCNLeTmtUg8syGdFagC3RRUtMC5QY9JeOpK8z+A2n9bFoYI5m+WUwm03nYxBAZ1TZYfL2A38yxOJUnAQ==",
+          "signer": {
+            "id": "symbia:service:c9ee213303b288c7",
+            "role_claimed": "runtime",
+            "fingerprint": "c9ee213303b288c72d7eebed39c4b7f6b7a440e4d75a887d0aaa83a3979f22f0",
+            "publicKeyPem": "-----BEGIN PUBLIC KEY-----\nMCowBQYDK2VwAyEApwtM0KAiUjNZdzN1K18mWt1riYjZ/5bcTh3sxBdy9q8=\n-----END PUBLIC KEY-----"
+          }
+        }
+      },
+      "currentVersion": 1,
+      "createdAt": "2026-08-15T22:56:36.000Z",
+      "updatedAt": "2026-08-15T22:56:36.000Z"
+    },
+    {
+      "id": "4127ddd9-b636-471d-91d3-5fc86a0a7d01",
+      "key": "components/symbia.logic.switch",
+      "name": "symbia.logic.switch",
+      "description": "Emits on the port named by config.field's value, if that port is listed in config.ports; otherwise \"default\".",
+      "type": "component",
+      "status": "published",
+      "isBootstrap": false,
+      "tags": [
+        "runtime",
+        "component",
+        "builtin",
+        "logic"
+      ],
+      "orgId": null,
+      "accessPolicy": {
+        "visibility": "public",
+        "actions": {
+          "read": {
+            "anyOf": [
+              "public"
+            ]
+          },
+          "write": {
+            "anyOf": [
+              "cap:registry.write",
+              "role:admin"
+            ]
+          },
+          "publish": {
+            "anyOf": [
+              "cap:registry.publish",
+              "role:publisher",
+              "role:admin"
+            ]
+          },
+          "delete": {
+            "anyOf": [
+              "role:admin"
+            ]
+          }
+        }
+      },
+      "metadata": {
+        "manifest": {
+          "key": "symbia.logic.switch",
+          "version": "1.4.0",
+          "implementation": "builtin",
+          "inputs": [
+            {
+              "name": "in"
+            }
+          ],
+          "outputs": [
+            {
+              "name": "default",
+              "lane": "inherit"
+            }
+          ],
+          "config": {
+            "field": {
+              "type": "string",
+              "required": false,
+              "default": "type",
+              "description": "Field whose value names the output port."
+            },
+            "ports": {
+              "type": "array",
+              "required": false,
+              "default": [],
+              "description": "Port names this switch may emit on. A value not listed here goes to \"default\" — the allowlist is what stops a message inventing a port."
+            }
+          },
+          "capability": "cap:runtime.execute",
+          "description": "Emits on the port named by config.field's value, if that port is listed in config.ports; otherwise \"default\"."
+        },
+        "manifestSignature": {
+          "signature": "ed25519:pPhBal+XQzDD9lzoreH0PvPpm3U6PCTAhy8a9DwP1Jj77tPVizDRcE0019Vh6DztLfWPi1zQ4q6TwdyuGndrDQ==",
+          "signer": {
+            "id": "symbia:service:c9ee213303b288c7",
+            "role_claimed": "runtime",
+            "fingerprint": "c9ee213303b288c72d7eebed39c4b7f6b7a440e4d75a887d0aaa83a3979f22f0",
+            "publicKeyPem": "-----BEGIN PUBLIC KEY-----\nMCowBQYDK2VwAyEApwtM0KAiUjNZdzN1K18mWt1riYjZ/5bcTh3sxBdy9q8=\n-----END PUBLIC KEY-----"
+          }
+        }
+      },
+      "currentVersion": 1,
+      "createdAt": "2026-08-15T22:56:36.000Z",
+      "updatedAt": "2026-08-15T22:56:36.000Z"
+    },
+    {
+      "id": "1de2b4c5-b9c8-4eaf-b959-6267e2ac47c8",
+      "key": "components/symbia.logic.filter",
+      "name": "symbia.logic.filter",
+      "description": "Routes on a predicate: config.field / config.op (eq,neq,gt,lt,contains,exists) / config.value.",
+      "type": "component",
+      "status": "published",
+      "isBootstrap": false,
+      "tags": [
+        "runtime",
+        "component",
+        "builtin",
+        "logic"
+      ],
+      "orgId": null,
+      "accessPolicy": {
+        "visibility": "public",
+        "actions": {
+          "read": {
+            "anyOf": [
+              "public"
+            ]
+          },
+          "write": {
+            "anyOf": [
+              "cap:registry.write",
+              "role:admin"
+            ]
+          },
+          "publish": {
+            "anyOf": [
+              "cap:registry.publish",
+              "role:publisher",
+              "role:admin"
+            ]
+          },
+          "delete": {
+            "anyOf": [
+              "role:admin"
+            ]
+          }
+        }
+      },
+      "metadata": {
+        "manifest": {
+          "key": "symbia.logic.filter",
+          "version": "1.4.0",
+          "implementation": "builtin",
+          "inputs": [
+            {
+              "name": "in"
+            }
+          ],
+          "outputs": [
+            {
+              "name": "pass",
+              "lane": "inherit"
+            },
+            {
+              "name": "fail",
+              "lane": "inherit"
+            }
+          ],
+          "config": {
+            "field": {
+              "type": "string",
+              "required": false,
+              "description": "Field to test. Omitted, the whole message value is tested."
+            },
+            "op": {
+              "type": "string",
+              "required": false,
+              "default": "exists",
+              "enum": [
+                "eq",
+                "neq",
+                "gt",
+                "lt",
+                "contains",
+                "exists"
+              ],
+              "description": "Comparison. Any unrecognised value falls through to \"exists\"."
+            },
+            "value": {
+              "type": "string",
+              "required": false,
+              "description": "Value compared against. Unused by \"exists\"."
+            }
+          },
+          "capability": "cap:runtime.execute",
+          "description": "Routes on a predicate: config.field / config.op (eq,neq,gt,lt,contains,exists) / config.value."
+        },
+        "manifestSignature": {
+          "signature": "ed25519:/Wx8glSos/SJ4kI2s+83XGTaXH35PvmOFFSxCIdDOevL4HgqI0ntxbzmB2IkPLVbGS3pjBr3ElLwpU1OEbLZAA==",
+          "signer": {
+            "id": "symbia:service:c9ee213303b288c7",
+            "role_claimed": "runtime",
+            "fingerprint": "c9ee213303b288c72d7eebed39c4b7f6b7a440e4d75a887d0aaa83a3979f22f0",
+            "publicKeyPem": "-----BEGIN PUBLIC KEY-----\nMCowBQYDK2VwAyEApwtM0KAiUjNZdzN1K18mWt1riYjZ/5bcTh3sxBdy9q8=\n-----END PUBLIC KEY-----"
+          }
+        }
+      },
+      "currentVersion": 1,
+      "createdAt": "2026-08-15T22:56:36.000Z",
+      "updatedAt": "2026-08-15T22:56:36.000Z"
+    },
+    {
+      "id": "5896f6d9-1cbf-4c22-b91e-7d450ea37d19",
+      "key": "components/symbia.transform.map",
+      "name": "symbia.transform.map",
+      "description": "Reshapes an object using config.mapping — {newKey: \"sourceKey\"}. Deterministic.",
+      "type": "component",
+      "status": "published",
+      "isBootstrap": false,
+      "tags": [
+        "runtime",
+        "component",
+        "builtin",
+        "transform"
+      ],
+      "orgId": null,
+      "accessPolicy": {
+        "visibility": "public",
+        "actions": {
+          "read": {
+            "anyOf": [
+              "public"
+            ]
+          },
+          "write": {
+            "anyOf": [
+              "cap:registry.write",
+              "role:admin"
+            ]
+          },
+          "publish": {
+            "anyOf": [
+              "cap:registry.publish",
+              "role:publisher",
+              "role:admin"
+            ]
+          },
+          "delete": {
+            "anyOf": [
+              "role:admin"
+            ]
+          }
+        }
+      },
+      "metadata": {
+        "manifest": {
+          "key": "symbia.transform.map",
+          "version": "1.4.0",
+          "implementation": "builtin",
+          "inputs": [
+            {
+              "name": "in"
+            }
+          ],
+          "outputs": [
+            {
+              "name": "out",
+              "lane": "inherit"
+            },
+            {
+              "name": "error",
+              "lane": "apocryphal",
+              "laneNote": "a refusal is not a recomputable value"
+            }
+          ],
+          "config": {
+            "mapping": {
+              "type": "object",
+              "required": false,
+              "default": {},
+              "description": "Output field to source field, {newKey: \"sourceKey\"}. Empty mapping passes the object through unchanged."
+            }
+          },
+          "capability": "cap:runtime.execute",
+          "description": "Reshapes an object using config.mapping — {newKey: \"sourceKey\"}. Deterministic."
+        },
+        "manifestSignature": {
+          "signature": "ed25519:O1U/7kvmi348RrwPONfiBr9D9o5f/E5NO88MF+HBaeTq5xx9+RHkfyploTvIjA+7ninpm78VXEkbFYGnSacOCQ==",
+          "signer": {
+            "id": "symbia:service:c9ee213303b288c7",
+            "role_claimed": "runtime",
+            "fingerprint": "c9ee213303b288c72d7eebed39c4b7f6b7a440e4d75a887d0aaa83a3979f22f0",
+            "publicKeyPem": "-----BEGIN PUBLIC KEY-----\nMCowBQYDK2VwAyEApwtM0KAiUjNZdzN1K18mWt1riYjZ/5bcTh3sxBdy9q8=\n-----END PUBLIC KEY-----"
+          }
+        }
+      },
+      "currentVersion": 1,
+      "createdAt": "2026-08-15T22:56:36.000Z",
+      "updatedAt": "2026-08-15T22:56:36.000Z"
+    },
+    {
+      "id": "be721771-09a0-4492-a820-692573aaa911",
+      "key": "components/symbia.io.log",
+      "name": "symbia.io.log",
+      "description": "Writes the value to the execution log and passes it through.",
+      "type": "component",
+      "status": "published",
+      "isBootstrap": false,
+      "tags": [
+        "runtime",
+        "component",
+        "builtin",
+        "io"
+      ],
+      "orgId": null,
+      "accessPolicy": {
+        "visibility": "public",
+        "actions": {
+          "read": {
+            "anyOf": [
+              "public"
+            ]
+          },
+          "write": {
+            "anyOf": [
+              "cap:registry.write",
+              "role:admin"
+            ]
+          },
+          "publish": {
+            "anyOf": [
+              "cap:registry.publish",
+              "role:publisher",
+              "role:admin"
+            ]
+          },
+          "delete": {
+            "anyOf": [
+              "role:admin"
+            ]
+          }
+        }
+      },
+      "metadata": {
+        "manifest": {
+          "key": "symbia.io.log",
+          "version": "1.4.0",
+          "implementation": "builtin",
+          "inputs": [
+            {
+              "name": "in"
+            }
+          ],
+          "outputs": [
+            {
+              "name": "out",
+              "lane": "inherit"
+            }
+          ],
+          "config": {},
+          "capability": "cap:runtime.execute",
+          "description": "Writes the value to the execution log and passes it through."
+        },
+        "manifestSignature": {
+          "signature": "ed25519:V9YZCoVjIJ9J5/Y5obIcdhC03YVBkr3jOdLscdMYRAT44GuLD9Mkcu8KnIY9YFluAH4bRN7AU5KFHSriDrrHCw==",
+          "signer": {
+            "id": "symbia:service:c9ee213303b288c7",
+            "role_claimed": "runtime",
+            "fingerprint": "c9ee213303b288c72d7eebed39c4b7f6b7a440e4d75a887d0aaa83a3979f22f0",
+            "publicKeyPem": "-----BEGIN PUBLIC KEY-----\nMCowBQYDK2VwAyEApwtM0KAiUjNZdzN1K18mWt1riYjZ/5bcTh3sxBdy9q8=\n-----END PUBLIC KEY-----"
+          }
+        }
+      },
+      "currentVersion": 1,
+      "createdAt": "2026-08-15T22:56:36.000Z",
+      "updatedAt": "2026-08-15T22:56:36.000Z"
+    },
+    {
+      "id": "90aec410-5b1f-46b4-8cce-3dfe6d6dbd26",
+      "key": "components/symbia.io.collect",
+      "name": "symbia.io.collect",
+      "description": "Terminal node. Collects results for the execution output.",
+      "type": "component",
+      "status": "published",
+      "isBootstrap": false,
+      "tags": [
+        "runtime",
+        "component",
+        "builtin",
+        "io"
+      ],
+      "orgId": null,
+      "accessPolicy": {
+        "visibility": "public",
+        "actions": {
+          "read": {
+            "anyOf": [
+              "public"
+            ]
+          },
+          "write": {
+            "anyOf": [
+              "cap:registry.write",
+              "role:admin"
+            ]
+          },
+          "publish": {
+            "anyOf": [
+              "cap:registry.publish",
+              "role:publisher",
+              "role:admin"
+            ]
+          },
+          "delete": {
+            "anyOf": [
+              "role:admin"
+            ]
+          }
+        }
+      },
+      "metadata": {
+        "manifest": {
+          "key": "symbia.io.collect",
+          "version": "1.4.0",
+          "implementation": "builtin",
+          "inputs": [
+            {
+              "name": "in"
+            }
+          ],
+          "outputs": [
+            {
+              "name": "out",
+              "lane": "inherit"
+            }
+          ],
+          "config": {},
+          "capability": "cap:runtime.execute",
+          "description": "Terminal node. Collects results for the execution output."
+        },
+        "manifestSignature": {
+          "signature": "ed25519:BUWTL6aP5scyiNCFBtq+cRakLnbH0jR0s5xSVP3KHA6eG1gKQh1+esPNjM8pCTct2jLeFtH5BYQCeC1DrNntDA==",
+          "signer": {
+            "id": "symbia:service:c9ee213303b288c7",
+            "role_claimed": "runtime",
+            "fingerprint": "c9ee213303b288c72d7eebed39c4b7f6b7a440e4d75a887d0aaa83a3979f22f0",
+            "publicKeyPem": "-----BEGIN PUBLIC KEY-----\nMCowBQYDK2VwAyEApwtM0KAiUjNZdzN1K18mWt1riYjZ/5bcTh3sxBdy9q8=\n-----END PUBLIC KEY-----"
+          }
+        }
+      },
+      "currentVersion": 1,
+      "createdAt": "2026-08-15T22:56:36.000Z",
+      "updatedAt": "2026-08-15T22:56:36.000Z"
+    },
+    {
+      "id": "3c28da94-4ad6-4bdd-a125-6672af4d52b2",
+      "key": "components/symbia.io.passthrough",
+      "name": "symbia.io.passthrough",
+      "description": "Emits its input unchanged. Graph entry point.",
+      "type": "component",
+      "status": "published",
+      "isBootstrap": false,
+      "tags": [
+        "runtime",
+        "component",
+        "builtin",
+        "io"
+      ],
+      "orgId": null,
+      "accessPolicy": {
+        "visibility": "public",
+        "actions": {
+          "read": {
+            "anyOf": [
+              "public"
+            ]
+          },
+          "write": {
+            "anyOf": [
+              "cap:registry.write",
+              "role:admin"
+            ]
+          },
+          "publish": {
+            "anyOf": [
+              "cap:registry.publish",
+              "role:publisher",
+              "role:admin"
+            ]
+          },
+          "delete": {
+            "anyOf": [
+              "role:admin"
+            ]
+          }
+        }
+      },
+      "metadata": {
+        "manifest": {
+          "key": "symbia.io.passthrough",
+          "version": "1.4.0",
+          "implementation": "builtin",
+          "inputs": [
+            {
+              "name": "in"
+            }
+          ],
+          "outputs": [
+            {
+              "name": "out",
+              "lane": "inherit"
+            }
+          ],
+          "config": {},
+          "capability": "cap:runtime.execute",
+          "description": "Emits its input unchanged. Graph entry point."
+        },
+        "manifestSignature": {
+          "signature": "ed25519:AhYrw9sgwOePgzRWEB6NBbOT4V1dHWtoqB5JpCvfbapBqnxJeRzfLSqOJti6+5JAuvmqGxVxnfLHBSMzakJ7BA==",
+          "signer": {
+            "id": "symbia:service:c9ee213303b288c7",
+            "role_claimed": "runtime",
+            "fingerprint": "c9ee213303b288c72d7eebed39c4b7f6b7a440e4d75a887d0aaa83a3979f22f0",
+            "publicKeyPem": "-----BEGIN PUBLIC KEY-----\nMCowBQYDK2VwAyEApwtM0KAiUjNZdzN1K18mWt1riYjZ/5bcTh3sxBdy9q8=\n-----END PUBLIC KEY-----"
+          }
+        }
+      },
+      "currentVersion": 1,
+      "createdAt": "2026-08-15T22:56:36.000Z",
+      "updatedAt": "2026-08-15T22:56:36.000Z"
+    }
+  ],
+  "trace": [
+    {
+      "event_id": "d7e8408f-480d-4671-8365-12c3604ac8c5",
+      "timestamp": "2026-08-16T02:56:35.377Z",
+      "actor_identity": "imagine:session:8a0c63875b067e2b",
+      "event_type": "imagine.mutation",
+      "payload": {
+        "method": "POST",
+        "path": "/svc/logging/api/logs/streams",
+        "status": 500,
+        "accepted": false,
+        "requestDigest": "sha256:e60247e2c577a32c3e8abf0de716954ccd553d383528a5590213b1e0c3400f58",
+        "resultDigest": "sha256:de1e3257f890e7570b1fead7d29d7a211574b461b4873458569669abcdbe970d",
+        "resourceKey": null,
+        "ms": 0
+      },
+      "continuity_context": null,
+      "parent_links": [
+        null
+      ],
+      "checksum": "sha256:07222b390cf230e5543354749762c138ea549a5a82ca47fad52e9a796ad7fa91",
+      "signature": "ed25519:RGG9saKj/CMGLKD22//4uyjF+SjaLxYhPILEfYNLZZoKyu2nsObnihW9uPA0VyA5G8wWlMitTbym/GDsKRjUCg=="
+    },
+    {
+      "event_id": "6b21b9e6-dd9e-4c59-acea-56cafd6264b8",
+      "timestamp": "2026-08-16T02:56:36.472Z",
+      "actor_identity": "imagine:session:8a0c63875b067e2b",
+      "event_type": "imagine.mutation",
+      "payload": {
+        "method": "POST",
+        "path": "/svc/logging/api/logs/streams",
+        "status": 500,
+        "accepted": false,
+        "requestDigest": "sha256:e60247e2c577a32c3e8abf0de716954ccd553d383528a5590213b1e0c3400f58",
+        "resultDigest": "sha256:de1e3257f890e7570b1fead7d29d7a211574b461b4873458569669abcdbe970d",
+        "resourceKey": null,
+        "ms": 1
+      },
+      "continuity_context": null,
+      "parent_links": [
+        null
+      ],
+      "checksum": "sha256:b7ad99f072381f49c59858311067e38c0f7be4a642fdf78985c57ebf0b9e3fc8",
+      "signature": "ed25519:4fie5TreMCceLQ51iyD/jd031SUX6C1QlbAW1CnVBrszjnB8Ge7ivgf867CzXXBlhHxmPRTHWRgFlX37rvtcDQ=="
+    },
+    {
+      "event_id": "7210d017-ee64-4974-8ff0-378791452bd3",
+      "timestamp": "2026-08-16T02:56:36.532Z",
+      "actor_identity": "imagine:session:8a0c63875b067e2b",
+      "event_type": "imagine.mutation",
+      "payload": {
+        "method": "POST",
+        "path": "/svc/catalog/api/resources",
+        "status": 201,
+        "accepted": true,
+        "requestDigest": "sha256:6a9664a797a488542dbcd305b8bdfdfee9042e7746a5c045fa59347486ed5efc",
+        "resultDigest": "sha256:64bd1f23b860ff134319e50d31c91cd7887f1f751d29b17864a4d5aa4070b1f5",
+        "resourceKey": "components/symbia.io.passthrough",
+        "ms": 5
+      },
+      "continuity_context": null,
+      "parent_links": [
+        null
+      ],
+      "checksum": "sha256:852f0684e3015850f1a2daa1fda08dfbe216632bf7a05b1fd3a49940744c4e0c",
+      "signature": "ed25519:cInX7Ilwq9eDXyOUAYQ3hQ5Fx57DGaTQ2I/T+zsA9xYIED1wD6VzHSnUhj1Z/Vd9+HiamUOZ5Oedc8lUAdmqAQ=="
+    },
+    {
+      "event_id": "e562f748-3548-433e-8bbb-d39522cff8c5",
+      "timestamp": "2026-08-16T02:56:36.538Z",
+      "actor_identity": "imagine:session:8a0c63875b067e2b",
+      "event_type": "imagine.mutation",
+      "payload": {
+        "method": "POST",
+        "path": "/svc/catalog/api/resources",
+        "status": 201,
+        "accepted": true,
+        "requestDigest": "sha256:2843799eed791d271d4fe8550bdb2b8976948c539ce334ddaffdca9ed60ad63f",
+        "resultDigest": "sha256:e63a84edb7b8920be67b75f6d368fa4c0a8cf72ba07582c5530157da83b59118",
+        "resourceKey": "components/symbia.io.collect",
+        "ms": 4
+      },
+      "continuity_context": null,
+      "parent_links": [
+        null
+      ],
+      "checksum": "sha256:337f027a1e804559fd6987654ceebe534f161d0d1c4d52fe74ba7420646e9d83",
+      "signature": "ed25519:aisELWczL11JC13MM/N2iQnGo2YdgiYFgPtJ8Yt7eK+2un+lkikuW/jqjHkpea+qQTZ3SFkZ35LoUgXChOT6BA=="
+    },
+    {
+      "event_id": "cd6ea42d-8644-4442-b6b4-8a5a998df2df",
+      "timestamp": "2026-08-16T02:56:36.542Z",
+      "actor_identity": "imagine:session:8a0c63875b067e2b",
+      "event_type": "imagine.mutation",
+      "payload": {
+        "method": "POST",
+        "path": "/svc/catalog/api/resources",
+        "status": 201,
+        "accepted": true,
+        "requestDigest": "sha256:4b81010558a8fa249256adc6c12afa7874b02ece581620847706c42724146e22",
+        "resultDigest": "sha256:c0081f57ed60efcd982182ffbdf70fa64a155b95a5add14722de2c8ed220c5e8",
+        "resourceKey": "components/symbia.io.log",
+        "ms": 3
+      },
+      "continuity_context": null,
+      "parent_links": [
+        null
+      ],
+      "checksum": "sha256:d1a9bb90828af063b1d403f9d530ec53fa328c6660fe72ddfc0728cf4ed4ef69",
+      "signature": "ed25519:RCa+54CaoHFzwcXyRXiow3Ce0pGD0TmPjAicfYf1rcPRDw1pMJYW+OLJqgnRiQ8Ch8acvScYpE8bYN0qcNgFDA=="
+    },
+    {
+      "event_id": "9c870f93-ab5d-4a7a-b948-f2e0bf27ec46",
+      "timestamp": "2026-08-16T02:56:36.547Z",
+      "actor_identity": "imagine:session:8a0c63875b067e2b",
+      "event_type": "imagine.mutation",
+      "payload": {
+        "method": "POST",
+        "path": "/svc/catalog/api/resources",
+        "status": 201,
+        "accepted": true,
+        "requestDigest": "sha256:beed58f708e4aa8fe672a10b70e7be3ebf65f1e218f2bdaecf58ae70f92111ab",
+        "resultDigest": "sha256:1dc4e220adf70a44ab12394719205f1631074400a1b2312a03537870a599926c",
+        "resourceKey": "components/symbia.transform.map",
+        "ms": 4
+      },
+      "continuity_context": null,
+      "parent_links": [
+        null
+      ],
+      "checksum": "sha256:c033f2a40c9ffdc75135707850145ad1646f3a459c5d2c8febe45ff6413315d9",
+      "signature": "ed25519:cb23CloGQ7OckxZabdD4HWw7k+/krMnQjH+ewCQFJuIvwoaXm7mcVvqt0dldgi2WsJ9ZI0PtzChT6qt1kStMDg=="
+    },
+    {
+      "event_id": "622cfbd7-7ea4-42bb-afd6-870abf190b45",
+      "timestamp": "2026-08-16T02:56:36.551Z",
+      "actor_identity": "imagine:session:8a0c63875b067e2b",
+      "event_type": "imagine.mutation",
+      "payload": {
+        "method": "POST",
+        "path": "/svc/catalog/api/resources",
+        "status": 201,
+        "accepted": true,
+        "requestDigest": "sha256:a9f5de0da2a3b1685d2234a53a472bda96924218dc04cfe964e02ebe75ab56c8",
+        "resultDigest": "sha256:86ed81b4b58f64330a56bb29a58485bdb13d8c74f12a3ed836437845409a07b9",
+        "resourceKey": "components/symbia.logic.filter",
+        "ms": 3
+      },
+      "continuity_context": null,
+      "parent_links": [
+        null
+      ],
+      "checksum": "sha256:6ea6c097fca280742df38beb4d3713bc19def567525856a6058d9cccaf67ce76",
+      "signature": "ed25519:NrBLc6StG4/ZBdubRad653wLDU5ktSXoHxkgzdNeCh5ZO1Nv/dbhCVTRnVYWho1qrgkoPCpyxZnV8lZOdZfMDA=="
+    },
+    {
+      "event_id": "0e5953e6-1ee9-42eb-9fa1-a6388dc5dc0a",
+      "timestamp": "2026-08-16T02:56:36.556Z",
+      "actor_identity": "imagine:session:8a0c63875b067e2b",
+      "event_type": "imagine.mutation",
+      "payload": {
+        "method": "POST",
+        "path": "/svc/catalog/api/resources",
+        "status": 201,
+        "accepted": true,
+        "requestDigest": "sha256:618297053396f03ad41def2182ddbb3972a8eded65084b9480e40241748314c7",
+        "resultDigest": "sha256:68b2c8515ac2efc581090b3bbebac6717114702bfee869e25f7a3a95a149da77",
+        "resourceKey": "components/symbia.logic.switch",
+        "ms": 4
+      },
+      "continuity_context": null,
+      "parent_links": [
+        null
+      ],
+      "checksum": "sha256:59872ad3f99a648d7e782eef5ba14c8e1a071db2245ed1db7439e16eeef24bbd",
+      "signature": "ed25519:Llo+3MLPrZnYyxs+8yp1EAsVK86qB42pLInO2dQZrIHvOLqWIsIh3REepOUb1YukuMRVpdjNXrl/KESf5a0tCg=="
+    },
+    {
+      "event_id": "c5e2b484-59fa-4e7d-9fe2-4289134f7ca5",
+      "timestamp": "2026-08-16T02:56:36.561Z",
+      "actor_identity": "imagine:session:8a0c63875b067e2b",
+      "event_type": "imagine.mutation",
+      "payload": {
+        "method": "POST",
+        "path": "/svc/catalog/api/resources",
+        "status": 201,
+        "accepted": true,
+        "requestDigest": "sha256:919adbacc0a2b8c11f03e6bb791733786e5e92fc04855f321434c597f15c6b86",
+        "resultDigest": "sha256:646e2325dadfabde75f5442a51d0928cdc44188650b0775aad4cbf8256243146",
+        "resourceKey": "components/symbia.compute.arithmetic",
+        "ms": 4
+      },
+      "continuity_context": null,
+      "parent_links": [
+        null
+      ],
+      "checksum": "sha256:955bfa9f5fd2fe61ffe5cbd30047fbd957d32f77dbdbf455a504e553009fc77a",
+      "signature": "ed25519:p9MRaMmAfaIJvKxAHhtjHXpjj8eWf73oWzf09U/ag6Ga+JBKz8Sz8LgW4g1qzy1jMtMcOCtrkVmM/gT6KV76CA=="
+    },
+    {
+      "event_id": "8e49ddab-955d-4bbe-a384-4036ac491a4f",
+      "timestamp": "2026-08-16T02:56:36.565Z",
+      "actor_identity": "imagine:session:8a0c63875b067e2b",
+      "event_type": "imagine.mutation",
+      "payload": {
+        "method": "POST",
+        "path": "/svc/catalog/api/resources",
+        "status": 201,
+        "accepted": true,
+        "requestDigest": "sha256:00e0ba653047e7318c7ffda43705b1264f3c05a5463f120ea8da4e295603fb7d",
+        "resultDigest": "sha256:832d08aff9c33e8b2506adb943c98700395175c775d3561d73c71c351c65aa38",
+        "resourceKey": "components/symbia.io.http-request",
+        "ms": 3
+      },
+      "continuity_context": null,
+      "parent_links": [
+        null
+      ],
+      "checksum": "sha256:bd9ad024680f0dd9e6a098845de5b88846231c1c4eb904fbdaf0bfbeb0bc0087",
+      "signature": "ed25519:mcNl6T/cdFDbM5w/qdMjgvvHR7Ea34IazgW7Dg3ufOhwHwerCSI9Gk9qDIsEfzQ0Fh77tYFneKKeu9TlK74OCA=="
+    },
+    {
+      "event_id": "7ade89d5-8535-4ae0-8fc7-8d8061dee302",
+      "timestamp": "2026-08-16T02:56:36.570Z",
+      "actor_identity": "imagine:session:8a0c63875b067e2b",
+      "event_type": "imagine.mutation",
+      "payload": {
+        "method": "POST",
+        "path": "/svc/catalog/api/resources",
+        "status": 201,
+        "accepted": true,
+        "requestDigest": "sha256:90361f8cd0dbf5ada91b0a3a748be8f332cab59a145aa58c50edc83aaa9f5c71",
+        "resultDigest": "sha256:3f67ce1efd2f6f5e55a16da53b7033410bc1224e8830bbdade9036dd4244b11f",
+        "resourceKey": "components/symbia.io.delay",
+        "ms": 4
+      },
+      "continuity_context": null,
+      "parent_links": [
+        null
+      ],
+      "checksum": "sha256:00cb025cad2e353167747af39d980656281f46814345cf1366321213de086c58",
+      "signature": "ed25519:xvPw/Rp1xU48ULMQnUJ8z0GL2hrAagIoDhak+H1eoX1Qj0e2u1F2glAiYsMZLh8yI2lLqVt0Ymk2BVC3vRW/DQ=="
+    },
+    {
+      "event_id": "665ca2da-3bc6-495d-b3aa-b0eb1c525f3f",
+      "timestamp": "2026-08-16T02:56:36.574Z",
+      "actor_identity": "imagine:session:8a0c63875b067e2b",
+      "event_type": "imagine.mutation",
+      "payload": {
+        "method": "POST",
+        "path": "/svc/catalog/api/resources",
+        "status": 201,
+        "accepted": true,
+        "requestDigest": "sha256:8296ec245643b75fdf6cfc49ca2b6e118f797b27b9a04764d45f70e0da5c04b5",
+        "resultDigest": "sha256:9fa2f29c3a60e079cbd4ef4dabe149af05c625e93b9346af5f11e78273d06ab7",
+        "resourceKey": "components/symbia.state.latest",
+        "ms": 4
+      },
+      "continuity_context": null,
+      "parent_links": [
+        null
+      ],
+      "checksum": "sha256:d0a2b700c560631ecbeffc034d26f2e8db3f50dcd6e8225c23ec0425e62206e5",
+      "signature": "ed25519:LWehwxSddtdeGeRjNkecSgGYBhoaohiaLmOgQ1CGifzl2DKfum+8HwK7G9DNG2rUaskMW9o++Vjl9QzwHa6TBA=="
+    },
+    {
+      "event_id": "ce069bd1-461d-4ecd-a8e7-848db87d2efd",
+      "timestamp": "2026-08-16T02:56:36.578Z",
+      "actor_identity": "imagine:session:8a0c63875b067e2b",
+      "event_type": "imagine.mutation",
+      "payload": {
+        "method": "POST",
+        "path": "/svc/catalog/api/resources",
+        "status": 201,
+        "accepted": true,
+        "requestDigest": "sha256:ed47bb3c7daae130c55f4f969590b192a141596fd96ba598fafc7c9da9c675fc",
+        "resultDigest": "sha256:bd92d16c6f739e6d95ff15f6474f58d52747701da93beabd1194f2110185f15f",
+        "resourceKey": "components/symbia.state.join",
+        "ms": 3
+      },
+      "continuity_context": null,
+      "parent_links": [
+        null
+      ],
+      "checksum": "sha256:85e98d74b5486456adfb35c19410afcdb416a4c690ffb1f4edda972bfe1a4fab",
+      "signature": "ed25519:rHXwjo/zOCe8xbteJFEx3RyUUAymvN4sb/pH+tzJjxzc3vYePgDDR19Rvh74V4RoD1KSOkfv3xaG6ZkjzgjPCw=="
+    },
+    {
+      "event_id": "f921d560-db91-4488-b5b8-cd0214969a21",
+      "timestamp": "2026-08-16T02:56:36.582Z",
+      "actor_identity": "imagine:session:8a0c63875b067e2b",
+      "event_type": "imagine.mutation",
+      "payload": {
+        "method": "POST",
+        "path": "/svc/catalog/api/resources",
+        "status": 201,
+        "accepted": true,
+        "requestDigest": "sha256:c9a26d6f71e9e2269bb2965d0e708e0459934e9a9b21956fd92d57cdbdd9eafe",
+        "resultDigest": "sha256:b4c03bfd47fc039e30121e29ad7913ad0c892fe3124aedb31a793f1b895dfb19",
+        "resourceKey": "components/symbia.state.window",
+        "ms": 3
+      },
+      "continuity_context": null,
+      "parent_links": [
+        null
+      ],
+      "checksum": "sha256:83399b004cbf2448eb0780e8c9a42c37919b71c9521d4de45d751e4b27197903",
+      "signature": "ed25519:zvXTUwc5JvvUlhn4d6suALJoamsIAKSEW0OPkjeTx8rvo6WbV9BCR6UFdgAjKMNVr9bi7OzG0UXxd2DnV3HlCg=="
+    },
+    {
+      "event_id": "670c34e9-ae1d-4905-a9de-9fc80b0195c1",
+      "timestamp": "2026-08-16T02:56:36.586Z",
+      "actor_identity": "imagine:session:8a0c63875b067e2b",
+      "event_type": "imagine.mutation",
+      "payload": {
+        "method": "POST",
+        "path": "/svc/catalog/api/resources",
+        "status": 201,
+        "accepted": true,
+        "requestDigest": "sha256:071a51d27ff87d0b60a19029f3fa71565e8b3e323d70ac703a2a5625dd9a5ddb",
+        "resultDigest": "sha256:641399f09575390430385ef42164e61310803b17aeab5d9640deafd34fcfbcb5",
+        "resourceKey": "components/symbia.state.rollup",
+        "ms": 3
+      },
+      "continuity_context": null,
+      "parent_links": [
+        null
+      ],
+      "checksum": "sha256:503c5ea039f8c15106e0ad819d1e91bf5ff29d17cdad08b5acdb588dba7b125c",
+      "signature": "ed25519:dcmta/CB5ws8AdlgJpre5aV2v89qI3ruSurgZZ2m7bm9dnyfKX19tym4smIbY3dKFpIIJ+kqEfPhF2M8dYgPDw=="
+    },
+    {
+      "event_id": "f0a71a35-aa98-4a7d-8006-5d24ce0f5b16",
+      "timestamp": "2026-08-16T02:56:36.591Z",
+      "actor_identity": "imagine:session:8a0c63875b067e2b",
+      "event_type": "imagine.mutation",
+      "payload": {
+        "method": "POST",
+        "path": "/svc/catalog/api/resources",
+        "status": 201,
+        "accepted": true,
+        "requestDigest": "sha256:be39a16dd54656fabe65b1f8840d5e18cfe0fdf4e9a18d9cf88e1bd7076c0321",
+        "resultDigest": "sha256:ccf7176aff00d475477d03bd6e883a2ff3699e648e2401edd3b09e2e2c73d261",
+        "resourceKey": "components/symbia.source.timer",
+        "ms": 4
+      },
+      "continuity_context": null,
+      "parent_links": [
+        null
+      ],
+      "checksum": "sha256:bb5e19bdb140bc14f5e0153ff528292cc7751859915e747112286a4393ddf32b",
+      "signature": "ed25519:b6kMR3KS/FYphUUdqEneam+PmbFhWu72i6zww4v97NZ6AsWPUxK++eFGYQBH/6UyrpP4J2X9+K8v8mpq5ZCnCA=="
+    },
+    {
+      "event_id": "4878c082-197e-46e9-9796-c3090ec1b12c",
+      "timestamp": "2026-08-16T02:56:36.595Z",
+      "actor_identity": "imagine:session:8a0c63875b067e2b",
+      "event_type": "imagine.mutation",
+      "payload": {
+        "method": "POST",
+        "path": "/svc/catalog/api/resources",
+        "status": 201,
+        "accepted": true,
+        "requestDigest": "sha256:8f43868869a49d9936cf3060eb8083274fdf41a58181b338d3813e2d38a9b9d9",
+        "resultDigest": "sha256:3520d9e5ea3f3816ffa3b575ad61d97aed2e541e2a3b5456d5fd5ab52d880857",
+        "resourceKey": "components/symbia.sink.metric",
+        "ms": 3
+      },
+      "continuity_context": null,
+      "parent_links": [
+        null
+      ],
+      "checksum": "sha256:746760ac59bd22c939848624c3b19a960927caaa52f33275f8e57f4a9e6ed7a7",
+      "signature": "ed25519:aU2gFw5q3yhSRk4I0LG7z/frvKhWbnPCBsBk1d/urzyL0DVB0KBmhn5ojGyUH/hattnDN9z5BGWtTT20NyFVBQ=="
+    },
+    {
+      "event_id": "15d07664-b6f8-4c39-b90b-614d63800809",
+      "timestamp": "2026-08-16T02:56:36.599Z",
+      "actor_identity": "imagine:session:8a0c63875b067e2b",
+      "event_type": "imagine.mutation",
+      "payload": {
+        "method": "POST",
+        "path": "/svc/catalog/api/resources",
+        "status": 201,
+        "accepted": true,
+        "requestDigest": "sha256:6729d412924765a167452d14199a43a7b82bc6434d32fe10f8e88e4a35dfbb18",
+        "resultDigest": "sha256:93c73e5ad4aee468874a43a66d0e00fe8ee3bfa209e09a54d4b43552d0242efa",
+        "resourceKey": "components/symbia.sink.log",
+        "ms": 3
+      },
+      "continuity_context": null,
+      "parent_links": [
+        null
+      ],
+      "checksum": "sha256:ecfc13faa5dfe54c142f72515b3954251f72488ac5238a197224ee7b480389dd",
+      "signature": "ed25519:9fBZwwfTyr+7jPz19qjANaz/vP8ZauS0LoRgQ8PidMQe2vmXKy5QaEAcbyz9NPTJ1GURZXHoV9EKUnIZXFboAQ=="
+    },
+    {
+      "event_id": "929fed22-5b30-4140-b15c-973d69d0e9e8",
+      "timestamp": "2026-08-16T02:56:38.480Z",
+      "actor_identity": "imagine:session:8a0c63875b067e2b",
+      "event_type": "imagine.mutation",
+      "payload": {
+        "method": "POST",
+        "path": "/svc/logging/api/logs/streams",
+        "status": 500,
+        "accepted": false,
+        "requestDigest": "sha256:e60247e2c577a32c3e8abf0de716954ccd553d383528a5590213b1e0c3400f58",
+        "resultDigest": "sha256:de1e3257f890e7570b1fead7d29d7a211574b461b4873458569669abcdbe970d",
+        "resourceKey": null,
+        "ms": 2
+      },
+      "continuity_context": null,
+      "parent_links": [
+        null
+      ],
+      "checksum": "sha256:8b4b3cf7d116ec95d55db1696abf7898cdd6958ead2cb522c9f12bb6a3b69a0f",
+      "signature": "ed25519:BX6a+HbsIdxD2/ceUzsveu9MAzgVAHoEsCvZXXQMDoF5Pd1LEVO+MntyBFzMR1g14//hSORS127Smt0CwluPCA=="
+    },
+    {
+      "event_id": "d61e68d3-6e42-4779-9acb-5bb2ccfadb85",
+      "timestamp": "2026-08-16T02:56:41.492Z",
+      "actor_identity": "imagine:session:8a0c63875b067e2b",
+      "event_type": "imagine.mutation",
+      "payload": {
+        "method": "POST",
+        "path": "/svc/logging/api/logs/streams",
+        "status": 500,
+        "accepted": false,
+        "requestDigest": "sha256:e60247e2c577a32c3e8abf0de716954ccd553d383528a5590213b1e0c3400f58",
+        "resultDigest": "sha256:de1e3257f890e7570b1fead7d29d7a211574b461b4873458569669abcdbe970d",
+        "resourceKey": null,
+        "ms": 2
+      },
+      "continuity_context": null,
+      "parent_links": [
+        null
+      ],
+      "checksum": "sha256:92cc5f19f3b60be4839eb018adae7472c28a1395e949b4f76b5be0c056effb3d",
+      "signature": "ed25519:ooJnRdK/UpYH3TF94tUNil/9nudEdP7ZvFKRTI/f5YjyxKgCBW62PY/7+ODS8w1C07y+JSYYQpR3BQTcpOMJAw=="
+    },
+    {
+      "event_id": "d42d877e-7b2d-45c7-a333-8ea14ce60051",
+      "timestamp": "2026-08-16T02:56:41.495Z",
+      "actor_identity": "imagine:session:8a0c63875b067e2b",
+      "event_type": "imagine.mutation",
+      "payload": {
+        "method": "POST",
+        "path": "/svc/logging/api/metrics",
+        "status": 500,
+        "accepted": false,
+        "requestDigest": "sha256:d5e72c1f613ef6baf53137c49ff739d3787c9038ab1ab9140c7d0edb1986fae4",
+        "resultDigest": "sha256:559b2391b2fcea7c91bda8dd280fcc4aa6d084d3748f272e7a7b92d625e0b905",
+        "resourceKey": null,
+        "ms": 1
+      },
+      "continuity_context": null,
+      "parent_links": [
+        null
+      ],
+      "checksum": "sha256:6a323cc1b416823fc54a05b20d202062e22247aeb71434a439ce1061dfae451e",
+      "signature": "ed25519:nhv8UQqz/Py/l+9KiDT+kA5PQ3q2ib0pX2WtqHKtcZJ5Egd+r/Tta+kHEkwnN6HTJc9groIGp5zkMYasKi3/DA=="
+    },
+    {
+      "event_id": "637bfbca-9f97-469f-8052-931f17360ea2",
+      "timestamp": "2026-08-16T02:56:42.501Z",
+      "actor_identity": "imagine:session:8a0c63875b067e2b",
+      "event_type": "imagine.mutation",
+      "payload": {
+        "method": "POST",
+        "path": "/svc/logging/api/metrics",
+        "status": 500,
+        "accepted": false,
+        "requestDigest": "sha256:d5e72c1f613ef6baf53137c49ff739d3787c9038ab1ab9140c7d0edb1986fae4",
+        "resultDigest": "sha256:559b2391b2fcea7c91bda8dd280fcc4aa6d084d3748f272e7a7b92d625e0b905",
+        "resourceKey": null,
+        "ms": 2
+      },
+      "continuity_context": null,
+      "parent_links": [
+        null
+      ],
+      "checksum": "sha256:45de1afe4382e3b079a3e7b19403a260dfa2b5848fd4359bb0061a3b7cf272d1",
+      "signature": "ed25519:0BIKRLeah/3yngg4qmmSZpcsY9gtFpvimDmKBPbOo/er14Z5Ot67p+b1E4X3mxlKsj+d9QjAT1sDLDRirw32Aw=="
+    },
+    {
+      "event_id": "c606f782-38d0-408c-b136-c67c5cecf17a",
+      "timestamp": "2026-08-16T02:56:44.508Z",
+      "actor_identity": "imagine:session:8a0c63875b067e2b",
+      "event_type": "imagine.mutation",
+      "payload": {
+        "method": "POST",
+        "path": "/svc/logging/api/metrics",
+        "status": 500,
+        "accepted": false,
+        "requestDigest": "sha256:d5e72c1f613ef6baf53137c49ff739d3787c9038ab1ab9140c7d0edb1986fae4",
+        "resultDigest": "sha256:559b2391b2fcea7c91bda8dd280fcc4aa6d084d3748f272e7a7b92d625e0b905",
+        "resourceKey": null,
+        "ms": 1
+      },
+      "continuity_context": null,
+      "parent_links": [
+        null
+      ],
+      "checksum": "sha256:237fbe0978793cb3c22c3cdd91f53eed408d1ac000c549cf84426205e9b046e9",
+      "signature": "ed25519:Ls+af2fjpRd8VxpHnq+J9eKs+SuxUgl7zAEgW2YDJqGGt6Q6fcX30IXrwXlnopWNtF/vUvB80YKN9PRWhGArDg=="
+    },
+    {
+      "event_id": "4f34a4a0-6f1d-4ef8-8d43-1fabf5e5e292",
+      "timestamp": "2026-08-16T02:56:47.514Z",
+      "actor_identity": "imagine:session:8a0c63875b067e2b",
+      "event_type": "imagine.mutation",
+      "payload": {
+        "method": "POST",
+        "path": "/svc/logging/api/metrics",
+        "status": 500,
+        "accepted": false,
+        "requestDigest": "sha256:d5e72c1f613ef6baf53137c49ff739d3787c9038ab1ab9140c7d0edb1986fae4",
+        "resultDigest": "sha256:559b2391b2fcea7c91bda8dd280fcc4aa6d084d3748f272e7a7b92d625e0b905",
+        "resourceKey": null,
+        "ms": 1
+      },
+      "continuity_context": null,
+      "parent_links": [
+        null
+      ],
+      "checksum": "sha256:a29e50e55ab94548d64bbf9ee78b6098b6117392d5e24f3a87235c55c51d7bde",
+      "signature": "ed25519:9oxj2ut0+ecVB8T3Mk1Tdzre0+2n3moacNEIvZFUVMbrnVe/NMMPrg7YgOrk2MtDyFghyh4C4TSpLkGH+q5cAA=="
+    },
+    {
+      "event_id": "7f7a50e7-5a2f-4be7-97b0-ce196b95beb3",
+      "timestamp": "2026-08-16T02:56:47.518Z",
+      "actor_identity": "imagine:session:8a0c63875b067e2b",
+      "event_type": "imagine.mutation",
+      "payload": {
+        "method": "POST",
+        "path": "/svc/logging/api/metrics",
+        "status": 500,
+        "accepted": false,
+        "requestDigest": "sha256:6729954a483b621fc7347850b966396dab0640ed42797b252d8e62eae0bbc344",
+        "resultDigest": "sha256:559b2391b2fcea7c91bda8dd280fcc4aa6d084d3748f272e7a7b92d625e0b905",
+        "resourceKey": null,
+        "ms": 1
+      },
+      "continuity_context": null,
+      "parent_links": [
+        null
+      ],
+      "checksum": "sha256:5e1c8766b8ec9a2d902bffcb6c56fc1016da8fae9ce57b4c5bc96b57443a2578",
+      "signature": "ed25519:kLkNdEA5fkos8Qb1bbhNb19NRJBzUUUa4NiMHli+hEF2dcCq/w7SK7DoCIgPcsO74JJL66CulieHYwWiIaBmBw=="
+    },
+    {
+      "event_id": "768e9b76-ad6b-4a39-9c25-757bf2b374de",
+      "timestamp": "2026-08-16T02:56:48.521Z",
+      "actor_identity": "imagine:session:8a0c63875b067e2b",
+      "event_type": "imagine.mutation",
+      "payload": {
+        "method": "POST",
+        "path": "/svc/logging/api/metrics",
+        "status": 500,
+        "accepted": false,
+        "requestDigest": "sha256:6729954a483b621fc7347850b966396dab0640ed42797b252d8e62eae0bbc344",
+        "resultDigest": "sha256:559b2391b2fcea7c91bda8dd280fcc4aa6d084d3748f272e7a7b92d625e0b905",
+        "resourceKey": null,
+        "ms": 0
+      },
+      "continuity_context": null,
+      "parent_links": [
+        null
+      ],
+      "checksum": "sha256:94e6202a2e727839b3d3429547f5ca76374b98ee2f7b37bf7b4175c22d10e0cf",
+      "signature": "ed25519:tUb2ZOLrpxL4o5X87pPSidUSLVXDsfnmzVP5pfiwQ0tIA37C/xy8s0Hf3Q5Vq5lhwfuKTihat+clyrELxJbBDw=="
+    },
+    {
+      "event_id": "be404d37-c417-423f-9439-f3cb98744645",
+      "timestamp": "2026-08-16T02:56:50.527Z",
+      "actor_identity": "imagine:session:8a0c63875b067e2b",
+      "event_type": "imagine.mutation",
+      "payload": {
+        "method": "POST",
+        "path": "/svc/logging/api/metrics",
+        "status": 500,
+        "accepted": false,
+        "requestDigest": "sha256:6729954a483b621fc7347850b966396dab0640ed42797b252d8e62eae0bbc344",
+        "resultDigest": "sha256:559b2391b2fcea7c91bda8dd280fcc4aa6d084d3748f272e7a7b92d625e0b905",
+        "resourceKey": null,
+        "ms": 1
+      },
+      "continuity_context": null,
+      "parent_links": [
+        null
+      ],
+      "checksum": "sha256:a483be14a7a1c5a228dd500b72c0d25635bf264fff215c6c99eed3e04560fae9",
+      "signature": "ed25519:XEqk3bJ+JopIrjKbRSagjwA2IVEh5u9L8TeDmhqviIZvYuoVY4XZ94o1wA4AAGyZCaAqB/LUfy93t4GvdzAuAw=="
+    },
+    {
+      "event_id": "9c63fa98-9ed4-40e7-8b61-e0b1249fd0ad",
+      "timestamp": "2026-08-16T02:56:51.871Z",
+      "actor_identity": "imagine:session:8a0c63875b067e2b",
+      "event_type": "imagine.mutation",
+      "payload": {
+        "method": "POST",
+        "path": "/svc/identity/api/auth/login",
+        "status": 200,
+        "accepted": true,
+        "requestDigest": "sha256:695954c2ec8d1c66a6291ca6cbd3111927f8f7bd00711d69882e7ffac371f3c6",
+        "resultDigest": "sha256:5f85a39d42f0a0cc8d1be1cdccd27cc23991923429baa517cfadcf3c531f504c",
+        "resourceKey": null,
+        "ms": 93
+      },
+      "continuity_context": null,
+      "parent_links": [
+        null
+      ],
+      "checksum": "sha256:683a593d6cf5fdceabfdd343c34b6233a7253b04e521545354303126949059d8",
+      "signature": "ed25519:CxErNKwylwylvmrSpfAuM+174q6UmMlWRUFlMnVrEBpDyGzEUHuiXs8vVkjz7cqUQiBV+550aUVfqzRzZXAOAw=="
+    },
+    {
+      "event_id": "9d842b9f-2017-41bf-b876-902b0803f124",
+      "timestamp": "2026-08-16T02:56:51.879Z",
+      "actor_identity": "imagine:session:8a0c63875b067e2b",
+      "event_type": "imagine.mutation",
+      "payload": {
+        "method": "POST",
+        "path": "/svc/identity/api/auth/introspect",
+        "status": 200,
+        "accepted": true,
+        "requestDigest": "sha256:8c3032df8a97802c9db62698bb751cf26d746c06e410d212a46d1d464da14bed",
+        "resultDigest": "sha256:6cfc2ad85d86163d99dc02e12ca1e5cf2e64f89d3406b788774e87ab0f9d875a",
+        "resourceKey": null,
+        "ms": 6
+      },
+      "continuity_context": null,
+      "parent_links": [
+        null
+      ],
+      "checksum": "sha256:4036b058cb54aea2f7d2beada5bcbaca53e9d26ebf84661372619d9df9ec7f5f",
+      "signature": "ed25519:SJmEKaDcgzY0dmPo5gocPuKYmJ5P8cWm2QEPoMWrghH/EFdvL1saXaBnUj/YQe8hVAgVh4nhSlXqKthyeJvEBg=="
+    },
+    {
+      "event_id": "6656dcc3-9cfe-45de-94b8-68c64f1f8dbb",
+      "timestamp": "2026-08-16T02:56:51.882Z",
+      "actor_identity": "imagine:session:8a0c63875b067e2b",
+      "event_type": "imagine.mutation",
+      "payload": {
+        "method": "POST",
+        "path": "/svc/identity/api/auth/introspect",
+        "status": 200,
+        "accepted": true,
+        "requestDigest": "sha256:8c3032df8a97802c9db62698bb751cf26d746c06e410d212a46d1d464da14bed",
+        "resultDigest": "sha256:6cfc2ad85d86163d99dc02e12ca1e5cf2e64f89d3406b788774e87ab0f9d875a",
+        "resourceKey": null,
+        "ms": 2
+      },
+      "continuity_context": null,
+      "parent_links": [
+        null
+      ],
+      "checksum": "sha256:68e194717c2028f5f97bfa3e64ea0e20d864c260b580a31a15c644240713b753",
+      "signature": "ed25519:cM0WbsvRwcyOSALV7SDWsJmMw5tS+KQ3wa3ylY3K+cdY74nn1Q56SupzieETtqpqrPWgEqQJbqpITrInC5GZAA=="
+    },
+    {
+      "event_id": "77132d5c-756f-4983-bb3d-0c6ad919624e",
+      "timestamp": "2026-08-16T02:56:51.887Z",
+      "actor_identity": "imagine:session:8a0c63875b067e2b",
+      "event_type": "imagine.mutation",
+      "payload": {
+        "method": "POST",
+        "path": "/svc/catalog/api/resources",
+        "status": 201,
+        "accepted": true,
+        "requestDigest": "sha256:0602b5c8c1b7d09b972243588fe6b7518543fc0065ca37c5d0c952949ac17676",
+        "resultDigest": "sha256:d434b85b8c6999859fee96d2d657ec5a6367c0324e7ca2e252f4637c3cd39100",
+        "resourceKey": "contexts/incident-window",
+        "ms": 15
+      },
+      "continuity_context": null,
+      "parent_links": [
+        null
+      ],
+      "checksum": "sha256:ea21b31604ea86b0bfa4ea67e2f56ff4b6928615b80b202cf8252db4f7d9eb34",
+      "signature": "ed25519:fQdbclA9oRvTLCsyi+O3xP8b8bNOPSZGyB0IwcxulmXqpskyYPXfO22kmgR92zH2GvJkeciGZ2S3rqEdiNJvBQ=="
+    },
+    {
+      "event_id": "4eac2dc3-21a6-4469-92ba-6b5f788a4f48",
+      "timestamp": "2026-08-16T02:56:51.997Z",
+      "actor_identity": "imagine:session:8a0c63875b067e2b",
+      "event_type": "imagine.mutation",
+      "payload": {
+        "method": "POST",
+        "path": "/svc/identity/api/auth/introspect",
+        "status": 200,
+        "accepted": true,
+        "requestDigest": "sha256:8c3032df8a97802c9db62698bb751cf26d746c06e410d212a46d1d464da14bed",
+        "resultDigest": "sha256:6cfc2ad85d86163d99dc02e12ca1e5cf2e64f89d3406b788774e87ab0f9d875a",
+        "resourceKey": null,
+        "ms": 3
+      },
+      "continuity_context": null,
+      "parent_links": [
+        null
+      ],
+      "checksum": "sha256:3b95609641376de8235c5c90b2901f504b4c6ff25dfd579c67cc4593ca726b05",
+      "signature": "ed25519:aHnooa2R0pVzAERauUGxJdHPIgnSJS/Fsr/A0OXG9CsNFryZOZDbXo56zgEjit8/MADkH8FCh99Vc5i9TuYZBA=="
+    },
+    {
+      "event_id": "84b0ce46-7ed6-41bc-8287-4aa2ae946ae5",
+      "timestamp": "2026-08-16T02:56:52.000Z",
+      "actor_identity": "imagine:session:8a0c63875b067e2b",
+      "event_type": "imagine.mutation",
+      "payload": {
+        "method": "POST",
+        "path": "/svc/identity/api/auth/introspect",
+        "status": 200,
+        "accepted": true,
+        "requestDigest": "sha256:8c3032df8a97802c9db62698bb751cf26d746c06e410d212a46d1d464da14bed",
+        "resultDigest": "sha256:6cfc2ad85d86163d99dc02e12ca1e5cf2e64f89d3406b788774e87ab0f9d875a",
+        "resourceKey": null,
+        "ms": 2
+      },
+      "continuity_context": null,
+      "parent_links": [
+        null
+      ],
+      "checksum": "sha256:f3e4793c93b7ef07149da2c87d9e8eb3bf60faa4a487229e5dc5e0e11c864860",
+      "signature": "ed25519:BTv8omcyJKIT4AvvdLrMpQsKZO8d+xkLprjGq3CgYccfpOZLQLam8CYMRFFHaolqz8xOcjB9JuNRi1ripE94Cg=="
+    },
+    {
+      "event_id": "653f7897-1c65-420c-a908-cd1e95e7c90e",
+      "timestamp": "2026-08-16T02:56:52.007Z",
+      "actor_identity": "imagine:session:8a0c63875b067e2b",
+      "event_type": "imagine.mutation",
+      "payload": {
+        "method": "POST",
+        "path": "/svc/catalog/api/resources",
+        "status": 201,
+        "accepted": true,
+        "requestDigest": "sha256:95fc4e09846c2dc346ee623f755ca32024639e5679906c2256a81c26dcbfd034",
+        "resultDigest": "sha256:d3386be56bbff9e68ee974af77bdb9346eeac9b9277caa6ea33dba5d20e6f150",
+        "resourceKey": "graphs/incident-digest",
+        "ms": 13
+      },
+      "continuity_context": null,
+      "parent_links": [
+        null
+      ],
+      "checksum": "sha256:e033a544c8de7a8bee3b6b3cb814968d4ecee52b0b6ae0e726d96cef1bbae93d",
+      "signature": "ed25519:UvANFU5vOtoFOM99GQYT8jMmm4LY+L4QAT76T2uXZZzKZspKfHMc9VhMUjH6w1vn8JNZ/oB1y+APKxklSRpkBA=="
+    },
+    {
+      "event_id": "74314aaa-05bb-4fb0-8b5e-7337d5cbaad7",
+      "timestamp": "2026-08-16T02:56:52.119Z",
+      "actor_identity": "imagine:session:8a0c63875b067e2b",
+      "event_type": "imagine.mutation",
+      "payload": {
+        "method": "POST",
+        "path": "/svc/identity/api/auth/introspect",
+        "status": 200,
+        "accepted": true,
+        "requestDigest": "sha256:8c3032df8a97802c9db62698bb751cf26d746c06e410d212a46d1d464da14bed",
+        "resultDigest": "sha256:6cfc2ad85d86163d99dc02e12ca1e5cf2e64f89d3406b788774e87ab0f9d875a",
+        "resourceKey": null,
+        "ms": 3
+      },
+      "continuity_context": null,
+      "parent_links": [
+        null
+      ],
+      "checksum": "sha256:f7de09e726c5ac9a620d2d77f012e0049443d440d11a719dc846ed5b8219d049",
+      "signature": "ed25519:Ox136q08PlMnnAagSBSfXYP8DSMFOfaAmaZ+YcLFc1Kqyn8Tni0UEKyfAJJ5cAI0KFTMEI9+1Jin4Gr5H936BA=="
+    },
+    {
+      "event_id": "f03ad781-10dd-48a2-a04e-6795f4b627a0",
+      "timestamp": "2026-08-16T02:56:52.122Z",
+      "actor_identity": "imagine:session:8a0c63875b067e2b",
+      "event_type": "imagine.mutation",
+      "payload": {
+        "method": "POST",
+        "path": "/svc/identity/api/auth/introspect",
+        "status": 200,
+        "accepted": true,
+        "requestDigest": "sha256:8c3032df8a97802c9db62698bb751cf26d746c06e410d212a46d1d464da14bed",
+        "resultDigest": "sha256:6cfc2ad85d86163d99dc02e12ca1e5cf2e64f89d3406b788774e87ab0f9d875a",
+        "resourceKey": null,
+        "ms": 1
+      },
+      "continuity_context": null,
+      "parent_links": [
+        null
+      ],
+      "checksum": "sha256:474111a9d0bd83098a202064e64d801d8efd2cecd9a75d2a08b42076bbd1afef",
+      "signature": "ed25519:hm/ss2/dNa5QDbThTd5C+nlISFRKBj/5YjDAHSlvV0+5bNRJLQxzyAsuoX+JAT7kLIPPTtSgD5PMtlWWCVZvAA=="
+    },
+    {
+      "event_id": "d847c23a-093e-4ff5-a163-47228896428e",
+      "timestamp": "2026-08-16T02:56:52.130Z",
+      "actor_identity": "imagine:session:8a0c63875b067e2b",
+      "event_type": "imagine.mutation",
+      "payload": {
+        "method": "POST",
+        "path": "/svc/catalog/api/resources",
+        "status": 201,
+        "accepted": true,
+        "requestDigest": "sha256:0f971916a17a3548070816bf203df2f2210304e1a7d8b475d28b660e154d34ee",
+        "resultDigest": "sha256:46f39df09c1846d603224816f2e63df26d933af00c2b3d7e65b63401a8630e21",
+        "resourceKey": "assistants/incident-reader",
+        "ms": 14
+      },
+      "continuity_context": null,
+      "parent_links": [
+        null
+      ],
+      "checksum": "sha256:94abc92fd0b08bba0ebde9225e14263116966bbfed222fac0525896e3bc0526f",
+      "signature": "ed25519:G+L8sNBPGDt7yp7tcAx+AXtiO/RO45uuzON39KMGbgz05O9vrZkeyOCwkQ1c8EjqUy7Tjf6SXvyWT8UpZgBqDw=="
+    },
+    {
+      "event_id": "0d8a7e95-db95-45eb-8762-355ed1d75791",
+      "timestamp": "2026-08-16T02:56:52.240Z",
+      "actor_identity": "imagine:session:8a0c63875b067e2b",
+      "event_type": "imagine.mutation",
+      "payload": {
+        "method": "POST",
+        "path": "/svc/identity/api/auth/introspect",
+        "status": 200,
+        "accepted": true,
+        "requestDigest": "sha256:8c3032df8a97802c9db62698bb751cf26d746c06e410d212a46d1d464da14bed",
+        "resultDigest": "sha256:6cfc2ad85d86163d99dc02e12ca1e5cf2e64f89d3406b788774e87ab0f9d875a",
+        "resourceKey": null,
+        "ms": 2
+      },
+      "continuity_context": null,
+      "parent_links": [
+        null
+      ],
+      "checksum": "sha256:878da6bc77515f123db23272c7dae58e2e68e9d255686ba4218dbde7447fc152",
+      "signature": "ed25519:RKdO9qFrC/HFenIgvPC06YFFb7q7K9fGMAf4rNJdETgJHXMFXYvNVohi4/VUSBfrb/2qnszV0Ky88Kdt6d/xDw=="
+    },
+    {
+      "event_id": "7ed1620b-5924-487b-a287-3556393d2516",
+      "timestamp": "2026-08-16T02:56:52.243Z",
+      "actor_identity": "imagine:session:8a0c63875b067e2b",
+      "event_type": "imagine.mutation",
+      "payload": {
+        "method": "POST",
+        "path": "/svc/identity/api/auth/introspect",
+        "status": 200,
+        "accepted": true,
+        "requestDigest": "sha256:8c3032df8a97802c9db62698bb751cf26d746c06e410d212a46d1d464da14bed",
+        "resultDigest": "sha256:6cfc2ad85d86163d99dc02e12ca1e5cf2e64f89d3406b788774e87ab0f9d875a",
+        "resourceKey": null,
+        "ms": 1
+      },
+      "continuity_context": null,
+      "parent_links": [
+        null
+      ],
+      "checksum": "sha256:89d5c31f67d7c354c17b87952cca6f4e1256699764a864075516f920e78a2439",
+      "signature": "ed25519:SO/Y8IG9dwCiaCfnzremj1Y9Fp5CF9f0wiwqN/Gf+LmbNelSqVfkoDnB/A5tRe+zBlEk93RKNHHCEY+/mObEBQ=="
+    }
+  ],
+  "seal": {
+    "eventId": "92e4e6cb-fa77-4387-a68f-a64b282cec54",
+    "checksum": "sha256:d1ab1466400a1dce19dbcc50f0a016a34fd339d3fd10b54a3ea3b412ec4c819f"
+  }
+}
