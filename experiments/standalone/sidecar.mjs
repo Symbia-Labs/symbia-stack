@@ -467,6 +467,28 @@ async function seed() {
   try {
     await identityMod?.bootstrap?.();
     log("identity bootstrap: ok");
+    // The assistants service needs to know which org to publish rules to.
+    // Without it, assistants load and can never be triggered — see
+    // publishRulesToOrg.
+    // There is no /api/organizations — I guessed that path and got a 404.
+    // The org travels on the principal, so ask who we are.
+    try {
+      const jwt = await fetch(`${BASE}/svc/identity/api/auth/login`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: IMAGINE_EMAIL, password: IMAGINE_PASSWORD }),
+      }).then((r) => (r.ok ? r.json() : null));
+      const me = jwt?.token
+        ? await fetch(`${BASE}/svc/identity/api/auth/me`, {
+            headers: { Authorization: `Bearer ${jwt.token}` },
+          }).then((r) => (r.ok ? r.json() : null))
+        : null;
+      const sys = ((me?.user ?? me)?.organizations ?? [])[0];
+      if (sys?.id) {
+        process.env.SYMBIA_SYSTEM_ORG_ID = sys.id;
+        log(`system org: ${sys.id} (${sys.name})`);
+      }
+    } catch { /* publishRulesToOrg says so if this is missing */ }
   } catch (err) {
     log(`identity bootstrap failed: ${err.message}`);
   }

@@ -103,3 +103,76 @@ source — all one call away, none of them where I was looking.
 The affordances built today move declarations into the path. They do not fix
 the two failures that were measurements not testing their own claim, and
 nothing built today would.
+
+---
+
+# Assistant routines — the round-trip saving, and the two fixes it took
+
+The lever an agent actually needs is not concurrency. Measured today: this
+client serializes tool calls, the host does not overlap store writes
+(pg-mem is synchronous, 74ms serial against 73ms concurrent), and CPU work
+serializes outright. **There is no parallelism available.** What remains is
+round trips, and a routine collapses many into one.
+
+The coordinator's `rule-platform-status` routine is exactly the pattern an
+agent runs by hand: recall from catalog, runtime and network, then reason
+over the results. It had never executed.
+
+## Two fixes stood between "loaded" and "runnable"
+
+**D11 — no actor principals.** The roster loads with routines intact, and
+`POST /api/webhook/message` answered `404 Actor principal not found`.
+Registering principals took the webhook to `200`.
+
+**D22 — a loaded rule set was not an executable one.** The webhook is
+async — *"Message received and queued"* — and `GET /api/runs` stayed empty,
+because nothing ran. The synchronous path is `POST /api/rules/execute`,
+which awaits `processEvent` and returns the run. It resolves rule sets **by
+org**, and the loader calls `registerRuleSet(assistantKey, ruleSet)` —
+against a parameter named `orgId`, under a comment saying it is "for Admin
+UI visibility". So the map is written by assistant and read by org, and the
+executor found nothing: `rulesEvaluated: 0` for a message matching the
+coordinator's rule exactly.
+
+`assistants/service.ts` now publishes the **union** of assistant rule sets
+to the system org after loading. Union, because each rule's own conditions
+decide which fires — merging is what makes it executable rather than
+last-writer-wins. It warns loudly when no org is known, since the silent
+version looks like a broken assistant rather than an unwired one.
+
+## What one call now returns
+
+```
+rulesEvaluated 9, rulesMatched 1          11ms, one round trip
+  catalog /stats          200   totalResources 54, totalAssistants 10
+  runtime /stats          200   loadedGraphs 0, activeExecutions 0
+  network /sdn/topology   503   "service 'network' did not mount,
+                                NETWORK_HASH_SECRET is required in production"
+```
+
+Three services gathered, and the failing branch **named its cause verbatim
+instead of aborting the run**. Partial success reported as partial success
+is exactly what an agent needs from a delegated step.
+
+## Not established
+
+`R3` is unresolved and stays that way. Only the three `service.call` actions
+appear in `actionsExecuted`. The routine declares recall ×3, then `think`,
+then `say` — and neither `think` nor `say` is reported. Whether they ran and
+were omitted from the result, or never ran at all, is not established. The
+local model is loaded and the assistant is configured for openai/anthropic,
+so both "no credential" and "a usable local model" are true at once.
+
+## The DAG side, for contrast
+
+`symbia.state.join` keys on a field in each message. Two arithmetic branches
+both emit `method: "arithmetic"`, so they share a key and the join sits at
+`{have: 0, need: 2}`. `symbia.transform.map` renames fields and cannot
+inject a constant, so nothing in the component set can tag a branch.
+
+**Fan-out works. Fan-in does not. The DAG is currently a tree** (D21).
+
+And `symbia.state.join` declares its `pending` port `lane: "apocryphal"` in
+a signed manifest — *"a statement about coverage, not a joined value, it
+must never be mistaken for the join"* — while the runtime emitted it as
+`lane: "canonical"` (D20). The wire contradicted the signature.
