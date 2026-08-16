@@ -26,6 +26,17 @@ hardcoded ingress all destroy the point).
   Registered ≠ running: `server` (5000) is registered with nothing behind it;
   `RunningServices` is the only place that difference lives.
 
+## Dogfood the sidecar (standing instruction, Brian, 16 Aug)
+- Use the Symbia imagine sidecar for the work itself, not only as the thing
+  under test. Register MAP predictions through `symbia_call` BEFORE
+  measuring, record results after, seal at session close. The chain proves
+  the order of recording; git convention does not.
+- It closes the retroactive-edit hole, not the dishonest-author hole. Say so
+  rather than overclaiming what the mechanism covers.
+- Working outside the framework is allowed and expected in places — but
+  **write down why**, in the session doc, as a platform gap to resolve. An
+  undocumented detour is the defect; the detour itself may not be.
+
 ## Verification discipline
 - Never trust a running process to be the code you wrote — grep a unique
   marker in the running bundle first. Kill by **port**, not `pkill -f`.
