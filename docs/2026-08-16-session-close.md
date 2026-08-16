@@ -45,7 +45,54 @@ bundle cannot be distinguished from a name collision with unrelated content.
 Predicted in `experiments/imagine-import/PREDICTIONS.md` as the likely
 shape, and it was.
 
-### D3 — the logging service returns 500 on its read paths in imagine
+### D3 — the logging service returns 500 on its read paths in imagine — FIXED 16 Aug
+
+**Cause: the same defect, a third time.** `ensureLoggingSchema()` and
+`initSystemBootstrap()` were called only from `logging/index.ts`, so the
+sidecar mounted the routes over a pg-mem holding none of the tables in
+`memory-schema.ts`. Track 1 found component wiring in `runtime/index.ts`;
+Track 2 found the OpenAPI route in `models/index.ts`; this is the third.
+
+`logging/server/src/service.ts` now exports `registerRoutes`, `bootstrap`
+and `middleware`, and `index.ts` delegates. The sidecar's fix is the more
+useful half: it calls `bootstrap()` on **every** service that exports one,
+rather than the hand-maintained list of two that let logging be missed.
+
+This was the first defect worked under the dogfooding rule. Predictions were
+registered through `symbia_call` into the session catalog
+(`contexts/map-d3-logging-500s`) before any diagnosis ran, and results into
+`contexts/map-d3-results` after. Both are mutations in the same session
+chain, so the ordering is a chain position rather than a claim.
+
+| | prediction | verdict |
+|---|---|---|
+| L1 | a store problem, not service code | HELD |
+| L2 | writes work while reads fail | BROKEN — predicted wrong, and was |
+| L3 | one cause for every endpoint | HELD |
+| L4 | the boot log names the cause | BROKEN |
+| L5 | a graph execution's log carries its `executionId` | HELD |
+
+L3 is worth the detail. My own probe reported it BROKEN, because the probe
+sent an ingest body with no `streamId`. Post-fix that request returns a 400
+naming the missing field; pre-fix it returned a 500 like everything else.
+The probe was wrong, not the platform — which is the failure mode a green
+run hides and a red one exposes.
+
+**L5 closes the gap this defect opened.** `executionId
+f391e421-c30f-4a59-9f52-5d53280b6e07` was found in the log service after a
+graph ran. The sink half of an execution is independently confirmed for the
+first time; until now the runtime's report of delivery was its own account
+of its own work.
+
+Two detours from the framework, per the standing rule:
+
+- **Reading the sidecar's stderr required a shell.** There is no API for a
+  mounted service's error detail, and the 500 bodies were generic. A
+  platform gap: a host cannot ask a service why it failed.
+- **Reading source to locate `ensureLoggingSchema` was outside the
+  platform.** That one is ordinary development, not a gap.
+
+### D3 — original entry, as recorded before the fix
 
 `POST /api/logs/query` → `500 {"error":"Failed to query logs"}`.
 `GET /api/logs/streams` → `500 {"error":"Failed to fetch log streams"}`.

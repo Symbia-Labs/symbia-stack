@@ -319,6 +319,25 @@ async function seed() {
   } catch (err) {
     log(`catalog bootstrap failed: ${err.message}`);
   }
+
+  // EVERY OTHER SERVICE THAT EXPORTS ONE, RATHER THAN A LIST TO MAINTAIN.
+  //
+  // identity and catalog are named above because their order matters —
+  // the system org must exist before memberships reference it. The rest
+  // are independent, and naming them individually is how logging came to
+  // be missed: its schema lived in index.ts, so the sidecar mounted routes
+  // over a database with no tables and answered every request with a 500
+  // (D3, 16 Aug). A service that declares a bootstrap gets one called.
+  for (const { id, mod } of services) {
+    if (mod === identityMod || mod === catalogMod) continue;
+    if (typeof mod?.bootstrap !== "function") continue;
+    try {
+      await mod.bootstrap();
+      log(`${id} bootstrap: ok`);
+    } catch (err) {
+      log(`${id} bootstrap failed: ${err.message}`);
+    }
+  }
 }
 
 await seed();

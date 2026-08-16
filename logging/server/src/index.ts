@@ -2,7 +2,7 @@ import { createSymbiaServer, log } from "@symbia/http";
 import { createTelemetryClient } from "@symbia/logging-client";
 import { initServiceRelay, shutdownRelay } from "@symbia/relay";
 import { ServiceId } from "@symbia/sys";
-import { registerRoutes } from "./routes";
+import { registerRoutes, bootstrap } from "./service";
 import { authMiddleware, rlsMiddleware, initSystemBootstrap } from "./auth";
 import { database, exportToFile, isMemory, ensureLoggingSchema } from "./db";
 import { join } from "path";
@@ -40,11 +40,10 @@ const server = createSymbiaServer({
 });
 
 async function start(): Promise<void> {
-  // Ensure PostgreSQL schema exists for out-of-box local Docker runs.
-  await ensureLoggingSchema();
-
-  // Fetch system bootstrap config from Identity for service-to-service auth
-  await initSystemBootstrap();
+  // Schema then system principal, from service.ts, so a host that is not
+  // this file gets them too. Keeping a second copy here is what made the
+  // sidecar answer every logging request with a 500 (16 Aug).
+  await bootstrap();
 
   await server.start();
 
