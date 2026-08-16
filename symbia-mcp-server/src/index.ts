@@ -176,12 +176,42 @@ type ToolResult = {
   isError?: boolean;
 };
 
+/**
+ * Serialize a tool result, staying PARSEABLE when it is too big.
+ *
+ * This used to cut the JSON string at a character count and append a
+ * prose note, producing output no client could parse — measured 16 Aug
+ * (security MAP, S18): a probe could not evaluate a catalog listing
+ * because the answer was large, which is exactly when the answer matters.
+ * Truncate the DATA and say so inside the JSON instead.
+ */
 function respond(data: unknown): ToolResult {
   let text = JSON.stringify(data, null, 2);
+  if (text.length <= CHARACTER_LIMIT) return { content: [{ type: "text", text }] };
+
+  // Arrays are the usual cause: drop items until it fits, and record how
+  // many were dropped so the caller can narrow deliberately.
+  const shrink = (value: unknown): unknown => {
+    if (Array.isArray(value)) {
+      const keep = Math.max(1, Math.floor(value.length / 4));
+      return { _truncated: { of: value.length, shown: keep, note: "narrow with filters or limit/offset" }, items: value.slice(0, keep) };
+    }
+    if (value && typeof value === "object") {
+      const out: Record<string, unknown> = {};
+      for (const [k, v] of Object.entries(value)) out[k] = Array.isArray(v) ? shrink(v) : v;
+      return out;
+    }
+    return value;
+  };
+
+  let shrunk = shrink(data);
+  text = JSON.stringify(shrunk, null, 2);
   if (text.length > CHARACTER_LIMIT) {
-    text =
-      text.slice(0, CHARACTER_LIMIT) +
-      "\n… truncated — use limit/offset or filters to narrow the result.";
+    // Still too large: return a valid JSON envelope rather than a broken one.
+    text = JSON.stringify({
+      _truncated: { note: "result exceeded the character limit even after shrinking; narrow the query" },
+      preview: String(JSON.stringify(data)).slice(0, 2000),
+    }, null, 2);
   }
   return { content: [{ type: "text", text }] };
 }
@@ -595,6 +625,26 @@ server.registerTool(
       // a string through JSON.stringify double-encodes it, and the service
       // rejects `"{\"key\":..."` with a parse error that names neither
       // cause (measured 16 Aug: every write through this tool failed).
+      // A SIZE GUARD AT THE TOOL BOUNDARY, NOT IN EXPRESS.
+      //
+      // Measured twice (16 Aug): an 11 MB body killed the whole sidecar,
+      // and adding an express limit did not save it — the payload never
+      // reaches HTTP. It arrives over stdio, is stringified, buffered and
+      // stored, and the process dies of heap exhaustion, which is not a
+      // catchable exception. The only place that can refuse it is here,
+      // before the bytes are handled at all.
+      const MAX_BODY = Number(process.env.SYMBIA_MAX_BODY_BYTES ?? 1_000_000);
+      const rawSize = args.body === undefined ? 0
+        : typeof args.body === "string" ? args.body.length
+        : JSON.stringify(args.body).length;
+      if (rawSize > MAX_BODY) {
+        return fail(
+          `Body is ${rawSize} bytes; the limit is ${MAX_BODY}. Refused here rather than sent: ` +
+          `a payload this size has killed this process before, taking every mounted service with it. ` +
+          `Split the write, or raise SYMBIA_MAX_BODY_BYTES deliberately.`
+        );
+      }
+
       let body = args.body;
       if (typeof body === "string") {
         const trimmed = body.trim();
@@ -653,7 +703,27 @@ server.registerTool(
 );
 
 async function main(): Promise<void> {
-  const transport = new StdioServerTransport();
+  // THE TRANSPORT BUFFER MUST SIT ABOVE THE TOOL-BOUNDARY GUARD.
+  //
+  // Measured 16 Aug. The SDK's ReadBuffer defaults to 10 MB, and on
+  // overflow `_ondata` catches the throw and calls `close()`, which
+  // removes the stdin listener. An 11 MB tool call therefore produced the
+  // worst available outcome: the process stayed alive and answered
+  // nothing further, forever — no crash to restart from, no error to the
+  // client, no entry anywhere. Every later call in that session timed out.
+  //
+  // Raising this does not make big payloads welcome. It makes the refusal
+  // land at SYMBIA_MAX_BODY_BYTES (1 MB, checked in symbia_call), which
+  // returns a message naming the size and the limit. The buffer is set
+  // well clear of that so the guard, not the transport, is what answers.
+  const transport = new StdioServerTransport(process.stdin, process.stdout, {
+    maxBufferSize: Number(process.env.SYMBIA_MAX_STDIO_BYTES ?? 64 * 1024 * 1024),
+  });
+  // An overflow past even that still kills the session silently. Say so on
+  // stderr, which is the only channel left once stdin is detached.
+  transport.onerror = (err: Error) => {
+    process.stderr.write(`[symbia-mcp] transport error (session may be dead): ${err.message}\n`);
+  };
   await server.connect(transport);
   console.error(`symbia-mcp-server running (stack host: ${HOST}, user: ${EMAIL})`);
 }

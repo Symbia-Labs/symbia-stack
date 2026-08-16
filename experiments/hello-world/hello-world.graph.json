@@ -1,0 +1,19 @@
+{
+  "symbia": "graph/1.0",
+  "name": "hello-world",
+  "version": "0.1.0",
+  "description": "The smallest demonstration of the governed path: one value enters through declared ingress, one component writes it to the platform log store. Registered by gated catalog write, executed by the runtime, verified from the log entry.",
+  "author": "experiments",
+  "nodes": [
+    { "id": "entry", "component": "symbia.io.passthrough" },
+    { "id": "log", "component": "symbia.sink.log",
+      "config": { "level": "info", "message": "hello-world:" } }
+  ],
+  "edges": [
+    { "id": "e1", "source": { "node": "entry", "port": "out" }, "target": { "node": "log", "port": "in" } }
+  ],
+  "metadata": {
+    "role": "probe",
+    "ingress": { "node": "entry", "port": "in" }
+  }
+}

@@ -22,7 +22,8 @@ for svc in catalog identity integrations models logging directory network messag
   # upward — which finds `<svc>/node_modules` only if the bundle lives
   # there. Measured 15 Aug: emitting to this directory instead fails with
   # "Cannot find package 'drizzle-orm'".
-  # identity ships a service.ts (routes + bootstrap in one module graph —
+  # Any service with a service.ts ships THAT (routes + bootstrap + start in
+  # one module graph —
   # a second bundle would carry a second pg-mem and seed a store nobody
   # reads). Others still expose routes.ts only.
   entry="../../$svc/server/src/routes.ts"

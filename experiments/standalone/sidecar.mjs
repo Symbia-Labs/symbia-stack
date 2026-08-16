@@ -54,6 +54,13 @@ process.env.MODELS_PATH = process.env.MODELS_PATH || join(repo, "experiments/sta
 // checked. Imagine's job is to let a client build whatever the APIs
 // allow — and to record every bit of it.
 process.env.RUNTIME_MANIFEST_ENFORCEMENT = process.env.RUNTIME_MANIFEST_ENFORCEMENT || "off";
+// The runtime reconciles the catalog every 30s by default, which suits a
+// deployment where graphs are authored long before the process starts. In
+// imagine every graph is authored after boot, by the client, during the
+// session: a graph created at second 3 was invisible until second 30.
+// Measured 16 Aug — the first run of this probe read loadedGraphs=0.
+process.env.RUNTIME_RECONCILE_INTERVAL_MS =
+  process.env.RUNTIME_RECONCILE_INTERVAL_MS || "3000";
 process.env.SYMBIA_ENFORCEMENT = "off";
 
 const sessionDir = join(here, ".session");
@@ -63,13 +70,43 @@ const ledger = createSessionLedger({
   pubKeyPath: join(sessionDir, "session.pub.pem"),
 });
 
+// A CRASH IN ONE REQUEST MUST NOT END TEN SERVICES.
+//
+// Measured 16 Aug (security MAP, S19): an 11 MB body was accepted and the
+// process was gone on the next probe, taking every mounted service with
+// it — the single-process trade arriving as a fact. A sandbox that dies
+// under load cannot host a long loop, which is the main thing imagine
+// mode is for. These handlers keep the stack alive and say what happened;
+// they do not pretend the request succeeded.
+process.on("uncaughtException", (err) => {
+  log(`UNCAUGHT: ${err?.message ?? err}`);
+  ledger.append("imagine.process.uncaught", { message: String(err?.message ?? err), stack: undefined });
+});
+process.on("unhandledRejection", (reason) => {
+  log(`UNHANDLED REJECTION: ${reason instanceof Error ? reason.message : String(reason)}`);
+  ledger.append("imagine.process.unhandled", { reason: reason instanceof Error ? reason.message : String(reason) });
+});
+
 const app = express();
 const httpServer = createServer(app);
 const mounted = [];
 
 // Recorded before anything is routed, so a mutation is in the trace even
 // when the service it addressed refused it or does not exist.
-app.use(express.json({ limit: "10mb" }));
+// 2 MB, not 10: an imagine session authors artifacts, it does not upload
+// blobs, and the smaller ceiling is what keeps a runaway body from
+// exhausting a process that holds ten services.
+app.use(express.json({ limit: process.env.IMAGINE_BODY_LIMIT || "2mb" }));
+app.use((err, _req, res, next) => {
+  if (err?.type === "entity.too.large") {
+    return res.status(413).json({
+      error: "request body too large for imagine mode",
+      limit: process.env.IMAGINE_BODY_LIMIT || "2mb",
+      hint: "imagine holds ten services in one process; a body big enough to strain it is refused rather than risked",
+    });
+  }
+  return next(err);
+});
 app.use(ledger.middleware);
 
 app.get("/", (_req, res) =>
@@ -134,6 +171,8 @@ app.post("/session/seal", async (_req, res) => {
   }
 });
 
+const services = [];
+
 async function mount(id, spec, attach) {
   const sub = express();
   sub.use(express.json({ limit: "10mb" }));
@@ -147,6 +186,7 @@ async function mount(id, spec, attach) {
     else await mod.registerRoutes(httpServer, sub);
     app.use(`/svc/${id}`, sub);
     mounted.push({ id, ok: true });
+    services.push({ id, mod, app: sub });
     log(`mounted /svc/${id}`);
     return mod;
   } catch (err) {
@@ -240,6 +280,22 @@ async function seed() {
 }
 
 await seed();
+
+// --- start phase -----------------------------------------------------------
+// Routes make a service reachable; loops make it work. Runtime hydrates
+// catalog graphs here, assistants re-reads its roster now that the catalog
+// has contents. Ordered AFTER bootstrap on purpose: a host should not have
+// to know which service seeds which other one — it should be able to say
+// "the stores are ready" and have each service respond.
+for (const { id, mod, app: sub } of services) {
+  if (typeof mod?.start !== "function") continue;
+  try {
+    const out = await mod.start({ app: sub });
+    log(`started ${id}${out ? `: ${JSON.stringify(out)}` : ""}`);
+  } catch (err) {
+    log(`start FAILED ${id}: ${err instanceof Error ? err.message : err}`);
+  }
+}
 
 // --- MCP over stdio ---------------------------------------------------------
 // The MCP server talks HTTP to services by id; SYMBIA_BASE_URL puts it in

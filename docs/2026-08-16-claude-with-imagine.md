@@ -164,6 +164,45 @@ So the single highest-value fix is not new capability. It is
 `createService()`: ten of these twenty-five unlock when a host can call
 `bootstrap()` and start the background loops, and nothing else changes.
 
+## What it costs in context, and what it saves
+
+Running the stack on the same machine as Claude Desktop does not reduce
+what travels to the cloud. Every tool result still enters my context and is
+sent with the next turn. Locality changes where the data lives and how fast
+the call returns; it does not change the token bill. That needs saying
+because "it runs locally" is easy to hear as "it is cheaper", and it is not.
+
+Two things do change it, and both were measured against the running sidecar
+on 16 Aug (`experiments/imagine-security/05-token-cost.mjs`, bytes converted
+at ~4 chars per token, which is an estimate rather than a count):
+
+| | bytes | ~tokens |
+|---|---|---|
+| Tool list, resident all session | 11,481 | 2,870 |
+| 365 operations across 10 services, if each were a tool | 57,833 | 14,458 |
+| One `describe_operation`, on demand | 516 | 129 |
+| One full catalog listing result | 2,350 | 588 |
+
+**The dispatcher is the first saving, and it is structural.** Fifteen tools
+stand in for 365 operations: 2,870 resident tokens instead of 14,458, a
+factor of 5. The comparison understates itself — the 57,833 figure counts
+operation summaries (method, path, one line), not the input schemas a real
+1:1 tool would carry, so 5x is a floor. The trade is a round trip and 129
+tokens when I need a schema I do not have, paid per operation actually used
+rather than per operation that exists.
+
+**Delegation is the second, and it scales with the work.** A graph that runs
+ten steps returns one result. Doing the same ten steps as tool calls puts
+ten results in my context, each one paid for on every subsequent turn of the
+conversation, not just the turn it arrived on. That is the saving that
+grows, and it was not available until today: it depends on a graph authored
+through MCP actually hydrating and executing, which is exactly what T4 and
+T5 measured (`experiments/imagine-security/02-tracks.mjs`).
+
+What is not saved: my own reasoning. Same model, same context window, same
+cost per token. The connector moves work out of my context; it does not make
+the remaining work cheaper.
+
 ## What I would still not claim
 
 Imagine mode does not make me more correct. It makes my working

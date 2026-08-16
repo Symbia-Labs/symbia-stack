@@ -1,0 +1,37 @@
+[
+  {
+    "id": "T1",
+    "verdict": "HELD",
+    "note": "client asked for isBootstrap:true, stored as false"
+  },
+  {
+    "id": "T2",
+    "verdict": "HELD",
+    "note": "11MB -> refused; process alive"
+  },
+  {
+    "id": "T3",
+    "verdict": "HELD",
+    "note": "full catalog listing parsed (2406 chars)"
+  },
+  {
+    "id": "T4",
+    "verdict": "HELD",
+    "note": "runtime holds 1 graph(s) one reconcile pass after the graph was authored through MCP"
+  },
+  {
+    "id": "T5",
+    "verdict": "HELD",
+    "note": "executed, executionId=690d4fa1-72b8-4c45-8fc9-235fd275a7c4"
+  },
+  {
+    "id": "T6",
+    "verdict": "HELD",
+    "note": "roster: calculator, smart-calc, coordinator"
+  },
+  {
+    "id": "BOOT",
+    "verdict": "HELD",
+    "note": "started runtime: {\"graphsLoaded\":0,\"graphsStarted\":0,\"errors\":[]} | started assistants"
+  }
+]

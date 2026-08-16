@@ -33,7 +33,16 @@ const updateResourceSchema = z.object({
   description: z.string().nullable().optional(),
   type: z.enum(resourceTypes).optional(),
   status: z.enum(resourceStatuses).optional(),
-  isBootstrap: z.boolean().optional(),
+  /**
+   * SERVER-OWNED. Not accepted from a caller.
+   *
+   * This flag is the authored/seeded boundary: a sealed imagine bundle
+   * exports rows where `isBootstrap === false`, so a client that can set
+   * it can hide its own artifacts from a bundle or smuggle seeded ones
+   * in. Measured 16 Aug (security MAP, S11): `isBootstrap: true` supplied
+   * on create persisted. A provenance boundary the caller controls is not
+   * a boundary. Seeding sets it directly through storage, not this route.
+   */
   tags: z.array(z.string()).nullable().optional(),
   orgId: z.string().nullable().optional(),
   accessPolicy: accessPolicySchema,
@@ -46,7 +55,17 @@ const createResourceSchema = z.object({
   description: z.string().nullable().optional(),
   type: z.enum(resourceTypes),
   status: z.enum(resourceStatuses).optional(),
-  isBootstrap: z.boolean().optional(),
+  /**
+   * SERVER-OWNED. Not accepted from a caller.
+   *
+   * This flag is the authored/seeded boundary: a sealed imagine bundle
+   * exports rows where `isBootstrap === false`, so a client that can set
+   * it can hide its own artifacts from a bundle or smuggle seeded ones
+   * in. Measured 16 Aug (security MAP, S11): `isBootstrap: true` supplied
+   * on create persisted. A provenance boundary the caller controls is not
+   * a boundary. Seeding sets it directly through storage, not this route.
+   */
+
   tags: z.array(z.string()).nullable().optional(),
   orgId: z.string().nullable().optional(),
   accessPolicy: accessPolicySchema,
