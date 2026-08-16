@@ -121,6 +121,26 @@ if (actualDigest !== sealedDigest) {
   process.exit(1);
 }
 console.log(`artifacts    VERIFIED — ${bundle.artifacts.length} match the digest sealed into the chain`);
+
+// COMPLETENESS IS REPORTED, NOT ENFORCED.
+//
+// A verified chain says every event present follows the one before it. It
+// cannot say whether more events followed the last one held. The bundle
+// carries a count against the session's declared total, and this prints it
+// the way symbia_call prints `_truncated` — hand over what is there and
+// name what is not, rather than refusing a bundle that is merely partial.
+const c = bundle.completeness;
+if (c) {
+  console.log(`trace        ${c.state.toUpperCase()} — ${c.note}`);
+  if (c.gaps?.length) {
+    for (const g of c.gaps) console.log(`             gap between seq ${g.after} and ${g.before}`);
+  }
+} else {
+  console.log(
+    `trace        UNCOUNTED — sealed before events carried positions. ` +
+    `Nothing here can say whether the trace is whole.`
+  );
+}
 console.log(`what that establishes: these bytes are unchanged since sealing.`);
 console.log(`what it does not:      who authored them, or whether they are sound.`);
 

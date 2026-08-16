@@ -31,7 +31,7 @@ import { fileURLToPath } from "node:url";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { createHash } from "node:crypto";
 import { canonicalJson } from "@symbia/crypto";
-import { createSessionLedger } from "./session-ledger.mjs";
+import { createSessionLedger, completenessOf } from "./session-ledger.mjs";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const repo = join(here, "..", "..");
@@ -196,6 +196,10 @@ app.post("/session/seal", async (_req, res) => {
     // the digest that protects the artifacts is not in the chain the
     // importer walks, and the protection is decorative.
     bundle.trace = ledger.read();
+    // Say how much of the session this is. A bundle sealed mid-session is
+    // legitimate and common — the seal endpoint is reachable at any time —
+    // so "unterminated" is a description, not an accusation.
+    Object.assign(bundle, completenessOf(bundle.trace));
     const out = join(sessionDir, `bundle-${Date.now()}.json`);
     writeFileSync(out, JSON.stringify(bundle, null, 2));
     res.json({ mode: "imagine", sealed: out, authoredCount: authored.length, traceEntries: bundle.trace.length, seal: bundle.seal });
@@ -335,6 +339,55 @@ for (const { id, mod, app: sub } of services) {
 process.env.SYMBIA_BASE_URL = BASE;
 process.env.SYMBIA_EMAIL = IMAGINE_EMAIL;
 process.env.SYMBIA_PASSWORD = IMAGINE_PASSWORD;
+
+// --- Takedown ---------------------------------------------------------------
+//
+// There was none. The process was killed and everything stopped mid-flight:
+// the catalog reconcile interval, the state store's flush timer, any running
+// execution — and, worse for a provenance system, the ledger simply ended
+// wherever the process died. `runtime/service.ts` has exported a `stop()`
+// since 15 Aug that nothing ever called.
+//
+// The ledger's closing event is the point. A chain proves each event follows
+// the previous one; it cannot prove the last event you hold is the last one
+// written. Declaring the total on the way out turns "trust this trace" into
+// "23 of 87", which a reader can act on.
+let shuttingDown = false;
+async function takedown(reason, code = 0) {
+  if (shuttingDown) return;
+  shuttingDown = true;
+  log(`takedown (${reason})`);
+
+  for (const { id, mod } of services) {
+    if (typeof mod?.stop !== "function") continue;
+    try {
+      await mod.stop();
+      log(`stopped ${id}`);
+    } catch (err) {
+      // A service that cannot stop cleanly is worth saying so about; it does
+      // not justify skipping the ledger close, which is the part that makes
+      // the trace readable afterwards.
+      log(`stop FAILED ${id}: ${err instanceof Error ? err.message : err}`);
+    }
+  }
+
+  try {
+    const ev = ledger.close(reason);
+    if (ev) log(`ledger closed: ${ev.payload.total} events, head ${ev.checksum}`);
+  } catch (err) {
+    log(`ledger close FAILED: ${err instanceof Error ? err.message : err}`);
+  }
+
+  process.exit(code);
+}
+
+process.on("SIGTERM", () => void takedown("SIGTERM"));
+process.on("SIGINT", () => void takedown("SIGINT"));
+// The client going away is the ordinary end of an imagine session, not an
+// error. Without this the common case — Claude Desktop closing — is the one
+// that never writes a closing event.
+process.stdin.on("close", () => void takedown("stdin closed"));
+process.stdin.on("end", () => void takedown("stdin ended"));
 
 log("starting MCP on stdio — stdout is the protocol from here");
 await import("../../symbia-mcp-server/dist/index.js");

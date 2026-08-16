@@ -28,6 +28,57 @@ import { GENESIS, advance, eventDigest, signEvent, lineageLine } from "@symbia/l
 const sha = (v) =>
   "sha256:" + createHash("sha256").update(typeof v === "string" ? v : canonicalJson(v ?? null)).digest("hex");
 
+/**
+ * How much of a trace is present, said the way the rest of the platform
+ * says it — a count against a declared total, not a verdict.
+ *
+ * `symbia_call` reports `_truncated: {of, shown}`. `symbia_list_operations`
+ * reports `unavailable: [...]`. Both hand back what they have and name what
+ * is missing rather than refusing. A trace is the same shape of problem, so
+ * it gets the same shape of answer: "23 of 87" beats both "trust me" and
+ * "refused".
+ */
+export function completenessOf(events) {
+  const closing = events.find((e) => e.event_type === "imagine.session.closed");
+  const declared = closing?.payload?.total ?? null;
+  const seqs = events.map((e) => e.payload?.seq).filter((n) => Number.isInteger(n));
+  const gaps = [];
+  for (let i = 1; i < seqs.length; i += 1) {
+    if (seqs[i] !== seqs[i - 1] + 1) gaps.push({ after: seqs[i - 1], before: seqs[i] });
+  }
+  const held = events.length;
+
+  if (declared === null) {
+    return {
+      completeness: {
+        held,
+        declared: null,
+        complete: false,
+        gaps,
+        state: "unterminated",
+        note:
+          `${held} events, no declared total. The session did not write a closing ` +
+          `event, so it was killed or is still running. Every event present is ` +
+          `chained and signed; whether any followed them cannot be known from this file.`,
+      },
+    };
+  }
+  return {
+    completeness: {
+      held,
+      declared,
+      complete: held === declared && gaps.length === 0,
+      gaps,
+      state: held === declared && gaps.length === 0 ? "complete" : "partial",
+      note:
+        held === declared && gaps.length === 0
+          ? `${held} of ${declared} events — the whole session.`
+          : `${held} of ${declared} events${gaps.length ? `, ${gaps.length} gap(s)` : ""}. ` +
+            `The session declared ${declared}; this file holds ${held}.`,
+    },
+  };
+}
+
 export function createSessionLedger({ path, pubKeyPath }) {
   // Ephemeral by construction. A key that dies with the process is the
   // honest signer for a mode whose claim is that nothing here persists.
@@ -60,13 +111,29 @@ export function createSessionLedger({ path, pubKeyPath }) {
   // Truncate is now safe: this name belongs to this process alone.
   if (path && existsSync(path)) writeFileSync(path, "");
 
+  /**
+   * EVERY EVENT CARRIES ITS OWN POSITION.
+   *
+   * A hash chain proves each event follows the one before it. It cannot
+   * prove that the last event you hold is the last event that happened —
+   * a truncated chain is a valid chain. So a session that ended, a session
+   * killed mid-write, and a trace someone cut the tail off are byte-
+   * identical to a verifier.
+   *
+   * `seq` is inside the signed payload, so a gap in the middle is
+   * detectable and a position cannot be forged. It does not by itself
+   * catch truncation at the tail — that needs the declared total in the
+   * closing event. Together they let a reader say "23 of 87" instead of
+   * either trusting or refusing.
+   */
   function append(eventType, payload) {
+    const seq = count + 1;
     const ev = {
       event_id: crypto.randomUUID(),
       timestamp: new Date().toISOString(),
       actor_identity: actor,
       event_type: eventType,
-      payload,
+      payload: { ...payload, seq },
       parent_links: [null],
       checksum: "",
       signature: null,
@@ -77,6 +144,23 @@ export function createSessionLedger({ path, pubKeyPath }) {
     count += 1;
     if (path) appendFileSync(path, lineageLine(ev));
     return ev;
+  }
+
+  /**
+   * The last event a session writes: how many there were.
+   *
+   * Its own seq is included in the total it declares, so `total` equals the
+   * seq of this event. A reader holding fewer events than the declared
+   * total knows exactly how many are missing. A reader holding no closing
+   * event at all knows only that the session did not end on its own terms,
+   * which is a different and weaker statement — and one worth making rather
+   * than hiding.
+   */
+  let closed = false;
+  function close(reason) {
+    if (closed) return null;
+    closed = true;
+    return append("imagine.session.closed", { reason, total: count + 1 });
   }
 
   /**
@@ -147,7 +231,8 @@ export function createSessionLedger({ path, pubKeyPath }) {
         }
         head = expected;
       }
-      return { ok: true, of: events.length, head: `sha256:${head}` };
+      return { ok: true, of: events.length, head: `sha256:${head}`, ...completenessOf(events) };
     },
+    close,
   };
 }
