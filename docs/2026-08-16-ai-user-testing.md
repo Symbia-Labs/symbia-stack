@@ -170,3 +170,67 @@ time. The check is, at best, a reminder that authoring happened.
 
 That is a smaller claim than the one this section set out to make, and it is
 the one the measurements support.
+
+---
+
+# The models service — four of five predictions broken
+
+C4 from the capability suite: registered this morning, never run. Predictions
+in `contexts/map-models-service` using the `{claim, refutedBy}` shape;
+results in `contexts/map-models-service-results`.
+
+**Imagine mode can pull a real model through the integrations service and
+run local inference, entirely through MCP.** I predicted it could do none of
+that.
+
+```
+POST /api/models/pull   TheBloke/TinyLlama-1.1B-Chat-v1.0-GGUF
+  668,788,096 bytes through integrations
+  sha256:9fecc3b3cd76bba89d504f29b616eedf7da85b96540e490ca5824d3f7d2776a0
+  artifact.registered, signed, actor service:models:397a981a92654243
+
+POST /v1/chat/completions  model tinyllama-1-1b-chat-v1-0-q4-k-m
+  content "Verified"   10 prompt tokens, 3 completion
+```
+
+The receipted-pull path built in an earlier session had never executed in
+imagine. The lineage event and the digest are on disk and checkable by
+anything that can read a file.
+
+| | prediction | verdict |
+|---|---|---|
+| M1 | zero local models | HELD — as a state, not a capability |
+| M2 | inference fails | **BROKEN** |
+| M3 | the failure names the absence of weights | **BROKEN — my expected-wrong** |
+| M4 | MODELS_PATH exists and is empty | **BROKEN** |
+| M5 | pull cannot complete without a credential | **BROKEN** |
+
+M5 broke on a case I never considered: TheBloke's repositories are public,
+so no credential was required at all. My model of the service was built from
+its code and not from its behaviour.
+
+## Three defects
+
+**D14 — a timeout read as a failure.** The pull returned *"The operation was
+aborted due to timeout"* after 15 seconds. It had not failed. It was
+streaming, finished a minute later, wrote its lineage event, and the model
+ran. This is the worst class of confident negative, because the wrong
+conclusion is *actionable*: an agent reports the pull broken, and a retry
+starts a 668 MB download for the second time.
+
+Fixed. A timeout now says it is not a failure, names what to check, and says
+not to retry blindly.
+
+**D15 — `MODELS_PATH` was set and never created.** A pull opened a
+`.partial` into a directory that did not exist; ENOENT surfaced as a 500.
+One `mkdirSync`.
+
+**D16 — a missing model returns 500 `server_error`.** The message
+distinguishes absence from breakage; the status and type assert breakage. An
+agent reading the status concludes the service is down. Recorded, not fixed.
+
+## What this does not establish
+
+One model, one quantisation, one public repository, one prompt. Nothing here
+speaks to gated repos, credentials, larger weights, memory pressure in a
+single process holding ten services, or concurrent inference.

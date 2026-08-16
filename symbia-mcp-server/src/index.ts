@@ -145,6 +145,22 @@ async function api<T>(service: ServiceName, path: string, opts: ApiOptions = {})
   try {
     r = await doFetch();
   } catch (err) {
+    // A TIMEOUT IS NOT A FAILURE, AND SAYING SO MATTERS.
+    //
+    // Measured 16 Aug: POST /api/models/pull "failed" with
+    // "The operation was aborted due to timeout" after 15s. It had not
+    // failed. It was downloading 668 MB, finished a minute later, wrote a
+    // signed lineage event, and the model ran. An agent reading that error
+    // would report the pull broken and be wrong — the worst kind of
+    // confident negative, because the wrong conclusion is also actionable.
+    if (err instanceof Error && (err.name === "TimeoutError" || /aborted due to timeout/i.test(err.message))) {
+      throw new Error(
+        `${service} ${path} did not respond within 15s. THIS IS NOT A FAILURE — the request was sent ` +
+        `and the operation may still be running; long operations (model pulls, large downloads) routinely ` +
+        `outlast this client timeout. Check the resulting state before concluding anything: for models, ` +
+        `GET /api/models and GET /api/stats. Do not retry blindly, which would start the work twice.`
+      );
+    }
     // "fetch failed" alone is a confident negative: it reads as "the
     // service is broken" when it usually means "nothing answered at the
     // address I tried". Say which address, and what the transport said.

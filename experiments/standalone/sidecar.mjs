@@ -73,6 +73,14 @@ process.env.NODE_ENV = process.env.NODE_ENV || "development";
 process.env.SESSION_SECRET =
   process.env.SESSION_SECRET || `imagine-${Math.random().toString(36).slice(2)}`;
 process.env.MODELS_PATH = process.env.MODELS_PATH || join(repo, "experiments/standalone/.models");
+// SETTING A PATH IS NOT CREATING ONE.
+//
+// Measured 16 Aug: POST /api/models/pull answered
+// `500 ENOENT ... .models/<file>.gguf.partial`. The service was configured
+// correctly and the directory had never existed, so the first thing a pull
+// did was open a temp file into nothing. A filesystem error surfaced as a
+// server error, for what is a setup step nobody had taken.
+mkdirSync(process.env.MODELS_PATH, { recursive: true });
 // LAX ABOUT CANON, STRICT ABOUT RECORDING (ruling 15 Aug).
 // The whole session is apocryphal, so enforcing lane and manifest
 // contracts here would police a distinction that does not apply yet.
