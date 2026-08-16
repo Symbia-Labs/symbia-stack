@@ -15,6 +15,7 @@
  * from the one the routes read.
  */
 import { db } from "./db.js";
+import { authMiddleware } from "./auth.js";
 import { resources, systemSettings } from "../../shared/schema.js";
 import { eq } from "drizzle-orm";
 import { join, dirname } from "path";
@@ -25,6 +26,19 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
 export { registerRoutes } from "./routes.js";
+
+/**
+ * The middleware this service requires to behave correctly.
+ *
+ * Exported because a route table alone is not a service: mounted without
+ * authMiddleware, every write returned 403 "You don't have permission to
+ * create resources" — `req.user` was never populated, so even a super
+ * admin looked anonymous (measured 15 Aug through the MCP dispatcher).
+ * A host that mounts routes and skips this gets a service that is
+ * reachable and wrong, which is worse than one that is absent.
+ */
+export { authMiddleware } from "./auth.js";
+export const middleware = [authMiddleware];
 
 function transformResource(resource: any): any {
   return {

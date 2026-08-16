@@ -14,6 +14,9 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { z } from "zod";
 import { ServicePorts, RunningServices, type ServiceId } from "@symbia/sys";
+import {
+  operationsFor, filterOperations, fillPath, type OperationInfo,
+} from "./dispatcher.js";
 
 // Auth, token-first (14 Aug 2026). SYMBIA_TOKEN is a pre-issued bearer — an
 // Identity API key or a session token — and is the preferred path: no password
@@ -119,7 +122,8 @@ async function login(): Promise<string> {
 }
 
 interface ApiOptions {
-  method?: "GET" | "POST";
+  /** Widened for the dispatcher: any method the REST API declares. */
+  method?: "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
   body?: unknown;
   skipAuth?: boolean;
 }
@@ -410,6 +414,180 @@ server.registerTool(
   async (): Promise<ToolResult> => {
     try { return respond(await api("network", "/api/registry/nodes")); }
     catch (e) { return fail(e); }
+  }
+);
+
+// ---------------------------------------------------------------------------
+// The dispatcher — 1:1 with the REST API in three tools. See dispatcher.ts
+// for why three and not 377.
+// ---------------------------------------------------------------------------
+
+const SYMBIA_MODE = process.env.SYMBIA_MODE ?? "unknown";
+
+/** Every dispatcher response says which mode it touched. */
+function withMode(data: Record<string, unknown>): ToolResult {
+  return respond({ mode: SYMBIA_MODE, ...data });
+}
+
+async function allOperations(): Promise<{ ops: OperationInfo[]; unavailable: Array<{ service: string; error: string }> }> {
+  const ops: OperationInfo[] = [];
+  const unavailable: Array<{ service: string; error: string }> = [];
+  await Promise.all(
+    (RunningServices as ServiceName[]).map(async (svc) => {
+      const entry = await operationsFor(svc, serviceBase(svc), (url) =>
+        fetch(url, { signal: AbortSignal.timeout(8000) }).then((r) => {
+          if (!r.ok) throw new Error(`${r.status}`);
+          return r.json();
+        })
+      );
+      // "No spec" is not "no operations" — say which service could not be asked.
+      if (entry.error) unavailable.push({ service: svc, error: entry.error });
+      ops.push(...entry.ops);
+    })
+  );
+  return { ops, unavailable };
+}
+
+server.registerTool(
+  "symbia_list_operations",
+  {
+    title: "List Symbia API Operations",
+    description:
+      "Discover what this Symbia stack can do. Returns operations read from each service's own OpenAPI spec — id, method, path, summary, and whether it writes. Filter by service, method, or free text. Reads only by default; pass includeWrites to see mutating operations. This is the index for symbia_call: find the operationId here, get its schema with symbia_describe_operation, then execute it. New endpoints appear as soon as a service serves them; the tool list never changes.",
+    inputSchema: z
+      .object({
+        service: z.string().optional().describe(`One of: ${RunningServices.join(", ")}`),
+        method: z.string().optional().describe("GET, POST, PATCH, PUT, DELETE"),
+        q: z.string().optional().describe("Substring over path, operationId, summary, description"),
+        includeWrites: z.boolean().optional().describe("Include mutating operations (default true)"),
+        limit: z.number().optional(),
+      })
+      .strict(),
+    annotations: RO,
+  },
+  async (args): Promise<ToolResult> => {
+    try {
+      const { ops, unavailable } = await allOperations();
+      const matched = filterOperations(ops, args as never);
+      return withMode({
+        total: ops.length,
+        matched: matched.length,
+        unavailable,
+        operations: matched.map((o) => ({
+          service: o.service,
+          operationId: o.operationId,
+          method: o.method,
+          path: o.path,
+          writes: o.writes,
+          destructive: o.destructive || undefined,
+          summary: o.summary,
+        })),
+      });
+    } catch (e) {
+      return fail(e);
+    }
+  }
+);
+
+server.registerTool(
+  "symbia_describe_operation",
+  {
+    title: "Describe a Symbia API Operation",
+    description:
+      "Full parameter and request-body schema for one operation, so a call can be constructed without guessing. Identify it by operationId, or by service + method + path.",
+    inputSchema: z
+      .object({
+        operationId: z.string().optional(),
+        service: z.string().optional(),
+        method: z.string().optional(),
+        path: z.string().optional(),
+      })
+      .strict(),
+    annotations: RO,
+  },
+  async (args): Promise<ToolResult> => {
+    try {
+      const { ops } = await allOperations();
+      const op = ops.find((o) =>
+        args.operationId
+          ? o.operationId === args.operationId
+          : o.service === args.service &&
+            o.method === (args.method ?? "").toUpperCase() &&
+            o.path === args.path
+      );
+      if (!op) {
+        return fail(
+          `No such operation. Use symbia_list_operations to find one${args.operationId ? ` (searched for operationId '${args.operationId}')` : ""}.`
+        );
+      }
+      return withMode({ operation: op });
+    } catch (e) {
+      return fail(e);
+    }
+  }
+);
+
+server.registerTool(
+  "symbia_call",
+  {
+    title: "Call a Symbia API Operation",
+    description:
+      "Execute any operation on this Symbia stack, with the caller's credentials. Path parameters are taken from params; leftover params become the query string. Writes are permitted; DELETE requires confirmDestructive because an agent should never delete by accident. The response carries the operating mode — a write in imagine mode is a sketch, not a record.",
+    inputSchema: z
+      .object({
+        operationId: z.string().optional().describe("From symbia_list_operations"),
+        service: z.string().optional(),
+        method: z.string().optional(),
+        path: z.string().optional().describe("Used with service+method when no operationId"),
+        params: z.record(z.unknown()).optional().describe("Path params first, then query"),
+        body: z.unknown().optional(),
+        confirmDestructive: z.boolean().optional().describe("Required for DELETE"),
+      })
+      .strict(),
+    annotations: {
+      readOnlyHint: false,
+      destructiveHint: true,
+      idempotentHint: false,
+      openWorldHint: false,
+    },
+  },
+  async (args): Promise<ToolResult> => {
+    try {
+      const { ops } = await allOperations();
+      const op = ops.find((o) =>
+        args.operationId
+          ? o.operationId === args.operationId
+          : o.service === args.service &&
+            o.method === (args.method ?? "").toUpperCase() &&
+            o.path === args.path
+      );
+      if (!op) return fail("No such operation. Use symbia_list_operations first.");
+      if (op.destructive && !args.confirmDestructive) {
+        return fail(
+          `${op.operationId} is a DELETE. Re-issue with confirmDestructive: true if that is intended.`
+        );
+      }
+
+      const { path, missing, query } = fillPath(op.path, args.params as Record<string, unknown>);
+      if (missing.length) {
+        return fail(`Missing path parameter(s): ${missing.join(", ")}. See symbia_describe_operation.`);
+      }
+      const qs = new URLSearchParams(
+        Object.entries(query).map(([k, v]) => [k, String(v)] as [string, string])
+      ).toString();
+
+      const result = await api<unknown>(op.service as ServiceName, `${path}${qs ? `?${qs}` : ""}`, {
+        method: op.method as never,
+        body: args.body,
+      });
+      return withMode({
+        called: { service: op.service, operationId: op.operationId, method: op.method, path },
+        wrote: op.writes,
+        result,
+      });
+    } catch (e) {
+      return fail(e);
+    }
   }
 );
 

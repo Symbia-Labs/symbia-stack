@@ -64,6 +64,10 @@ async function mount(id, spec, attach) {
   sub.use(express.json({ limit: "10mb" }));
   try {
     const mod = await import(spec);
+    // A service's own middleware, when it declares any. Without it the
+    // routes are reachable and wrong — catalog returned 403 on every write
+    // because req.user was never populated (measured 15 Aug).
+    for (const mw of mod.middleware ?? []) sub.use(mw);
     if (attach) await attach(mod, sub);
     else await mod.registerRoutes(httpServer, sub);
     app.use(`/svc/${id}`, sub);
@@ -78,6 +82,33 @@ async function mount(id, spec, attach) {
     );
     log(`FAILED /svc/${id}: ${detail}`);
   }
+}
+
+// 3. Listen FIRST, then point peers here, THEN mount.
+//
+// Order is load-bearing and cost a run to learn: services read their
+// peers' URLs from config at IMPORT time, so mounting before the port was
+// known left catalog calling identity on the default port with nothing
+// behind it. Every authenticated write then failed 403 — the token was
+// valid and the verifier was talking to no one.
+const port = await new Promise((resolve) => {
+  httpServer.listen(0, "127.0.0.1", () => resolve(httpServer.address().port));
+});
+const BASE = `http://127.0.0.1:${port}`;
+log(`services on ${BASE} (ephemeral, loopback only)`);
+
+for (const [k, id] of [
+  ["IDENTITY_SERVICE_URL", "identity"],
+  ["CATALOG_SERVICE_URL", "catalog"],
+  ["INTEGRATIONS_SERVICE_URL", "integrations"],
+  ["MODELS_SERVICE_URL", "models"],
+  ["ASSISTANTS_SERVICE_URL", "assistants"],
+  ["LOGGING_SERVICE_URL", "logging"],
+  ["NETWORK_SERVICE_URL", "network"],
+  ["MESSAGING_SERVICE_URL", "messaging"],
+  ["RUNTIME_SERVICE_URL", "runtime"],
+]) {
+  process.env[k] = `${BASE}/svc/${id}`;
 }
 
 // Bundles, because `@shared/*` resolves per service — see RESULTS.md.
@@ -102,27 +133,14 @@ await mount("messaging", "../../messaging/.standalone-routes.mjs");
 await mount("runtime", "../../runtime/.standalone-routes.mjs");
 await mount("assistants", "../../assistants/.standalone-routes.mjs");
 
-// 3. Listen on an ephemeral port — internal plumbing, not a product surface.
-const port = await new Promise((resolve) => {
-  httpServer.listen(0, "127.0.0.1", () => resolve(httpServer.address().port));
-});
-const BASE = `http://127.0.0.1:${port}`;
-log(`services on ${BASE} (ephemeral, loopback only)`);
-
-// Peers point at this process. Set AFTER listen so the port is known; the
-// services read these lazily, per request.
-for (const [k, id] of [
-  ["IDENTITY_SERVICE_URL", "identity"],
-  ["CATALOG_SERVICE_URL", "catalog"],
-  ["INTEGRATIONS_SERVICE_URL", "integrations"],
-  ["MODELS_SERVICE_URL", "models"],
-]) {
-  process.env[k] = `${BASE}/svc/${id}`;
-}
-
 // --- seed, through the API only --------------------------------------------
-const IMAGINE_EMAIL = "imagine@symbia.local";
-const IMAGINE_PASSWORD = `imagine-${Math.random().toString(36).slice(2, 10)}`;
+// The principal is the one identity's own bootstrap creates. Registering a
+// second user gave a member with no capabilities: writes came back 403
+// "You don't have permission to create resources" (measured 15 Aug). In
+// imagine mode the operator owns the sandbox outright — and the mode is
+// stated in every response, so nobody mistakes that for a grounded grant.
+const IMAGINE_EMAIL = process.env.SYMBIA_EMAIL || "dev@example.com";
+const IMAGINE_PASSWORD = process.env.SYMBIA_PASSWORD || "password123";
 
 async function seed() {
   // Bootstrap FIRST: the system org must exist before any membership can
@@ -133,24 +151,6 @@ async function seed() {
     log("identity bootstrap: ok");
   } catch (err) {
     log(`identity bootstrap failed: ${err.message}`);
-  }
-
-  // A user, so the MCP server has something to authenticate as.
-  try {
-    const r = await fetch(`${BASE}/svc/identity/api/auth/register`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      // orgName is load-bearing: a user with no membership has no org
-      // context, and every org-scoped read returns empty rather than
-      // refusing — measured, list_resources said total 0 with 20 seeded.
-      body: JSON.stringify({
-        email: IMAGINE_EMAIL, password: IMAGINE_PASSWORD, name: "Imagine",
-        orgName: "Imagine",
-      }),
-    });
-    log(`seed user: ${r.status === 201 || r.ok ? "created" : `register said ${r.status}`}`);
-  } catch (err) {
-    log(`seed user failed: ${err.message}`);
   }
 
   // Catalog contents via the service's OWN bootstrap — the same call the
