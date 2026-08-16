@@ -141,7 +141,21 @@ async function api<T>(service: ServiceName, path: string, opts: ApiOptions = {})
       body: opts.body !== undefined ? JSON.stringify(opts.body) : undefined,
       signal: AbortSignal.timeout(15000),
     });
-  let r = await doFetch();
+  let r: Response;
+  try {
+    r = await doFetch();
+  } catch (err) {
+    // "fetch failed" alone is a confident negative: it reads as "the
+    // service is broken" when it usually means "nothing answered at the
+    // address I tried". Say which address, and what the transport said.
+    const cause = (err as { cause?: { code?: string; message?: string } })?.cause;
+    throw new Error(
+      `Could not reach ${service} at ${serviceBase(service)}${path} — ` +
+        `${cause?.code ?? ""}${cause?.code ? ": " : ""}${cause?.message ?? (err instanceof Error ? err.message : String(err))}. ` +
+        `This is a connectivity failure, not a service error: ` +
+        `${BASE_URL ? `SYMBIA_BASE_URL=${BASE_URL}` : `port mode, host=${HOST}`}.`
+    );
+  }
   if (r.status === 401 && !opts.skipAuth) {
     await login();
     r = await doFetch();
@@ -588,6 +602,41 @@ server.registerTool(
     } catch (e) {
       return fail(e);
     }
+  }
+);
+
+server.registerTool(
+  "symbia_selftest",
+  {
+    title: "Symbia Connector Self-Test",
+    description:
+      "Diagnose the connector itself: which base URL it addresses, whether a loopback request from THIS process succeeds, and what the transport says when it does not. Use when other tools report connectivity failures — it distinguishes 'the stack is down' from 'this process cannot open a socket'.",
+    inputSchema: z.object({}).strict(),
+    annotations: RO,
+  },
+  async (): Promise<ToolResult> => {
+    const base = BASE_URL ?? `http://${HOST}:${PORTS.identity}`;
+    const probe: Record<string, unknown> = {
+      mode: SYMBIA_MODE,
+      addressing: BASE_URL ? `one-origin: ${BASE_URL}/svc/<id>` : `port map on ${HOST}`,
+      node: process.version,
+      pid: process.pid,
+    };
+    try {
+      const r = await fetch(`${base}/`, { signal: AbortSignal.timeout(5000) });
+      probe.loopback = { ok: true, status: r.status, url: `${base}/` };
+    } catch (err) {
+      const cause = (err as { cause?: { code?: string; message?: string } })?.cause;
+      probe.loopback = {
+        ok: false,
+        url: `${base}/`,
+        code: cause?.code ?? null,
+        detail: cause?.message ?? (err instanceof Error ? err.message : String(err)),
+        meaning:
+          "This process could not open a socket to its own services. The stack may be fine; the connector's environment is not.",
+      };
+    }
+    return respond(probe);
   }
 );
 
