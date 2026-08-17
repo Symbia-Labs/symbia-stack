@@ -803,6 +803,291 @@ registerComponent({
   },
 });
 
+/**
+ * check-v1: the pinned claim-checking algorithm. Two rules, both mechanical,
+ * neither negotiable: a quote must appear verbatim in the source it cites,
+ * and every number in a claim must appear somewhere in canon.
+ *
+ * The checker is deliberately stupid. It cannot be reasoned with, which is
+ * the entire point — a verdict that could be argued into changing is not a
+ * verdict, it is an opinion with extra steps.
+ */
+const CHECK_CLAIMS_VERSION = 'check-v1';
+
+function normV1(s: string): string {
+  return s
+    .normalize('NFKC')
+    .replace(/[‘’]/g, "'")
+    .replace(/[“”]/g, '"')
+    .replace(/[–—]/g, '-')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .toLowerCase();
+}
+
+const NUMBER_RE = /\$?\d[\d,]*(?:\.\d+)?(?:\s*(?:billion|trillion|million|thousand|percent|%))?/g;
+
+function numbersOf(text: string): string[] {
+  const found = normV1(text).match(NUMBER_RE) ?? [];
+  return Array.from(new Set(found.map((n) => n.trim()).filter((n) => /\d/.test(n))));
+}
+
+function numberInCanon(n: string, canonAll: string): boolean {
+  // A figure may be written with or without its currency mark, and "percent"
+  // and "%" are the same number wearing different clothes. Nothing here
+  // invents equivalences beyond that: 42 does not match 42.0, because a
+  // checker that rounds is a checker that can be talked into things.
+  const variants = new Set([n, n.replace(/\$/g, ''), n.replace(/\s*percent/, '%'), n.replace(/%/, ' percent')]);
+  for (const v of variants) if (v && canonAll.includes(v)) return true;
+  return false;
+}
+
+interface ClaimIn { id?: string; claim?: string; source?: string; quote?: string }
+interface ClaimVerdict { id: string; status: 'PASS' | 'FAIL'; problems: string[] }
+
+function checkClaimsCore(
+  claims: ClaimIn[],
+  canon: Record<string, string>
+): { results: ClaimVerdict[]; passed: number; failed: number } {
+  const normCanon: Record<string, string> = {};
+  for (const [k, v] of Object.entries(canon)) normCanon[k] = normV1(v);
+  const all = Object.values(normCanon).join(' || ');
+
+  const results: ClaimVerdict[] = claims.map((c, i) => {
+    const id = c.id ?? `claim-${i + 1}`;
+    const problems: string[] = [];
+    const src = String(c.source ?? '');
+    const q = normV1(String(c.quote ?? ''));
+
+    if (!q) {
+      problems.push('no quote offered — a claim with no citation cannot be checked, which is not the same as being false');
+    } else if (!(src in normCanon)) {
+      problems.push(`cited source "${src}" is not in this canon`);
+    } else if (!normCanon[src].includes(q)) {
+      // MISATTRIBUTION IS ITS OWN FAILURE, AND THE MOST INTERESTING ONE.
+      // A real quote pointed at the wrong document is the signature of
+      // citation laundering, and it reads identically to honest sourcing
+      // until something checks the pairing rather than the words.
+      problems.push(
+        all.includes(q)
+          ? `quote is not in the cited source "${src}" — it appears in another canonical source, so this is a misattribution rather than an invention`
+          : 'quote does not appear verbatim in any canonical source'
+      );
+    }
+    for (const n of numbersOf(String(c.claim ?? ''))) {
+      if (!numberInCanon(n, all)) problems.push(`number "${n}" does not appear anywhere in canon`);
+    }
+    return { id, status: problems.length === 0 ? 'PASS' : 'FAIL', problems };
+  });
+
+  return {
+    results,
+    passed: results.filter((r) => r.status === 'PASS').length,
+    failed: results.filter((r) => r.status === 'FAIL').length,
+  };
+}
+
+/**
+ * A CHECKER THAT CANNOT SEE RED MUST NOT MOUNT.
+ *
+ * Four vectors against a fixed two-document canon: one honest claim and the
+ * three failure modes this component exists to catch. They run at
+ * registration, not in a test suite somebody remembers to invoke — because
+ * the 17 Aug spike ran its control by operator discipline, and discipline is
+ * exactly what a stranger installing a plugin does not inherit.
+ *
+ * A probe that reports success while refusing everything it touched has
+ * measured nothing and reads identically to one that worked. So if these
+ * four do not come out 1/3, the component still registers — and refuses every
+ * invocation, naming the failure. Absent would be quieter and worse.
+ */
+const CONTROL_CANON: Record<string, string> = {
+  'ctrl-a.txt': 'The first canonical document. Value: 42 percent of the total.',
+  'ctrl-b.txt': 'The second canonical document mentions a distinct phrase.',
+};
+const CONTROL_CLAIMS: ClaimIn[] = [
+  { id: 'honest', claim: 'The value is 42 percent.', source: 'ctrl-a.txt', quote: 'Value: 42 percent' },
+  { id: 'fabricated-number', claim: 'The value is 99 percent.', source: 'ctrl-a.txt', quote: 'Value: 42 percent' },
+  { id: 'paraphrase-as-quote', claim: 'The value is stated.', source: 'ctrl-a.txt', quote: 'the value equals forty-two' },
+  { id: 'wrong-source', claim: 'A distinct phrase appears.', source: 'ctrl-a.txt', quote: 'mentions a distinct phrase' },
+];
+const CONTROL_EXPECTED: Record<string, 'PASS' | 'FAIL'> = {
+  honest: 'PASS',
+  'fabricated-number': 'FAIL',
+  'paraphrase-as-quote': 'FAIL',
+  'wrong-source': 'FAIL',
+};
+
+const CHECK_CONTROL = (() => {
+  try {
+    const { results } = checkClaimsCore(CONTROL_CLAIMS, CONTROL_CANON);
+    const got = Object.fromEntries(results.map((r) => [r.id, r.status]));
+    const wrong = Object.entries(CONTROL_EXPECTED).filter(([k, v]) => got[k] !== v);
+    return wrong.length === 0
+      ? { ok: true, detail: 'check-v1 control: 1 honest claim passed, 3 planted failures caught (fabricated number, paraphrase-as-quote, wrong-source)' }
+      : { ok: false, detail: wrong.map(([k, v]) => `${k}: expected ${v}, got ${got[k] ?? 'no result'}`).join('; ') };
+  } catch (e) {
+    return { ok: false, detail: `control threw: ${(e as Error).message}` };
+  }
+})();
+if (!CHECK_CONTROL.ok) {
+  console.error(`[components] symbia.canon.check-claims CONTROL FAILED — ${CHECK_CONTROL.detail}. The component will refuse every invocation.`);
+}
+
+async function loadCanonFromCatalog(resourceId: string): Promise<Record<string, string>> {
+  const catalogUrl = process.env.CATALOG_SERVICE_URL;
+  if (!catalogUrl) throw new Error('CATALOG_SERVICE_URL is not set — no catalog to read canon from');
+  const headers = { 'X-Service-Auth': 'internal' };
+  const listRes = await fetch(`${catalogUrl}/api/resources/${resourceId}/artifacts`, { headers });
+  if (!listRes.ok) throw new Error(`artifact list refused: ${listRes.status} ${(await listRes.text()).slice(0, 200)}`);
+  const artifacts = (await listRes.json()) as Array<{ id: string; name: string; checksum?: string }>;
+  if (!Array.isArray(artifacts) || artifacts.length === 0) throw new Error(`resource ${resourceId} carries no artifacts — nothing to check against`);
+  const out: Record<string, string> = {};
+  for (const a of artifacts) {
+    const dRes = await fetch(`${catalogUrl}/api/artifacts/${a.id}/download`, { headers });
+    if (!dRes.ok) throw new Error(`download refused for "${a.name}": ${dRes.status} ${(await dRes.text()).slice(0, 200)}`);
+    out[a.name] = await dRes.text();
+  }
+  return out;
+}
+
+registerComponent({
+  id: 'symbia.canon.check-claims',
+  name: 'Check Claims Against Canon',
+  description:
+    'Mechanically checks a claim register against a certified corpus: every quote must appear verbatim in the source it cites, every number must appear somewhere in canon. Distinguishes invention from misattribution. Carries its own control vectors, run at registration — a checker that cannot detect a planted failure refuses to answer at all. The verdict is recomputable from the canon digests, the claims digest and the pinned algorithm version, all of which the recipe carries.',
+  inputs: ['in'],
+  outputs: ['out', 'error'],
+  config: {
+    canonResourceId: {
+      type: 'string',
+      required: false,
+      description:
+        'Catalog resource holding the certified canon as artifacts. May instead be supplied per-message as canonResourceId, or the canon passed inline as canon: [{name, text}].',
+    },
+  },
+  lanes: {
+    out: {
+      lane: 'canonical',
+      receipt: 'recipe',
+      note:
+        'the VERDICT is recomputable — same canon digests, same claims, same algorithm version, same result, forever. A verdict about claims that arrived apocryphal tightens to apocryphal like any derivation: the checking was faithful, the thing checked was not recomputable.',
+    },
+    error: { lane: 'apocryphal', note: 'a refusal is not a recomputable value' },
+  },
+  meta: {
+    algorithm: CHECK_CLAIMS_VERSION,
+    controlVectors: CONTROL_CLAIMS.length,
+    controlStatus: CHECK_CONTROL.ok ? 'passing' : 'FAILING',
+    controlDetail: CHECK_CONTROL.detail,
+  },
+  handler: async (input, ctx) => {
+    if (!CHECK_CONTROL.ok) {
+      return {
+        error: {
+          value: {
+            error: 'check-claims refuses to answer: its own control vectors did not pass at registration',
+            control: CHECK_CONTROL.detail,
+            meaning:
+              'A checker that cannot detect a planted failure would return PASS for everything, which is indistinguishable from working. No verdict was produced.',
+          },
+          lane: 'apocryphal' as Lane,
+        },
+      };
+    }
+
+    const v = (input.value ?? {}) as {
+      claims?: ClaimIn[];
+      canon?: Array<{ name: string; text: string }>;
+      canonResourceId?: string;
+    };
+    const claims = Array.isArray(v.claims) ? v.claims : [];
+    if (claims.length === 0) {
+      return {
+        error: {
+          value: {
+            error: 'check-claims refused: no claims to check',
+            accepts: '{claims: [{id?, claim, source, quote}], and either canon: [{name, text}] or canonResourceId}',
+          },
+          lane: 'apocryphal' as Lane,
+        },
+      };
+    }
+
+    let canon: Record<string, string> = {};
+    const rid = v.canonResourceId ?? (ctx.config.canonResourceId ? String(ctx.config.canonResourceId) : undefined);
+    if (Array.isArray(v.canon) && v.canon.length > 0) {
+      for (const c of v.canon) canon[String(c.name)] = String(c.text ?? '');
+    } else if (rid) {
+      try {
+        canon = await loadCanonFromCatalog(rid);
+      } catch (e) {
+        return {
+          error: {
+            value: { error: `check-claims could not read its canon: ${(e as Error).message}`, canonResourceId: rid },
+            lane: 'apocryphal' as Lane,
+          },
+        };
+      }
+    } else {
+      return {
+        error: {
+          value: {
+            error: 'check-claims refused: no canon supplied',
+            meaning: 'Checking claims against nothing would pass everything. A corpus must be named before a verdict can mean anything.',
+          },
+          lane: 'apocryphal' as Lane,
+        },
+      };
+    }
+
+    const canonDigests: Record<string, string> = {};
+    for (const [name, text] of Object.entries(canon)) {
+      canonDigests[name] = createHash('sha256').update(text).digest('hex');
+    }
+    const { results, passed, failed } = checkClaimsCore(claims, canon);
+
+    // The verdict digest covers the algorithm and the per-claim outcomes in
+    // input order — constructed here rather than digesting the whole response,
+    // so the same claims against the same canon produce the same digest on
+    // any machine, whatever else the response happens to carry.
+    const verdictBody = {
+      algorithm: CHECK_CLAIMS_VERSION,
+      results: results.map((r) => ({ id: r.id, status: r.status, problems: r.problems })),
+    };
+    const verdictSha256 = createHash('sha256').update(JSON.stringify(verdictBody)).digest('hex');
+    const claimsSha256 = createHash('sha256')
+      .update(JSON.stringify(claims.map((c) => ({ id: c.id ?? null, claim: c.claim ?? null, source: c.source ?? null, quote: c.quote ?? null }))))
+      .digest('hex');
+
+    return {
+      out: {
+        value: {
+          clean: failed === 0,
+          passed,
+          failed,
+          results,
+          verdictSha256,
+          algorithm: CHECK_CLAIMS_VERSION,
+          canon: canonDigests,
+        },
+        lane: 'canonical' as Lane,
+        receipt: {
+          kind: 'recipe',
+          source: 'symbia.canon.check-claims',
+          recipe: {
+            algorithm: CHECK_CLAIMS_VERSION,
+            canon: canonDigests,
+            claimsSha256,
+            verdictSha256,
+            control: CHECK_CONTROL.detail,
+          },
+        },
+      },
+    };
+  },
+});
+
 registerComponent({
   id: 'symbia.io.delay',
   name: 'Delay',
