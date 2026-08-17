@@ -6,20 +6,30 @@
  * thing whose lifecycle the client owns is also the thing that never needs
  * to change. Rebuild the stack, restart the host, keep the chat window.
  *
- * The only judgement here is what to do when the host is absent. A shim
- * that starts one silently would make "the stack is down" and "I started
- * you a fresh empty one" indistinguishable, which is the confident-negative
- * failure this repo keeps finding. So: attach if a host is there, say so
- * plainly if not, and start one only when asked.
+ * ONE CONVERSATION, ONE HOST — decision of 17 Aug, reversing the 16 Aug
+ * shape. The detached shared host bought rebuild-without-restarting-Claude
+ * and paid for it the next morning: two conversations attached to one
+ * stack, and a host that outlived its dead pipes screamed 4.2 million
+ * signed EPIPEs into a 2.1 GB ledger. So the ordinary path is now: this
+ * shim SPAWNS its own host on an ephemeral port with a private address
+ * file, holds its stdin pipe, and the pipe closing is the host's shutdown
+ * signal. The conversation ending ends the imagination — on purpose, and
+ * by construction rather than by cleanup code. Federation between hosts
+ * comes later; isolation comes first.
  *
- *   node shim.mjs                 attach, or explain why not
- *   node shim.mjs --autostart     attach, or boot a host and then attach
+ *   node shim.mjs                 spawn an owned host and attach to it
+ *   node shim.mjs --attach        attach to a shared host at the default
+ *                                 address file (dev; start one by hand
+ *                                 with: node host.mjs)
+ *   SYMBIA_BASE_URL=...           stack mode — talk to a deployed stack,
+ *                                 spawn nothing
  */
 import { spawn, spawnSync } from "node:child_process";
-import { existsSync } from "node:fs";
+import { existsSync, mkdtempSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
-import { fileURLToPath } from "node:url";
-import { readAddress, ADDRESS_FILE } from "./host-address.mjs";
+import { fileURLToPath, pathToFileURL } from "node:url";
+import { readAddress, addressFile } from "./host-address.mjs";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const log = (...a) => console.error("[shim]", ...a);
@@ -27,7 +37,10 @@ const log = (...a) => console.error("[shim]", ...a);
 // own it. Anything this file has to say goes to stderr.
 console.log = console.error;
 
-const AUTOSTART = process.argv.includes("--autostart") || process.env.IMAGINE_AUTOSTART === "1";
+// --autostart is accepted and ignored: it described the old opt-in for
+// booting a shared host, and installed plugins still pass it. Spawning an
+// owned host is now the default, so the flag asks for what already happens.
+const ATTACH = process.argv.includes("--attach") || process.env.IMAGINE_ATTACH === "1";
 
 /**
  * Is anything actually answering there, and what is it?
@@ -129,20 +142,31 @@ function ensureDependencies() {
   return true;
 }
 
-async function startHost() {
-  log("no host answering — starting one");
-  const child = spawn("/opt/homebrew/bin/node", [join(here, "host.mjs")], {
-    detached: true,
-    stdio: ["ignore", "ignore", "inherit"],
-    env: { ...process.env, IMAGINE_HOST_MODE: "1" },
+async function startOwnedHost() {
+  // A private address file, in a directory only this pair knows. The shared
+  // default file is exactly how two conversations ended up on one stack.
+  process.env.IMAGINE_ADDRESS_FILE = join(mkdtempSync(join(tmpdir(), "imagine-")), "host.json");
+  log("spawning an owned host — one conversation, one host; it dies with this one");
+  const child = spawn(process.execPath, [join(here, "host.mjs")], {
+    // stdin is a pipe this shim holds open and never writes to. It is the
+    // host's lifeline in the literal sense: when this process exits — cleanly,
+    // by crash, or by SIGKILL, which runs no cleanup code at all — the kernel
+    // closes the pipe and the host takes itself down. Lifecycle by
+    // construction, not by handler.
+    stdio: ["pipe", "ignore", "inherit"],
+    env: { ...process.env, IMAGINE_HOST_MODE: "1", IMAGINE_OWNED: "1" },
   });
-  // Detached on purpose: the host must outlive this shim, which is the
-  // entire point of the split.
-  child.unref();
+  // NOT detached, NOT unref'd — the 16 Aug design inverted. Belt to the
+  // pipe's braces: on any exit this process can act on, say goodbye first.
+  process.on("exit", () => { try { child.kill("SIGTERM"); } catch { /* already gone */ } });
 
   const deadline = Date.now() + 60000;
   while (Date.now() < deadline) {
     await new Promise((r) => setTimeout(r, 500));
+    if (child.exitCode !== null) {
+      log(`the host exited (code ${child.exitCode}) before publishing an address — its stderr above is the diagnosis`);
+      return null;
+    }
     const addr = await findHost();
     if (addr) return addr;
   }
@@ -151,27 +175,64 @@ async function startHost() {
 
 if (!ensureDependencies()) process.exit(1);
 
-let host = await findHost();
-if (!host && AUTOSTART) host = await startHost();
+// STACK MODE: A BASE URL THE CALLER SET IS AN INSTRUCTION, NOT A DEFAULT.
+//
+// symbia-mcp-server can address services two ways — `<base>/svc/<id>` when
+// SYMBIA_BASE_URL is set, `host:port` per service when it is not (see
+// serviceBase in its index.ts). That is the whole difference between talking
+// to an imagine host and talking to a docker stack, and the switch has been
+// there all along.
+//
+// Until 17 Aug this file assigned SYMBIA_BASE_URL unconditionally a few lines
+// below, which closed the switch from the outside: no caller could reach it,
+// so the plugin could only ever be pointed at an ephemeral host. Measured, not
+// assumed — the assignment was `=`, not `??=`.
+//
+// A caller who sets it has named a stack that is already running. Nothing to
+// find, nothing to autostart, and no session token to mint: the MCP server's
+// own SYMBIA_SESSION_TOKEN / SYMBIA_TOKEN / SYMBIA_PASSWORD ladder is the
+// credential path there, and it already refuses with a message naming all
+// three when none is present.
+const STACK_BASE = process.env.SYMBIA_BASE_URL?.replace(/\/$/, "") || null;
 
-if (!host) {
-  const addr = readAddress();
-  log(
-    addr
-      ? `A host address is recorded at ${ADDRESS_FILE} (${addr.base}, pid ${addr.pid}) but nothing answers there. ` +
-        `The host died without cleaning up. Start one:  node ${join(here, "host.mjs")}`
-      : `No imagine host is running. Start one:  node ${join(here, "host.mjs")}\n` +
-        `        or run this shim with --autostart to have it boot one.`
-  );
+let host = null;
+if (!STACK_BASE) {
+  host = ATTACH ? await findHost() : await startOwnedHost();
+}
+
+if (!STACK_BASE && !host) {
+  if (ATTACH) {
+    const addr = readAddress();
+    log(
+      addr
+        ? `--attach: an address is recorded at ${addressFile()} (${addr.base}, pid ${addr.pid}) but nothing answers there. ` +
+          `The host died without cleaning up. Start one:  node ${join(here, "host.mjs")}`
+        : `--attach: no shared host is running. Start one:  node ${join(here, "host.mjs")}`
+    );
+  } else {
+    log("the owned host did not come up — its stderr above says why (a boot that fails must name its reason)");
+  }
   process.exit(1);
 }
 
-log(`attached to ${host.base} — mode ${host.mode ?? "unknown"}, pid ${host.pid}, session ${host.session}`);
+if (host) {
+  log(`attached to ${host.base} — mode ${host.mode ?? "unknown"}, pid ${host.pid}, session ${host.session}${ATTACH ? " (shared, --attach)" : " (owned)"}`);
+} else {
+  // Ask the named stack what it is rather than declaring it, for the reason
+  // stated above alive(): the operating mode is a property of the thing
+  // reached, and a transport that asserted one would keep asserting it after
+  // the thing changed. If it answers with no mode, leave SYMBIA_MODE unset and
+  // let the MCP server's own `?? "unknown"` say so.
+  const hello = await alive(STACK_BASE);
+  if (!hello) log(`WARNING: nothing answered at ${STACK_BASE} — starting anyway; every call will fail until it does`);
+  else log(`stack mode — ${STACK_BASE}, mode ${hello.mode ?? "unreported"}`);
+  if (hello?.mode) process.env.SYMBIA_MODE = hello.mode;
+}
 
 // The MCP server addresses services by id against a base URL. That is the
 // whole coupling between these two processes — no shared memory, no shared
 // module graph, one env var.
-process.env.SYMBIA_BASE_URL = host.base;
+if (host) process.env.SYMBIA_BASE_URL = host.base;
 // THE MODE COMES FROM THE HOST, NOT FROM THIS FILE.
 //
 // The first real call through a shim came back `"mode": "unknown"` where
@@ -180,7 +241,7 @@ process.env.SYMBIA_BASE_URL = host.base;
 // it. Every response carries this field, so it is the one piece of state a
 // transport must not guess at: it is the difference between "a write here
 // is a sketch" and "a write here is a record".
-process.env.SYMBIA_MODE = host.mode ?? "unknown";
+if (host) process.env.SYMBIA_MODE = host.mode ?? "unknown";
 
 // THE TOKEN COMES FROM THE FILE, NOT FROM A CONFIG A USER EDITS.
 //
@@ -193,13 +254,47 @@ process.env.SYMBIA_MODE = host.mode ?? "unknown";
 // Now the credential is minted by the host at spawn, readable only by the user
 // who started it, and worthless the moment that process exits. Nobody types
 // it, nobody stores it, nobody rotates it.
-if (host.token) process.env.SYMBIA_HOST_TOKEN = host.token;
-else log("WARNING: the host published no token — it predates the gate, and its routes are open");
+//
+// None of that applies in stack mode. A docker stack mints no per-session
+// token and has never seen this file, so sending SYMBIA_HOST_TOKEN there would
+// be a credential for one gate offered to another.
+if (host) {
+  if (host.token) process.env.SYMBIA_HOST_TOKEN = host.token;
+  else log("WARNING: the host published no token — it predates the gate, and its routes are open");
 
-// Retained for a host that still seeds a named principal. The open question
-// recorded in contexts/map-attachment-hardening is whether a distributed build
-// should have one at all, or whether the session token should BE the principal.
-process.env.SYMBIA_EMAIL = process.env.SYMBIA_EMAIL || "dev@example.com";
-process.env.SYMBIA_PASSWORD = process.env.SYMBIA_PASSWORD || "password123";
+  // Retained for a host that still seeds a named principal. The open question
+  // recorded in contexts/map-attachment-hardening is whether a distributed build
+  // should have one at all, or whether the session token should BE the principal.
+  process.env.SYMBIA_EMAIL = process.env.SYMBIA_EMAIL || "dev@example.com";
+  process.env.SYMBIA_PASSWORD = process.env.SYMBIA_PASSWORD || "password123";
+}
 
-await import("../../symbia-mcp-server/dist/index.js");
+// WHERE THE MCP SERVER IS DEPENDS ON WHICH PACKAGING THIS IS.
+//
+// This was a single relative import two levels up, which was correct exactly
+// once: from experiments/standalone/, where two levels up was the repository
+// root. It survived two moves that each broke it silently.
+//
+// In the installed plugin it resolved to <plugins-dir>/symbia-mcp-server, one
+// level above the plugin root — measured 17 Aug against the installed copy,
+// ERR_MODULE_NOT_FOUND, which is why the connector could not start while the
+// host it attaches to was running and healthy.
+//
+// The rename to imagine/ broke the repository case the same way, one level
+// short, and nothing reported it: check-deps.mjs reads this file but collects
+// bare package specifiers, and a relative path is not a package name.
+//
+// So: name the candidates, and if none exists say which were tried. A missing
+// import that names nothing is the failure this repository keeps paying for.
+const MCP_CANDIDATES = [
+  join(here, "mcp-server", "index.js"),          // packaged, and the repo after a build
+  join(here, "..", "symbia-mcp-server", "dist", "index.js"), // repository checkout
+];
+const mcpEntry = MCP_CANDIDATES.find((p) => existsSync(p));
+if (!mcpEntry) {
+  log("could not find symbia-mcp-server. Tried:");
+  for (const c of MCP_CANDIDATES) log(`  ${c}`);
+  log("In a checkout: npm run build -w symbia-mcp-server. In a plugin: the archive was built without it.");
+  process.exit(1);
+}
+await import(pathToFileURL(mcpEntry).href);

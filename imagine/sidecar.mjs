@@ -208,14 +208,60 @@ const ledger = createSessionLedger({
 // under load cannot host a long loop, which is the main thing imagine
 // mode is for. These handlers keep the stack alive and say what happened;
 // they do not pretend the request succeeded.
-process.on("uncaughtException", (err) => {
-  log(`UNCAUGHT: ${err?.message ?? err}`);
-  ledger.append("imagine.process.uncaught", { message: String(err?.message ?? err), stack: undefined });
-});
-process.on("unhandledRejection", (reason) => {
-  log(`UNHANDLED REJECTION: ${reason instanceof Error ? reason.message : String(reason)}`);
-  ledger.append("imagine.process.unhandled", { reason: reason instanceof Error ? reason.message : String(reason) });
-});
+// A DEAD PIPE IS A FACT, NOT AN EXCEPTION.
+//
+// Measured 17 Aug: a detached host whose parent pipes had died threw EPIPE
+// on every console write; the crash handler below logged each one — to the
+// same dead console — and ledgered it, 4,237,520 signed events at ~10,400/sec,
+// 2.13 GB in 16 minutes, SIGTERM unserviceable throughout. Swallowing stream
+// errors at the stream means a dead stderr silences this process instead of
+// deafening it.
+for (const s of [process.stdout, process.stderr]) s.on("error", () => {});
+
+// THE CRASH HANDLER MUST BE BORING.
+//
+// Three properties, each one absent on 17 Aug and each one paid for:
+// re-entrancy safe (a handler that can crash calls itself forever);
+// coalescing (4.2M identical rows carry one row of information — "count"
+// keeps completeness declarable while the disk survives); and bounded (a
+// process screaming identically a hundred times in ten seconds is not
+// having requests fail, it is broken — for a sketch host the honest response
+// is takedown, because a record that grows without bound destroys the
+// machine keeping it).
+let inCrashHandler = false;
+const crashRepeats = new Map(); // message -> { count, windowStart }
+function recordCrash(kind, message) {
+  if (inCrashHandler) return;
+  inCrashHandler = true;
+  try {
+    const now = Date.now();
+    let r = crashRepeats.get(message);
+    if (!r || now - r.windowStart > 10_000) {
+      r = { count: 0, windowStart: now };
+      crashRepeats.set(message, r);
+    }
+    r.count++;
+    if (r.count === 1) {
+      log(`${kind.toUpperCase()}: ${message}`);
+      ledger.append(`imagine.process.${kind}`, { message });
+    } else if (r.count === 10 || r.count % 1000 === 0) {
+      ledger.append(`imagine.process.${kind}.repeated`, { message, count: r.count, windowMs: now - r.windowStart });
+    }
+    if (r.count >= 100) {
+      ledger.append(`imagine.process.${kind}.storm`, { message, count: r.count, windowMs: now - r.windowStart });
+      // takedown is assigned later in this module; a storm during boot would
+      // find it undefined. A storming boot has nothing to shut down cleanly —
+      // exit is the correct verb, and the storm event above is already in the
+      // ledger.
+      try { void takedown(`crash storm: "${message}" x${r.count} in ${now - r.windowStart}ms`, 1); }
+      catch { process.exit(1); }
+    }
+  } finally {
+    inCrashHandler = false;
+  }
+}
+process.on("uncaughtException", (err) => recordCrash("uncaught", String(err?.message ?? err)));
+process.on("unhandledRejection", (reason) => recordCrash("unhandled", reason instanceof Error ? reason.message : String(reason)));
 
 const app = express();
 const httpServer = createServer(app);
@@ -605,7 +651,12 @@ const port = await new Promise((resolve) => {
   // Ephemeral by default. In HOST mode a fixed port is used so a shim can
   // find the stack again after the host restarts — an ephemeral port would
   // move on every restart, which is the thing this split exists to avoid.
-  const wanted = process.env.IMAGINE_HOST_MODE ? Number(process.env.IMAGINE_HOST_PORT || 7717) : 0;
+  // An OWNED host (17 Aug: one conversation, one host) is found via its
+  // private address file, never by a well-known port — ephemeral, so any
+  // number of conversations can hold their own stacks at once. The fixed
+  // port survives only for a deliberately shared dev host started by hand.
+  const wanted = process.env.IMAGINE_HOST_MODE && process.env.IMAGINE_OWNED !== "1"
+    ? Number(process.env.IMAGINE_HOST_PORT || 7717) : 0;
   httpServer.listen(wanted, "127.0.0.1", () => resolve(httpServer.address().port));
 });
 const BASE = `http://127.0.0.1:${port}`;
@@ -793,10 +844,18 @@ process.on("SIGINT", () => void takedown("SIGINT"));
 // The client going away is the ordinary end of an imagine session, not an
 // error. Without this the common case — Claude Desktop closing — is the one
 // that never writes a closing event.
-if (!process.env.IMAGINE_HOST_MODE) {
-  // Only a shim has a client on stdin. A host is nobody's child.
+if (!process.env.IMAGINE_HOST_MODE || process.env.IMAGINE_OWNED === "1") {
+  // Merged mode: the client is on stdin. Owned host mode (17 Aug): stdin is
+  // a pipe held open by the shim that spawned this host — one conversation,
+  // one host — and that pipe closing IS the conversation ending. The
+  // alternative was measured yesterday: a detached host whose pipes died
+  // treated every subsequent console write as an exception and screamed
+  // 4.2 million signed EPIPEs into its own ledger. The pipe is a shutdown
+  // signal, not an error.
+  process.stdin.resume();
   process.stdin.on("close", () => void takedown("stdin closed"));
   process.stdin.on("end", () => void takedown("stdin ended"));
+  process.stdin.on("error", () => void takedown("stdin errored"));
 }
 
 ready = true;
@@ -810,7 +869,7 @@ globalThis.__imagineBootCompletedAt = bootCompletedAt;
 if (process.env.IMAGINE_HOST_MODE) {
   // HOST MODE. No MCP here — a shim owns that, in the process Claude
   // Desktop spawned. Publish the address and stay up.
-  const { ADDRESS_FILE, clearAddress, writeAddress } = await import("./host-address.mjs");
+  const { addressFile, clearAddress, writeAddress } = await import("./host-address.mjs");
   writeAddress({
     base: BASE,
     pid: process.pid,
@@ -832,7 +891,7 @@ if (process.env.IMAGINE_HOST_MODE) {
   // badly rather than a lie about where to connect.
   const wasTakedown = takedown;
   takedown = async (reason, code = 0) => { clearAddress(); return wasTakedown(reason, code); };
-  log(`host mode: stack on ${BASE}, address at ${ADDRESS_FILE}`);
+  log(`host mode${process.env.IMAGINE_OWNED === "1" ? " (owned — dies with its shim)" : ""}: stack on ${BASE}, address at ${addressFile()}`);
   log("no MCP in this process — start a shim to attach a client");
 } else {
   log("starting MCP on stdio — stdout is the protocol from here");

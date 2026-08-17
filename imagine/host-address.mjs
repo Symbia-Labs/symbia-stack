@@ -11,7 +11,21 @@ import { existsSync, readFileSync, unlinkSync, writeFileSync, mkdirSync } from "
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
-export const ADDRESS_FILE = join(dirname(fileURLToPath(import.meta.url)), ".session", "host.json");
+const DEFAULT_ADDRESS_FILE = join(dirname(fileURLToPath(import.meta.url)), ".session", "host.json");
+
+/**
+ * Resolved per call, not at import — because since 17 Aug the ORDINARY case
+ * is an owned host: one conversation, one host, and the shim that spawned it
+ * tells it where to publish itself (IMAGINE_ADDRESS_FILE, a path only that
+ * pair shares). Two conversations can no longer race one shared file, which
+ * is how two chat windows ended up attached to one stack and a host ended up
+ * outliving the pipe it was screaming into. The fixed default remains for a
+ * deliberately shared dev host, started by hand.
+ */
+export function addressFile() {
+  return process.env.IMAGINE_ADDRESS_FILE || DEFAULT_ADDRESS_FILE;
+}
+export const ADDRESS_FILE = DEFAULT_ADDRESS_FILE;
 
 /**
  * Write the address a shim will attach to.
@@ -31,8 +45,9 @@ export const ADDRESS_FILE = join(dirname(fileURLToPath(import.meta.url)), ".sess
  * transport instead of to signatures.
  */
 export function writeAddress(address) {
-  mkdirSync(dirname(ADDRESS_FILE), { recursive: true });
-  writeFileSync(ADDRESS_FILE, JSON.stringify(address, null, 2), { mode: 0o600 });
+  const file = addressFile();
+  mkdirSync(dirname(file), { recursive: true });
+  writeFileSync(file, JSON.stringify(address, null, 2), { mode: 0o600 });
 }
 
 /**
@@ -41,10 +56,11 @@ export function writeAddress(address) {
  * caller must confirm with a request before believing it.
  */
 export function readAddress() {
-  if (!existsSync(ADDRESS_FILE)) return null;
-  try { return JSON.parse(readFileSync(ADDRESS_FILE, "utf8")); } catch { return null; }
+  const file = addressFile();
+  if (!existsSync(file)) return null;
+  try { return JSON.parse(readFileSync(file, "utf8")); } catch { return null; }
 }
 
 export function clearAddress() {
-  try { unlinkSync(ADDRESS_FILE); } catch { /* already gone */ }
+  try { unlinkSync(addressFile()); } catch { /* already gone */ }
 }
