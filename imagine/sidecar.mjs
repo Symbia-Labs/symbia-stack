@@ -28,7 +28,7 @@ import { createServer } from "node:http";
 import { readFileSync, readdirSync, existsSync } from "node:fs";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
-import { mkdirSync, writeFileSync } from "node:fs";
+import { mkdirSync, writeFileSync, openSync, writeSync } from "node:fs";
 import { createHash } from "node:crypto";
 import { canonicalJson } from "@symbia/crypto";
 import { randomBytes } from "node:crypto";
@@ -115,10 +115,20 @@ const repo = join(here, "..", "..");
 const RING = [];
 const RING_MAX = Number(process.env.IMAGINE_LOG_RING || 2000);
 let inFlight = null;
+// host.log, written BY THE HOST with a sync fd. Measured 17 Aug: a host died
+// mid-smoke-test and its cause of death was unrecoverable — stderr went to a
+// shim whose logs nobody could find, and nothing on disk held the last words.
+// A file the host writes itself survives the shim, the connector, and the
+// conversation. writeSync because the lines that matter most are the ones
+// just before an exit no stream would have flushed.
+let hostLogFd = null;
 function ring(args) {
   const line = args.map((a) => (typeof a === "string" ? a : (() => { try { return JSON.stringify(a); } catch { return String(a); } })())).join(" ");
   RING.push({ at: Date.now(), line, during: inFlight });
   if (RING.length > RING_MAX) RING.shift();
+  if (hostLogFd !== null) {
+    try { writeSync(hostLogFd, `${new Date().toISOString()} ${line}\n`); } catch { /* a log that cannot write must not throw */ }
+  }
 }
 const realError = console.error.bind(console);
 const log = (...a) => { ring(["[sidecar]", ...a]); realError("[sidecar]", ...a); };
@@ -195,6 +205,12 @@ process.env.SYMBIA_ENFORCEMENT = "off";
 
 const sessionDir = join(here, ".session");
 mkdirSync(sessionDir, { recursive: true });
+// Open host.log and flush the boot lines that predate it. From here every
+// tee'd console line lands on disk synchronously — see ring() for why.
+try {
+  hostLogFd = openSync(join(sessionDir, "host.log"), "a");
+  for (const e of RING) writeSync(hostLogFd, `${new Date(e.at).toISOString()} ${e.line}\n`);
+} catch { /* a host without a log file still hosts */ }
 const ledger = createSessionLedger({
   path: join(sessionDir, "ledger.jsonl"),
   pubKeyPath: join(sessionDir, "session.pub.pem"),
@@ -448,7 +464,7 @@ app.get("/session", (_req, res) =>
  * authorship or soundness, because the signing key is ephemeral and
  * travels inside the bundle. Design mode postprocesses it.
  */
-app.post("/session/seal", async (_req, res) => {
+async function sealSession(trigger = "api") {
   try {
     const catalogUrl = process.env.CATALOG_SERVICE_URL;
     const rows = catalogUrl
@@ -531,6 +547,7 @@ app.post("/session/seal", async (_req, res) => {
       trace: ledger.read(),
     };
     const sealEvent = ledger.append("imagine.session.sealed", {
+      trigger,
       authoredCount: authored.length,
       traceEntries: bundle.trace.length,
       artifactsDigest,
@@ -548,12 +565,12 @@ app.post("/session/seal", async (_req, res) => {
     // "this session's ledger is not this session's alone".
     const selfCheck = ledger.verify();
     if (!selfCheck.ok) {
-      return res.status(500).json({
+      return { ok: false, status: 500, result: {
         error: "refusing to seal: this session's own ledger does not verify",
         detail: selfCheck,
         meaning:
           "The trace contains events this session did not write, or wrote under another key. Nothing was sealed.",
-      });
+      } };
     }
     // Re-read so the bundle's trace ENDS with the seal event. Without this
     // the digest that protects the artifacts is not in the chain the
@@ -565,10 +582,15 @@ app.post("/session/seal", async (_req, res) => {
     Object.assign(bundle, completenessOf(bundle.trace));
     const out = join(sessionDir, `bundle-${Date.now()}.json`);
     writeFileSync(out, JSON.stringify(bundle, null, 2));
-    res.json({ mode: "imagine", sealed: out, authoredCount: authored.length, traceEntries: bundle.trace.length, seal: bundle.seal });
+    return { ok: true, status: 200, result: { mode: "imagine", trigger, sealed: out, authoredCount: authored.length, traceEntries: bundle.trace.length, seal: bundle.seal } };
   } catch (err) {
-    res.status(500).json({ error: err instanceof Error ? err.message : String(err) });
+    return { ok: false, status: 500, result: { error: err instanceof Error ? err.message : String(err) } };
   }
+}
+
+app.post("/session/seal", async (_req, res) => {
+  const s = await sealSession("api");
+  res.status(s.status).json(s.result);
 });
 
 const services = [];
@@ -815,6 +837,24 @@ let takedown = async (reason, code = 0) => {
   if (shuttingDown) return;
   shuttingDown = true;
   log(`takedown (${reason})`);
+
+  // SEAL BEFORE STOPPING ANYTHING. The seal reads artifacts from the
+  // catalog, so it must run while services still answer. Capped at 5s: a
+  // takedown that hangs on its own seal is worse than an unsealed exit.
+  // Why this exists: on 17 Aug a plugin re-sync unlinked a live host's
+  // files mid-session and the entire smoke test's record vanished with the
+  // process. Losing the ephemeral stack is the doctrine; losing the
+  // unsealed record silently is not. Every exit now tries to leave a
+  // bundle behind, whatever the reason for leaving.
+  try {
+    const s = await Promise.race([
+      sealSession(`takedown:${reason}`),
+      new Promise((r) => setTimeout(() => r({ ok: false, result: { error: "seal timed out at 5s" } }), 5000)),
+    ]);
+    log(s.ok ? `sealed on takedown: ${s.result.sealed}` : `takedown seal FAILED: ${s.result.error}`);
+  } catch (err) {
+    log(`takedown seal threw: ${err instanceof Error ? err.message : err}`);
+  }
 
   for (const { id, mod } of services) {
     if (typeof mod?.stop !== "function") continue;

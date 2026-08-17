@@ -822,6 +822,17 @@ async function main(): Promise<void> {
   // land at SYMBIA_MAX_BODY_BYTES (1 MB, checked in symbia_call), which
   // returns a message naming the size and the limit. The buffer is set
   // well clear of that so the guard, not the transport, is what answers.
+/**
+ * The imagine host authorises by possession of the per-spawn session token,
+ * which the shim read from the address file and placed in this process's
+ * env. Empty against a deployed stack, which has its own credential ladder
+ * and has never seen a host token.
+ */
+function hostAuthHeaders(): Record<string, string> {
+  const t = process.env.SYMBIA_HOST_TOKEN;
+  return t ? { Authorization: `Bearer ${t}` } : {};
+}
+
 server.tool(
   "symbia_diagnose",
   "Ask why a request failed. Pairs recent non-2xx responses with the log lines the service emitted while they were in flight. Use when an endpoint returns a generic error — services catch their own faults and answer with the operation name, not the cause, so the detail exists only in the process log. The pairing is a time window and says so.",
@@ -836,6 +847,9 @@ server.tool(
     const base = BASE_URL ?? `http://${HOST}:${PORTS.identity}`;
     try {
       const r = await fetch(`${base}/session/diagnostics?limit=${args.limit ?? 10}`, {
+        // The host authorises by possession of the session token. This fetch
+        // sent nothing and 401'd against every gated host on 16 Aug.
+        headers: hostAuthHeaders(),
         signal: AbortSignal.timeout(8000),
       });
       if (!r.ok) {
@@ -851,6 +865,45 @@ server.tool(
       return fail(
         `Could not reach ${base}/session/diagnostics${cause?.code ? ` (${cause.code})` : ""}. ` +
         `Available in imagine mode only.`
+      );
+    }
+  }
+);
+
+server.tool(
+  "symbia_seal",
+  "Seal this imagine session into a portable, signed bundle: every artifact the session authored, the full trace, and the public key that verifies the chain. The seal asserts these bytes came from this session unaltered — nothing about who ran it or whether the work is sound. Sealing is a cut, not an ending: the session continues and can be sealed again. Use before finishing work, before anything risky, or whenever the record so far should survive the process. Returns the bundle path and completeness.",
+  {},
+  async (): Promise<ToolResult> => {
+    // EVERY CONVERSATION SHOULD END HOLDING A BUNDLE.
+    //
+    // Found 17 Aug, check 12 of the install smoke test: on an owned host the
+    // session token is private to the shim–host pair — which is the
+    // attachment hardening working — so NOTHING could ask for a seal: not an
+    // outside process (locked out by design) and not the agent (no tool).
+    // The doctrine says the sealed bundle is the keepable artifact of an
+    // ephemeral session; this is the tool that makes that reachable from
+    // inside the pair, where the credential already lives.
+    const base = BASE_URL ?? `http://${HOST}:${PORTS.identity}`;
+    try {
+      const r = await fetch(`${base}/session/seal`, {
+        method: "POST",
+        headers: hostAuthHeaders(),
+        signal: AbortSignal.timeout(20000),
+      });
+      const body = await r.json();
+      if (!r.ok) {
+        return fail(
+          `Seal refused (${r.status}): ${JSON.stringify(body).slice(0, 400)}. ` +
+          `A refusal here usually means the ledger did not verify — which is itself the finding.`
+        );
+      }
+      return respond(body);
+    } catch (err) {
+      const cause = (err as { cause?: { code?: string } })?.cause;
+      return fail(
+        `Could not reach ${base}/session/seal${cause?.code ? ` (${cause.code})` : ""}. ` +
+        `Sealing belongs to the imagine host; a deployed stack does not serve it.`
       );
     }
   }
