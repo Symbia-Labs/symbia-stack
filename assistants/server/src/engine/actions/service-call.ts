@@ -37,6 +37,11 @@ function getServiceEndpoint(service: string): string | null {
     runtime: ServiceId.RUNTIME,
     network: ServiceId.NETWORK,
     integrations: ServiceId.INTEGRATIONS,
+    // Absent until 16 Aug, which stranded local inference behind the assistant
+    // layer: with llm.invoke gated on a broken health probe, the obvious
+    // workaround — service.call straight to /v1/chat/completions — failed with
+    // "Unknown service: models". Every other mounted service was addressable.
+    models: ServiceId.MODELS,
   };
 
   const serviceId = serviceMap[service];

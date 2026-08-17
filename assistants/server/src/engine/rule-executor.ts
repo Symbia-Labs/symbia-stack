@@ -178,16 +178,38 @@ export class RuleExecutor {
       for (const actionConfig of rule.actions) {
         console.log(`[RuleExecutor] Executing action: ${actionConfig.type}`);
         const handler = getActionHandler(actionConfig.type);
-        
+
+        let result!: ActionResult;
+
         if (!handler) {
-          actionResults.push({
+          // AN ACTION THE ENGINE DOES NOT HAVE IS A FAILED ACTION.
+          //
+          // This branch used to `continue`: push a failure into the results
+          // and move to the next action as if this one had succeeded. onError
+          // never ran, the chain never broke, and a later message.send
+          // rendered its template over a step that had never executed —
+          // sending "" sealed as RETRIEVED, "returned verbatim", steps: [].
+          // A valid signature over a false claim, found 16 Aug by writing
+          // llm.complete where the engine has llm.invoke.
+          //
+          // A handler that THREW already took the failure path below. Only the
+          // handler that never existed skipped it. Now both fall through to
+          // the same place, and the refusal itself is a step in the record.
+          result = {
             success: false,
             actionType: actionConfig.type as ActionResult['actionType'],
             error: `Unknown action type: ${actionConfig.type}`,
             durationMs: 0,
+          };
+          provenance.push({
+            id: (actionConfig as { id?: string }).id || actionConfig.type,
+            action: actionConfig.type,
+            source: 'no handler for this action type — nothing executed',
+            ok: false,
+            ms: 0,
+            error: result.error,
           });
-          continue;
-        }
+        } else {
         
         // DETERMINISTIC REFUSES. PROBABILISTIC TRIES AGAIN. EVERY ATTEMPT IS
         // RECORDED.
@@ -205,7 +227,6 @@ export class RuleExecutor {
         // retry does, and why this is not one.
         const maxAttempts =
           kind === 'probabilistic' ? Math.max(1, ruleSetMaxAttempts) : 1;
-        let result!: ActionResult;
         let attempt = 0;
 
         while (attempt < maxAttempts) {
@@ -283,6 +304,7 @@ export class RuleExecutor {
             );
           }
         }
+        } // handler existed; unknown-type failures joined here already carrying their result
 
         actionResults.push(result);
 

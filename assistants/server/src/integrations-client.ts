@@ -254,7 +254,14 @@ async function invokeViaIntegrations(
  */
 export async function isIntegrationsAvailable(): Promise<boolean> {
   try {
-    const response = await fetch(`${INTEGRATIONS_SERVICE_URL}/health`, {
+    // Probe a route Integrations actually serves. This checked `/health`,
+    // which the service does not mount — it 404'd on every host, so this
+    // returned false forever and every llm.invoke died with "Integrations
+    // service is not available" while inference worked fine one door over.
+    // Found 16 Aug: the gatekeeper was looking at the wrong door.
+    // /api/integrations/status is unauthenticated by design and answers on
+    // any live instance.
+    const response = await fetch(`${INTEGRATIONS_SERVICE_URL}/api/integrations/status`, {
       method: "GET",
       signal: AbortSignal.timeout(2000),
     });

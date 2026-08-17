@@ -584,7 +584,9 @@ async function invokeViaIntegrations(token, options) {
 }
 async function isIntegrationsAvailable() {
   try {
-    const response = await fetch(`${INTEGRATIONS_SERVICE_URL}/health`, {
+    // Probe a route Integrations actually serves — /health 404s on every
+    // host, which disabled llm.invoke platform-wide. Mirrors source fix.
+    const response = await fetch(`${INTEGRATIONS_SERVICE_URL}/api/integrations/status`, {
       method: "GET",
       signal: AbortSignal.timeout(2e3)
     });
@@ -1415,7 +1417,10 @@ function getServiceEndpoint(service) {
     messaging: ServiceId2.MESSAGING,
     runtime: ServiceId2.RUNTIME,
     network: ServiceId2.NETWORK,
-    integrations: ServiceId2.INTEGRATIONS
+    integrations: ServiceId2.INTEGRATIONS,
+    // Absent until 16 Aug — stranded local inference behind the assistant
+    // layer. Mirrors source fix in service-call.ts.
+    models: ServiceId2.MODELS
   };
   const serviceId = serviceMap[service];
   if (!serviceId) return null;
@@ -4267,17 +4272,28 @@ var init_rule_executor = __esm({
           for (const actionConfig of rule.actions) {
             console.log(`[RuleExecutor] Executing action: ${actionConfig.type}`);
             const handler = getActionHandler(actionConfig.type);
+            let result;
             if (!handler) {
-              actionResults.push({
+              // AN ACTION THE ENGINE DOES NOT HAVE IS A FAILED ACTION. This
+              // branch used to `continue`, skipping onError and the chain
+              // break; a later message.send then sealed "" as RETRIEVED.
+              // Found 16 Aug. Mirrors the source fix in rule-executor.ts.
+              result = {
                 success: false,
                 actionType: actionConfig.type,
                 error: `Unknown action type: ${actionConfig.type}`,
                 durationMs: 0
+              };
+              provenance.push({
+                id: actionConfig.id || actionConfig.type,
+                action: actionConfig.type,
+                source: "no handler for this action type — nothing executed",
+                ok: false,
+                ms: 0,
+                error: result.error
               });
-              continue;
-            }
+            } else {
             const maxAttempts = kind === "probabilistic" ? Math.max(1, ruleSetMaxAttempts) : 1;
-            let result;
             let attempt = 0;
             while (attempt < maxAttempts) {
               attempt++;
@@ -4327,6 +4343,7 @@ var init_rule_executor = __esm({
                 );
               }
             }
+            } // handler existed; unknown-type failures joined here already carrying their result
             actionResults.push(result);
             if (!result.success) {
               const handler2 = actionConfig.onError;

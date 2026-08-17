@@ -308,7 +308,15 @@ server.registerTool(
       (Object.keys(PORTS) as ServiceName[]).map(async (name) => {
         const t0 = Date.now();
         try {
-          await api<unknown>(name, "/health", { skipAuth: true });
+          // Services disagree on where health lives: some serve /health,
+          // others /api/health, and probing only the first understated a
+          // working stack as 3/12 healthy (measured 16 Aug). Try both before
+          // calling a service unreachable — a wrong path is not a down service.
+          try {
+            await api<unknown>(name, "/health", { skipAuth: true });
+          } catch {
+            await api<unknown>(name, "/api/health", { skipAuth: true });
+          }
           let title: string | undefined;
           let version: string | undefined;
           try {
