@@ -19,6 +19,8 @@ COPY assistants/ ./assistants/
 # Link to pre-built libraries from base image
 COPY --from=symbia-base /symbia-libs/symbia-sys ./symbia-sys
 COPY --from=symbia-base /symbia-libs/symbia-crypto ./symbia-crypto
+COPY --from=symbia-base /symbia-libs/symbia-pathguard ./symbia-pathguard
+COPY --from=symbia-base /symbia-libs/symbia-egress ./symbia-egress
 COPY --from=symbia-base /symbia-libs/symbia-lineage ./symbia-lineage
 # @symbia/lineage imports @symbia/crypto and declared no dependency on it —
 # undeclared for as long as the library had no callers, because nothing ever
@@ -33,6 +35,7 @@ RUN mkdir -p symbia-lineage/node_modules/@symbia \
     && ln -sfn /app/symbia-crypto symbia-lineage/node_modules/@symbia/crypto
 COPY --from=symbia-base /symbia-libs/symbia-auth ./symbia-auth
 COPY --from=symbia-base /symbia-libs/symbia-db ./symbia-db
+COPY --from=symbia-base /symbia-libs/symbia-redact ./symbia-redact
 COPY --from=symbia-base /symbia-libs/symbia-http ./symbia-http
 COPY --from=symbia-base /symbia-libs/symbia-relay ./symbia-relay
 COPY --from=symbia-base /symbia-libs/symbia-logging-client ./symbia-logging-client

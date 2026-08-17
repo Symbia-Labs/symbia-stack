@@ -9,7 +9,8 @@
     "dev": "NODE_ENV=development tsx watch server/src/index.ts",
     "build": "tsx scripts/build.ts",
     "start": "NODE_ENV=production node dist/index.cjs",
-    "check": "tsc"
+    "check": "tsc",
+    "test": "tsx --test server/src/executor/*.test.ts"
   },
   "dependencies": {
     "@symbia/auth": "file:../symbia-auth",
@@ -17,6 +18,8 @@
     "@symbia/db": "file:../symbia-db",
     "@symbia/http": "file:../symbia-http",
     "@symbia/logging-client": "file:../symbia-logging-client",
+    "@symbia/egress": "file:../symbia-egress",
+    "@symbia/pathguard": "file:../symbia-pathguard",
     "@symbia/relay": "file:../symbia-relay",
     "@symbia/sys": "file:../symbia-sys",
     "cookie-parser": "^1.4.7",

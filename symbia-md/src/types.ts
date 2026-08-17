@@ -28,6 +28,8 @@ export interface OpenAPISpec {
 export interface PathOperation {
   summary?: string;
   description?: string;
+  /** Unique operation identifier (standard OpenAPI field). */
+  operationId?: string;
   tags?: string[];
   parameters?: Parameter[];
   requestBody?: RequestBody;
@@ -83,6 +85,8 @@ export interface SecurityScheme {
   bearerFormat?: string;
   in?: string;
   name?: string;
+  /** Human-readable description (standard OpenAPI field). */
+  description?: string;
 }
 
 /**

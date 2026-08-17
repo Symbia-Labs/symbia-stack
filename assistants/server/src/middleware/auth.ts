@@ -6,7 +6,7 @@
 
 import type { Request, Response, NextFunction } from 'express';
 import { resolveServiceUrl } from '@symbia/sys';
-import { setRLSContext } from '../lib/db.js';
+import { runWithRLSContext, type RLSContext } from '@symbia/db';
 
 const IDENTITY_SERVICE_URL = process.env.IDENTITY_ENDPOINT || resolveServiceUrl('identity');
 
@@ -105,31 +105,12 @@ export async function requireAuth(
     return;
   }
 
-  // Determine orgId: prefer header, fall back to token data
-  const headerOrgId = req.headers['x-org-id'] as string | undefined;
-  let orgId: string | undefined = headerOrgId;
-
-  if (!orgId) {
-    // For agents, use orgId directly; for users, use first organization
-    if (introspection.type === 'agent') {
-      orgId = introspection.orgId;
-    } else if (introspection.organizations && introspection.organizations.length > 0) {
-      orgId = introspection.organizations[0].id;
-    }
-  }
-
-  // Require explicit org context in production
-  if (!orgId) {
-    const env = process.env.NODE_ENV || 'development';
-    if (env === 'production') {
-      res.status(400).json({
-        error: 'Organization context required. Provide X-Org-Id header or ensure token includes org membership.',
-      });
-      return;
-    }
-    // Dev-only fallback
-    orgId = 'dev-default-org';
-  }
+  // Determine orgId. SECURITY (A4, 13 Aug 2026): a header-supplied org is
+  // only honored if the authenticated principal actually belongs to it (or
+  // is a super admin). Previously the header was trusted outright, letting
+  // any authenticated user run in any org's scope.
+  const orgId = resolveOrgId(req, introspection, res);
+  if (orgId === null) return; // response already sent
 
   // Set auth context on request
   req.userId = introspection.sub;
@@ -137,20 +118,84 @@ export async function requireAuth(
   req.userType = introspection.type;
   req.token = token;
 
-  // Set RLS context for database queries
-  try {
-    await setRLSContext({
+  // Scope all downstream queries to this request's RLS context.
+  // Fail-closed: if the context cannot be established, the request does not
+  // proceed ("continue without RLS" was the A4 fail-open).
+  runRequestWithRLS(
+    {
       orgId,
-      userId: introspection.sub,
+      userId: introspection.sub ?? 'anonymous',
       isSuperAdmin: introspection.isSuperAdmin,
       capabilities: introspection.entitlements || [],
+      serviceId: 'assistants',
+    },
+    res,
+    next
+  );
+}
+
+/**
+ * Resolve and authorize the org for this request.
+ * Returns the orgId, or null if a response has been sent (403/400).
+ */
+function resolveOrgId(
+  req: AuthenticatedRequest,
+  introspection: TokenIntrospection,
+  res: Response
+): string | null {
+  const headerOrgId = req.headers['x-org-id'] as string | undefined;
+
+  const memberOrgs = new Set<string>();
+  if (introspection.orgId) memberOrgs.add(introspection.orgId);
+  for (const org of introspection.organizations ?? []) memberOrgs.add(org.id);
+
+  if (headerOrgId) {
+    if (introspection.isSuperAdmin || memberOrgs.has(headerOrgId)) {
+      return headerOrgId;
+    }
+    res.status(403).json({
+      error: 'Forbidden: authenticated principal is not a member of the requested organization',
     });
-  } catch (error) {
-    console.error("[assistants-service] Failed to set RLS context:", error);
-    // Continue without RLS on error
+    return null;
   }
 
-  next();
+  // No header: fall back to token data.
+  let orgId: string | undefined;
+  if (introspection.type === 'agent') {
+    orgId = introspection.orgId;
+  } else if (introspection.organizations && introspection.organizations.length > 0) {
+    orgId = introspection.organizations[0].id;
+  }
+
+  if (!orgId) {
+    const env = process.env.NODE_ENV || 'development';
+    if (env === 'production') {
+      res.status(400).json({
+        error: 'Organization context required. Provide X-Org-Id header or ensure token includes org membership.',
+      });
+      return null;
+    }
+    // Dev-only fallback
+    orgId = 'dev-default-org';
+  }
+
+  return orgId;
+}
+
+/**
+ * Run the rest of the request inside an AsyncLocalStorage RLS scope so every
+ * pooled query executes on a pinned client with SET LOCAL context
+ * (see @symbia/db als-context.ts). Fail-closed.
+ */
+function runRequestWithRLS(context: RLSContext, res: Response, next: NextFunction): void {
+  try {
+    runWithRLSContext(context, () => next());
+  } catch (error) {
+    console.error('[assistants-service] Failed to establish RLS context:', error);
+    if (!res.headersSent) {
+      res.status(500).json({ error: 'Failed to establish request security context' });
+    }
+  }
 }
 
 /**
@@ -169,34 +214,29 @@ export async function optionalAuth(
     const introspection = await introspectToken(token);
 
     if (introspection?.active) {
-      const headerOrgId = req.headers['x-org-id'] as string | undefined;
-      let orgId: string | undefined = headerOrgId;
-
-      if (!orgId) {
-        if (introspection.type === 'agent') {
-          orgId = introspection.orgId;
-        } else if (introspection.organizations && introspection.organizations.length > 0) {
-          orgId = introspection.organizations[0].id;
-        }
-      }
+      // Same membership rule as requireAuth (A4): header org must be one the
+      // principal belongs to, or the principal must be a super admin.
+      const orgId = resolveOrgId(req, introspection, res);
+      if (orgId === null) return; // 403 already sent
 
       req.userId = introspection.sub;
       req.orgId = orgId || 'dev-default-org';
       req.userType = introspection.type;
       req.token = token;
 
-      // Set RLS context for database queries
-      try {
-        await setRLSContext({
+      // Fail-closed RLS scope for the rest of the request.
+      runRequestWithRLS(
+        {
           orgId: req.orgId,
-          userId: introspection.sub,
+          userId: introspection.sub ?? 'anonymous',
           isSuperAdmin: introspection.isSuperAdmin,
           capabilities: introspection.entitlements || [],
-        });
-      } catch (error) {
-        console.error("[assistants-service] Failed to set RLS context:", error);
-        // Continue without RLS on error
-      }
+          serviceId: 'assistants',
+        },
+        res,
+        next
+      );
+      return;
     }
   }
 
@@ -217,16 +257,17 @@ export async function rlsMiddleware(
     return next();
   }
 
-  try {
-    await setRLSContext({
-      orgId: req.orgId,
+  // Fail-closed (A4): previously this continued without RLS on error, which
+  // with pooling could mean running with a previous request's context.
+  runRequestWithRLS(
+    {
+      orgId: req.orgId ?? '',
       userId: req.userId,
       isSuperAdmin: false, // Need to check introspection for this
       capabilities: [],
-    });
-    next();
-  } catch (error) {
-    console.error("[assistants-service] Failed to set RLS context:", error);
-    next(); // Continue without RLS on error
-  }
+      serviceId: 'assistants',
+    },
+    res,
+    next
+  );
 }

@@ -31,7 +31,7 @@ export type ActionType =
   // Tool actions
   | 'tool.invoke'         // Invoke a built-in tool (math, convert, etc.)
   // Code agent actions
-  | 'code.tool.invoke'    // Invoke a code tool (file ops, bash, search)
+  | 'code.tool.invoke'    // Invoke a code tool (file ops, search; bash removed)
   | 'workspace.create'    // Create an isolated workspace
   | 'workspace.destroy'   // Destroy a workspace
   // Integration actions
@@ -40,6 +40,17 @@ export type ActionType =
   | 'embedding.create'    // Create embeddings for text
   | 'embedding.search'    // Search by semantic similarity
   | 'custom';
+
+/**
+ * Deterministic assistants compute; probabilistic ones generate.
+ *
+ * The distinction is not decorative — it decides what happens when a step
+ * fails. A deterministic assistant that retries is not deterministic: the same
+ * input would produce a different number of attempts, and a reply that
+ * succeeded on the third try is not the same claim as one that succeeded on
+ * the first. So it refuses instead, and says so.
+ */
+export type AssistantKind = 'deterministic' | 'probabilistic';
 
 export type ConversationState =
   | 'idle'
@@ -151,6 +162,22 @@ export interface RuleSet {
    * Individual actions can override specific settings.
    */
   llmConfig?: AssistantLLMConfigRef;
+  /**
+   * What kind of thing this assistant is, and therefore how it fails.
+   *
+   * Ruling 12 Aug: "Deterministic assistants default to inherit or refuse.
+   * Probabilistic assistants default to try again."
+   *
+   * DEFAULTS TO `deterministic`, which is the conservative reading. A wrong
+   * guess of `probabilistic` spends tokens on retries nobody asked for and can
+   * turn a reproducible failure into an intermittent one — the worst kind to
+   * debug. A wrong guess of `deterministic` produces a clear refusal. Between a
+   * failure that is loud and one that is expensive and hidden, the default
+   * should be loud.
+   */
+  kind?: AssistantKind;
+  /** How many attempts a probabilistic assistant gets. Ignored when deterministic. */
+  maxAttempts?: number;
   /**
    * The above, resolved once at load time.
    *
@@ -381,6 +408,11 @@ export interface MessageContext {
   id: string;
   role: 'user' | 'assistant' | 'system' | 'agent';
   content: string;
+  /**
+   * The unmodified message content, kept when `content` has been stripped
+   * (e.g. addressing prefix removed before rule matching in webhooks.ts).
+   */
+  originalContent?: string;
   metadata?: Record<string, unknown>;
 }
 

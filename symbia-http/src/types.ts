@@ -183,11 +183,6 @@ export interface ServerConfig {
   middleware?: Array<(req: Request, res: Response, next: NextFunction) => void>;
 
   /**
-   * Vite setup function for development
-   */
-  setupVite?: (server: Server, app: Express) => Promise<void>;
-
-  /**
    * Static file serving function for production
    */
   serveStatic?: (app: Express) => void;

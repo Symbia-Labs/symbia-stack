@@ -158,8 +158,10 @@ export function createRuleBasedAssistantRouter(config: AssistantRuleConfig): Rou
         return;
       }
 
-      const messagesData = await messagesResponse.json();
-      const messages = messagesData.messages || messagesData || [];
+      const messagesData = await messagesResponse.json() as { messages?: Array<Record<string, unknown>> } | Array<Record<string, unknown>>;
+      const messages: Array<Record<string, unknown>> = Array.isArray(messagesData)
+        ? messagesData
+        : messagesData.messages ?? [];
 
       if (messages.length === 0) {
         res.json({ topicName: 'New Topic' });

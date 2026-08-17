@@ -60,3 +60,38 @@ __pycache__/
 # all dated 29 Jan, all differing from the live file they shadowed — which is
 # what made them dangerous rather than merely redundant. git is the backup.
 *.backup
+
+# Service identity keypairs. @symbia/crypto service-identity writes
+# .identity/service.key.pem (a private key, mode 0600) into the cwd of
+# whichever service generates one — assistants/.identity/ appeared 13 Aug
+# during a typecheck pass. Any service directory can grow this; one
+# `git add -A` would put a private key in history. Keys are machine-local,
+# never shared state.
+.identity/
+
+# Parallel-stack port overrides (docker-compose -p symbia-fresh)
+.env.fresh
+
+# standalone spike bundles (esbuild output inside service dirs)
+.standalone-routes.mjs
+
+# sidecar in-memory model dir
+experiments/standalone/.models/
+
+# imagine session artifacts
+experiments/standalone/.session/
+
+# plugin packaging staging dir — output of the plugin build, 3.4 MB of copies
+# of files already tracked under plugin/symbia-imagine/.
+.plugin-build/
+
+# Generated packagings. `npm run package:imagine` builds build/plugin/ and the
+# .plugin archive from source; the container images come from the Dockerfiles.
+# These were briefly committed and a stale directory survived a rename inside
+# one, because nothing rebuilt the tree from scratch.
+build/
+imagine/services/
+imagine/vendor/
+imagine/node_modules/
+imagine/.session/
+imagine/.models/

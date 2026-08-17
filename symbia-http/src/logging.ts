@@ -1,5 +1,6 @@
 import type { Request, Response, NextFunction } from "express";
 import type { TelemetryClient } from "@symbia/logging-client";
+import { redactObject } from "@symbia/redact";
 
 /**
  * Format log message with timestamp
@@ -51,18 +52,24 @@ export function createLoggingMiddleware(options: LoggingMiddlewareOptions = {}) 
     const requestInfo: any = {
       method: req.method,
       path,
-      query: Object.keys(req.query).length > 0 ? req.query : undefined,
+      // Query was logged verbatim until 14 Aug 2026. A token in a query string
+      // is the most common way a credential reaches a log, and this is the log
+      // path all ten services share.
+      query: Object.keys(req.query).length > 0
+        ? redactObject(req.query as Record<string, unknown>)
+        : undefined,
       headers: Object.keys(headers).length > 0 ? headers : undefined,
     };
 
-    // Log body for non-GET requests (but sanitize sensitive fields)
+    // Body for non-GET requests, deep-redacted.
+    //
+    // This used to overwrite four TOP-LEVEL keys by exact name (password,
+    // token, apiKey, secret), so `{ auth: { token } }` or
+    // `{ items: [{ apiKey }] }` was logged in full — while `integrations` had
+    // a recursive redactor that only `integrations` used. One implementation
+    // now, in @symbia/redact. Do not inline a second one here.
     if (req.method !== 'GET' && req.body && Object.keys(req.body).length > 0) {
-      const sanitizedBody = { ...req.body };
-      if (sanitizedBody.password) sanitizedBody.password = '[REDACTED]';
-      if (sanitizedBody.token) sanitizedBody.token = '[REDACTED]';
-      if (sanitizedBody.apiKey) sanitizedBody.apiKey = '[REDACTED]';
-      if (sanitizedBody.secret) sanitizedBody.secret = '[REDACTED]';
-      requestInfo.body = sanitizedBody;
+      requestInfo.body = redactObject(req.body as Record<string, unknown>);
     }
 
     // Log incoming request to console

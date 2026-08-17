@@ -1,0 +1,50 @@
+{
+  "symbia": "graph/1.0",
+  "name": "state-lane-probe",
+  "version": "0.1.0",
+  "description": "Measurement probe for D14: do stateful operators emit a lane their stored values cannot justify? A switch routes one ingress to two paths. The apoc path passes through a deliberately incomplete rollup, which emits apocryphal; the canon path is a plain canonical delivery. Both feed the SAME window and the SAME latest, so each aggregate covers one value that arrived apocryphal and one that arrived canonical. The lane on each output is the measurement.",
+  "author": "experiments",
+  "nodes": [
+    { "id": "entry", "component": "symbia.io.passthrough" },
+
+    { "id": "router", "component": "symbia.logic.switch",
+      "config": { "field": "route", "ports": ["apoc", "canon"] } },
+
+    { "id": "mkApoc", "component": "symbia.state.rollup",
+      "config": { "expected": ["p", "q"], "op": "sum",
+                  "keyField": "key", "valueField": "value" } },
+
+    { "id": "mapk", "component": "symbia.transform.map",
+      "config": { "mapping": { "key": "op", "value": "value" } } },
+
+    { "id": "win", "component": "symbia.state.window",
+      "config": { "size": 10, "field": "value" } },
+    { "id": "winOut", "component": "symbia.io.collect" },
+    { "id": "winErr", "component": "symbia.io.collect" },
+
+    { "id": "lat", "component": "symbia.state.latest",
+      "config": { "keyField": "key" } },
+    { "id": "latOut",  "component": "symbia.io.collect" },
+    { "id": "latSnap", "component": "symbia.io.collect" }
+  ],
+  "edges": [
+    { "id": "e1",  "source": { "node": "entry",  "port": "out" },      "target": { "node": "router", "port": "in" } },
+
+    { "id": "e2",  "source": { "node": "router", "port": "apoc" },     "target": { "node": "mkApoc", "port": "in" } },
+    { "id": "e3",  "source": { "node": "mkApoc", "port": "out" },      "target": { "node": "win",    "port": "in" } },
+    { "id": "e4",  "source": { "node": "mkApoc", "port": "out" },      "target": { "node": "mapk",   "port": "in" } },
+    { "id": "e5",  "source": { "node": "mapk",   "port": "out" },      "target": { "node": "lat",    "port": "in" } },
+
+    { "id": "e6",  "source": { "node": "router", "port": "canon" },    "target": { "node": "win",    "port": "in" } },
+    { "id": "e7",  "source": { "node": "router", "port": "canon" },    "target": { "node": "lat",    "port": "in" } },
+
+    { "id": "e8",  "source": { "node": "win",    "port": "out" },      "target": { "node": "winOut", "port": "in" } },
+    { "id": "e9",  "source": { "node": "win",    "port": "error" },    "target": { "node": "winErr", "port": "in" } },
+    { "id": "e10", "source": { "node": "lat",    "port": "out" },      "target": { "node": "latOut", "port": "in" } },
+    { "id": "e11", "source": { "node": "lat",    "port": "snapshot" }, "target": { "node": "latSnap", "port": "in" } }
+  ],
+  "metadata": {
+    "role": "probe",
+    "ingress": { "node": "entry", "port": "in" }
+  }
+}

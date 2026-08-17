@@ -1,0 +1,37 @@
+[
+  {
+    "name": "PU1 component manifest authorable",
+    "verdict": "HELD",
+    "detail": "created components/verify.computed"
+  },
+  {
+    "name": "PU2 runtime executes an API-authored component",
+    "verdict": "BROKEN (as predicted)",
+    "detail": "executor knows 14 components, none of them the new one"
+  },
+  {
+    "name": "PU3a graph of existing components authorable",
+    "verdict": "HELD",
+    "detail": "created graphs/verifiable-brief-demo"
+  },
+  {
+    "name": "PU3b runtime sees the graph",
+    "verdict": "measured",
+    "detail": "{\"loadedGraphs\":0,\"activeExecutions\":0,\"graphs\":[]}"
+  },
+  {
+    "name": "PU4 assistant authorable",
+    "verdict": "HELD",
+    "detail": "created assistants/verifier"
+  },
+  {
+    "name": "PU4b assistant loads into the service",
+    "verdict": "empty",
+    "detail": "loader did not pick it up"
+  },
+  {
+    "name": "PU5 lanes visible on a component",
+    "verdict": "HELD",
+    "detail": "{\"out\":{\"lane\":\"canonical\",\"note\":\"recomputable from the expression and its inputs\"},\"error\":{\"lane\":\"apocryphal\",\"note\""
+  }
+]

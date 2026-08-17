@@ -106,6 +106,17 @@ export type Arena = 'COMPUTED' | 'RETRIEVED' | 'COMPOSED' | 'GENERATED' | 'REFUS
 
 /** One thing that happened on the way to an answer. */
 export interface ProvenanceStep {
+  /**
+   * Which try this was, when trying again was possible.
+   *
+   * Ruling 12 Aug: a probabilistic assistant retries, and every attempt is
+   * recorded. An answer that succeeded on the third try is not the same claim
+   * as one that succeeded on the first, and a receipt unable to distinguish
+   * them hides the thing most worth knowing about a generated reply.
+   *
+   * Absent on deterministic assistants, which do not retry at all.
+   */
+  attempt?: number;
   /** Action id from the rule, e.g. "step-calc". */
   id: string;
   /** Action type, e.g. "tool.invoke", "service.call", "llm.invoke". */
@@ -528,7 +539,8 @@ export function sealDelegation(input: {
   to: string;
   reason?: string;
   decidedBy?: string;
-  method?: 'declaration' | 'model';
+  /** Same tiers as RouteDecision.method (minus 'declined' — declined routes are never sealed). */
+  method?: 'addressed' | 'declaration' | 'classifier' | 'model';
   steps: ProvenanceStep[];
   causedBy?: string;
   /** Scopes the chain. Delegations in one conversation link in order. */

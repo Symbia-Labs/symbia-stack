@@ -12,6 +12,8 @@
  * who may federate, with whom, over what. The bridge (data plane) consults it
  * and carries no policy of its own.
  */
+import fs from 'node:fs';
+import path from 'node:path';
 
 export type PeerStatus = 'active' | 'suspended';
 
@@ -45,6 +47,65 @@ const foreign = new Map<string, ForeignNode>();
 
 const now = () => new Date().toISOString();
 
+// --- Peer persistence (JSONL, the standing dev constraint) ------------------
+//
+// A peer declaration is a recorded decision; letting a process restart forget
+// it broke federation twice on 12 Aug (a routine service reload emptied the
+// table and every forward failed closed as `denied`). Append-only journal,
+// replayed at boot. Foreign nodes are deliberately NOT persisted: the FDT is
+// TTL-leased and a lapse across a restart is correct behaviour.
+
+type PeerJournalLine =
+  | { op: 'upsert'; peer: Peer }
+  | { op: 'status'; peerId: string; status: PeerStatus; at: string }
+  | { op: 'remove'; peerId: string; at: string };
+
+const dataDir = process.env.DIRECTORY_DATA_DIR || path.join(process.cwd(), 'data');
+const journalPath = path.join(dataDir, 'peers.jsonl');
+
+function appendJournal(line: PeerJournalLine): void {
+  try {
+    fs.mkdirSync(dataDir, { recursive: true });
+    fs.appendFileSync(journalPath, JSON.stringify(line) + '\n');
+  } catch (error) {
+    // Persistence failure must not take down admission, but it must be loud:
+    // a directory that silently stops journalling is a directory whose state
+    // is unrecoverable without anyone deciding that.
+    console.error(`[directory] peer journal write failed (${journalPath}):`, error);
+  }
+}
+
+function replayJournal(): void {
+  let lines: string[];
+  try {
+    lines = fs.readFileSync(journalPath, 'utf-8').split('\n').filter(Boolean);
+  } catch {
+    return; // first boot — nothing to replay
+  }
+  let applied = 0;
+  for (const raw of lines) {
+    try {
+      const line = JSON.parse(raw) as PeerJournalLine;
+      if (line.op === 'upsert') peers.set(line.peer.peerId, line.peer);
+      else if (line.op === 'status') {
+        const p = peers.get(line.peerId);
+        if (p) {
+          p.status = line.status;
+          p.updatedAt = line.at;
+        }
+      } else if (line.op === 'remove') peers.delete(line.peerId);
+      applied++;
+    } catch {
+      console.error(`[directory] skipping unparseable journal line`);
+    }
+  }
+  if (applied > 0) {
+    console.log(`[directory] replayed ${applied} peer journal entries -> ${peers.size} peer(s)`);
+  }
+}
+
+replayJournal();
+
 // --- Peers (BDT) -----------------------------------------------------------
 
 export function upsertPeer(input: {
@@ -62,6 +123,7 @@ export function upsertPeer(input: {
     updatedAt: now(),
   };
   peers.set(peer.peerId, peer);
+  appendJournal({ op: 'upsert', peer });
   return peer;
 }
 
@@ -78,11 +140,14 @@ export function setPeerStatus(peerId: string, status: PeerStatus): Peer | undefi
   if (!peer) return undefined;
   peer.status = status;
   peer.updatedAt = now();
+  appendJournal({ op: 'status', peerId, status, at: peer.updatedAt });
   return peer;
 }
 
 export function removePeer(peerId: string): boolean {
-  return peers.delete(peerId);
+  const removed = peers.delete(peerId);
+  if (removed) appendJournal({ op: 'remove', peerId, at: now() });
+  return removed;
 }
 
 /**

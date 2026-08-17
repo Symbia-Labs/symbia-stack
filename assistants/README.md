@@ -778,13 +778,14 @@ Fast semantic routing using embeddings (hybrid routing: embedding first, LLM fal
 
 ### code.tool.invoke
 
-Execute code tools (file operations, bash, search) within a workspace.
+Execute code tools (file operations, search) within a workspace. Bash/command
+execution was removed pending a real isolation boundary (WASM sandbox).
 
 ```typescript
 {
   type: "code.tool.invoke",
   params: {
-    tool: "file-read",     // file-read|file-write|file-edit|glob|grep|ls|bash
+    tool: "file-read",     // file-read|file-write|file-edit|glob|grep|ls
     workspaceId: "...",    // Optional, uses conversation workspace if not set
     params: {
       path: "src/index.ts",
@@ -802,7 +803,6 @@ Execute code tools (file operations, bash, search) within a workspace.
 - `glob`: Find files matching a pattern
 - `grep`: Search file contents with regex
 - `ls`: List directory contents
-- `bash`: Execute shell commands (requires execute permission)
 
 ### workspace.create
 

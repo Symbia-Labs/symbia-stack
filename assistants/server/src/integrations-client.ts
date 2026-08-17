@@ -8,6 +8,7 @@
 import { resolveServiceUrl, ServiceId } from "@symbia/sys";
 
 const INTEGRATIONS_SERVICE_URL = resolveServiceUrl(ServiceId.INTEGRATIONS);
+const MODELS_SERVICE_URL = resolveServiceUrl(ServiceId.MODELS);
 
 export interface LLMResponse {
   content: string;
@@ -42,7 +43,111 @@ export class TokenAuthError extends Error {
   }
 }
 
+/**
+ * Run a completion through the MODELS SERVICE — stage 3 of the broker.
+ *
+ * Same call, one hop earlier. Instead of assistants posting straight to
+ * integrations, it asks the models service, which knows things this service
+ * cannot:
+ *
+ *   WHETHER A PARAMETER IS EVEN LEGAL FOR THE MODEL BEING CALLED.
+ *
+ * Measured 12 Aug 2026: sending `temperature: 0.7` — a January value — to
+ * claude-sonnet-5 fails outright ("`temperature` is deprecated for this
+ * model") and broke four predictions. The assistant cannot know that, and
+ * nothing here is positioned to: the model is chosen at call time by whichever
+ * credential exists. The registry knows, so the rule lives with the registry.
+ *
+ * WHAT THIS DELIBERATELY DOES NOT MOVE. Provider selection stays here, still
+ * answered by `resolveUsableProvider` asking integrations which credential
+ * exists. Moving execution and resolution in one change would make a broken
+ * seal indistinguishable from a broken merge — the same reason the config work
+ * on 12 Aug was split. Resolution is a later stage.
+ *
+ * Credentials are untouched by both services: the caller's token is forwarded
+ * to models, which forwards it to integrations, which holds the key.
+ */
+async function invokeViaModels(
+  token: string,
+  options: InvokeLLMOptions
+): Promise<LLMResponse> {
+  const { provider = 'openai', model = 'gpt-4o-mini', messages, temperature, maxTokens, orgId } = options;
+
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+    Authorization: `Bearer ${token}`,
+  };
+  if (orgId) headers['X-Org-Id'] = orgId;
+
+  const response = await fetch(`${MODELS_SERVICE_URL}/v1/chat/completions`, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify({
+      // The registry publishes remote models as `provider/model`, and the chat
+      // router splits on exactly that.
+      model: `${provider}/${model}`,
+      messages,
+      // Absent means absent, still. The broker will strip what the model
+      // rejects; it should not have to strip what nobody asked for.
+      ...(temperature !== undefined ? { temperature } : {}),
+      ...(maxTokens !== undefined ? { max_tokens: maxTokens } : {}),
+    }),
+    signal: AbortSignal.timeout(45000),
+  });
+
+  if (!response.ok) {
+    const body = (await response.json().catch(() => ({}))) as { error?: { message?: string } };
+    const msg = body.error?.message || response.statusText;
+    if (response.status === 401) throw new TokenAuthError(msg);
+    throw new Error(`Models service error: ${msg}`);
+  }
+
+  const result = (await response.json()) as {
+    model: string;
+    choices?: Array<{ message?: { content?: string }; finish_reason?: string }>;
+    usage?: { prompt_tokens: number; completion_tokens: number; total_tokens: number };
+    symbia?: { droppedParams?: Array<{ param: string; reason: string }> };
+  };
+
+  const dropped = result.symbia?.droppedParams ?? [];
+  if (dropped.length) {
+    // Surfaced rather than swallowed. A caller that asked for temperature 0 and
+    // silently got the provider default could never find out.
+    console.log(
+      `[llm.invoke] models dropped ${dropped.map((d) => d.param).join(', ')} for ${result.model}: ` +
+        dropped.map((d) => d.reason).join('; ')
+    );
+  }
+
+  return {
+    content: result.choices?.[0]?.message?.content ?? '',
+    model: result.model,
+    usage: {
+      promptTokens: result.usage?.prompt_tokens ?? 0,
+      completionTokens: result.usage?.completion_tokens ?? 0,
+      totalTokens: result.usage?.total_tokens ?? 0,
+    },
+    finishReason: result.choices?.[0]?.finish_reason ?? 'stop',
+  };
+}
+
 export async function invokeLLM(
+  token: string,
+  options: InvokeLLMOptions
+): Promise<LLMResponse> {
+  // BROKERED BY DEFAULT, WITH A WAY BACK.
+  //
+  // Stage 3 routes completions through the models service. `LLM_VIA_MODELS=0`
+  // restores the direct integrations call — kept because this is a boundary
+  // change to a path that works, and a switch that can be flipped without a
+  // rebuild is worth more than confidence.
+  if (process.env.LLM_VIA_MODELS !== '0') {
+    return invokeViaModels(token, options);
+  }
+  return invokeViaIntegrations(token, options);
+}
+
+async function invokeViaIntegrations(
   token: string,
   options: InvokeLLMOptions
 ): Promise<LLMResponse> {
@@ -98,7 +203,7 @@ export async function invokeLLM(
     clearTimeout(timeoutId);
 
     if (!response.ok) {
-      const error = await response.json().catch(() => ({ error: "Unknown error" }));
+      const error = await response.json().catch(() => ({ error: "Unknown error" })) as { error?: string };
       const errorMsg = error.error || response.statusText;
 
       // Detect auth errors and throw a specific error type
@@ -149,7 +254,14 @@ export async function invokeLLM(
  */
 export async function isIntegrationsAvailable(): Promise<boolean> {
   try {
-    const response = await fetch(`${INTEGRATIONS_SERVICE_URL}/health`, {
+    // Probe a route Integrations actually serves. This checked `/health`,
+    // which the service does not mount — it 404'd on every host, so this
+    // returned false forever and every llm.invoke died with "Integrations
+    // service is not available" while inference worked fine one door over.
+    // Found 16 Aug: the gatekeeper was looking at the wrong door.
+    // /api/integrations/status is unauthenticated by design and answers on
+    // any live instance.
+    const response = await fetch(`${INTEGRATIONS_SERVICE_URL}/api/integrations/status`, {
       method: "GET",
       signal: AbortSignal.timeout(2000),
     });
@@ -166,7 +278,7 @@ export async function getAvailableProviders(): Promise<Array<{ name: string; sup
   try {
     const response = await fetch(`${INTEGRATIONS_SERVICE_URL}/api/integrations/providers`);
     if (!response.ok) return [];
-    const data = await response.json();
+    const data = await response.json() as { providers?: Array<{ name: string; supportedOperations: string[] }> };
     return data.providers || [];
   } catch {
     return [];
@@ -341,7 +453,7 @@ export async function invokeEmbedding(
     clearTimeout(timeoutId);
 
     if (!response.ok) {
-      const error = await response.json().catch(() => ({ error: "Unknown error" }));
+      const error = await response.json().catch(() => ({ error: "Unknown error" })) as { error?: string };
       const errorMsg = error.error || response.statusText;
 
       if (response.status === 401 || errorMsg.includes('Invalid or expired token')) {
@@ -422,7 +534,7 @@ export async function invokeEmbeddingBatch(
     clearTimeout(timeoutId);
 
     if (!response.ok) {
-      const error = await response.json().catch(() => ({ error: "Unknown error" }));
+      const error = await response.json().catch(() => ({ error: "Unknown error" })) as { error?: string };
       throw new Error(`Embedding service error: ${error.error || response.statusText}`);
     }
 

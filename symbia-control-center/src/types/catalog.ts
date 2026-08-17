@@ -117,6 +117,14 @@ export interface ContextBinding {
   syncedAt?: string;
 }
 
+// Component-specific resource (public contract: no domain vocabulary in the manifest)
+export interface ComponentResource extends CatalogResource {
+  type: 'component';
+  metadata: {
+    [key: string]: unknown;
+  };
+}
+
 // Integration-specific resource
 export interface IntegrationResource extends CatalogResource {
   type: 'integration';
@@ -184,6 +192,18 @@ export const RESOURCE_TYPE_META: Record<ResourceType, {
     icon: '🔌',
     color: 'text-scc-primary border-scc-primary/30 bg-scc-primary/10',
     description: 'External service configurations',
+  },
+  component: {
+    label: 'Component',
+    icon: '🧩',
+    color: 'text-amber-400 border-amber-400/30 bg-amber-400/10',
+    description: 'Reusable building blocks with typed input/output ports',
+  },
+  app: {
+    label: 'App',
+    icon: '🗂️',
+    color: 'text-fuchsia-400 border-fuchsia-400/30 bg-fuchsia-400/10',
+    description: 'Installable application artifacts (no org ids or metric namespaces baked in)',
   },
 };
 

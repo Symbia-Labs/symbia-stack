@@ -11,9 +11,12 @@ import { join } from "path";
 import * as crypto from "crypto";
 import bcrypt from "bcryptjs";
 import { eq, and } from "drizzle-orm";
+import { encryptSecret, resolveVaultSecret } from "@symbia/crypto";
 
-// Encryption key for credentials
-const ENCRYPTION_KEY = process.env.CREDENTIAL_ENCRYPTION_KEY || process.env.JWT_SECRET || "dev-secret-key-32chars-minimum!!";
+// A2 (13 Aug 2026): fail at startup, not first use, when the vault secret is
+// missing in production. Throws unless CREDENTIAL_ENCRYPTION_KEY is set (or
+// we are in dev, where a loud dev-only fallback applies).
+resolveVaultSecret();
 
 // Dev API keys loaded from environment variables (optional)
 // Set DEV_OPENAI_API_KEY, DEV_HUGGINGFACE_API_KEY to enable auto-seeding
@@ -23,16 +26,10 @@ const DEV_API_KEYS: Record<string, string | undefined> = {
 };
 
 /**
- * Encrypt an API key for storage
+ * Encrypt an API key for storage (A2: @symbia/crypto vault)
  */
 function encryptApiKey(apiKey: string): string {
-  const iv = crypto.randomBytes(16);
-  const key = Buffer.from(ENCRYPTION_KEY.padEnd(32).slice(0, 32));
-  const cipher = crypto.createCipheriv('aes-256-gcm', key, iv);
-  let encrypted = cipher.update(apiKey, 'utf8', 'hex');
-  encrypted += cipher.final('hex');
-  const authTag = cipher.getAuthTag().toString('hex');
-  return `${iv.toString('hex')}:${authTag}:${encrypted}`;
+  return encryptSecret(apiKey);
 }
 
 /**

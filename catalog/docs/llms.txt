@@ -42,9 +42,23 @@ Use /api as the base path for all endpoints.
 - PATCH /api/contexts/{id} - Update a context
 - DELETE /api/contexts/{id} - Delete a context
 - POST /api/resources/{id}/artifacts - Upload artifact
+- GET /api/resources/{id}/artifacts - List artifacts
 - GET /api/artifacts/{id}/download - Download artifact
 - DELETE /api/artifacts/{id} - Delete artifact
 - GET /api/rate-limits - Get current rate limits
+- DELETE /api/api-keys/{id} - Delete api keys
+- DELETE /api/auth/keys/{id} - Delete keys
+- GET /api/api-keys - List api keys
+- POST /api/api-keys - Create api keys
+- GET /api/auth/config - Get config
+- GET /api/auth/keys - List keys
+- POST /api/auth/keys - Create keys
+- GET /api/auth/me - Get me
+- GET /api/bootstrap/service - Get service
+- GET /api/resources/{id}/certifications - List certifications
+- GET /api/resources/{id}/signatures - List signatures
+- GET /api/versions - List versions
+- POST /api/nl/search - Create search
 
 ## Authentication
 

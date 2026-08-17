@@ -1,0 +1,36 @@
+{
+  "name": "@symbia/seed",
+  "version": "1.0.0",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "require": "./dist/index.js",
+      "default": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "npx tsc",
+    "dev": "npx tsc --watch"
+  },
+  "keywords": ["symbia", "seed", "test-data", "fixtures", "development"],
+  "author": "",
+  "license": "MIT",
+  "description": "Shared seed data and fixtures for Symbia microservices - provides consistent default-safe test data for development and auditing",
+  "dependencies": {
+    "@types/node": "^22.10.2",
+    "drizzle-orm": "^0.39.3",
+    "pg": "^8.17.1",
+    "typescript": "^5.7.2",
+    "zod": "^3.24.2"
+  },
+  "peerDependencies": {
+    "@symbia/db": "*"
+  },
+  "devDependencies": {
+    "@symbia/db": "file:../symbia-db"
+  }
+}

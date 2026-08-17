@@ -19,6 +19,7 @@ import { CatalogPanel } from '@/components/panels/CatalogPanel';
 import { AssistantsPanel } from '@/components/panels/AssistantsPanel';
 import { IntegrationsPanel } from '@/components/panels/IntegrationsPanel';
 import { LogSearchPanel } from '@/components/panels/LogSearchPanel';
+import { ModelsPanel } from '@/components/panels/ModelsPanel';
 import { ChatPanel } from '@/components/panels/ChatPanel';
 import { ChatWindow } from '@/components/chat/ChatWindow';
 import { ConnectionDot } from '@/components/chat/ConnectionDot';
@@ -37,6 +38,7 @@ const PANELS: Record<Exclude<PanelId, 'chat'>, React.ComponentType> = {
   catalog: CatalogPanel,
   assistants: AssistantsPanel,
   integrations: IntegrationsPanel,
+  models: ModelsPanel,
   logs: LogSearchPanel,
 };
 

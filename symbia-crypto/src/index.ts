@@ -33,3 +33,28 @@ export {
   type ServiceIdentity,
   type LoadServiceIdentityOptions,
 } from './service-identity.js';
+
+// Keyed integrity (HMAC + constant-time verify) — see keyed-hash.ts
+export { hmacSha256Hex, verifyHmacSha256Hex } from './keyed-hash.js';
+
+// Credential vault (HKDF-keyed AES-256-GCM, versioned format) — see vault.ts
+export {
+  resolveVaultSecret,
+  deriveVaultKey,
+  encryptSecret,
+  decryptSecret,
+  isLegacyCiphertext,
+} from './vault.js';
+
+// CredentialCrypto — envelope keys, session tokens, KEK derivation, behind one
+// swap-for-WASM seam. See credential-crypto.ts and
+// docs/proposals/2026-08-14-lift-wallet-credentials-into-identity.md.
+export {
+  nodeCredentialCrypto,
+  sessionExpired,
+  SecretString,
+  CredentialCryptoError,
+  type CredentialCrypto,
+  type StoredSession,
+  type KdfParams,
+} from './credential-crypto.js';

@@ -9,7 +9,10 @@ const database = initializeDatabase({
   memoryDbEnvVar: "IDENTITY_USE_MEMORY_DB",
 }, schema);
 
-const { db, pool, isMemory, exportToFile, close } = database;
+const { db, isMemory, exportToFile, close } = database;
+// Annotated against this package's pg types: two @types/pg copies exist
+// (identity's and @symbia/db's) and the inferred type is not portable.
+const pool: Pool = database.pool as unknown as Pool;
 
 function toIdempotentSchemaSql(sql: string): string {
   return sql
@@ -53,24 +56,10 @@ export async function ensureIdentitySchema(): Promise<void> {
   }
 }
 
-/**
- * Set RLS context for the current request.
- * Call this before any database queries to enable row-level security filtering.
- */
-export async function setRLSContext(context: {
-  orgId?: string;
-  userId?: string;
-  isSuperAdmin?: boolean;
-  capabilities?: string[];
-}): Promise<void> {
-  await setSessionContext(pool as unknown as Pool, {
-    orgId: context.orgId || "",
-    userId: context.userId || "anonymous",
-    isSuperAdmin: context.isSuperAdmin,
-    capabilities: context.capabilities,
-    serviceId: "identity",
-  });
-}
+// setRLSContext removed 13 Aug 2026 (A4): it applied transaction-local
+// set_config against the pool — a no-op under pooling. Requests now run
+// inside runWithRLSContext (@symbia/db AsyncLocalStorage scope), which pins
+// a client and uses SET LOCAL inside a real transaction.
 
 export { db, pool, isMemory, exportToFile, close, database };
 export { setSessionContext, clearSessionContext };

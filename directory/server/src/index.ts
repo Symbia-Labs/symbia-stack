@@ -11,7 +11,7 @@
 import { createSymbiaServer } from '@symbia/http';
 import { ServiceId, resolveServicePort } from '@symbia/sys';
 import { config } from './config.js';
-import { createRouter } from './routes.js';
+import { registerRoutes } from './routes.js';
 import * as registry from './registry.js';
 import { telemetry, DirectoryEvents, DirectoryMetrics } from './telemetry.js';
 
@@ -45,7 +45,7 @@ const server = createSymbiaServer({
       });
     });
 
-    app.use('/api', createRouter());
+    await registerRoutes(null, app);
 
     // Sweep expired foreign registrations. "Stale" and "left on purpose" are
     // the same to the FDT, exactly as BACnet foreign-device registration.

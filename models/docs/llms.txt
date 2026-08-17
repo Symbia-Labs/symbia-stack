@@ -23,6 +23,7 @@ Use http://localhost:5008 as the base path for all endpoints.
 - GET /api/v1/models - List available models
 - GET /api/v1/models/{id} - Get model details
 - GET /api/api/models - List all models
+- POST /api/api/models/pull - Pull weights through the platform, receipted
 - GET /api/api/models/{id} - Get model details
 - POST /api/api/models/{id}/load - Load model into memory
 - POST /api/api/models/{id}/unload - Unload model from memory

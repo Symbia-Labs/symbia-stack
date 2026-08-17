@@ -2,6 +2,8 @@
  * @symbia/auth - Type definitions
  */
 
+import type { Request, Response, NextFunction } from 'express';
+
 /**
  * Organization membership information
  */
@@ -66,6 +68,15 @@ export interface AuthMiddlewareOptions {
   enableImpersonation?: boolean;
   /** Custom logger function */
   logger?: (level: 'info' | 'warn' | 'error', message: string, meta?: Record<string, unknown>) => void;
+  /**
+   * Optional hook run in place of `next()` once the request is authenticated and
+   * `req.user` is set (and any authz check has passed). A service uses this to
+   * run the rest of the request inside a context — e.g. an ALS/RLS scope via
+   * `@symbia/db`'s `runWithRLSContext` — without `@symbia/auth` depending on the
+   * database layer. When omitted, `next()` is called directly and behaviour is
+   * unchanged. It is the hook's responsibility to eventually call `next`.
+   */
+  onAuthenticated?: (req: Request, res: Response, next: NextFunction) => void;
 }
 
 /**

@@ -48,7 +48,22 @@ export type ModelSource = "local" | "remote";
  * context. Reporting `available` without checking would be the same class of
  * lie as telling an operator to add an API key they already had.
  */
-export type Availability = "available" | "unavailable" | "unknown";
+/**
+ * `standby` was added 15 Aug 2026 after Brian read "unavailable — present
+ * on disk, not loaded" on a model that had just been pulled and asked why.
+ * Three different situations were collapsed into one word:
+ *
+ *   standby      on disk, not loaded, will load on first request
+ *   unavailable  a load was ATTEMPTED and did not work — reason attached
+ *   unknown      could not ask (remote model, no org credential here)
+ *
+ * The distinction is not cosmetic: the same evening, loading a 491 MB
+ * model in a 1.9 GB VM killed the service, and the registry reported that
+ * model exactly as it had before the attempt. `ready` was considered and
+ * rejected for this state — a word that promises service is the confident
+ * green this platform exists to avoid.
+ */
+export type Availability = "available" | "standby" | "unavailable" | "unknown";
 
 /** A caller's credentials, forwarded rather than held. */
 export interface AuthContext {
@@ -87,6 +102,20 @@ export interface RegistryEntry {
   verified?: boolean;
   /** The adapter lists working models first; this is its head. */
   isProviderDefault?: boolean;
+  /**
+   * `sha256:<hex>` of the weights file. Local models only — a remote id has
+   * no bytes this service can hash, and pretending otherwise would be an
+   * `idSource: provider-config` claim wearing a checksum.
+   */
+  digest?: string;
+  /**
+   * Present when the file's digest and the catalog card's digest disagree.
+   * Disclosed, not refused (ruling 15 Aug 2026): the load succeeds and this
+   * field says what was loaded anyway. Ratchets to refusal when the pull
+   * path lands and every card carries a digest —
+   * docs/proposals/models-defect-closure.md stage 2.
+   */
+  digestMismatch?: { card: string; file: string };
 }
 
 /**
@@ -244,18 +273,26 @@ async function localModels(): Promise<RegistryEntry[]> {
       source: "local" as const,
       provider: config.providerName,
       brokered: true,
-      // A local model is available when it is LOADED. The service reporting
-      // healthy with zero models loaded is exactly why this distinction is
-      // recorded rather than assumed.
-      availability: m.status === "loaded" ? ("available" as const) : ("unavailable" as const),
-      availabilityReason:
-        m.status === "loaded" ? "loaded and serving" : `present but ${m.status ?? "not loaded"}`,
+      // Loaded is available; a failed attempt is unavailable WITH ITS
+      // REASON; anything else on disk is standby.
+      availability: m.status === "loaded"
+        ? ("available" as const)
+        : m.loadFailure
+          ? ("unavailable" as const)
+          : ("standby" as const),
+      availabilityReason: m.status === "loaded"
+        ? "loaded and serving"
+        : m.loadFailure
+          ? `load failed ${m.loadFailure.at.slice(0, 16).replace("T", " ")} — ${m.loadFailure.reason}`
+          : "on disk; loads on first request",
       contextLength: m.contextLength,
       capabilities: m.capabilities,
       status: m.status,
       createdAt: m.createdAt,
       idSource: "local" as const,
       verified: true,
+      digest: m.digest ? `sha256:${m.digest}` : undefined,
+      digestMismatch: m.cardDigestMismatch,
     }));
   } catch (err) {
     console.warn(

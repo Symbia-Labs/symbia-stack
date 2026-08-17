@@ -48,6 +48,22 @@ Request Body:
 
 Response: Successful invocation
 
+#### POST /api/api/integrations/download
+Stream a file from a provider through this service
+Streams bytes from the provider to the caller. This service supplies the org's credential when it holds one, so gated repositories work and the key never leaves here. It makes no claim about what the bytes are — the caller hashes, ledgers and cards them.
+
+Request Body:
+```json
+{
+  "provider": "string",
+  "repo": "string",
+  "file": "string",
+  "revision": "string"
+}
+```
+
+Response: The file, streamed
+
 ### Providers
 
 Provider configuration and discovery

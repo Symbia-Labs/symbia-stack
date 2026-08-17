@@ -1,7 +1,7 @@
 {
   "name": "symbia-mcp-server",
   "version": "1.0.0",
-  "description": "MCP server for the locally running Symbia stack (9 services on localhost)",
+  "description": "MCP server for the locally running Symbia stack (services enumerated from @symbia/sys, never restated here)",
   "type": "module",
   "main": "dist/index.js",
   "bin": { "symbia-mcp-server": "dist/index.js" },

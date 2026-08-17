@@ -6,6 +6,12 @@ import type { Request, Response } from "express";
 import { getEngine } from "../llama/engine.js";
 import { unifiedRegistry } from "../registry.js";
 
+/** Express 5 route params type as string | string[]; normalize to string. */
+function getParam(params: Record<string, string | string[] | undefined>, key: string): string {
+  const value = params[key];
+  return Array.isArray(value) ? value[0] : (value ?? "");
+}
+
 /**
  * List all available models — local AND remote (OpenAI-compatible format).
  *
@@ -71,6 +77,10 @@ export async function handleListModels(
           idSource: e.idSource,
           verified: e.verified,
           isProviderDefault: e.isProviderDefault,
+          // Which bytes. Absent for remote models; mismatch present only
+          // when the card and the file disagree (disclosed, not refused).
+          digest: e.digest,
+          digestMismatch: e.digestMismatch,
         },
       })),
     };
@@ -95,7 +105,7 @@ export async function handleGetModel(
   res: Response
 ): Promise<void> {
   try {
-    const { id } = req.params;
+    const id = getParam(req.params, 'id');
     const engine = getEngine();
     const model = await engine.getModel(id);
 
@@ -120,6 +130,10 @@ export async function handleGetModel(
       status: model.status,
       loaded: model.loaded,
       memory_usage_mb: model.memoryUsageMB,
+      // Which bytes this id names right now. The live fields above are the
+      // registry's business; this one is the artifact's identity.
+      digest: model.digest ? `sha256:${model.digest}` : undefined,
+      digest_mismatch: model.cardDigestMismatch,
     });
   } catch (err) {
     console.error("[models] Error getting model:", err);
@@ -140,7 +154,7 @@ export async function handleLoadModel(
   res: Response
 ): Promise<void> {
   try {
-    const { id } = req.params;
+    const id = getParam(req.params, 'id');
     const engine = getEngine();
 
     // Unknown model is a client error (404), not a server fault.
@@ -187,7 +201,7 @@ export async function handleUnloadModel(
   res: Response
 ): Promise<void> {
   try {
-    const { id } = req.params;
+    const id = getParam(req.params, 'id');
     const engine = getEngine();
 
     // Unknown model is a client error (404), not a server fault.

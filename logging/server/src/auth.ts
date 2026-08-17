@@ -18,7 +18,7 @@ import {
 } from '@symbia/auth';
 import { timingSafeEqual } from 'crypto';
 import { config } from './config.js';
-import { setRLSContext } from './db.js';
+import { runWithRLSContext } from '@symbia/db';
 import { storage } from './storage.js';
 
 // Re-export from @symbia/auth
@@ -404,22 +404,30 @@ export function requireAuthContext(req: Request): AuthContext {
 /**
  * RLS middleware - sets PostgreSQL session context for row-level security.
  */
-export async function rlsMiddleware(req: Request, _res: Response, next: NextFunction): Promise<void> {
+export async function rlsMiddleware(req: Request, res: Response, next: NextFunction): Promise<void> {
   if (!req.authContext) {
     next();
     return;
   }
 
+  // Fail-closed AsyncLocalStorage RLS scope (A4, 13 Aug 2026): pooled
+  // queries run on a pinned client with SET LOCAL context. The previous
+  // pool-level setRLSContext was a no-op under pooling, and errors fell open.
   try {
-    await setRLSContext({
-      orgId: req.authContext.orgId,
-      userId: req.authContext.actorId,
-      isSuperAdmin: req.authContext.isSuperAdmin,
-      capabilities: req.authContext.entitlements,
-    });
-    next();
+    runWithRLSContext(
+      {
+        orgId: req.authContext.orgId,
+        userId: req.authContext.actorId,
+        isSuperAdmin: req.authContext.isSuperAdmin,
+        capabilities: req.authContext.entitlements,
+        serviceId: 'logging',
+      },
+      () => next()
+    );
   } catch (error) {
-    console.error('[logging-service] Failed to set RLS context:', error);
-    next();
+    console.error('[logging-service] Failed to establish RLS context:', error);
+    if (!res.headersSent) {
+      res.status(500).json({ error: 'Failed to establish request security context' });
+    }
   }
 }

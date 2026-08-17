@@ -1,11 +1,14 @@
 # Security Policy
 
+> **Current security posture is documented in [`STATUS.md`](./STATUS.md).**
+> Where this policy and `STATUS.md` disagree, `STATUS.md` is the truth.
+
 ## Supported Versions
 
-| Version | Supported          |
-| ------- | ------------------ |
-| 1.x     | :white_check_mark: |
-| < 1.0   | :x:                |
+**There is no supported release.** The tagged releases (v1.0.0–v1.2.0) predate
+the current rebuild and do not match this tree. Treat everything here as
+pre-release software under active development; do not deploy it in production
+on the strength of this document.
 
 ## Reporting a Vulnerability
 
@@ -15,7 +18,7 @@ We take security seriously. If you discover a security vulnerability, please rep
 
 **DO NOT** open a public GitHub issue for security vulnerabilities.
 
-Instead, please email: **hello@example.com**
+Instead, please email: **bmgilmore1975@gmail.com**
 
 Include:
 - Description of the vulnerability
@@ -121,11 +124,85 @@ This ensures:
 
 ### Built-in Protections
 
-- **Hash-based event verification**: SDN events are cryptographically signed
-- **Contract-based access control**: Services must establish contracts before communication
-- **Credential sanitization**: API keys are never logged
-- **Circuit breakers**: Prevent cascading failures
-- **Input validation**: Zod schemas validate all inputs
+Scope is stated per item. A protection that exists in one service is not a
+platform property, and this list said otherwise until 14 Aug 2026.
+
+- **Hash-based event verification** *(network, assistants)*: SDN events carry an
+  HMAC-SHA256 over payload, id, timestamp, source, run, boundary, and target,
+  verified in constant time with `timingSafeEqual` (`@symbia/crypto`). Dev mode
+  without `NETWORK_HASH_SECRET` uses a repo-visible fallback secret, so
+  integrity holds only where the secret is configured.
+- **Credential encryption at rest** *(identity)*: HKDF-SHA256 → AES-256-GCM with
+  versioned ciphertexts (`@symbia/crypto`). Identity refuses to start in
+  production without `CREDENTIAL_ENCRYPTION_KEY`.
+- **Row-level tenant isolation** *(all six org-scoped DB services)*: Postgres RLS
+  driven by a fail-closed AsyncLocalStorage scope (`@symbia/db`), with
+  `X-Org-Id` membership checked at the auth layer. **Not in force in dev**: the
+  in-memory pg-mem path does not implement RLS and says so loudly at startup.
+- **Outbound egress guard** *(runtime components, assistants webhook/notify)*:
+  component and action `fetch` whose URL comes from graph config or conversation
+  context routes through `@symbia/egress`, which denies loopback, RFC1918,
+  link-local/cloud-metadata, CGNAT, ULA and non-HTTP schemes. A DNS-rebinding
+  TOCTOU window remains and is documented in that package's header.
+- **Log redaction** *(all services)*: request bodies and query strings are
+  deep-redacted by `@symbia/redact` — one implementation, recursive,
+  cycle-safe. Until 14 Aug this was four top-level key names in
+  `symbia-http` plus a stronger recursive copy that only `integrations` used.
+- **Path confinement** *(runtime, assistants)*: one validator,
+  `@symbia/pathguard` — separator-boundary and symlink aware.
+- **Contract-based access control** *(network)*: services must establish
+  contracts before SDN communication.
+- **Input validation**: Zod schemas on service route inputs.
+- **Circuit breakers** *(integrations only)*. This was listed as a platform-wide
+  protection and is not one.
+
+Regression tests for the above run as `npm run test:security` and are gated in
+CI by `.github/workflows/verify.yml`, which additionally runs RLS isolation
+against a real PostgreSQL.
+
+### Known Gaps (tracked, not yet fixed)
+
+See `STATUS.md`, `docs/2026-08-13-adversarial-analysis.md` (and its round-2
+follow-up), and `docs/2026-08-14-privacy-security-availability-stance.md` for the
+full ledger. Headlines:
+
+- **Code-tool execution is not sandboxed.** Bash/command execution was removed
+  outright on 13 Aug rather than described as contained; what remains is
+  off-by-default and confined, not isolated. The real boundary (a
+  capability-scoped wasm component runtime) is a proposal with spikes, not code.
+- **pg-mem dev mode has no RLS.** A startup warning is not a control.
+- **Route surfaces reachable without authentication have never been
+  enumerated.** `npm run audit:unauth` now probes every read operation in every
+  committed OpenAPI spec against a running stack with no credentials, and
+  reports unreachable probes as unmeasured rather than clean. Write operations
+  are not probed — see that script's header for why. **Run it and record the
+  result; until then this gap has an instrument but no measurement.**
+- **The console has a hardcoded login.** `useAuth.ts` auto-authenticates as
+  `dev@example.com` when `DEBUG` is set.
+- **There is no data retention or erasure mechanism.** Retention appears in
+  `INTENT.md` and service intent documents as intent only; `messaging/INTENT.md`
+  states plainly that archival and retention are a future concern. Redaction
+  keeps credentials out of logs; it is not retention, and neither is provenance.
+
+### Availability
+
+Stated separately because it is the weakest of the three and should not be read
+off the security list.
+
+- All long-running services carry `restart: unless-stopped` (14 Aug). Before
+  that, a crashed service stayed down.
+- **There is no backup.** No `pg_dump`, no snapshot, no restore procedure
+  anywhere in the repository.
+- **There is no redundancy.** Single PostgreSQL, single instance of each service,
+  no replicas.
+- **Survival of a database restart is unmeasured.** The mechanism that killed
+  services on Postgres loss (an unhandled pool `error` event) is removed; that
+  is an observation. "Survives a restart" would be an inference, and the live
+  test is still owed.
+- **Rate limiting is off unless `RATE_LIMIT_ENABLED=true`**, and identity's
+  limiter is an in-process `Map` that resets on restart and does not span
+  instances.
+- Liveness can be checked on demand via `/health` on every service.
 
 ### Recommended Additional Measures
 

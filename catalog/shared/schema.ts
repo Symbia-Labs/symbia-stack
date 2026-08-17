@@ -8,7 +8,7 @@ export const resourceStatuses = ["draft", "published", "deprecated"] as const;
 export type ResourceStatus = (typeof resourceStatuses)[number];
 
 // Resource types
-export const resourceTypes = ["context", "integration", "graph", "assistant", "component", "app"] as const;
+export const resourceTypes = ["context", "integration", "graph", "assistant", "component", "app", "model"] as const;
 export type ResourceType = (typeof resourceTypes)[number];
 
 // Component manifest — for resources of type 'component'.
@@ -37,12 +37,29 @@ export type ComponentImplKind =
 export const portLanes = ["inherit", "canonical", "apocryphal", "conditional"] as const;
 export type PortLane = (typeof portLanes)[number];
 
+/**
+ * What a port must ship as evidence for its lane.
+ *
+ *   recipe   the operation and its resolved inputs — enough to compute the
+ *            value again without the process that produced it.
+ *   witness  a digest of the bytes as received, and where from. You cannot
+ *            recompute a remote body; you can recognise the same bytes.
+ *   none     an explicit opt-out. `laneNote` must say why.
+ *
+ * Omission is the strict path: a port declared `canonical` requires a recipe
+ * unless it says otherwise here, so an unevidenced canonical claim cannot be
+ * made by forgetting to write anything down.
+ */
+export const receiptKinds = ["recipe", "witness", "none"] as const;
+export type ReceiptKind = (typeof receiptKinds)[number];
+
 export interface ComponentPort {
   name: string;
   schema?: Record<string, unknown>; // JSON Schema for the port payload (optional)
   required?: boolean;
   lane?: PortLane;                  // absent means "inherit"
   laneNote?: string;                // what decides it, when lane is "conditional"
+  receipt?: ReceiptKind;            // evidence the runtime requires for the lane
 }
 
 /**
@@ -83,6 +100,7 @@ export const componentPortSchema = z.object({
   required: z.boolean().optional(),
   lane: z.enum(portLanes).optional(),
   laneNote: z.string().optional(),
+  receipt: z.enum(receiptKinds).optional(),
 });
 export const componentConfigFieldSchema = z.object({
   type: z.enum(["string", "number", "boolean", "object", "array"]),
@@ -300,6 +318,15 @@ export const resources = pgTable("resources", {
   type: varchar("type", { length: 50 }).notNull().$type<ResourceType>(),
   status: varchar("status", { length: 50 }).notNull().default("draft").$type<ResourceStatus>(),
   isBootstrap: boolean("is_bootstrap").notNull().default(false),
+  // WHO WROTE THIS. Server-owned, never accepted from a request body.
+  //
+  // isBootstrap answers "did this come from a bootstrap file", which is NOT
+  // the same question as "did this session make it". Measured 16 Aug: a
+  // sealed imagine bundle carried 18 artifacts for a session that authored
+  // 2, because the runtime registers 16 component manifests through this
+  // API at boot and those are ordinary writes. Nothing recorded the author,
+  // so nothing could tell them apart.
+  createdBy: varchar("created_by", { length: 255 }),
   tags: text("tags").array(),
   orgId: varchar("org_id", { length: 255 }),
   accessPolicy: jsonb("access_policy").$type<AccessPolicy>(),

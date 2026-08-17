@@ -64,7 +64,7 @@ Manages the network's view of nodes, contracts, and bridges.
 ### Router Service
 Handles event creation, routing, and delivery.
 
-- **Hash computation**: HMAC-SHA256 for tamper-evidence
+- **Hash computation**: HMAC-SHA256 for tamper-evidence, constant-time verification
 - **Contract validation**: Check authorization
 - **Delivery**: WebSocket (preferred) or HTTP POST
 - **Tracing**: Record event paths

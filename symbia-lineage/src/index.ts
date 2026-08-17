@@ -18,8 +18,23 @@ export {
   signEvent,
   verifyEvent,
   lineageLine,
+  eventDigest,
   type LineageEvent,
 } from './chain.js';
+
+export {
+  ARTIFACT_CLAIMS,
+  sealArtifactEvent,
+  registeredPayload,
+  derivedPayload,
+  artifactDigest,
+  type ArtifactSource,
+  type DerivationRecipe,
+  type ArtifactRegisteredPayload,
+  type ArtifactDerivedPayload,
+  type SealArtifactOptions,
+  type SealedArtifactEvent,
+} from './artifact.js';
 
 export {
   CLAIMS,

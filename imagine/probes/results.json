@@ -1,0 +1,192 @@
+[
+  {
+    "id": "S1",
+    "verdict": "HELD",
+    "note": "client supplies no credential; mode=imagine"
+  },
+  {
+    "id": "S2",
+    "verdict": "HELD-permissive",
+    "note": "connector identity: dev@example.com superAdmin=true"
+  },
+  {
+    "id": "S3",
+    "verdict": "HELD",
+    "note": "auth/me returned a user object"
+  },
+  {
+    "id": "S4",
+    "verdict": "BROKEN",
+    "note": "junk bearer -> 200 (served 65665b anyway)"
+  },
+  {
+    "id": "S5",
+    "verdict": "HELD",
+    "note": "no signing secret in auth/session responses"
+  },
+  {
+    "id": "S6",
+    "verdict": "HELD",
+    "note": "created, mode=imagine, wrote=true"
+  },
+  {
+    "id": "S7",
+    "verdict": "HELD",
+    "note": "Error: delete_resources_id_ is a DELETE. Re-issue with confirmDestructive: true if that is"
+  },
+  {
+    "id": "S9",
+    "verdict": "HELD-permissive",
+    "note": "private resource readable by super-admin: 1 row(s)"
+  },
+  {
+    "id": "S11",
+    "verdict": "BROKEN",
+    "note": "client-set isBootstrap persisted as true"
+  },
+  {
+    "id": "S12",
+    "verdict": "HELD",
+    "note": "pg-mem RLS warning present at boot"
+  },
+  {
+    "id": "S13",
+    "verdict": "HELD-permissive",
+    "note": "resource accepted with an org the caller does not belong to"
+  },
+  {
+    "id": "S14",
+    "verdict": "NOT MEASURED",
+    "note": "? rows returned with no X-Org-Id"
+  },
+  {
+    "id": "S16",
+    "verdict": "HELD",
+    "note": "traversal-shaped key stored as an opaque string"
+  },
+  {
+    "id": "S17",
+    "verdict": "HELD",
+    "note": "Error: catalog /api/resources responded 400: {\"error\":\"key-prefix and type disagree: keys under mode"
+  },
+  {
+    "id": "S18",
+    "verdict": "BROKEN",
+    "note": "catalog still holds ? rows after SQL-shaped input"
+  },
+  {
+    "id": "S19",
+    "verdict": "BROKEN",
+    "note": "11MB body killed the process (measured in the first run). At 2MB: accepted; process alive"
+  },
+  {
+    "id": "S20",
+    "verdict": "HELD",
+    "note": "1000-deep JSON -> accepted; process alive"
+  },
+  {
+    "id": "S21",
+    "verdict": "HELD",
+    "note": "no prototype pollution observed on a later read"
+  },
+  {
+    "id": "S22",
+    "verdict": "HELD",
+    "note": "unicode/NUL name -> stored; later reads fine"
+  },
+  {
+    "id": "S23",
+    "verdict": "HELD",
+    "note": "Error: No such operation. Use symbia_list_operations first."
+  },
+  {
+    "id": "S28",
+    "verdict": "HELD",
+    "note": "no arbitrary file-read operation exposed"
+  },
+  {
+    "id": "S29",
+    "verdict": "HELD",
+    "note": "Error: No such operation. Use symbia_list_operations first."
+  },
+  {
+    "id": "S34",
+    "verdict": "HELD",
+    "note": "credentials list: {\"mode\":\"imagine\",\"called\":{\"service\":\"identity\",\"operationId\":\"get_credentials\""
+  },
+  {
+    "id": "S35",
+    "verdict": "HELD",
+    "note": "no environment dump in stats/health/selftest"
+  },
+  {
+    "id": "S36",
+    "verdict": "HELD",
+    "note": "no real provider key present in this sandbox"
+  },
+  {
+    "id": "S38",
+    "verdict": "HELD",
+    "note": "no drop/wipe operation exposed"
+  },
+  {
+    "id": "S40",
+    "verdict": "HELD",
+    "note": "none"
+  },
+  {
+    "id": "S42",
+    "verdict": "HELD",
+    "note": "error body: Error: catalog /api/resources/definitely-not-a-real-id responded 404: {\"error\":\"Resource not found\"}"
+  },
+  {
+    "id": "S43",
+    "verdict": "HELD",
+    "note": "Error: catalog /api/resources responded 400: {\"error\":\"Validation error\",\"details\":[{\"code\":\"invalid_type\",\"ex"
+  },
+  {
+    "id": "S44",
+    "verdict": "REVIEW",
+    "note": "services whose spec could not be fetched are named: []"
+  },
+  {
+    "id": "S45",
+    "verdict": "HELD",
+    "note": "absent row -> [] (not an error); unreachable id -> error. Distinguishable."
+  },
+  {
+    "id": "S46",
+    "verdict": "HELD",
+    "note": "ledger holds 7 entries"
+  },
+  {
+    "id": "S46b",
+    "verdict": "HELD",
+    "note": "1 refused mutations recorded alongside accepted ones"
+  },
+  {
+    "id": "S47",
+    "verdict": "HELD",
+    "note": "every ledger entry signed and chained"
+  },
+  {
+    "id": "S48",
+    "verdict": "HELD",
+    "note": "ledger stores digests, not request bodies"
+  },
+  {
+    "id": "S49",
+    "verdict": "HELD",
+    "note": "bundle written, authored=9"
+  },
+  {
+    "id": "S49b",
+    "verdict": "HELD",
+    "note": "claim states what it does not assert: Anything about who ran the session, whether the artifacts are sound, or whether "
+  },
+  {
+    "id": "S50",
+    "verdict": "HELD",
+    "note": "no API path appends to the session trace"
+  }
+]

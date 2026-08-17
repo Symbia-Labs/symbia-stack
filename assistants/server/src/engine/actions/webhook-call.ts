@@ -1,6 +1,7 @@
 import { BaseActionHandler } from './base.js';
 import type { ActionConfig, ActionResult, ExecutionContext } from '../types.js';
 import { interpolate } from '../template.js';
+import { safeFetch } from '@symbia/egress';
 
 export interface WebhookCallParams {
   url: string;
@@ -53,7 +54,7 @@ export class WebhookCallHandler extends BaseActionHandler {
       const timeoutId = setTimeout(() => controller.abort(), timeout);
 
       try {
-        const response = await fetch(url, {
+        const response = await safeFetch(url, {
           method,
           headers,
           body,

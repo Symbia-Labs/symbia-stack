@@ -26,6 +26,17 @@ hardcoded ingress all destroy the point).
   Registered ≠ running: `server` (5000) is registered with nothing behind it;
   `RunningServices` is the only place that difference lives.
 
+## Dogfood the sidecar (standing instruction, Brian, 16 Aug)
+- Use the Symbia imagine sidecar for the work itself, not only as the thing
+  under test. Register MAP predictions through `symbia_call` BEFORE
+  measuring, record results after, seal at session close. The chain proves
+  the order of recording; git convention does not.
+- It closes the retroactive-edit hole, not the dishonest-author hole. Say so
+  rather than overclaiming what the mechanism covers.
+- Working outside the framework is allowed and expected in places — but
+  **write down why**, in the session doc, as a platform gap to resolve. An
+  undocumented detour is the defect; the detour itself may not be.
+
 ## Verification discipline
 - Never trust a running process to be the code you wrote — grep a unique
   marker in the running bundle first. Kill by **port**, not `pkill -f`.
@@ -36,6 +47,23 @@ hardcoded ingress all destroy the point).
   inference ("endpoint missing").
 - MAP (measure against prediction): register predictions in git before
   measuring; report broken ones as broken.
+
+## Writing — chat replies and docs both
+- Observation, then inference, in that order, in separate sentences. Then stop.
+  A third sentence restating the finding more memorably is the tic to cut.
+- Banned constructions: closing aphorisms; `not X, it's Y`; `X doesn't A, it
+  B's`; em-dash asides carrying the punchline; a metaphor where a number exists;
+  rhetorical repetition for cadence.
+- Prefer the plain word. Cut any sentence that would survive unchanged if the
+  measurement behind it changed.
+- **This repo's own voice is a trap.** `STATUS.md` and `claims.ts` carry
+  aphorisms that were earned by a specific finding. Matching that register by
+  default amplifies it into decoration.
+- Why it matters here and not everywhere: flourish is unfalsifiable, so it reads
+  as generated rather than verified, and it devalues the real measurements
+  printed next to it.
+- Say what was not established as plainly as what was. No summary paragraph that
+  is more confident than the section above it.
 
 ## Constraints
 - Dev/local persistence is JSONL + local logs only (DB connectors later,
@@ -58,4 +86,4 @@ hardcoded ingress all destroy the point).
   honesty-repairs` is stranded (25 commits, unmerged).
 - Findings live in dated `docs/2026-08-*.md` files, not here.
 - `DEVELOPER.md` §8 predates the rebuild (Vite/5173) — stale.
-- MCP server `dist/` may still probe network on 5054; `src/` has 5009.
+- MCP server `dist/` rebuilt from `src/` 15 Aug; the 5054 probe is gone.

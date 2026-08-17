@@ -1,5 +1,10 @@
 # Symbia Stack
 
+> **Read [`STATUS.md`](./STATUS.md) before this file.** This README describes the
+> platform's design surface. `STATUS.md` is the ledger of what actually runs,
+> what is built but unwired, and what exists only on paper — and where the two
+> disagree, `STATUS.md` wins.
+
 An LLM-native orchestration platform for building, deploying, and operating autonomous AI workflows. Symbia provides the foundational infrastructure for creating intelligent assistants, executing graph-based automation, managing real-time messaging, and observing system behavior across a multi-tenant environment.
 
 ## Architecture
@@ -256,14 +261,20 @@ Tier 3 (Application Layer):
 - **JWT Authentication**: 7-day tokens with refresh support
 - **API Key Management**: Scoped keys with expiration and rotation
 - **Entitlements**: Fine-grained capability-based permissions (`cap:*`, `role:*`)
-- **Credential Vault**: AES-256-GCM encrypted storage for secrets
+- **Credential Vault**: AES-256-GCM with HKDF-derived keys (`@symbia/crypto`).
+  `CREDENTIAL_ENCRYPTION_KEY` is required in production (startup throws);
+  dev without it uses a clearly-labeled dev-only key with a loud warning
 
 ### AI Workflow Orchestration
 - **Prompt Graphs**: DAG-based execution with message-passing semantics
 - **Rule Engine**: Event-triggered, condition-based action execution
 - **Turn-Taking Protocol**: Claim/defer/observe/respond for multi-agent coordination
 - **Handoff Workflows**: Seamless transitions between AI and human agents
-- **Code Tools**: File operations, bash execution, search within sandboxed workspaces
+- **Code Tools**: file operations and search scoped to a workspace directory.
+  **Not sandboxed** — file operations run as the service process with its
+  environment; off by default, do not enable outside trusted development (see
+  `STATUS.md`). Command/bash execution was removed pending a real isolation
+  boundary (WASM sandbox).
 
 ### Dataflow Execution
 - **Component Abstraction**: Typed input/output ports with schema validation
@@ -282,7 +293,7 @@ Tier 3 (Application Layer):
 ### Service Mesh & Event Routing
 - **Contract-Based Authorization**: Explicit permissions for service communication
 - **Policy Engine**: Allow, deny, route, transform, log actions
-- **Hash-Based Security**: HMAC-SHA256 for event integrity
+- **Hash-Based Security**: HMAC-SHA256 event integrity with constant-time verification (`@symbia/crypto`)
 - **SDN Observability**: Real-time topology, traces, and flow visualization
 - **Entity Binding**: Persistent identities mapped to ephemeral nodes
 
@@ -337,9 +348,13 @@ Each service provides auto-generated documentation:
 
 ## Multi-Tenancy
 
-All services support multi-tenant operation:
+All services are designed for multi-tenant operation:
 
-- **Organization Scoping**: Data isolated by `org_id`
+- **Organization Scoping**: data scoped by `org_id` via Postgres RLS policies,
+  applied per-request on a pinned client with `SET LOCAL` (AsyncLocalStorage
+  scope in `@symbia/db`). `X-Org-Id` must match token membership (or super
+  admin) in assistants. Caveat: pg-mem dev mode does not enforce RLS —
+  services log a loud warning at startup in that mode.
 - **Header Propagation**: `X-Org-Id`, `X-Service-Id`, `X-Env` for context
 - **Data Classification**: `none`, `pii`, `phi`, `secret` levels
 - **Cross-Org Access**: Super admin capabilities for platform operations
@@ -348,9 +363,9 @@ All services support multi-tenant operation:
 
 - **Authentication**: JWT tokens, API keys, session cookies
 - **Authorization**: Entitlement-based with role inheritance
-- **Encryption**: AES-256-GCM for credentials at rest
+- **Encryption**: AES-256-GCM for credentials at rest, HKDF-derived keys, versioned ciphertexts
 - **Password Hashing**: bcrypt with configurable rounds
-- **Event Integrity**: HMAC-SHA256 signatures on network events
+- **Event Integrity**: HMAC-SHA256 on network events, constant-time verification
 - **Audit Logging**: All significant actions tracked
 
 ## Development

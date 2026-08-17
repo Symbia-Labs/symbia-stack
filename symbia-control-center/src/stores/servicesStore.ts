@@ -196,7 +196,7 @@ const initialState = {
   activeSubscriptions: new Set<string>(),
 };
 
-export const useServicesStore = create<ServicesState>((set, _get) => ({
+export const useServicesStore = create<ServicesState>((set, get) => ({
   ...initialState,
 
   // ===========================================================================
@@ -367,12 +367,15 @@ export const useServicesStore = create<ServicesState>((set, _get) => ({
     }),
 
   getProviderCapability: (provider) => {
-    const state = useServicesStore.getState();
+    // Use create()'s get, not useServicesStore.getState(): referencing the
+    // store inside its own initializer made the whole store's type circular
+    // (TS7022) and untyped every consumer of it.
+    const state = get();
     return state.capabilities?.byProvider[provider];
   },
 
   getModelsForPurpose: (purpose) => {
-    const state = useServicesStore.getState();
+    const state = get();
     if (!state.capabilities) return [];
     // Only return models for providers the user has access to
     return state.capabilities.modelsByPurpose[purpose].filter(m => {

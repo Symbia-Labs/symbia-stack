@@ -170,6 +170,13 @@ export interface ResolutionContext {
     routing?: Record<string, unknown>;
     [k: string]: unknown;
   }>;
+
+  /**
+   * Prior action results, keyed by step id, so templates can reference
+   * `{{steps.<step-id>.result}}`. Injected by the assistants engine from its
+   * execution context (see assistants engine/template.ts).
+   */
+  steps?: Record<string, unknown>;
 }
 
 /**

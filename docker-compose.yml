@@ -31,6 +31,7 @@
 services:
   # PostgreSQL database
   postgres:
+    restart: unless-stopped
     image: postgres:15-alpine
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-symbia}
@@ -63,6 +64,7 @@ services:
 
   # Identity Service - Authentication & Authorization
   identity:
+    restart: unless-stopped
     build:
       context: .
       dockerfile: identity/Dockerfile
@@ -76,6 +78,10 @@ services:
       PORT: 5001
       DATABASE_URL: postgresql://${POSTGRES_USER:-symbia}:${POSTGRES_PASSWORD:-symbia_dev}@postgres:5432/identity
       SESSION_SECRET: ${SESSION_SECRET:-symbia-dev-secret-change-in-production}
+      # Credential vault key (HKDF-derived). Required in production by the vault;
+      # a dev default keeps the local stack booting, same pattern as the secrets
+      # above. Real deployments MUST override this.
+      CREDENTIAL_ENCRYPTION_KEY: ${CREDENTIAL_ENCRYPTION_KEY:-symbia-credential-dev-key-change-in-production}
       # Development switch. Untokened requests run as the first existing user.
       # OFF unless set: a gate skipped by default is not a gate.
       #
@@ -101,6 +107,7 @@ services:
 
   # Logging Service - Telemetry & Observability
   logging:
+    restart: unless-stopped
     build:
       context: .
       dockerfile: logging/Dockerfile
@@ -133,6 +140,7 @@ services:
 
   # Catalog Service - Resource Registry
   catalog:
+    restart: unless-stopped
     build:
       context: .
       dockerfile: catalog/Dockerfile
@@ -166,6 +174,7 @@ services:
 
   # Messaging Service - Real-time Communication
   messaging:
+    restart: unless-stopped
     build:
       context: .
       dockerfile: messaging/Dockerfile
@@ -200,6 +209,7 @@ services:
 
   # Network Service - Service Mesh & Event Routing
   network:
+    restart: unless-stopped
     build:
       context: .
       dockerfile: network/Dockerfile
@@ -228,8 +238,10 @@ services:
       retries: 3
 
   # Directory Service - Federation control plane (peer directory, foreign-node
-  # table, admission). No database; holds federation state in memory.
+  # table, admission). No database; peers journal to JSONL, foreign nodes are
+  # TTL-leased in memory on purpose.
   directory:
+    restart: unless-stopped
     build:
       context: .
       dockerfile: directory/Dockerfile
@@ -247,6 +259,10 @@ services:
       # identity each time — measured 10 Aug 2026: force-recreate changed
       # directory from 7d9b4cf2... to d7366b1c...
       - identity_directory:/app/.identity
+      # Peer journal (peers.jsonl). A peer declaration is a recorded decision;
+      # measured 12 Aug 2026: a routine service restart emptied the in-memory
+      # table mid-measurement and every federation forward failed closed.
+      - directory_data:/app/data
     healthcheck:
       test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://127.0.0.1:5010/health/live"]
       interval: 30s
@@ -255,6 +271,7 @@ services:
 
   # Runtime Service - Graph Execution Engine
   runtime:
+    restart: unless-stopped
     build:
       context: .
       dockerfile: runtime/Dockerfile
@@ -289,6 +306,7 @@ services:
 
   # Assistants Service - AI Orchestration
   assistants:
+    restart: unless-stopped
     build:
       context: .
       dockerfile: assistants/Dockerfile
@@ -308,6 +326,9 @@ services:
       CATALOG_SERVICE_URL: http://catalog:5003
       LOGGING_SERVICE_URL: http://logging:5002
       INTEGRATIONS_SERVICE_URL: http://integrations:5007
+      # Completions go through the broker, which knows what each model will
+      # accept. LLM_VIA_MODELS=0 restores the direct integrations call.
+      MODELS_SERVICE_URL: http://models:5008
       MESSAGING_SERVICE_URL: http://messaging:5005
       # Added 7 Aug 2026. Without these, service.call from a rule resolved
       # runtime and network to localhost INSIDE the assistants container and
@@ -338,6 +359,7 @@ services:
 
   # Integrations Service - LLM Provider Gateway
   integrations:
+    restart: unless-stopped
     build:
       context: .
       dockerfile: integrations/Dockerfile
@@ -374,6 +396,7 @@ services:
 
   # Models Service - Local LLM Inference (node-llama-cpp)
   models:
+    restart: unless-stopped
     build:
       context: .
       dockerfile: models/Dockerfile
@@ -416,6 +439,7 @@ services:
   # API front end / admin console - ServiceId.API
   # Was `service-admin` on 9000, registered nowhere (F1).
   service-admin:
+    restart: unless-stopped
     build:
       context: .
       dockerfile: service-admin/Dockerfile
@@ -459,6 +483,7 @@ services:
   # Previously not started by anything: it ran only if a developer knew to run
   # a bundler by hand (F5).
   control-center:
+    restart: unless-stopped
     build:
       context: .
       dockerfile: symbia-control-center/Dockerfile
@@ -490,6 +515,7 @@ services:
 volumes:
   postgres_data:
   models_data:
+  directory_data:
   identity_identity:
   identity_logging:
   identity_catalog:

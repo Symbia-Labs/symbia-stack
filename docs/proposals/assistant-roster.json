@@ -1,0 +1,4014 @@
+{
+  "$comment": "PAPER \u2014 nothing registered. Ten role-scale internal assistants, 13 Aug 2026. Two axes: one distinct service surface and one distinct routine shape each. config.digest uses a local canonicalizer \u2014 verify against @symbia/crypto before citing one.",
+  "generatedAt": "2026-08-13",
+  "count": 10,
+  "resources": [
+    {
+      "id": "ast-symbia",
+      "key": "assistants/symbia",
+      "name": "Symbia",
+      "description": "The coordinator. Decides who answers and records that it delegated. It never produces a value of its own \u2014 if it ever does, that is a defect, not a feature.",
+      "type": "assistant",
+      "status": "draft",
+      "tags": [
+        "assistant",
+        "core",
+        "level-5",
+        "probabilistic",
+        "internal",
+        "shape:cascade"
+      ],
+      "accessPolicy": {
+        "visibility": "public",
+        "actions": {
+          "read": {
+            "anyOf": [
+              "public"
+            ]
+          },
+          "write": {
+            "anyOf": [
+              "role:admin"
+            ]
+          }
+        }
+      },
+      "metadata": {
+        "alias": "symbia",
+        "coreLevel": 5,
+        "routineShape": "Cascade",
+        "serviceSurface": "assistants, catalog",
+        "refusalBoundary": "Answering anything itself. Routing to an unpublished assistant. Reaching tier 4 without recording that tiers 1\u20133 declined.",
+        "routing": {
+          "handles": [
+            "anything addressed to the installation",
+            "@mentions",
+            "ambiguous requests"
+          ],
+          "declines": [
+            "producing an answer itself",
+            "routing to draft assistants"
+          ]
+        },
+        "config": {
+          "kind": "probabilistic",
+          "lane": "conditional",
+          "claims": [
+            "COMPOSED",
+            "REFUSED"
+          ],
+          "onFailure": "retry",
+          "retries": {
+            "max": 2
+          },
+          "model": {
+            "source": "remote",
+            "id": "claude-sonnet-5",
+            "onUnavailable": "substitute"
+          },
+          "generation": {
+            "maxTokens": 900
+          },
+          "digest": "sha256:4d3742f340f7296e01ceee989e4d5aec789dfa5fb2c8e42b5b0e5bf1dc587149"
+        },
+        "contextBindings": [
+          {
+            "alias": "@roster",
+            "contextKey": "roster",
+            "type": "catalog",
+            "refresh": "on_start",
+            "config": {
+              "type": "assistant",
+              "status": "published"
+            }
+          }
+        ],
+        "assistantConfig": {
+          "principalId": "assistant:symbia",
+          "principalType": "assistant",
+          "capabilities": [
+            "assistants",
+            "catalog",
+            "messaging"
+          ]
+        },
+        "ruleSet": {
+          "id": "ruleset-symbia",
+          "name": "Symbia Rules",
+          "version": 1,
+          "isActive": true,
+          "rules": [
+            {
+              "id": "route-cascade",
+              "name": "Tiered routing",
+              "priority": 100,
+              "enabled": true,
+              "trigger": "message.received",
+              "onError": "refuse",
+              "fallThrough": false,
+              "conditions": {
+                "logic": "or",
+                "conditions": [
+                  {
+                    "field": "message.content",
+                    "operator": "matches",
+                    "value": ".*"
+                  }
+                ]
+              },
+              "actions": [
+                {
+                  "id": "tier1-mention",
+                  "type": "condition",
+                  "params": {
+                    "if": {
+                      "logic": "and",
+                      "conditions": [
+                        {
+                          "field": "message.content",
+                          "operator": "matches",
+                          "value": "@[a-z][a-z0-9-]*"
+                        }
+                      ]
+                    },
+                    "then": [
+                      {
+                        "id": "resolve-mention",
+                        "type": "tool.invoke",
+                        "params": {
+                          "tool": "mention.resolve",
+                          "input": "{{@message.content}}",
+                          "resultKey": "mentioned"
+                        }
+                      },
+                      {
+                        "id": "mention-published",
+                        "type": "condition",
+                        "params": {
+                          "if": {
+                            "logic": "and",
+                            "conditions": [
+                              {
+                                "field": "steps.resolve-mention.result.status",
+                                "operator": "equals",
+                                "value": "published"
+                              }
+                            ]
+                          },
+                          "then": [
+                            {
+                              "id": "tier-1",
+                              "type": "context.update",
+                              "params": {
+                                "key": "routing.tier",
+                                "value": 1,
+                                "operation": "set"
+                              }
+                            },
+                            {
+                              "id": "delegate-1",
+                              "type": "assistant.route",
+                              "params": {
+                                "target": "{{steps.resolve-mention.result.alias}}",
+                                "reason": "explicit mention \u2014 no inference"
+                              }
+                            }
+                          ],
+                          "else": [
+                            {
+                              "id": "mention-unknown",
+                              "type": "message.send",
+                              "params": {
+                                "content": "`{{steps.resolve-mention.result.alias}}` is not a published assistant, so I am not routing there. Naming a draft assistant is a routing failure, not a fallback."
+                              }
+                            }
+                          ]
+                        }
+                      }
+                    ]
+                  }
+                },
+                {
+                  "id": "tier2-declared",
+                  "type": "condition",
+                  "params": {
+                    "if": {
+                      "logic": "and",
+                      "conditions": [
+                        {
+                          "field": "context.routing.tier",
+                          "operator": "not_exists",
+                          "value": true
+                        }
+                      ]
+                    },
+                    "then": [
+                      {
+                        "id": "scan-declarations",
+                        "type": "loop",
+                        "params": {
+                          "over": "{{@roster.resources}}",
+                          "as": "cand",
+                          "actions": [
+                            {
+                              "id": "compile",
+                              "type": "tool.invoke",
+                              "params": {
+                                "tool": "pattern.compile",
+                                "input": "{{var.cand.metadata.routing.handles}}",
+                                "resultKey": "compiled"
+                              }
+                            },
+                            {
+                              "id": "pattern-usable",
+                              "type": "condition",
+                              "params": {
+                                "if": {
+                                  "logic": "and",
+                                  "conditions": [
+                                    {
+                                      "field": "steps.compile.result.valid",
+                                      "operator": "equals",
+                                      "value": true
+                                    },
+                                    {
+                                      "field": "steps.compile.result.matches",
+                                      "operator": "equals",
+                                      "value": true
+                                    }
+                                  ]
+                                },
+                                "then": [
+                                  {
+                                    "id": "record-candidate",
+                                    "type": "context.update",
+                                    "params": {
+                                      "key": "routing.candidates[]",
+                                      "value": "{{var.cand.metadata.alias}}",
+                                      "operation": "merge"
+                                    }
+                                  }
+                                ],
+                                "else": [
+                                  {
+                                    "id": "record-bad-pattern",
+                                    "type": "context.update",
+                                    "params": {
+                                      "key": "routing.unmatchable[]",
+                                      "value": "{{var.cand.metadata.alias}}",
+                                      "operation": "merge"
+                                    }
+                                  }
+                                ]
+                              }
+                            }
+                          ],
+                          "maxIterations": 50,
+                          "continueOnError": true
+                        }
+                      },
+                      {
+                        "id": "exactly-one",
+                        "type": "condition",
+                        "params": {
+                          "if": {
+                            "logic": "and",
+                            "conditions": [
+                              {
+                                "field": "context.routing.candidates.length",
+                                "operator": "equals",
+                                "value": 1
+                              }
+                            ]
+                          },
+                          "then": [
+                            {
+                              "id": "tier-2",
+                              "type": "context.update",
+                              "params": {
+                                "key": "routing.tier",
+                                "value": 2,
+                                "operation": "set"
+                              }
+                            },
+                            {
+                              "id": "delegate-2",
+                              "type": "assistant.route",
+                              "params": {
+                                "target": "{{context.routing.candidates.0}}",
+                                "reason": "declared pattern \u2014 reproducible"
+                              }
+                            }
+                          ]
+                        }
+                      }
+                    ]
+                  }
+                },
+                {
+                  "id": "tier3-classify",
+                  "type": "condition",
+                  "params": {
+                    "if": {
+                      "logic": "and",
+                      "conditions": [
+                        {
+                          "field": "context.routing.tier",
+                          "operator": "not_exists",
+                          "value": true
+                        }
+                      ]
+                    },
+                    "then": [
+                      {
+                        "id": "classify",
+                        "type": "tool.invoke",
+                        "params": {
+                          "tool": "intent.classify",
+                          "input": "{{@message.content}}",
+                          "resultKey": "intent"
+                        }
+                      },
+                      {
+                        "id": "in-domain",
+                        "type": "condition",
+                        "params": {
+                          "if": {
+                            "logic": "and",
+                            "conditions": [
+                              {
+                                "field": "steps.classify.result.class",
+                                "operator": "not_equals",
+                                "value": "out_of_domain"
+                              },
+                              {
+                                "field": "steps.classify.result.confidence",
+                                "operator": "greater_than",
+                                "value": 0.6
+                              }
+                            ]
+                          },
+                          "then": [
+                            {
+                              "id": "tier-3",
+                              "type": "context.update",
+                              "params": {
+                                "key": "routing.tier",
+                                "value": 3,
+                                "operation": "set"
+                              }
+                            },
+                            {
+                              "id": "delegate-3",
+                              "type": "assistant.route",
+                              "params": {
+                                "target": "{{steps.classify.result.class}}",
+                                "reason": "classifier \u2014 reproducible, debuggable"
+                              }
+                            }
+                          ],
+                          "else": [
+                            {
+                              "id": "ood",
+                              "type": "context.update",
+                              "params": {
+                                "key": "routing.outOfDomain",
+                                "value": true,
+                                "operation": "set"
+                              }
+                            }
+                          ]
+                        }
+                      }
+                    ]
+                  }
+                },
+                {
+                  "id": "tier4-model",
+                  "type": "condition",
+                  "params": {
+                    "if": {
+                      "logic": "and",
+                      "conditions": [
+                        {
+                          "field": "context.routing.tier",
+                          "operator": "not_exists",
+                          "value": true
+                        },
+                        {
+                          "field": "context.routing.outOfDomain",
+                          "operator": "not_equals",
+                          "value": true
+                        }
+                      ]
+                    },
+                    "then": [
+                      {
+                        "id": "arbitrate",
+                        "type": "llm.invoke",
+                        "params": {
+                          "llmConfigPreset": "routing",
+                          "maxTokens": 120,
+                          "systemPrompt": "Pick one alias from the roster or answer NONE. You are tier 4: tiers 1-3 already declined, and that is recorded. You may not invent an alias. NONE is a correct and common answer.",
+                          "userPrompt": "REQUEST: {{@message.content}}\nROSTER: {{@roster.resources}}\nCLASSIFIER SAID: {{steps.classify.result}}",
+                          "resultKey": "pick"
+                        }
+                      },
+                      {
+                        "id": "model-picked",
+                        "type": "condition",
+                        "params": {
+                          "if": {
+                            "logic": "and",
+                            "conditions": [
+                              {
+                                "field": "steps.arbitrate.result",
+                                "operator": "not_equals",
+                                "value": "NONE"
+                              }
+                            ]
+                          },
+                          "then": [
+                            {
+                              "id": "tier-4",
+                              "type": "context.update",
+                              "params": {
+                                "key": "routing.tier",
+                                "value": 4,
+                                "operation": "set"
+                              }
+                            },
+                            {
+                              "id": "delegate-4",
+                              "type": "assistant.route",
+                              "params": {
+                                "target": "{{steps.arbitrate.result}}",
+                                "reason": "model arbitration \u2014 least reproducible tier, recorded as such"
+                              }
+                            }
+                          ]
+                        }
+                      }
+                    ]
+                  }
+                },
+                {
+                  "id": "nobody",
+                  "type": "condition",
+                  "params": {
+                    "if": {
+                      "logic": "and",
+                      "conditions": [
+                        {
+                          "field": "context.routing.tier",
+                          "operator": "not_exists",
+                          "value": true
+                        }
+                      ]
+                    },
+                    "then": [
+                      {
+                        "id": "decline",
+                        "type": "message.send",
+                        "params": {
+                          "content": "No assistant here declares this, the classifier put it out of domain, and I do not answer questions myself. Tiers tried: {{context.routing.tier}}. Unmatchable patterns found while scanning: {{context.routing.unmatchable}}."
+                        }
+                      }
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "id": "symbia-refuse",
+              "name": "Default refusal",
+              "priority": 1,
+              "enabled": true,
+              "isDefault": true,
+              "trigger": "message.received",
+              "conditions": {
+                "logic": "and",
+                "conditions": []
+              },
+              "actions": [
+                {
+                  "id": "refuse",
+                  "type": "message.send",
+                  "params": {
+                    "content": "Outside what I hold. I decline: answering anything itself. Try the coordinator \u2014 it can route this."
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "ast-calc",
+      "key": "assistants/calc",
+      "name": "Calculator",
+      "description": "Arithmetic, and the resolution of what 'that' refers to. The floor of the platform: the one assistant whose answer is reproducible by anyone with the expression.",
+      "type": "assistant",
+      "status": "draft",
+      "tags": [
+        "assistant",
+        "core",
+        "level-2",
+        "deterministic",
+        "internal",
+        "shape:single-shot-deterministic"
+      ],
+      "accessPolicy": {
+        "visibility": "public",
+        "actions": {
+          "read": {
+            "anyOf": [
+              "public"
+            ]
+          },
+          "write": {
+            "anyOf": [
+              "role:admin"
+            ]
+          }
+        }
+      },
+      "metadata": {
+        "alias": "calc",
+        "coreLevel": 2,
+        "routineShape": "Single-shot deterministic",
+        "serviceSurface": "messaging (conversation memory)",
+        "refusalBoundary": "Anything requiring a model. Any follow-up whose referent is not in conversation memory \u2014 after a restart that memory is gone, and it says so rather than guessing.",
+        "routing": {
+          "handles": [
+            "arithmetic",
+            "percentages",
+            "tips",
+            "revisions of a prior calculation"
+          ],
+          "declines": [
+            "word problems needing interpretation",
+            "anything after a restart with no referent"
+          ]
+        },
+        "config": {
+          "kind": "deterministic",
+          "lane": "inherit",
+          "claims": [
+            "COMPUTED",
+            "REFUSED"
+          ],
+          "onFailure": "refuse",
+          "model": {
+            "source": "none",
+            "id": null,
+            "onUnavailable": "refuse"
+          },
+          "digest": "sha256:8d7e91821f87b16c9464f0747d649f09ccba62bee090675e2f05357a1e5a3be0"
+        },
+        "contextBindings": [],
+        "assistantConfig": {
+          "principalId": "assistant:calc",
+          "principalType": "assistant",
+          "capabilities": [
+            "messaging",
+            "messaging (conversation memory)"
+          ]
+        },
+        "ruleSet": {
+          "id": "ruleset-calc",
+          "name": "Calculator Rules",
+          "version": 1,
+          "isActive": true,
+          "rules": [
+            {
+              "id": "calc-revise",
+              "name": "Revise the calculation, not the result",
+              "priority": 200,
+              "enabled": true,
+              "trigger": "message.received",
+              "onError": "refuse",
+              "fallThrough": false,
+              "conditions": {
+                "logic": "or",
+                "conditions": [
+                  {
+                    "field": "message.content",
+                    "operator": "matches",
+                    "value": "^(actually|no,|wait,|i meant|make it|change that)"
+                  }
+                ]
+              },
+              "actions": [
+                {
+                  "id": "recall",
+                  "type": "tool.invoke",
+                  "params": {
+                    "tool": "memory.referent",
+                    "input": "{{@message.conversationId}}",
+                    "resultKey": "prior"
+                  }
+                },
+                {
+                  "id": "have-referent",
+                  "type": "condition",
+                  "params": {
+                    "if": {
+                      "logic": "and",
+                      "conditions": [
+                        {
+                          "field": "steps.recall.result.expression",
+                          "operator": "exists",
+                          "value": true
+                        }
+                      ]
+                    },
+                    "then": [
+                      {
+                        "id": "rewrite",
+                        "type": "tool.invoke",
+                        "params": {
+                          "tool": "expression.revise",
+                          "input": {
+                            "prior": "{{steps.recall.result.expression}}",
+                            "revision": "{{@message.content}}"
+                          },
+                          "resultKey": "revised"
+                        }
+                      },
+                      {
+                        "id": "evaluate",
+                        "type": "tool.invoke",
+                        "params": {
+                          "tool": "math.evaluate",
+                          "input": "{{steps.rewrite.result}}",
+                          "resultKey": "value"
+                        }
+                      },
+                      {
+                        "id": "reply",
+                        "type": "message.send",
+                        "params": {
+                          "template": "{{steps.evaluate.result}}",
+                          "provenance": {
+                            "expression": "{{steps.rewrite.result}}",
+                            "revisedFrom": "{{steps.recall.result.expression}}",
+                            "computedBy": "math.evaluate"
+                          }
+                        }
+                      }
+                    ],
+                    "else": [
+                      {
+                        "id": "no-referent",
+                        "type": "message.send",
+                        "params": {
+                          "content": "I have no prior calculation in this conversation to revise. Conversation memory is in-process and a restart clears it \u2014 that is a durability limit, not a refusal to help. Give me the full expression and I will compute it."
+                        }
+                      }
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "id": "calc-evaluate",
+              "name": "Evaluate",
+              "priority": 100,
+              "enabled": true,
+              "trigger": "message.received",
+              "onError": "refuse",
+              "fallThrough": false,
+              "conditions": {
+                "logic": "or",
+                "conditions": [
+                  {
+                    "field": "message.content",
+                    "operator": "matches",
+                    "value": "[0-9].*[-+*/^%].*[0-9]"
+                  },
+                  {
+                    "field": "message.content",
+                    "operator": "matches",
+                    "value": "\\b(calculate|what is|how much is)\\b.*\\d"
+                  }
+                ]
+              },
+              "actions": [
+                {
+                  "id": "parse",
+                  "type": "tool.invoke",
+                  "params": {
+                    "tool": "expression.parse",
+                    "input": "{{@message.content}}",
+                    "resultKey": "expr"
+                  }
+                },
+                {
+                  "id": "parsed",
+                  "type": "condition",
+                  "params": {
+                    "if": {
+                      "logic": "and",
+                      "conditions": [
+                        {
+                          "field": "steps.parse.result.valid",
+                          "operator": "equals",
+                          "value": true
+                        }
+                      ]
+                    },
+                    "then": [
+                      {
+                        "id": "evaluate",
+                        "type": "tool.invoke",
+                        "params": {
+                          "tool": "math.evaluate",
+                          "input": "{{steps.parse.result.expression}}",
+                          "resultKey": "value"
+                        }
+                      },
+                      {
+                        "id": "reply",
+                        "type": "message.send",
+                        "params": {
+                          "template": "{{steps.evaluate.result}}",
+                          "provenance": {
+                            "expression": "{{steps.parse.result.expression}}",
+                            "computedBy": "math.evaluate"
+                          }
+                        }
+                      }
+                    ],
+                    "else": [
+                      {
+                        "id": "unparsed",
+                        "type": "message.send",
+                        "params": {
+                          "content": "I could not turn that into an expression deterministically, and I have no model to guess with. Say it as arithmetic and I will compute it exactly."
+                        }
+                      }
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "id": "calc-refuse",
+              "name": "Default refusal",
+              "priority": 1,
+              "enabled": true,
+              "isDefault": true,
+              "trigger": "message.received",
+              "conditions": {
+                "logic": "and",
+                "conditions": []
+              },
+              "actions": [
+                {
+                  "id": "refuse",
+                  "type": "message.send",
+                  "params": {
+                    "content": "Outside what I hold. I decline: anything requiring a model. Try the coordinator \u2014 it can route this."
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "ast-warden",
+      "key": "assistants/warden",
+      "name": "Warden",
+      "description": "Operations. Answers what is running, what is degraded, and where the registry disagrees with reality \u2014 always by measuring, never by reading a registration.",
+      "type": "assistant",
+      "status": "draft",
+      "tags": [
+        "assistant",
+        "core",
+        "level-4",
+        "probabilistic",
+        "internal",
+        "shape:fan-out-settle-re-probe"
+      ],
+      "accessPolicy": {
+        "visibility": "public",
+        "actions": {
+          "read": {
+            "anyOf": [
+              "public"
+            ]
+          },
+          "write": {
+            "anyOf": [
+              "role:admin"
+            ]
+          }
+        }
+      },
+      "metadata": {
+        "alias": "warden",
+        "coreLevel": 4,
+        "routineShape": "Fan-out, settle, re-probe",
+        "serviceSurface": "network, logging, catalog, runtime",
+        "refusalBoundary": "Calling a registered service healthy on the strength of its registration. Reporting a single failed probe as an outage. Any arithmetic \u2014 rates and percentages go to Calculator so they stay COMPUTED.",
+        "routing": {
+          "handles": [
+            "health",
+            "is X running",
+            "drift",
+            "latency",
+            "error rate",
+            "port surface"
+          ],
+          "declines": [
+            "why the code is wrong",
+            "capacity planning",
+            "anything about a peer installation"
+          ]
+        },
+        "config": {
+          "kind": "probabilistic",
+          "lane": "conditional",
+          "claims": [
+            "RETRIEVED",
+            "COMPUTED",
+            "COMPOSED",
+            "REFUSED"
+          ],
+          "onFailure": "retry",
+          "retries": {
+            "max": 2
+          },
+          "model": {
+            "source": "remote",
+            "id": "claude-sonnet-5",
+            "onUnavailable": "substitute"
+          },
+          "generation": {
+            "maxTokens": 900
+          },
+          "digest": "sha256:401d1c287e965dc24651376a62b7adc7c5829885436d211aba4942d707c63c71"
+        },
+        "contextBindings": [
+          {
+            "alias": "@registry",
+            "contextKey": "registry",
+            "type": "catalog",
+            "refresh": "on_start",
+            "config": {
+              "type": "service"
+            }
+          },
+          {
+            "alias": "@errors",
+            "contextKey": "errors",
+            "type": "logs",
+            "refresh": "on_turn",
+            "config": {
+              "level": "error",
+              "window": "15m"
+            }
+          }
+        ],
+        "assistantConfig": {
+          "principalId": "assistant:warden",
+          "principalType": "assistant",
+          "capabilities": [
+            "catalog",
+            "logging",
+            "messaging",
+            "network",
+            "runtime"
+          ]
+        },
+        "ruleSet": {
+          "id": "ruleset-warden",
+          "name": "Warden Rules",
+          "version": 1,
+          "isActive": true,
+          "rules": [
+            {
+              "id": "warden-diagnose",
+              "name": "Probe, reconcile, settle",
+              "priority": 100,
+              "enabled": true,
+              "trigger": "message.received",
+              "onError": "refuse",
+              "fallThrough": false,
+              "conditions": {
+                "logic": "or",
+                "conditions": [
+                  {
+                    "field": "message.content",
+                    "operator": "matches",
+                    "value": "\\b(health|healthy|status|up|down|running|degraded|drift|slow|latency|errors?)\\b"
+                  }
+                ]
+              },
+              "actions": [
+                {
+                  "id": "scope",
+                  "type": "llm.invoke",
+                  "params": {
+                    "llmConfigPreset": "routing",
+                    "maxTokens": 80,
+                    "systemPrompt": "Name which registered services this question is about, or ALL. Answer with aliases only.",
+                    "userPrompt": "QUESTION: {{@message.content}}\nREGISTERED: {{@registry.resources}}",
+                    "resultKey": "scope"
+                  }
+                },
+                {
+                  "id": "probe",
+                  "type": "parallel",
+                  "params": {
+                    "strategy": "settle",
+                    "timeout": 10000,
+                    "actions": [
+                      {
+                        "id": "p-nodes",
+                        "type": "service.call",
+                        "params": {
+                          "service": "network",
+                          "method": "GET",
+                          "path": "/api/nodes",
+                          "resultKey": "nodes"
+                        }
+                      },
+                      {
+                        "id": "p-errors",
+                        "type": "service.call",
+                        "params": {
+                          "service": "logging",
+                          "method": "GET",
+                          "path": "/api/logs/query?level=error&window=15m",
+                          "resultKey": "errs"
+                        }
+                      },
+                      {
+                        "id": "p-components",
+                        "type": "service.call",
+                        "params": {
+                          "service": "runtime",
+                          "method": "GET",
+                          "path": "/api/components",
+                          "resultKey": "components"
+                        }
+                      },
+                      {
+                        "id": "p-ports",
+                        "type": "tool.invoke",
+                        "params": {
+                          "tool": "ports.scan",
+                          "input": "{{steps.scope.result}}",
+                          "resultKey": "ports"
+                        }
+                      }
+                    ]
+                  }
+                },
+                {
+                  "id": "reconcile",
+                  "type": "loop",
+                  "params": {
+                    "over": "{{@registry.resources}}",
+                    "as": "svc",
+                    "actions": [
+                      {
+                        "id": "registered-not-running",
+                        "type": "condition",
+                        "params": {
+                          "if": {
+                            "logic": "and",
+                            "conditions": [
+                              {
+                                "field": "steps.probe.nodes",
+                                "operator": "not_contains",
+                                "value": "{{var.svc.id}}"
+                              }
+                            ]
+                          },
+                          "then": [
+                            {
+                              "id": "mark",
+                              "type": "context.update",
+                              "params": {
+                                "key": "suspect[]",
+                                "value": "{{var.svc.id}}",
+                                "operation": "merge"
+                              }
+                            }
+                          ]
+                        }
+                      }
+                    ],
+                    "maxIterations": 50,
+                    "continueOnError": true
+                  }
+                },
+                {
+                  "id": "settle-suspects",
+                  "type": "condition",
+                  "params": {
+                    "if": {
+                      "logic": "and",
+                      "conditions": [
+                        {
+                          "field": "context.suspect",
+                          "operator": "exists",
+                          "value": true
+                        }
+                      ]
+                    },
+                    "then": [
+                      {
+                        "id": "cooloff",
+                        "type": "wait",
+                        "params": {
+                          "duration": 5,
+                          "unit": "s",
+                          "reason": "distinguish a flapping service from a stopped one \u2014 one probe cannot"
+                        }
+                      },
+                      {
+                        "id": "reprobe",
+                        "type": "parallel",
+                        "params": {
+                          "strategy": "settle",
+                          "timeout": 8000,
+                          "actions": [
+                            {
+                              "id": "p2-nodes",
+                              "type": "service.call",
+                              "params": {
+                                "service": "network",
+                                "method": "GET",
+                                "path": "/api/nodes",
+                                "resultKey": "nodes2"
+                              }
+                            },
+                            {
+                              "id": "p2-health",
+                              "type": "service.call",
+                              "params": {
+                                "service": "network",
+                                "method": "GET",
+                                "path": "/api/nodes/health",
+                                "resultKey": "health2"
+                              }
+                            }
+                          ]
+                        }
+                      },
+                      {
+                        "id": "confirm",
+                        "type": "loop",
+                        "params": {
+                          "over": "{{context.suspect}}",
+                          "as": "id",
+                          "actions": [
+                            {
+                              "id": "still-absent",
+                              "type": "condition",
+                              "params": {
+                                "if": {
+                                  "logic": "and",
+                                  "conditions": [
+                                    {
+                                      "field": "steps.reprobe.nodes2",
+                                      "operator": "not_contains",
+                                      "value": "{{var.id}}"
+                                    }
+                                  ]
+                                },
+                                "then": [
+                                  {
+                                    "id": "confirm-down",
+                                    "type": "context.update",
+                                    "params": {
+                                      "key": "confirmed[]",
+                                      "value": "{{var.id}}",
+                                      "operation": "merge"
+                                    }
+                                  }
+                                ],
+                                "else": [
+                                  {
+                                    "id": "confirm-flap",
+                                    "type": "context.update",
+                                    "params": {
+                                      "key": "flapping[]",
+                                      "value": "{{var.id}}",
+                                      "operation": "merge"
+                                    }
+                                  }
+                                ]
+                              }
+                            }
+                          ],
+                          "maxIterations": 50,
+                          "continueOnError": true
+                        }
+                      }
+                    ]
+                  }
+                },
+                {
+                  "id": "needs-arithmetic",
+                  "type": "condition",
+                  "params": {
+                    "if": {
+                      "logic": "and",
+                      "conditions": [
+                        {
+                          "field": "message.content",
+                          "operator": "matches",
+                          "value": "\\b(rate|percent|%|per second|average|p9\\d)\\b"
+                        }
+                      ]
+                    },
+                    "then": [
+                      {
+                        "id": "to-calc",
+                        "type": "assistant.route",
+                        "params": {
+                          "target": "@assistant.calc",
+                          "reason": "a rate is a computed value; it must not be narrated by a model"
+                        }
+                      }
+                    ]
+                  }
+                },
+                {
+                  "id": "report",
+                  "type": "llm.invoke",
+                  "params": {
+                    "llmConfigPreset": "reasoning",
+                    "maxTokens": 900,
+                    "systemPrompt": "Report only what the probes returned. Separate observation from inference explicitly \u2014 'returned 404' is an observation, 'the endpoint is missing' is an inference. A service present in the registry and absent from the node list is REGISTERED, NOT RUNNING; never call it healthy. A service absent on probe 1 and present on probe 2 is FLAPPING, not down. If a probe itself failed, say the probe failed \u2014 blank beats green, and absence of evidence is not a pass. Cite the probe behind every fact.",
+                    "userPrompt": "QUESTION: {{@message.content}}\nPROBE 1: {{steps.probe}}\nPROBE 2: {{steps.settle-suspects}}\nCONFIRMED DOWN: {{context.confirmed}}\nFLAPPING: {{context.flapping}}\nRECENT ERRORS: {{@errors}}",
+                    "resultKey": "answer"
+                  }
+                }
+              ]
+            },
+            {
+              "id": "warden-refuse",
+              "name": "Default refusal",
+              "priority": 1,
+              "enabled": true,
+              "isDefault": true,
+              "trigger": "message.received",
+              "conditions": {
+                "logic": "and",
+                "conditions": []
+              },
+              "actions": [
+                {
+                  "id": "refuse",
+                  "type": "message.send",
+                  "params": {
+                    "content": "Outside what I hold. I decline: calling a registered service healthy on the strength of its registration. Try the coordinator \u2014 it can route this."
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "ast-auditor",
+      "key": "assistants/auditor",
+      "name": "Auditor",
+      "description": "Given a reply, establishes whether its provenance holds: seal intact, arena consistent with what the assistant declared, citations actually saying what was attributed to them.",
+      "type": "assistant",
+      "status": "draft",
+      "tags": [
+        "assistant",
+        "core",
+        "level-5",
+        "probabilistic",
+        "internal",
+        "shape:backwards-chain-walk"
+      ],
+      "accessPolicy": {
+        "visibility": "public",
+        "actions": {
+          "read": {
+            "anyOf": [
+              "public"
+            ]
+          },
+          "write": {
+            "anyOf": [
+              "role:admin"
+            ]
+          }
+        }
+      },
+      "metadata": {
+        "alias": "auditor",
+        "coreLevel": 5,
+        "routineShape": "Backwards chain walk",
+        "serviceSurface": "messaging, catalog",
+        "refusalBoundary": "Stating a verification stronger than the deterministic check returned. Judging whether an answer is TRUE \u2014 it establishes only whether the provenance is intact, and says so in every report.",
+        "routing": {
+          "handles": [
+            "verify this reply",
+            "how did you get that",
+            "is this receipt intact",
+            "arena drift"
+          ],
+          "declines": [
+            "is this answer true",
+            "should I trust this source"
+          ]
+        },
+        "config": {
+          "kind": "probabilistic",
+          "lane": "inherit",
+          "claims": [
+            "COMPUTED",
+            "RETRIEVED",
+            "COMPOSED",
+            "REFUSED"
+          ],
+          "onFailure": "retry",
+          "retries": {
+            "max": 2
+          },
+          "model": {
+            "source": "remote",
+            "id": "claude-sonnet-5",
+            "onUnavailable": "substitute"
+          },
+          "generation": {
+            "maxTokens": 900
+          },
+          "digest": "sha256:154cd613cfd291eb79c7ad5ba8ab00ec6a45851e4b5a6415c17ad32fdf6ea76b"
+        },
+        "contextBindings": [],
+        "assistantConfig": {
+          "principalId": "assistant:auditor",
+          "principalType": "assistant",
+          "capabilities": [
+            "catalog",
+            "messaging"
+          ]
+        },
+        "ruleSet": {
+          "id": "ruleset-auditor",
+          "name": "Auditor Rules",
+          "version": 1,
+          "isActive": true,
+          "rules": [
+            {
+              "id": "auditor-walk",
+              "name": "Walk the chain backwards",
+              "priority": 100,
+              "enabled": true,
+              "trigger": "message.received",
+              "onError": "refuse",
+              "fallThrough": false,
+              "conditions": {
+                "logic": "or",
+                "conditions": [
+                  {
+                    "field": "message.content",
+                    "operator": "matches",
+                    "value": "\\b(verify|audit|receipt|provenance|how did you|chain|seal|arena)\\b"
+                  }
+                ]
+              },
+              "actions": [
+                {
+                  "id": "chain",
+                  "type": "service.call",
+                  "params": {
+                    "service": "messaging",
+                    "method": "GET",
+                    "path": "/api/lineage/{{@message.metadata.targetId}}",
+                    "resultKey": "chain"
+                  }
+                },
+                {
+                  "id": "chain-exists",
+                  "type": "condition",
+                  "params": {
+                    "if": {
+                      "logic": "and",
+                      "conditions": [
+                        {
+                          "field": "steps.chain.result.hops",
+                          "operator": "exists",
+                          "value": true
+                        }
+                      ]
+                    },
+                    "then": [
+                      {
+                        "id": "hops",
+                        "type": "loop",
+                        "params": {
+                          "over": "{{steps.chain.result.hops}}",
+                          "as": "hop",
+                          "actions": [
+                            {
+                              "id": "verify-seal",
+                              "type": "tool.invoke",
+                              "params": {
+                                "tool": "envelope.verify",
+                                "input": "{{var.hop.envelope}}",
+                                "resultKey": "sealOk"
+                              }
+                            },
+                            {
+                              "id": "seal-broken",
+                              "type": "condition",
+                              "params": {
+                                "if": {
+                                  "logic": "and",
+                                  "conditions": [
+                                    {
+                                      "field": "steps.verify-seal.result.valid",
+                                      "operator": "equals",
+                                      "value": false
+                                    }
+                                  ]
+                                },
+                                "then": [
+                                  {
+                                    "id": "break",
+                                    "type": "context.update",
+                                    "params": {
+                                      "key": "findings[]",
+                                      "value": {
+                                        "hop": "{{var.hop.id}}",
+                                        "kind": "seal-invalid"
+                                      },
+                                      "operation": "merge"
+                                    }
+                                  }
+                                ]
+                              }
+                            },
+                            {
+                              "id": "declared",
+                              "type": "service.call",
+                              "params": {
+                                "service": "catalog",
+                                "method": "GET",
+                                "path": "/api/resources/ast-{{var.hop.assistant}}",
+                                "resultKey": "decl"
+                              }
+                            },
+                            {
+                              "id": "arena-undeclared",
+                              "type": "condition",
+                              "params": {
+                                "if": {
+                                  "logic": "and",
+                                  "conditions": [
+                                    {
+                                      "field": "steps.declared.result.metadata.config.claims",
+                                      "operator": "not_contains",
+                                      "value": "{{var.hop.arena}}"
+                                    }
+                                  ]
+                                },
+                                "then": [
+                                  {
+                                    "id": "drift",
+                                    "type": "context.update",
+                                    "params": {
+                                      "key": "findings[]",
+                                      "value": {
+                                        "hop": "{{var.hop.id}}",
+                                        "kind": "arena-drift",
+                                        "declared": "{{steps.declared.result.metadata.config.claims}}",
+                                        "sealed": "{{var.hop.arena}}"
+                                      },
+                                      "operation": "merge"
+                                    }
+                                  }
+                                ]
+                              }
+                            },
+                            {
+                              "id": "composed-hop",
+                              "type": "condition",
+                              "params": {
+                                "if": {
+                                  "logic": "or",
+                                  "conditions": [
+                                    {
+                                      "field": "var.hop.arena",
+                                      "operator": "equals",
+                                      "value": "COMPOSED"
+                                    }
+                                  ]
+                                },
+                                "then": [
+                                  {
+                                    "id": "citations",
+                                    "type": "loop",
+                                    "params": {
+                                      "over": "{{var.hop.citations}}",
+                                      "as": "cite",
+                                      "actions": [
+                                        {
+                                          "id": "refetch",
+                                          "type": "service.call",
+                                          "params": {
+                                            "service": "catalog",
+                                            "method": "GET",
+                                            "path": "/api/resources/{{var.cite.resourceId}}",
+                                            "resultKey": "src"
+                                          }
+                                        },
+                                        {
+                                          "id": "supports",
+                                          "type": "llm.invoke",
+                                          "params": {
+                                            "llmConfigPreset": "reasoning",
+                                            "maxTokens": 250,
+                                            "systemPrompt": "Does the fetched source support the claim attributed to it? Answer exactly one of: supports / contradicts / silent. SILENT is the common case and is not a failure of the source \u2014 it means the claim went beyond what was cited. Quote the sentence you relied on.",
+                                            "userPrompt": "CLAIM: {{var.hop.text}}\nCITED AS: {{var.cite.quote}}\nSOURCE NOW: {{steps.refetch.result}}",
+                                            "resultKey": "verdict"
+                                          }
+                                        },
+                                        {
+                                          "id": "unsupported",
+                                          "type": "condition",
+                                          "params": {
+                                            "if": {
+                                              "logic": "or",
+                                              "conditions": [
+                                                {
+                                                  "field": "steps.supports.result",
+                                                  "operator": "equals",
+                                                  "value": "contradicts"
+                                                },
+                                                {
+                                                  "field": "steps.supports.result",
+                                                  "operator": "equals",
+                                                  "value": "silent"
+                                                }
+                                              ]
+                                            },
+                                            "then": [
+                                              {
+                                                "id": "cite-finding",
+                                                "type": "context.update",
+                                                "params": {
+                                                  "key": "findings[]",
+                                                  "value": {
+                                                    "hop": "{{var.hop.id}}",
+                                                    "kind": "citation-{{steps.supports.result}}"
+                                                  },
+                                                  "operation": "merge"
+                                                }
+                                              }
+                                            ]
+                                          }
+                                        }
+                                      ],
+                                      "maxIterations": 50,
+                                      "continueOnError": true
+                                    }
+                                  }
+                                ],
+                                "else": [
+                                  {
+                                    "id": "oep",
+                                    "type": "tool.invoke",
+                                    "params": {
+                                      "tool": "oep.check",
+                                      "input": "{{var.hop.text}}",
+                                      "resultKey": "oepFindings"
+                                    }
+                                  }
+                                ]
+                              }
+                            }
+                          ],
+                          "maxIterations": 25,
+                          "continueOnError": true
+                        }
+                      },
+                      {
+                        "id": "file-defect",
+                        "type": "condition",
+                        "params": {
+                          "if": {
+                            "logic": "and",
+                            "conditions": [
+                              {
+                                "field": "context.findings",
+                                "operator": "exists",
+                                "value": true
+                              }
+                            ]
+                          },
+                          "then": [
+                            {
+                              "id": "log-defect",
+                              "type": "service.call",
+                              "params": {
+                                "service": "catalog",
+                                "method": "POST",
+                                "path": "/api/resources",
+                                "resultKey": "defect",
+                                "body": {
+                                  "type": "defect",
+                                  "key": "defects/provenance-{{@var.runId}}",
+                                  "status": "draft",
+                                  "metadata": {
+                                    "findings": "{{context.findings}}",
+                                    "target": "{{@message.metadata.targetId}}"
+                                  }
+                                }
+                              }
+                            }
+                          ]
+                        }
+                      },
+                      {
+                        "id": "report",
+                        "type": "llm.invoke",
+                        "params": {
+                          "llmConfigPreset": "reasoning",
+                          "maxTokens": 900,
+                          "systemPrompt": "Report the walk hop by hop. Never state a verification stronger than the deterministic check returned. State plainly, every time, that a verified seal proves what was RECORDED, not that it is TRUE. If the chain restarts at GENESIS mid-walk, that is in-memory state loss on restart \u2014 report it as a durability defect, not as a broken chain.",
+                          "userPrompt": "CHAIN: {{steps.chain.result}}\nFINDINGS: {{context.findings}}",
+                          "resultKey": "answer"
+                        }
+                      }
+                    ],
+                    "else": [
+                      {
+                        "id": "no-chain",
+                        "type": "message.send",
+                        "params": {
+                          "content": "There is no lineage chain for that reply. Either it predates sealing, or the chain head was lost on restart \u2014 chain heads are in-process Maps. I cannot audit what was not recorded, and I will not reconstruct it."
+                        }
+                      }
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "id": "auditor-refuse",
+              "name": "Default refusal",
+              "priority": 1,
+              "enabled": true,
+              "isDefault": true,
+              "trigger": "message.received",
+              "conditions": {
+                "logic": "and",
+                "conditions": []
+              },
+              "actions": [
+                {
+                  "id": "refuse",
+                  "type": "message.send",
+                  "params": {
+                    "content": "Outside what I hold. I decline: stating a verification stronger than the deterministic check returned. Try the coordinator \u2014 it can route this."
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "ast-curator",
+      "key": "assistants/curator",
+      "name": "Curator",
+      "description": "Decides what may enter the catalog. Enforces normalized type-prefixed keys, the reusable-versus-instance line, and domain vocabulary in tags rather than keys.",
+      "type": "assistant",
+      "status": "draft",
+      "tags": [
+        "assistant",
+        "core",
+        "level-3",
+        "deterministic",
+        "internal",
+        "shape:admission-gate"
+      ],
+      "accessPolicy": {
+        "visibility": "public",
+        "actions": {
+          "read": {
+            "anyOf": [
+              "public"
+            ]
+          },
+          "write": {
+            "anyOf": [
+              "role:admin"
+            ]
+          }
+        }
+      },
+      "metadata": {
+        "alias": "curator",
+        "coreLevel": 3,
+        "routineShape": "Admission gate",
+        "serviceSurface": "catalog",
+        "refusalBoundary": "Admitting a real-time point instance. Admitting a key whose prefix disagrees with its type column. Letting a model make an admission decision \u2014 a gate a model can talk its way through is not a gate.",
+        "routing": {
+          "handles": [
+            "can this go in the catalog",
+            "key normalization",
+            "publish this",
+            "seed drift"
+          ],
+          "declines": [
+            "runtime state",
+            "whether the thing is any good"
+          ]
+        },
+        "config": {
+          "kind": "deterministic",
+          "lane": "inherit",
+          "claims": [
+            "COMPUTED",
+            "REFUSED"
+          ],
+          "onFailure": "refuse",
+          "model": {
+            "source": "remote",
+            "id": "claude-sonnet-5",
+            "onUnavailable": "refuse"
+          },
+          "generation": {
+            "maxTokens": 900
+          },
+          "digest": "sha256:73f92471b8d57511a9e064e7eded8039d0d2f92f4a6bc0c4067e1c9946d1472f"
+        },
+        "contextBindings": [],
+        "assistantConfig": {
+          "principalId": "assistant:curator",
+          "principalType": "assistant",
+          "capabilities": [
+            "catalog",
+            "messaging"
+          ]
+        },
+        "ruleSet": {
+          "id": "ruleset-curator",
+          "name": "Curator Rules",
+          "version": 1,
+          "isActive": true,
+          "rules": [
+            {
+              "id": "curator-admit",
+              "name": "Admission gate",
+              "priority": 100,
+              "enabled": true,
+              "trigger": "message.received",
+              "onError": "refuse",
+              "fallThrough": false,
+              "conditions": {
+                "logic": "or",
+                "conditions": [
+                  {
+                    "field": "message.content",
+                    "operator": "matches",
+                    "value": "\\b(catalog|register|publish|key|resource|seed|admit)\\b"
+                  }
+                ]
+              },
+              "actions": [
+                {
+                  "id": "shape",
+                  "type": "tool.invoke",
+                  "params": {
+                    "tool": "catalog.key.parse",
+                    "input": "{{@message.metadata.candidate.key}}",
+                    "resultKey": "parsed"
+                  }
+                },
+                {
+                  "id": "prefix-plural",
+                  "type": "condition",
+                  "params": {
+                    "if": {
+                      "logic": "and",
+                      "conditions": [
+                        {
+                          "field": "steps.shape.result.typeSegment.isPlural",
+                          "operator": "equals",
+                          "value": true
+                        }
+                      ]
+                    },
+                    "then": [
+                      {
+                        "id": "g1",
+                        "type": "context.update",
+                        "params": {
+                          "key": "gate.plural",
+                          "value": true,
+                          "operation": "merge"
+                        }
+                      }
+                    ],
+                    "else": [
+                      {
+                        "id": "g1f",
+                        "type": "context.update",
+                        "params": {
+                          "key": "rejections[]",
+                          "value": "key prefix is not the plural of a type \u2014 settled 9 Aug, not relitigable",
+                          "operation": "merge"
+                        }
+                      }
+                    ]
+                  }
+                },
+                {
+                  "id": "prefix-matches-type",
+                  "type": "condition",
+                  "params": {
+                    "if": {
+                      "logic": "and",
+                      "conditions": [
+                        {
+                          "field": "steps.shape.result.typeSegment.value",
+                          "operator": "equals",
+                          "value": "{{@message.metadata.candidate.type}}s"
+                        }
+                      ]
+                    },
+                    "then": [
+                      {
+                        "id": "g2",
+                        "type": "context.update",
+                        "params": {
+                          "key": "gate.typeAgreement",
+                          "value": true,
+                          "operation": "merge"
+                        }
+                      }
+                    ],
+                    "else": [
+                      {
+                        "id": "g2f",
+                        "type": "context.update",
+                        "params": {
+                          "key": "rejections[]",
+                          "value": "key prefix disagrees with the type column",
+                          "operation": "merge"
+                        }
+                      }
+                    ]
+                  }
+                },
+                {
+                  "id": "no-domain-in-key",
+                  "type": "condition",
+                  "params": {
+                    "if": {
+                      "logic": "and",
+                      "conditions": [
+                        {
+                          "field": "steps.shape.result.segments",
+                          "operator": "not_matches",
+                          "value": "(energy|utility|billing|hvac|grid)"
+                        }
+                      ]
+                    },
+                    "then": [
+                      {
+                        "id": "g3",
+                        "type": "context.update",
+                        "params": {
+                          "key": "gate.noDomainVocab",
+                          "value": true,
+                          "operation": "merge"
+                        }
+                      }
+                    ],
+                    "else": [
+                      {
+                        "id": "g3f",
+                        "type": "context.update",
+                        "params": {
+                          "key": "rejections[]",
+                          "value": "domain vocabulary belongs in tags, never in a key or a manifest",
+                          "operation": "merge"
+                        }
+                      }
+                    ]
+                  }
+                },
+                {
+                  "id": "reusable-not-instance",
+                  "type": "condition",
+                  "params": {
+                    "if": {
+                      "logic": "and",
+                      "conditions": [
+                        {
+                          "field": "@message.metadata.candidate.metadata.pointInTime",
+                          "operator": "not_exists",
+                          "value": true
+                        },
+                        {
+                          "field": "@message.metadata.candidate.metadata.observedAt",
+                          "operator": "not_exists",
+                          "value": true
+                        }
+                      ]
+                    },
+                    "then": [
+                      {
+                        "id": "g4",
+                        "type": "context.update",
+                        "params": {
+                          "key": "gate.reusable",
+                          "value": true,
+                          "operation": "merge"
+                        }
+                      }
+                    ],
+                    "else": [
+                      {
+                        "id": "g4f",
+                        "type": "context.update",
+                        "params": {
+                          "key": "rejections[]",
+                          "value": "this is a real-time point instance; the catalog holds reusable items only",
+                          "operation": "merge"
+                        }
+                      }
+                    ]
+                  }
+                },
+                {
+                  "id": "declared-backing-exists",
+                  "type": "condition",
+                  "params": {
+                    "if": {
+                      "logic": "and",
+                      "conditions": [
+                        {
+                          "field": "@message.metadata.candidate.type",
+                          "operator": "equals",
+                          "value": "graph"
+                        }
+                      ]
+                    },
+                    "then": [
+                      {
+                        "id": "graph-check",
+                        "type": "service.call",
+                        "params": {
+                          "service": "catalog",
+                          "method": "GET",
+                          "path": "/api/graphs/{{@message.metadata.candidate.id}}",
+                          "resultKey": "graph"
+                        }
+                      },
+                      {
+                        "id": "graph-populated",
+                        "type": "condition",
+                        "params": {
+                          "if": {
+                            "logic": "and",
+                            "conditions": [
+                              {
+                                "field": "steps.graph-check.result.nodes.length",
+                                "operator": "greater_than",
+                                "value": 0
+                              }
+                            ]
+                          },
+                          "then": [
+                            {
+                              "id": "g5",
+                              "type": "context.update",
+                              "params": {
+                                "key": "gate.backed",
+                                "value": true,
+                                "operation": "merge"
+                              }
+                            }
+                          ],
+                          "else": [
+                            {
+                              "id": "g5f",
+                              "type": "context.update",
+                              "params": {
+                                "key": "rejections[]",
+                                "value": "a published graph resource with no graph behind it \u2014 this is D9, and it is not admitted again",
+                                "operation": "merge"
+                              }
+                            }
+                          ]
+                        }
+                      }
+                    ]
+                  }
+                },
+                {
+                  "id": "seed-diff",
+                  "type": "tool.invoke",
+                  "params": {
+                    "tool": "seed.diff",
+                    "input": "{{@message.metadata.candidate.key}}",
+                    "resultKey": "seedDrift"
+                  }
+                },
+                {
+                  "id": "seed-safe",
+                  "type": "condition",
+                  "params": {
+                    "if": {
+                      "logic": "and",
+                      "conditions": [
+                        {
+                          "field": "steps.seed-diff.result.wouldRevertLiveRows",
+                          "operator": "equals",
+                          "value": false
+                        }
+                      ]
+                    },
+                    "then": [
+                      {
+                        "id": "g6",
+                        "type": "context.update",
+                        "params": {
+                          "key": "gate.seedSafe",
+                          "value": true,
+                          "operation": "merge"
+                        }
+                      }
+                    ],
+                    "else": [
+                      {
+                        "id": "g6f",
+                        "type": "context.update",
+                        "params": {
+                          "key": "rejections[]",
+                          "value": "admitting this would silently revert live rows to bootstrap values",
+                          "operation": "merge"
+                        }
+                      }
+                    ]
+                  }
+                },
+                {
+                  "id": "verdict",
+                  "type": "condition",
+                  "params": {
+                    "if": {
+                      "logic": "and",
+                      "conditions": [
+                        {
+                          "field": "context.rejections",
+                          "operator": "not_exists",
+                          "value": true
+                        }
+                      ]
+                    },
+                    "then": [
+                      {
+                        "id": "tags",
+                        "type": "llm.invoke",
+                        "params": {
+                          "llmConfigPreset": "conversational",
+                          "maxTokens": 200,
+                          "systemPrompt": "Propose tags for an ALREADY ADMITTED resource. You are not deciding admission \u2014 that is settled. Put every domain word here, because none of them are allowed in the key or the manifest.",
+                          "userPrompt": "RESOURCE: {{@message.metadata.candidate}}",
+                          "resultKey": "tags"
+                        }
+                      },
+                      {
+                        "id": "admit",
+                        "type": "message.send",
+                        "params": {
+                          "template": "Admitted. Proposed tags: {{steps.tags.result}}",
+                          "provenance": {
+                            "gates": "{{context.gate}}",
+                            "decidedBy": "catalog.key.parse + seed.diff"
+                          }
+                        }
+                      }
+                    ],
+                    "else": [
+                      {
+                        "id": "reject",
+                        "type": "message.send",
+                        "params": {
+                          "template": "Not admitted:\n{{context.rejections}}",
+                          "provenance": {
+                            "gates": "{{context.gate}}",
+                            "decidedBy": "deterministic gate, no model consulted"
+                          }
+                        }
+                      }
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "id": "curator-refuse",
+              "name": "Default refusal",
+              "priority": 1,
+              "enabled": true,
+              "isDefault": true,
+              "trigger": "message.received",
+              "conditions": {
+                "logic": "and",
+                "conditions": []
+              },
+              "actions": [
+                {
+                  "id": "refuse",
+                  "type": "message.send",
+                  "params": {
+                    "content": "Outside what I hold. I decline: admitting a real-time point instance. Try the coordinator \u2014 it can route this."
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "ast-marshal",
+      "key": "assistants/marshal",
+      "name": "Marshal",
+      "description": "Security posture of this installation: credentials and their age, org membership and tenancy, capability grants, and whether the guards are actually exercised rather than merely present in code.",
+      "type": "assistant",
+      "status": "draft",
+      "tags": [
+        "assistant",
+        "core",
+        "level-4",
+        "probabilistic",
+        "internal",
+        "shape:sweep-and-escalate"
+      ],
+      "accessPolicy": {
+        "visibility": "public",
+        "actions": {
+          "read": {
+            "anyOf": [
+              "public"
+            ]
+          },
+          "write": {
+            "anyOf": [
+              "role:admin"
+            ]
+          }
+        }
+      },
+      "metadata": {
+        "alias": "marshal",
+        "coreLevel": 4,
+        "routineShape": "Sweep and escalate",
+        "serviceSurface": "identity, integrations",
+        "refusalBoundary": "Returning a credential value, ever, under any framing. Declaring RLS enforced on the strength of code \u2014 STATUS \u00a70a says it has never run against a live stack, and this assistant repeats that until it has run it itself.",
+        "routing": {
+          "handles": [
+            "credentials",
+            "rotation",
+            "tenancy",
+            "org membership",
+            "capability grants",
+            "posture"
+          ],
+          "declines": [
+            "credential values",
+            "declaring a guard enforced without exercising it"
+          ]
+        },
+        "config": {
+          "kind": "probabilistic",
+          "lane": "apocryphal",
+          "claims": [
+            "RETRIEVED",
+            "COMPUTED",
+            "COMPOSED",
+            "REFUSED"
+          ],
+          "onFailure": "retry",
+          "retries": {
+            "max": 2
+          },
+          "model": {
+            "source": "remote",
+            "id": "claude-sonnet-5",
+            "onUnavailable": "substitute"
+          },
+          "generation": {
+            "maxTokens": 900
+          },
+          "digest": "sha256:564ad7404e7813666c9db8ddd80b383d56677e602eb703d1e0403a24cd3c6be4"
+        },
+        "contextBindings": [
+          {
+            "alias": "@orgs",
+            "contextKey": "orgs",
+            "type": "custom",
+            "refresh": "on_start",
+            "config": {
+              "service": "identity",
+              "path": "/api/orgs"
+            }
+          }
+        ],
+        "assistantConfig": {
+          "principalId": "assistant:marshal",
+          "principalType": "assistant",
+          "capabilities": [
+            "identity",
+            "integrations",
+            "messaging"
+          ]
+        },
+        "ruleSet": {
+          "id": "ruleset-marshal",
+          "name": "Marshal Rules",
+          "version": 1,
+          "isActive": true,
+          "rules": [
+            {
+              "id": "marshal-sweep",
+              "name": "Sweep the inventory",
+              "priority": 100,
+              "enabled": true,
+              "trigger": "message.received",
+              "onError": "refuse",
+              "fallThrough": false,
+              "conditions": {
+                "logic": "or",
+                "conditions": [
+                  {
+                    "field": "message.content",
+                    "operator": "matches",
+                    "value": "\\b(credential|secret|rotate|vault|tenancy|rls|org|posture|capabilit|egress|path)\\b"
+                  }
+                ]
+              },
+              "actions": [
+                {
+                  "id": "inventory",
+                  "type": "parallel",
+                  "params": {
+                    "strategy": "settle",
+                    "timeout": 10000,
+                    "actions": [
+                      {
+                        "id": "i-creds",
+                        "type": "service.call",
+                        "params": {
+                          "service": "identity",
+                          "method": "GET",
+                          "path": "/api/credentials?fields=metadata",
+                          "resultKey": "creds"
+                        }
+                      },
+                      {
+                        "id": "i-providers",
+                        "type": "service.call",
+                        "params": {
+                          "service": "integrations",
+                          "method": "GET",
+                          "path": "/api/providers",
+                          "resultKey": "providers"
+                        }
+                      },
+                      {
+                        "id": "i-grants",
+                        "type": "service.call",
+                        "params": {
+                          "service": "runtime",
+                          "method": "GET",
+                          "path": "/api/components?fields=capabilities",
+                          "resultKey": "grants"
+                        }
+                      }
+                    ]
+                  }
+                },
+                {
+                  "id": "credentials",
+                  "type": "loop",
+                  "params": {
+                    "over": "{{steps.inventory.creds}}",
+                    "as": "cred",
+                    "actions": [
+                      {
+                        "id": "ciphertext-legacy",
+                        "type": "condition",
+                        "params": {
+                          "if": {
+                            "logic": "and",
+                            "conditions": [
+                              {
+                                "field": "var.cred.ciphertextVersion",
+                                "operator": "less_than",
+                                "value": 2
+                              }
+                            ]
+                          },
+                          "then": [
+                            {
+                              "id": "f-legacy",
+                              "type": "context.update",
+                              "params": {
+                                "key": "findings[]",
+                                "value": {
+                                  "kind": "legacy-ciphertext",
+                                  "id": "{{var.cred.id}}",
+                                  "severity": "medium",
+                                  "note": "reads through the legacy path; has not been re-encrypted under the HKDF key"
+                                },
+                                "operation": "merge"
+                              }
+                            }
+                          ]
+                        }
+                      },
+                      {
+                        "id": "rotation-overdue",
+                        "type": "condition",
+                        "params": {
+                          "if": {
+                            "logic": "and",
+                            "conditions": [
+                              {
+                                "field": "var.cred.ageDays",
+                                "operator": "greater_than",
+                                "value": 90
+                              }
+                            ]
+                          },
+                          "then": [
+                            {
+                              "id": "f-rot",
+                              "type": "context.update",
+                              "params": {
+                                "key": "findings[]",
+                                "value": {
+                                  "kind": "rotation-overdue",
+                                  "id": "{{var.cred.id}}",
+                                  "severity": "low"
+                                },
+                                "operation": "merge"
+                              }
+                            }
+                          ]
+                        }
+                      },
+                      {
+                        "id": "provider-unbacked",
+                        "type": "condition",
+                        "params": {
+                          "if": {
+                            "logic": "and",
+                            "conditions": [
+                              {
+                                "field": "steps.inventory.providers",
+                                "operator": "not_contains",
+                                "value": "{{var.cred.provider}}"
+                              }
+                            ]
+                          },
+                          "then": [
+                            {
+                              "id": "f-orphan",
+                              "type": "context.update",
+                              "params": {
+                                "key": "findings[]",
+                                "value": {
+                                  "kind": "orphaned-credential",
+                                  "id": "{{var.cred.id}}",
+                                  "severity": "low"
+                                },
+                                "operation": "merge"
+                              }
+                            }
+                          ]
+                        }
+                      }
+                    ],
+                    "maxIterations": 50,
+                    "continueOnError": true
+                  }
+                },
+                {
+                  "id": "providers-without-credentials",
+                  "type": "loop",
+                  "params": {
+                    "over": "{{steps.inventory.providers}}",
+                    "as": "prov",
+                    "actions": [
+                      {
+                        "id": "declared-unbacked",
+                        "type": "condition",
+                        "params": {
+                          "if": {
+                            "logic": "and",
+                            "conditions": [
+                              {
+                                "field": "steps.inventory.creds",
+                                "operator": "not_contains",
+                                "value": "{{var.prov.id}}"
+                              }
+                            ]
+                          },
+                          "then": [
+                            {
+                              "id": "f-decl",
+                              "type": "context.update",
+                              "params": {
+                                "key": "findings[]",
+                                "value": {
+                                  "kind": "provider-declared-no-credential",
+                                  "id": "{{var.prov.id}}",
+                                  "severity": "medium",
+                                  "note": "assistants declaring this provider will resolve to whichever credential happens to exist \u2014 a guess, and by ruling 6 a defect"
+                                },
+                                "operation": "merge"
+                              }
+                            }
+                          ]
+                        }
+                      }
+                    ],
+                    "maxIterations": 50,
+                    "continueOnError": true
+                  }
+                },
+                {
+                  "id": "exercise-guards",
+                  "type": "parallel",
+                  "params": {
+                    "strategy": "settle",
+                    "timeout": 10000,
+                    "actions": [
+                      {
+                        "id": "g-egress",
+                        "type": "tool.invoke",
+                        "params": {
+                          "tool": "egress.check",
+                          "input": [
+                            "http://169.254.169.254/latest/meta-data/",
+                            "http://localhost:5432"
+                          ],
+                          "resultKey": "egress"
+                        }
+                      },
+                      {
+                        "id": "g-path",
+                        "type": "tool.invoke",
+                        "params": {
+                          "tool": "path.validate",
+                          "input": [
+                            "../../etc/passwd",
+                            "/tmp/link-to-root"
+                          ],
+                          "resultKey": "paths"
+                        }
+                      },
+                      {
+                        "id": "g-rls",
+                        "type": "service.call",
+                        "params": {
+                          "service": "identity",
+                          "method": "GET",
+                          "path": "/api/orgs/{{@org.id}}/probe-cross-tenant",
+                          "resultKey": "rls"
+                        }
+                      }
+                    ]
+                  }
+                },
+                {
+                  "id": "guards",
+                  "type": "loop",
+                  "params": {
+                    "over": "{{steps.exercise-guards}}",
+                    "as": "g",
+                    "actions": [
+                      {
+                        "id": "guard-permitted",
+                        "type": "condition",
+                        "params": {
+                          "if": {
+                            "logic": "and",
+                            "conditions": [
+                              {
+                                "field": "var.g.result.blocked",
+                                "operator": "not_equals",
+                                "value": true
+                              }
+                            ]
+                          },
+                          "then": [
+                            {
+                              "id": "f-guard",
+                              "type": "context.update",
+                              "params": {
+                                "key": "findings[]",
+                                "value": {
+                                  "kind": "guard-did-not-block",
+                                  "probe": "{{var.g.id}}",
+                                  "severity": "high"
+                                },
+                                "operation": "merge"
+                              }
+                            }
+                          ]
+                        }
+                      }
+                    ],
+                    "maxIterations": 50,
+                    "continueOnError": true
+                  }
+                },
+                {
+                  "id": "escalate",
+                  "type": "condition",
+                  "params": {
+                    "if": {
+                      "logic": "and",
+                      "conditions": [
+                        {
+                          "field": "context.findings",
+                          "operator": "contains",
+                          "value": "high"
+                        }
+                      ]
+                    },
+                    "then": [
+                      {
+                        "id": "page",
+                        "type": "handoff.create",
+                        "params": {
+                          "summary": "Marshal sweep found a guard that did not block. A guard failing open is not a finding an assistant closes.",
+                          "priority": "high",
+                          "attachReceipt": true,
+                          "resultKey": "handoff"
+                        }
+                      }
+                    ]
+                  }
+                },
+                {
+                  "id": "posture",
+                  "type": "llm.invoke",
+                  "params": {
+                    "llmConfigPreset": "reasoning",
+                    "maxTokens": 900,
+                    "systemPrompt": "Report the sweep. NEVER include a credential value; you were given metadata only and must not ask for more. State explicitly which guards were EXERCISED in this run and which are merely present in code \u2014 a guard that has not run is not enforced, regardless of what the source says. If the cross-tenant probe did not execute against a live stack, say so and cite STATUS \u00a70a.",
+                    "userPrompt": "INVENTORY: {{steps.inventory}}\nGUARD PROBES: {{steps.exercise-guards}}\nFINDINGS: {{context.findings}}\nHANDOFF: {{steps.escalate}}",
+                    "resultKey": "answer"
+                  }
+                }
+              ]
+            },
+            {
+              "id": "marshal-refuse",
+              "name": "Default refusal",
+              "priority": 1,
+              "enabled": true,
+              "isDefault": true,
+              "trigger": "message.received",
+              "conditions": {
+                "logic": "and",
+                "conditions": []
+              },
+              "actions": [
+                {
+                  "id": "refuse",
+                  "type": "message.send",
+                  "params": {
+                    "content": "Outside what I hold. I decline: returning a credential value, ever, under any framing. Try the coordinator \u2014 it can route this."
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "ast-chronicler",
+      "key": "assistants/chronicler",
+      "name": "Chronicler",
+      "description": "Keeps the record honest. Checks documented claims against what the code does, runs the registered predictions, and produces the dated findings and the session close.",
+      "type": "assistant",
+      "status": "draft",
+      "tags": [
+        "assistant",
+        "core",
+        "level-4",
+        "probabilistic",
+        "internal",
+        "shape:reconcile-two-sources-of-truth"
+      ],
+      "accessPolicy": {
+        "visibility": "public",
+        "actions": {
+          "read": {
+            "anyOf": [
+              "public"
+            ]
+          },
+          "write": {
+            "anyOf": [
+              "role:admin"
+            ]
+          }
+        }
+      },
+      "metadata": {
+        "alias": "chronicler",
+        "coreLevel": 4,
+        "routineShape": "Reconcile two sources of truth",
+        "serviceSurface": "catalog, all services (/openapi.json)",
+        "refusalBoundary": "Editing a prediction after it has been measured \u2014 the whole point of MAP is that predictions are registered in git before measuring, and a broken one gets reported as broken. Describing a local harness run as CI.",
+        "routing": {
+          "handles": [
+            "is this doc still true",
+            "predictions",
+            "close out the session",
+            "what changed",
+            "dangling links"
+          ],
+          "declines": [
+            "editing a registered prediction",
+            "calling a local run green in CI"
+          ]
+        },
+        "config": {
+          "kind": "probabilistic",
+          "lane": "apocryphal",
+          "claims": [
+            "RETRIEVED",
+            "COMPUTED",
+            "COMPOSED",
+            "REFUSED"
+          ],
+          "onFailure": "retry",
+          "retries": {
+            "max": 2
+          },
+          "model": {
+            "source": "remote",
+            "id": "claude-sonnet-5",
+            "onUnavailable": "substitute"
+          },
+          "generation": {
+            "maxTokens": 900
+          },
+          "digest": "sha256:564ad7404e7813666c9db8ddd80b383d56677e602eb703d1e0403a24cd3c6be4"
+        },
+        "contextBindings": [
+          {
+            "alias": "@docs",
+            "contextKey": "docs",
+            "type": "catalog",
+            "refresh": "on_start",
+            "config": {
+              "type": "doc"
+            }
+          },
+          {
+            "alias": "@predictions",
+            "contextKey": "predictions",
+            "type": "catalog",
+            "refresh": "on_turn",
+            "config": {
+              "type": "prediction",
+              "status": "registered"
+            }
+          }
+        ],
+        "assistantConfig": {
+          "principalId": "assistant:chronicler",
+          "principalType": "assistant",
+          "capabilities": [
+            "all services (/openapi.json)",
+            "catalog",
+            "messaging"
+          ]
+        },
+        "ruleSet": {
+          "id": "ruleset-chronicler",
+          "name": "Chronicler Rules",
+          "version": 1,
+          "isActive": true,
+          "rules": [
+            {
+              "id": "chronicler-reconcile",
+              "name": "Claim against reality",
+              "priority": 100,
+              "enabled": true,
+              "trigger": "message.received",
+              "onError": "refuse",
+              "fallThrough": false,
+              "conditions": {
+                "logic": "or",
+                "conditions": [
+                  {
+                    "field": "message.content",
+                    "operator": "matches",
+                    "value": "\\b(stale|still true|predict|MAP|close|session|link|drift|claim)\\b"
+                  }
+                ]
+              },
+              "actions": [
+                {
+                  "id": "claims",
+                  "type": "loop",
+                  "params": {
+                    "over": "{{@docs.resources}}",
+                    "as": "doc",
+                    "actions": [
+                      {
+                        "id": "assertions",
+                        "type": "loop",
+                        "params": {
+                          "over": "{{var.doc.metadata.claims}}",
+                          "as": "claim",
+                          "actions": [
+                            {
+                              "id": "claim-is-checkable",
+                              "type": "condition",
+                              "params": {
+                                "if": {
+                                  "logic": "and",
+                                  "conditions": [
+                                    {
+                                      "field": "var.claim.probe",
+                                      "operator": "exists",
+                                      "value": true
+                                    }
+                                  ]
+                                },
+                                "then": [
+                                  {
+                                    "id": "probe",
+                                    "type": "service.call",
+                                    "params": {
+                                      "service": "{{var.claim.probe.service}}",
+                                      "method": "GET",
+                                      "path": "{{var.claim.probe.path}}",
+                                      "resultKey": "actual"
+                                    }
+                                  },
+                                  {
+                                    "id": "disagrees",
+                                    "type": "condition",
+                                    "params": {
+                                      "if": {
+                                        "logic": "and",
+                                        "conditions": [
+                                          {
+                                            "field": "steps.probe.actual",
+                                            "operator": "not_equals",
+                                            "value": "{{var.claim.expected}}"
+                                          }
+                                        ]
+                                      },
+                                      "then": [
+                                        {
+                                          "id": "stale",
+                                          "type": "context.update",
+                                          "params": {
+                                            "key": "stale[]",
+                                            "value": {
+                                              "doc": "{{var.doc.key}}",
+                                              "claim": "{{var.claim.text}}",
+                                              "expected": "{{var.claim.expected}}",
+                                              "actual": "{{steps.probe.actual}}"
+                                            },
+                                            "operation": "merge"
+                                          }
+                                        }
+                                      ]
+                                    }
+                                  }
+                                ],
+                                "else": [
+                                  {
+                                    "id": "uncheckable",
+                                    "type": "context.update",
+                                    "params": {
+                                      "key": "uncheckable[]",
+                                      "value": {
+                                        "doc": "{{var.doc.key}}",
+                                        "claim": "{{var.claim.text}}"
+                                      },
+                                      "operation": "merge"
+                                    }
+                                  }
+                                ]
+                              }
+                            }
+                          ],
+                          "maxIterations": 50,
+                          "continueOnError": true
+                        }
+                      },
+                      {
+                        "id": "links",
+                        "type": "tool.invoke",
+                        "params": {
+                          "tool": "link.resolve",
+                          "input": "{{var.doc.body}}",
+                          "resultKey": "dangling"
+                        }
+                      },
+                      {
+                        "id": "has-dangling",
+                        "type": "condition",
+                        "params": {
+                          "if": {
+                            "logic": "and",
+                            "conditions": [
+                              {
+                                "field": "steps.links.result.dangling.length",
+                                "operator": "greater_than",
+                                "value": 0
+                              }
+                            ]
+                          },
+                          "then": [
+                            {
+                              "id": "d",
+                              "type": "context.update",
+                              "params": {
+                                "key": "dangling[]",
+                                "value": {
+                                  "doc": "{{var.doc.key}}",
+                                  "targets": "{{steps.links.result.dangling}}"
+                                },
+                                "operation": "merge"
+                              }
+                            }
+                          ]
+                        }
+                      }
+                    ],
+                    "maxIterations": 200,
+                    "continueOnError": true
+                  }
+                },
+                {
+                  "id": "measure-predictions",
+                  "type": "loop",
+                  "params": {
+                    "over": "{{@predictions.resources}}",
+                    "as": "pred",
+                    "actions": [
+                      {
+                        "id": "run",
+                        "type": "tool.invoke",
+                        "params": {
+                          "tool": "harness.run",
+                          "input": "{{var.pred.metadata.harness}}",
+                          "resultKey": "outcome"
+                        }
+                      },
+                      {
+                        "id": "held",
+                        "type": "condition",
+                        "params": {
+                          "if": {
+                            "logic": "and",
+                            "conditions": [
+                              {
+                                "field": "steps.run.result.actual",
+                                "operator": "equals",
+                                "value": "{{var.pred.metadata.predicted}}"
+                              }
+                            ]
+                          },
+                          "then": [
+                            {
+                              "id": "held",
+                              "type": "context.update",
+                              "params": {
+                                "key": "predictions.held[]",
+                                "value": "{{var.pred.key}}",
+                                "operation": "merge"
+                              }
+                            }
+                          ],
+                          "else": [
+                            {
+                              "id": "broke",
+                              "type": "context.update",
+                              "params": {
+                                "key": "predictions.broken[]",
+                                "value": {
+                                  "key": "{{var.pred.key}}",
+                                  "predicted": "{{var.pred.metadata.predicted}}",
+                                  "actual": "{{steps.run.result.actual}}"
+                                },
+                                "operation": "merge"
+                              }
+                            }
+                          ]
+                        }
+                      },
+                      {
+                        "id": "mutation-attempt",
+                        "type": "condition",
+                        "params": {
+                          "if": {
+                            "logic": "and",
+                            "conditions": [
+                              {
+                                "field": "message.content",
+                                "operator": "matches",
+                                "value": "\\b(update|fix|adjust|reword) the prediction\\b"
+                              }
+                            ]
+                          },
+                          "then": [
+                            {
+                              "id": "no",
+                              "type": "message.send",
+                              "params": {
+                                "content": "A registered prediction is not editable after measurement. Register a new one; the broken one stays broken in the record. That is the entire mechanism."
+                              }
+                            }
+                          ]
+                        }
+                      }
+                    ],
+                    "maxIterations": 50,
+                    "continueOnError": true
+                  }
+                },
+                {
+                  "id": "write-finding",
+                  "type": "service.call",
+                  "params": {
+                    "service": "catalog",
+                    "method": "POST",
+                    "path": "/api/resources",
+                    "resultKey": "finding",
+                    "body": {
+                      "type": "doc",
+                      "key": "docs/{{@env.TODAY}}-reconciliation",
+                      "status": "draft",
+                      "metadata": {
+                        "stale": "{{context.stale}}",
+                        "dangling": "{{context.dangling}}",
+                        "predictions": "{{context.predictions}}"
+                      }
+                    }
+                  }
+                },
+                {
+                  "id": "close",
+                  "type": "llm.invoke",
+                  "params": {
+                    "llmConfigPreset": "reasoning",
+                    "maxTokens": 1200,
+                    "systemPrompt": "Write the dated finding. Structure it as: what was measured, what disagreed, and a NOT CHECKED section. The NOT CHECKED section is the deliverable \u2014 everything else is bookkeeping. Report every broken prediction as broken, with no softening. Never describe a local harness run as CI; if the workflow was not observed executing, say it was not observed executing.",
+                    "userPrompt": "STALE: {{context.stale}}\nUNCHECKABLE: {{context.uncheckable}}\nDANGLING: {{context.dangling}}\nPREDICTIONS HELD: {{context.predictions.held}}\nPREDICTIONS BROKEN: {{context.predictions.broken}}",
+                    "resultKey": "answer"
+                  }
+                }
+              ]
+            },
+            {
+              "id": "chronicler-refuse",
+              "name": "Default refusal",
+              "priority": 1,
+              "enabled": true,
+              "isDefault": true,
+              "trigger": "message.received",
+              "conditions": {
+                "logic": "and",
+                "conditions": []
+              },
+              "actions": [
+                {
+                  "id": "refuse",
+                  "type": "message.send",
+                  "params": {
+                    "content": "Outside what I hold. I decline: editing a prediction after it has been measured \u2014 the whole point of map is that predictions are registered in git before measuring, and a broken one gets reported as broken. Try the coordinator \u2014 it can route this."
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "ast-wright",
+      "key": "assistants/wright",
+      "name": "Wright",
+      "description": "Components and their contracts: manifests, port lanes, and what consumed an apocryphal output downstream.",
+      "type": "assistant",
+      "status": "draft",
+      "tags": [
+        "assistant",
+        "core",
+        "level-4",
+        "probabilistic",
+        "internal",
+        "shape:downstream-traversal"
+      ],
+      "accessPolicy": {
+        "visibility": "public",
+        "actions": {
+          "read": {
+            "anyOf": [
+              "public"
+            ]
+          },
+          "write": {
+            "anyOf": [
+              "role:admin"
+            ]
+          }
+        }
+      },
+      "metadata": {
+        "alias": "wright",
+        "coreLevel": 4,
+        "routineShape": "Downstream traversal",
+        "serviceSurface": "runtime, catalog",
+        "refusalBoundary": "Describing a component's behaviour from its manifest alone \u2014 a manifest is a declaration, and the whole platform exists because declarations drift. Admitting domain vocabulary into a manifest.",
+        "routing": {
+          "handles": [
+            "components",
+            "manifests",
+            "port lanes",
+            "apocryphal",
+            "what depends on this"
+          ],
+          "declines": [
+            "running a component",
+            "domain-specific behaviour"
+          ]
+        },
+        "config": {
+          "kind": "probabilistic",
+          "lane": "conditional",
+          "claims": [
+            "RETRIEVED",
+            "COMPOSED",
+            "REFUSED"
+          ],
+          "onFailure": "retry",
+          "retries": {
+            "max": 2
+          },
+          "model": {
+            "source": "remote",
+            "id": "claude-sonnet-5",
+            "onUnavailable": "substitute"
+          },
+          "generation": {
+            "maxTokens": 900
+          },
+          "digest": "sha256:47f2e765b38bd002fffcd0d11c8090c29e0de84411dd831afb22991feea07144"
+        },
+        "contextBindings": [
+          {
+            "alias": "@components",
+            "contextKey": "components",
+            "type": "catalog",
+            "refresh": "on_start",
+            "config": {
+              "type": "component"
+            }
+          }
+        ],
+        "assistantConfig": {
+          "principalId": "assistant:wright",
+          "principalType": "assistant",
+          "capabilities": [
+            "catalog",
+            "messaging",
+            "runtime"
+          ]
+        },
+        "ruleSet": {
+          "id": "ruleset-wright",
+          "name": "Wright Rules",
+          "version": 1,
+          "isActive": true,
+          "rules": [
+            {
+              "id": "wright-trace",
+              "name": "Follow the lane downstream",
+              "priority": 100,
+              "enabled": true,
+              "trigger": "message.received",
+              "onError": "refuse",
+              "fallThrough": false,
+              "conditions": {
+                "logic": "or",
+                "conditions": [
+                  {
+                    "field": "message.content",
+                    "operator": "matches",
+                    "value": "\\b(component|manifest|lane|apocryph|canonical|depends|downstream|runtime)\\b"
+                  }
+                ]
+              },
+              "actions": [
+                {
+                  "id": "target",
+                  "type": "llm.invoke",
+                  "params": {
+                    "llmConfigPreset": "routing",
+                    "maxTokens": 80,
+                    "systemPrompt": "Name the component key this is about. Answer with the key only.",
+                    "userPrompt": "QUESTION: {{@message.content}}\nCOMPONENTS: {{@components.resources}}",
+                    "resultKey": "key"
+                  }
+                },
+                {
+                  "id": "manifest",
+                  "type": "service.call",
+                  "params": {
+                    "service": "runtime",
+                    "method": "GET",
+                    "path": "/api/components/{{steps.target.result}}",
+                    "resultKey": "manifest"
+                  }
+                },
+                {
+                  "id": "seed-frontier",
+                  "type": "context.update",
+                  "params": {
+                    "key": "frontier",
+                    "value": [
+                      "{{steps.target.result}}"
+                    ],
+                    "operation": "set"
+                  }
+                },
+                {
+                  "id": "depth",
+                  "type": "context.update",
+                  "params": {
+                    "key": "depth",
+                    "value": 0,
+                    "operation": "set"
+                  }
+                },
+                {
+                  "id": "descend",
+                  "type": "loop",
+                  "params": {
+                    "over": [
+                      1,
+                      2,
+                      3,
+                      4
+                    ],
+                    "as": "level",
+                    "actions": [
+                      {
+                        "id": "next",
+                        "type": "context.update",
+                        "params": {
+                          "key": "nextFrontier",
+                          "value": [],
+                          "operation": "set"
+                        }
+                      },
+                      {
+                        "id": "frontier",
+                        "type": "loop",
+                        "params": {
+                          "over": "{{context.frontier}}",
+                          "as": "node",
+                          "actions": [
+                            {
+                              "id": "consumers",
+                              "type": "service.call",
+                              "params": {
+                                "service": "runtime",
+                                "method": "GET",
+                                "path": "/api/components?consumes={{var.node}}",
+                                "resultKey": "consumers"
+                              }
+                            },
+                            {
+                              "id": "each-consumer",
+                              "type": "loop",
+                              "params": {
+                                "over": "{{steps.consumers.result}}",
+                                "as": "c",
+                                "actions": [
+                                  {
+                                    "id": "lane-widens",
+                                    "type": "condition",
+                                    "params": {
+                                      "if": {
+                                        "logic": "and",
+                                        "conditions": [
+                                          {
+                                            "field": "var.c.inputLane",
+                                            "operator": "equals",
+                                            "value": "canonical"
+                                          },
+                                          {
+                                            "field": "steps.manifest.result.outputLane",
+                                            "operator": "equals",
+                                            "value": "apocryphal"
+                                          }
+                                        ]
+                                      },
+                                      "then": [
+                                        {
+                                          "id": "violation",
+                                          "type": "context.update",
+                                          "params": {
+                                            "key": "violations[]",
+                                            "value": {
+                                              "from": "{{var.node}}",
+                                              "to": "{{var.c.key}}",
+                                              "depth": "{{var.level}}",
+                                              "kind": "lane-widened",
+                                              "note": "lanes only tighten; an apocryphal output reached a canonical input"
+                                            },
+                                            "operation": "merge"
+                                          }
+                                        }
+                                      ],
+                                      "else": [
+                                        {
+                                          "id": "ok-edge",
+                                          "type": "context.update",
+                                          "params": {
+                                            "key": "reached[]",
+                                            "value": {
+                                              "to": "{{var.c.key}}",
+                                              "depth": "{{var.level}}"
+                                            },
+                                            "operation": "merge"
+                                          }
+                                        }
+                                      ]
+                                    }
+                                  },
+                                  {
+                                    "id": "push",
+                                    "type": "context.update",
+                                    "params": {
+                                      "key": "nextFrontier[]",
+                                      "value": "{{var.c.key}}",
+                                      "operation": "merge"
+                                    }
+                                  }
+                                ],
+                                "maxIterations": 50,
+                                "continueOnError": true
+                              }
+                            }
+                          ],
+                          "maxIterations": 50,
+                          "continueOnError": true
+                        }
+                      },
+                      {
+                        "id": "advance",
+                        "type": "context.update",
+                        "params": {
+                          "key": "frontier",
+                          "value": "{{context.nextFrontier}}",
+                          "operation": "set"
+                        }
+                      },
+                      {
+                        "id": "exhausted",
+                        "type": "condition",
+                        "params": {
+                          "if": {
+                            "logic": "and",
+                            "conditions": [
+                              {
+                                "field": "context.nextFrontier.length",
+                                "operator": "equals",
+                                "value": 0
+                              }
+                            ]
+                          },
+                          "then": [
+                            {
+                              "id": "stop",
+                              "type": "context.update",
+                              "params": {
+                                "key": "traversalComplete",
+                                "value": true,
+                                "operation": "set"
+                              }
+                            }
+                          ]
+                        }
+                      }
+                    ],
+                    "maxIterations": 4,
+                    "continueOnError": false
+                  }
+                },
+                {
+                  "id": "manifest-hygiene",
+                  "type": "loop",
+                  "params": {
+                    "over": "{{@components.resources}}",
+                    "as": "comp",
+                    "actions": [
+                      {
+                        "id": "domain-word-in-manifest",
+                        "type": "condition",
+                        "params": {
+                          "if": {
+                            "logic": "and",
+                            "conditions": [
+                              {
+                                "field": "var.comp.manifest",
+                                "operator": "matches",
+                                "value": "(energy|kwh|meter|tariff|hvac|grid|utility)"
+                              }
+                            ]
+                          },
+                          "then": [
+                            {
+                              "id": "vocab",
+                              "type": "context.update",
+                              "params": {
+                                "key": "violations[]",
+                                "value": {
+                                  "component": "{{var.comp.key}}",
+                                  "kind": "domain-vocabulary-in-manifest",
+                                  "note": "component manifests are public contracts; the domain belongs in tags"
+                                },
+                                "operation": "merge"
+                              }
+                            }
+                          ]
+                        }
+                      }
+                    ],
+                    "maxIterations": 100,
+                    "continueOnError": true
+                  }
+                },
+                {
+                  "id": "report",
+                  "type": "llm.invoke",
+                  "params": {
+                    "llmConfigPreset": "reasoning",
+                    "maxTokens": 900,
+                    "systemPrompt": "Report the traversal as a path, not a set \u2014 the reader needs to see how far the apocryphal value travelled and through what. State the depth bound and whether the walk completed or was truncated; a truncated walk is not a clean bill of health. Describe what the manifest DECLARES, and say plainly that you did not run the component.",
+                    "userPrompt": "MANIFEST: {{steps.manifest.result}}\nREACHED: {{context.reached}}\nVIOLATIONS: {{context.violations}}\nCOMPLETE: {{context.traversalComplete}}",
+                    "resultKey": "answer"
+                  }
+                }
+              ]
+            },
+            {
+              "id": "wright-refuse",
+              "name": "Default refusal",
+              "priority": 1,
+              "enabled": true,
+              "isDefault": true,
+              "trigger": "message.received",
+              "conditions": {
+                "logic": "and",
+                "conditions": []
+              },
+              "actions": [
+                {
+                  "id": "refuse",
+                  "type": "message.send",
+                  "params": {
+                    "content": "Outside what I hold. I decline: describing a component's behaviour from its manifest alone \u2014 a manifest is a declaration, and the whole platform exists because declarations drift. Try the coordinator \u2014 it can route this."
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "ast-quartermaster",
+      "key": "assistants/quartermaster",
+      "name": "Quartermaster",
+      "description": "Model and provider supply: what is loaded, what a declared model resolves to, what happens when it is not there, and what every attempt cost.",
+      "type": "assistant",
+      "status": "draft",
+      "tags": [
+        "assistant",
+        "core",
+        "level-4",
+        "probabilistic",
+        "internal",
+        "shape:budgeted-poll-and-ledger"
+      ],
+      "accessPolicy": {
+        "visibility": "public",
+        "actions": {
+          "read": {
+            "anyOf": [
+              "public"
+            ]
+          },
+          "write": {
+            "anyOf": [
+              "role:admin"
+            ]
+          }
+        }
+      },
+      "metadata": {
+        "alias": "quartermaster",
+        "coreLevel": 4,
+        "routineShape": "Budgeted poll and ledger",
+        "serviceSurface": "models, integrations, logging",
+        "refusalBoundary": "Choosing the substitution policy. `onUnavailable` is user config by ruling 8 \u2014 this assistant executes it and records it, and refuses to pick it. Also refuses to report a cost that omits failed attempts.",
+        "routing": {
+          "handles": [
+            "which model",
+            "is X available",
+            "cost",
+            "tokens",
+            "retries",
+            "substitution"
+          ],
+          "declines": [
+            "choosing a fallback policy",
+            "recommending a model"
+          ]
+        },
+        "config": {
+          "kind": "probabilistic",
+          "lane": "apocryphal",
+          "claims": [
+            "RETRIEVED",
+            "COMPUTED",
+            "COMPOSED",
+            "REFUSED"
+          ],
+          "onFailure": "retry",
+          "retries": {
+            "max": 2
+          },
+          "model": {
+            "source": "remote",
+            "id": "claude-sonnet-5",
+            "onUnavailable": "substitute"
+          },
+          "generation": {
+            "maxTokens": 900
+          },
+          "digest": "sha256:564ad7404e7813666c9db8ddd80b383d56677e602eb703d1e0403a24cd3c6be4"
+        },
+        "contextBindings": [
+          {
+            "alias": "@loaded",
+            "contextKey": "loaded",
+            "type": "custom",
+            "refresh": "30000",
+            "config": {
+              "service": "models",
+              "path": "/api/models"
+            }
+          }
+        ],
+        "assistantConfig": {
+          "principalId": "assistant:quartermaster",
+          "principalType": "assistant",
+          "capabilities": [
+            "integrations",
+            "logging",
+            "messaging",
+            "models"
+          ]
+        },
+        "ruleSet": {
+          "id": "ruleset-quartermaster",
+          "name": "Quartermaster Rules",
+          "version": 1,
+          "isActive": true,
+          "rules": [
+            {
+              "id": "qm-resolve",
+              "name": "Resolve, poll, account",
+              "priority": 100,
+              "enabled": true,
+              "trigger": "message.received",
+              "onError": "refuse",
+              "fallThrough": false,
+              "conditions": {
+                "logic": "or",
+                "conditions": [
+                  {
+                    "field": "message.content",
+                    "operator": "matches",
+                    "value": "\\b(model|provider|token|cost|spend|retry|retries|unavailable|substitut|weights?)\\b"
+                  }
+                ]
+              },
+              "actions": [
+                {
+                  "id": "declared",
+                  "type": "service.call",
+                  "params": {
+                    "service": "catalog",
+                    "method": "GET",
+                    "path": "/api/resources/ast-{{@message.metadata.subjectAlias}}",
+                    "resultKey": "decl"
+                  }
+                },
+                {
+                  "id": "attempts",
+                  "type": "context.update",
+                  "params": {
+                    "key": "attempts",
+                    "value": [],
+                    "operation": "set"
+                  }
+                },
+                {
+                  "id": "poll",
+                  "type": "loop",
+                  "params": {
+                    "over": [
+                      1,
+                      2,
+                      3
+                    ],
+                    "as": "try",
+                    "actions": [
+                      {
+                        "id": "check",
+                        "type": "parallel",
+                        "params": {
+                          "strategy": "any",
+                          "timeout": 6000,
+                          "actions": [
+                            {
+                              "id": "m-local",
+                              "type": "service.call",
+                              "params": {
+                                "service": "models",
+                                "method": "GET",
+                                "path": "/api/models/{{steps.declared.result.metadata.config.model.id}}",
+                                "resultKey": "local"
+                              }
+                            },
+                            {
+                              "id": "m-remote",
+                              "type": "service.call",
+                              "params": {
+                                "service": "integrations",
+                                "method": "GET",
+                                "path": "/api/providers/{{steps.declared.result.metadata.config.model.source}}/models",
+                                "resultKey": "remote"
+                              }
+                            }
+                          ]
+                        }
+                      },
+                      {
+                        "id": "log-attempt",
+                        "type": "context.update",
+                        "params": {
+                          "key": "attempts[]",
+                          "value": {
+                            "n": "{{var.try}}",
+                            "local": "{{steps.check.local.status}}",
+                            "remote": "{{steps.check.remote.status}}"
+                          },
+                          "operation": "merge"
+                        }
+                      },
+                      {
+                        "id": "available",
+                        "type": "condition",
+                        "params": {
+                          "if": {
+                            "logic": "or",
+                            "conditions": [
+                              {
+                                "field": "steps.check.local.status",
+                                "operator": "equals",
+                                "value": "loaded"
+                              },
+                              {
+                                "field": "steps.check.remote.status",
+                                "operator": "equals",
+                                "value": "available"
+                              }
+                            ]
+                          },
+                          "then": [
+                            {
+                              "id": "resolved",
+                              "type": "context.update",
+                              "params": {
+                                "key": "resolution",
+                                "value": "available",
+                                "operation": "set"
+                              }
+                            }
+                          ],
+                          "else": [
+                            {
+                              "id": "backoff",
+                              "type": "wait",
+                              "params": {
+                                "duration": 2,
+                                "unit": "s",
+                                "reason": "a model that is loading is not a model that is missing"
+                              }
+                            }
+                          ]
+                        }
+                      }
+                    ],
+                    "maxIterations": 3,
+                    "continueOnError": true
+                  }
+                },
+                {
+                  "id": "unavailable",
+                  "type": "condition",
+                  "params": {
+                    "if": {
+                      "logic": "and",
+                      "conditions": [
+                        {
+                          "field": "context.resolution",
+                          "operator": "not_equals",
+                          "value": "available"
+                        }
+                      ]
+                    },
+                    "then": [
+                      {
+                        "id": "policy-refuse",
+                        "type": "condition",
+                        "params": {
+                          "if": {
+                            "logic": "and",
+                            "conditions": [
+                              {
+                                "field": "steps.declared.result.metadata.config.model.onUnavailable",
+                                "operator": "equals",
+                                "value": "refuse"
+                              }
+                            ]
+                          },
+                          "then": [
+                            {
+                              "id": "refused",
+                              "type": "message.send",
+                              "params": {
+                                "content": "The declared model `{{steps.declared.result.metadata.config.model.id}}` is unavailable after {{context.attempts.length}} attempts, and this assistant's declared policy is refuse. A deterministic assistant that silently substitutes is no longer deterministic and its receipt would be lying. Policy is user config \u2014 I execute it, I do not choose it."
+                              }
+                            }
+                          ],
+                          "else": [
+                            {
+                              "id": "substitute",
+                              "type": "service.call",
+                              "params": {
+                                "service": "integrations",
+                                "method": "GET",
+                                "path": "/api/providers/resolve?capability={{steps.declared.result.metadata.config.model.capability}}",
+                                "resultKey": "sub"
+                              }
+                            },
+                            {
+                              "id": "record-sub",
+                              "type": "context.update",
+                              "params": {
+                                "key": "substitution",
+                                "value": {
+                                  "declared": "{{steps.declared.result.metadata.config.model.id}}",
+                                  "used": "{{steps.substitute.result.id}}",
+                                  "policy": "substitute",
+                                  "recordedInEnvelope": true
+                                },
+                                "operation": "set"
+                              }
+                            }
+                          ]
+                        }
+                      }
+                    ]
+                  }
+                },
+                {
+                  "id": "usage",
+                  "type": "service.call",
+                  "params": {
+                    "service": "logging",
+                    "method": "GET",
+                    "path": "/api/logs/query?type=llm.invoke&window=24h",
+                    "resultKey": "usage"
+                  }
+                },
+                {
+                  "id": "ledger",
+                  "type": "loop",
+                  "params": {
+                    "over": "{{steps.usage.result}}",
+                    "as": "call",
+                    "actions": [
+                      {
+                        "id": "count-failed-attempts",
+                        "type": "condition",
+                        "params": {
+                          "if": {
+                            "logic": "and",
+                            "conditions": [
+                              {
+                                "field": "var.call.success",
+                                "operator": "equals",
+                                "value": false
+                              }
+                            ]
+                          },
+                          "then": [
+                            {
+                              "id": "failed-cost",
+                              "type": "context.update",
+                              "params": {
+                                "key": "ledger.failed[]",
+                                "value": {
+                                  "tokens": "{{var.call.tokens}}",
+                                  "assistant": "{{var.call.assistant}}",
+                                  "attempt": "{{var.call.attemptNumber}}"
+                                },
+                                "operation": "merge"
+                              }
+                            }
+                          ],
+                          "else": [
+                            {
+                              "id": "ok-cost",
+                              "type": "context.update",
+                              "params": {
+                                "key": "ledger.succeeded[]",
+                                "value": {
+                                  "tokens": "{{var.call.tokens}}",
+                                  "assistant": "{{var.call.assistant}}",
+                                  "attempt": "{{var.call.attemptNumber}}"
+                                },
+                                "operation": "merge"
+                              }
+                            }
+                          ]
+                        }
+                      }
+                    ],
+                    "maxIterations": 500,
+                    "continueOnError": true
+                  }
+                },
+                {
+                  "id": "total",
+                  "type": "assistant.route",
+                  "params": {
+                    "target": "@assistant.calc",
+                    "reason": "token totals are computed values, not narrated ones"
+                  }
+                },
+                {
+                  "id": "report",
+                  "type": "llm.invoke",
+                  "params": {
+                    "llmConfigPreset": "reasoning",
+                    "maxTokens": 800,
+                    "systemPrompt": "Report supply and cost. An answer that succeeded on the third try is NOT the same claim as one that succeeded on the first \u2014 always report attempts, never just outcomes, and include the token cost of failed attempts in every total. State which configuration layer actually reached the API call. If a parameter was rejected by the model, that is a model capability fact, not a preference.",
+                    "userPrompt": "DECLARED: {{steps.declared.result.metadata.config.model}}\nATTEMPTS: {{context.attempts}}\nSUBSTITUTION: {{context.substitution}}\nLEDGER: {{context.ledger}}\nTOTALS: {{steps.total.result}}",
+                    "resultKey": "answer"
+                  }
+                }
+              ]
+            },
+            {
+              "id": "quartermaster-refuse",
+              "name": "Default refusal",
+              "priority": 1,
+              "enabled": true,
+              "isDefault": true,
+              "trigger": "message.received",
+              "conditions": {
+                "logic": "and",
+                "conditions": []
+              },
+              "actions": [
+                {
+                  "id": "refuse",
+                  "type": "message.send",
+                  "params": {
+                    "content": "Outside what I hold. I decline: choosing the substitution policy. Try the coordinator \u2014 it can route this."
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "ast-envoy",
+      "key": "assistants/envoy",
+      "name": "Envoy",
+      "description": "The boundary to another installation. Forwards a request to a peer, returns the peer's sealed reply intact, and reports the attestation state of the instrument that signed it.",
+      "type": "assistant",
+      "status": "draft",
+      "tags": [
+        "assistant",
+        "core",
+        "level-5",
+        "deterministic",
+        "internal",
+        "shape:relay"
+      ],
+      "accessPolicy": {
+        "visibility": "public",
+        "actions": {
+          "read": {
+            "anyOf": [
+              "public"
+            ]
+          },
+          "write": {
+            "anyOf": [
+              "role:admin"
+            ]
+          }
+        }
+      },
+      "metadata": {
+        "alias": "envoy",
+        "coreLevel": 5,
+        "routineShape": "Relay",
+        "serviceSurface": "network, identity",
+        "refusalBoundary": "Re-sealing a peer's reply under our identity. Paraphrasing a peer's answer \u2014 a relay that rewords is no longer a relay. Answering for a peer that did not respond.",
+        "routing": {
+          "handles": [
+            "ask a peer",
+            "federation",
+            "attestation",
+            "whose seal is this"
+          ],
+          "declines": [
+            "interpreting a peer's answer",
+            "re-signing anything"
+          ]
+        },
+        "config": {
+          "kind": "deterministic",
+          "lane": "inherit",
+          "claims": [
+            "RETRIEVED",
+            "REFUSED"
+          ],
+          "onFailure": "refuse",
+          "model": {
+            "source": "none",
+            "id": null,
+            "onUnavailable": "refuse"
+          },
+          "digest": "sha256:2702b78827b89ce301a6801a35c15bb9480cb39aa75678b7e477c5770a388dab"
+        },
+        "contextBindings": [
+          {
+            "alias": "@peers",
+            "contextKey": "peers",
+            "type": "custom",
+            "refresh": "on_turn",
+            "config": {
+              "service": "network",
+              "path": "/api/peers"
+            }
+          }
+        ],
+        "assistantConfig": {
+          "principalId": "assistant:envoy",
+          "principalType": "assistant",
+          "capabilities": [
+            "identity",
+            "messaging",
+            "network"
+          ]
+        },
+        "ruleSet": {
+          "id": "ruleset-envoy",
+          "name": "Envoy Rules",
+          "version": 1,
+          "isActive": true,
+          "rules": [
+            {
+              "id": "envoy-relay",
+              "name": "Forward and return intact",
+              "priority": 100,
+              "enabled": true,
+              "trigger": "message.received",
+              "onError": "refuse",
+              "fallThrough": false,
+              "conditions": {
+                "logic": "or",
+                "conditions": [
+                  {
+                    "field": "message.content",
+                    "operator": "matches",
+                    "value": "\\b(peer|federat|remote install|upstream|attest|instrument)\\b"
+                  }
+                ]
+              },
+              "actions": [
+                {
+                  "id": "target",
+                  "type": "tool.invoke",
+                  "params": {
+                    "tool": "peer.resolve",
+                    "input": "{{@message.content}}",
+                    "resultKey": "peer"
+                  }
+                },
+                {
+                  "id": "peer-known",
+                  "type": "condition",
+                  "params": {
+                    "if": {
+                      "logic": "and",
+                      "conditions": [
+                        {
+                          "field": "steps.target.result.id",
+                          "operator": "exists",
+                          "value": true
+                        }
+                      ]
+                    },
+                    "then": [
+                      {
+                        "id": "attestation",
+                        "type": "service.call",
+                        "params": {
+                          "service": "identity",
+                          "method": "GET",
+                          "path": "/api/instruments/{{steps.target.result.instrumentId}}",
+                          "resultKey": "attest"
+                        }
+                      },
+                      {
+                        "id": "attested",
+                        "type": "condition",
+                        "params": {
+                          "if": {
+                            "logic": "and",
+                            "conditions": [
+                              {
+                                "field": "steps.attestation.result.state",
+                                "operator": "equals",
+                                "value": "attested"
+                              }
+                            ]
+                          },
+                          "then": [
+                            {
+                              "id": "forward",
+                              "type": "service.call",
+                              "params": {
+                                "service": "network",
+                                "method": "POST",
+                                "path": "/api/bridge/{{steps.target.result.id}}",
+                                "resultKey": "reply",
+                                "body": {
+                                  "message": "{{@message.content}}",
+                                  "delegatedBy": "assistant:envoy",
+                                  "doNotReseal": true
+                                }
+                              }
+                            },
+                            {
+                              "id": "peer-answered",
+                              "type": "condition",
+                              "params": {
+                                "if": {
+                                  "logic": "and",
+                                  "conditions": [
+                                    {
+                                      "field": "steps.forward.result.envelope",
+                                      "operator": "exists",
+                                      "value": true
+                                    }
+                                  ]
+                                },
+                                "then": [
+                                  {
+                                    "id": "verify-foreign",
+                                    "type": "tool.invoke",
+                                    "params": {
+                                      "tool": "envelope.verify",
+                                      "input": "{{steps.forward.result.envelope}}",
+                                      "resultKey": "foreignSeal"
+                                    }
+                                  },
+                                  {
+                                    "id": "relay",
+                                    "type": "message.send",
+                                    "params": {
+                                      "template": "{{steps.forward.result.body}}",
+                                      "provenance": {
+                                        "relayedFrom": "{{steps.target.result.id}}",
+                                        "foreignSeal": "{{steps.verify-foreign.result}}",
+                                        "sealedBy": "{{steps.forward.result.envelope.signer}}",
+                                        "ourContribution": "delegation record only \u2014 no re-seal, no rewording"
+                                      }
+                                    }
+                                  }
+                                ],
+                                "else": [
+                                  {
+                                    "id": "no-answer",
+                                    "type": "message.send",
+                                    "params": {
+                                      "content": "The peer did not return a sealed reply. I do not answer for a peer, and I will not compose something from a partial response."
+                                    }
+                                  }
+                                ]
+                              }
+                            }
+                          ],
+                          "else": [
+                            {
+                              "id": "unattested",
+                              "type": "message.send",
+                              "params": {
+                                "content": "`{{steps.target.result.id}}` reports instrument state `{{steps.attestation.result.state}}`, not `attested`. I will not relay a reply whose signer I cannot vouch for, and I will not strip the seal to make it look like ours."
+                              }
+                            }
+                          ]
+                        }
+                      }
+                    ],
+                    "else": [
+                      {
+                        "id": "unknown-peer",
+                        "type": "message.send",
+                        "params": {
+                          "content": "That names no peer this installation knows. Peers are registered, not discovered from a message."
+                        }
+                      }
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "id": "envoy-refuse",
+              "name": "Default refusal",
+              "priority": 1,
+              "enabled": true,
+              "isDefault": true,
+              "trigger": "message.received",
+              "conditions": {
+                "logic": "and",
+                "conditions": []
+              },
+              "actions": [
+                {
+                  "id": "refuse",
+                  "type": "message.send",
+                  "params": {
+                    "content": "Outside what I hold. I decline: re-sealing a peer's reply under our identity. Try the coordinator \u2014 it can route this."
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      }
+    }
+  ]
+}

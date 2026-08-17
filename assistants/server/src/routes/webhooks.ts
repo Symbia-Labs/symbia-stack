@@ -1063,7 +1063,7 @@ async function getCatalogResources(): Promise<{ resources: any[] } | undefined> 
       return undefined;
     }
 
-    const data = await response.json();
+    const data = await response.json() as { resources?: Record<string, unknown>[] };
     catalogCache = { resources: data.resources || [] };
     catalogCacheExpiry = now + (5 * 60 * 1000); // 5 minutes
 
@@ -1374,23 +1374,12 @@ router.post('/messaging', async (req: Request, res: Response) => {
     // Load catalog resources for @catalog references
     const catalog = await getCatalogResources();
 
-    // Build execution context for transpilation
+    // Build the minimal template context for transpilation. Interpolation
+    // never reads conversationState/trigger/event, and TemplateContext makes
+    // that explicit — no more fabricated placeholder state here.
     const executionContext = {
       orgId: `${payload.assistant.key}:${orgId}`,
       conversationId: payload.conversationId,
-      conversationState: {} as any, // Minimal state for transpilation
-      trigger: 'message.received' as TriggerType,
-      event: {
-        type: 'message.received' as TriggerType,
-        orgId: `${payload.assistant.key}:${orgId}`,
-        conversationId: payload.conversationId,
-        data: {
-          assistantKey: payload.assistant.key,
-          messageId: payload.message.id,
-          senderId: payload.message.sender_id,
-          senderType: payload.message.sender_type,
-        },
-      },
       message: {
         id: payload.message.id,
         role: 'user' as const,

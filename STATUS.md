@@ -2,7 +2,58 @@
 
 **What exists, what runs, and what is only written down.**
 Last verified: 11 August 2026 (evening), against a running stack and the code on
-`fix/2026-08-06-api-gaps` at `9449ad6`.
+`fix/2026-08-06-api-gaps` at `9449ad6`. Security posture and build gate
+re-verified 13 August against the code only (stack not restarted); see §0a.
+
+## 0a. 13 Aug security remediation — code landed, runtime unverified
+
+An adversarial analysis (`docs/2026-08-13-adversarial-analysis.md`, response
+in `docs/2026-08-13-adversarial-analysis-response.md`) was worked through in
+five commits (`9665f62`…`7bec31b`). State by finding:
+
+- **A1 code tools**: registration now off by default
+  (`ASSISTANTS_ENABLE_CODE_TOOLS`), bash double-gated, caller-supplied
+  workspace roots and permission escalation removed, path checks are
+  sep-boundary + symlink-aware + blockedPaths-enforcing. Verified by harness
+  (12/12). **Still not a sandbox** — real isolation remains open.
+  Path validation is consolidated in `@symbia/pathguard` (13 Aug) — runtime
+  re-exports it, assistants imports it; there is exactly one validator now.
+  Do not add another copy.
+- **A4 tenancy**: `X-Org-Id` membership-checked in assistants (403 cross-org,
+  verified by harness); all five DB-backed services run requests inside a
+  fail-closed AsyncLocalStorage RLS scope with pinned-client `SET LOCAL`
+  (`@symbia/db` als-context). **Not yet exercised against a running stack.**
+  Explicit-client paths (`pool.connect`, `db.transaction`) bypass the wrapper
+  and must use `withRLSContext` — grep before adding one.
+- **A2 vault / A3 HMAC**: centralized in `@symbia/crypto` (HKDF-keyed
+  AES-256-GCM with versioned ciphertexts + legacy read path; real HMAC with
+  `timingSafeEqual`, timestamp now covered). 18/18 harness checks. Identity
+  throws at startup in production without `CREDENTIAL_ENCRYPTION_KEY`.
+- **B docs**: front-door claims reconciled; README and SECURITY now defer to
+  this file explicitly.
+- **C**: see items 8 and 9 below (check gate green; Postgres crash mechanism
+  removed, survival unmeasured).
+
+The harnesses are committed as regression tests: `npm run test:security`
+(38 checks across A1/A4/A2+A3, no running stack required). Run them before
+touching auth middleware, code tools, or `@symbia/crypto`.
+
+Open from the analysis: real execution isolation (A1 — env-gated process
+`bash` is a floor, not a boundary; build-or-delete still stands), pg-mem dev
+mode still has no RLS (loud startup warning added), unauthenticated dev route
+surfaces, in-memory state rulings unchanged, and no CI — every "green" above
+is a local run.
+
+**A1's real boundary — a direction, PAPER.** `docs/proposals/wasm-runtime.md`
+(13 Aug) proposes implementing the declared-but-empty `wasm` ComponentRuntime
+and re-expressing the code-tool as a capability-scoped wasm component, so the
+isolation is structural (a capability is a wasm import; the grant is
+host-mediated and pathguard-scoped) rather than a process gated by env flags.
+Not a runtime migration — one enum case, code-tool first, the rest stays TS.
+Evidence is two runnable spikes under `experiments/` (add: substrate-
+interchangeable; file-reader: capability granted/denied via `@symbia/pathguard`).
+Ergonomics past scalars are **unproven** — the proposal registers that as the
+first prediction to test (jco probe). PAPER until step 2 of §8 lands.
 
 This file exists because the project outgrew anyone's ability to hold it in
 their head. Read this before anything else. If a claim here is wrong, that is a
@@ -200,7 +251,89 @@ sharpest open one), explanations repeat verbatim where declines escalate, and
 rule state is in-memory by ruling (persistence is a production prerequisite, not
 a defect). Records: `docs/2026-08-11-*.md`, `docs/proposals/assistant-data-model.md`.
 
+## 5c. The models service — RUNS, and content-addressed as of 15 Aug
+
+One day's arc, every stage measured against running code; records in
+`docs/2026-08-15-models-stage2-*.md`, `-stage345-results.md`, and
+`experiments/model-derivation/` + `experiments/step-weights/`.
+
+- **Weights have identity.** Every local GGUF is sha256'd at scan (cached
+  by mtime+size), the digest flows registry → API → catalog card, and a
+  card/file mismatch at load is DISCLOSED, not refused (ruling: refusal
+  arrives when the pull path guarantees every card a digest). Measured
+  with a forced-mismatch card.
+- **Acquisition is receipted.** `POST /api/models/pull` — the bytes enter
+  through INTEGRATIONS (`/api/integrations/download`: egress + vault;
+  ruling 15 Aug restated the 12 Aug delegation shape), models digests
+  during the stream and appends a signed `artifact.registered` event to a
+  JSONL ledger beside the weights. QUICKSTART's hand-curl is gone. An
+  empty directory to a served, receipted model is one authenticated call —
+  measured, 5/5 predictions.
+- **Derivation is a checkable claim.** `@symbia/lineage` gained the
+  artifact vocabulary (`artifact.registered`/`artifact.derived`, claims in
+  words, verified-vs-asserted parent links). Ground truth from the spike:
+  llama-quantize is byte-deterministic (two runs, one digest), so a
+  quantization receipt is recomputable by anyone with parent + recipe.
+- **Local inference has served requests.** The §2 BUILT-UNWIRED entry in
+  docs/MODELS.md is stale in the good direction: the spike harness and the
+  console pull/inference path both exercised the llama engine end to end.
+- **The console can see all of it.** A Models panel (registry by digest,
+  pull with rendered receipt, mismatch banners), and the assistant editor
+  now offers local models — it read integrations `/capabilities` before,
+  which made platform-served models structurally invisible.
+- **Deploy-gated:** `model` as a catalog type with a `models/<publisher>/`
+  key gate, migration script dry-run-verified; the DEPLOYED catalog
+  rejects the type by enum (measured), so catalog+models ship together,
+  then `migrate-model-cards.mjs --apply`.
+- **Step-weights spike finding, for the engine queue:** same-model
+  self-consistency FAILED reproducibly-wrong q2k (answered 86 three times,
+  unanimously); a cross-substrate panel and a no-model computed check both
+  caught it. Escalation ranking: computed verification where checkable,
+  substrate panels second, self-consistency as prefilter only. Per-step
+  weight pins want stable step ids — the deferred 11 Aug rule question is
+  now load-bearing.
+
 ## 6. Open defects — ranked
+
+0. **Five defects opened 16 Aug, during gap closure.** Full write-up in
+   `docs/2026-08-16-session-close.md`; summarised here so they are findable.
+
+   - **D1 — sealing counts seeded resources as session-authored.**
+     `/session/seal` separates sandbox furniture from session work on
+     `isBootstrap === false`, and the seed writes that value. A session that
+     authored three artifacts sealed nineteen. Entangled with the same day's
+     fix making `isBootstrap` server-owned: the flag is now trustworthy and
+     uninformative at once. Do not fix by letting clients set it again.
+   - **D2 — a repeat import is refused for the wrong reason.** `400 "A
+     resource with this key already exists"` is an answer about keys.
+     Nothing is keyed on provenance, so re-importing a bundle cannot be
+     told apart from a name collision with unrelated content.
+   - **D3 — the logging service 500s on its read paths in imagine.**
+     `POST /api/logs/query` and `GET /api/logs/streams`, both generic.
+     Store-uninitialised versus service fault is not established. The
+     consequence is that the sink half of a graph execution is unverified:
+     the runtime's report of delivery is its own account of its own work.
+   - **D4 — `control-center` and `api` serve no spec.** Reported on every
+     `symbia_list_operations` call. Neither may be meant to; decide, then
+     either serve one or stop listing them.
+   - **D5 — server-owned fields are stripped silently.** A create carrying
+     `isBootstrap: true` succeeds with no 400 and no warning.
+   - **D8 — FIXED same day.** There was no takedown at all: no SIGTERM,
+     SIGINT or stdin handler, and `runtime`'s exported `stop()` was never
+     called. Worse, the ledger had no terminator, so an ended session, a
+     killed one, and a deliberately truncated trace were byte-identical to
+     a verifier — a truncated chain is a valid chain. Events now carry a
+     signed `seq`, an `imagine.session.closed` event declares the total on
+     the way out, and `completenessOf()` reports "24 of 27, partial" the
+     way `_truncated` and `unavailable[]` already do. 7/7 predictions held.
+   - **D6 — FIXED same day, but read it.** Every imagine sidecar wrote to
+     one `.session/ledger.jsonl`, truncating on start and then appending, so
+     one file held 185 events under three session identities and a sealed
+     bundle carried one public key with a trace signed by three. Ledger
+     paths are per-session now and `/session/seal` verifies its own chain
+     before writing. Found by running the documented commands by hand
+     **after** this defect list was first written — the automated probes had
+     all passed, because each ran while only its own sidecar existed.
 
 1. **There is no path from an edited bootstrap file to a running database.**
    *Corrected 11 Aug — the earlier entry described a mechanism that does not
@@ -259,11 +392,20 @@ a defect). Records: `docs/2026-08-11-*.md`, `docs/proposals/assistant-data-model
 6. **The first chat message after a page load does not appear.** Reproduced
    twice, 11 Aug. Sent again on the settled page, it works. Not investigated.
 7. **Spyglass gesture interference** (§2).
-8. **`npm run check` fails with 159 TypeScript errors** (49 recorded on 6 Aug).
-   The assistants service alone accounts for 19, unchanged by this session's
-   work. The build gate is effectively off.
-9. **No service survives a Postgres restart** — four crashed on an unhandled
-   `error` event and stayed down. No reconnect, no restart policy.
+8. ~~**`npm run check` fails with 159 TypeScript errors**~~ — **FIXED 13 Aug
+   (commit `7bec31b`): 0 errors across all workspaces, and `npm run build`
+   completes end to end.** Root cause of most of it was environmental, not
+   code: npm run from app-spawned shells inherits `NODE_ENV=production` and
+   silently omits devDependencies, so esbuild/tsx/tailwindcss/@types were
+   missing from the tree. If npm ever says "up to date" while node_modules is
+   visibly missing packages, check `NODE_ENV` first. Second-largest cause: a
+   self-referencing zustand store made its type circular and untyped every
+   consumer (~35 errors from one line).
+9. **Postgres restart: the crash mechanism is removed, survival not yet
+   measured.** The unhandled pool `error` event that killed four services is
+   now handled in `@symbia/db` and messaging (13 Aug, `7bec31b`); pg dials
+   fresh connections on the next query. A live restart test is still owed —
+   handler-added is the observation, "survives" would be an inference.
 9a. **`npm run seed` has never completed on this stack**, for two independent
    reasons found 11 Aug while restoring the MCP probe account. `seed.ts` used
    `import * as bcrypt` under `"type": "module"`, so `bcrypt.hash` was not
@@ -293,6 +435,111 @@ a defect). Records: `docs/2026-08-11-*.md`, `docs/proposals/assistant-data-model
     `dev@example.com` when `DEBUG` is set. Not a missing login screen — a
     hardcoded one. Still open as a defect; only the mystery is closed.
 
+12. **Lanes are legible but not actionable, and in four places not true.**
+    Three measurements, 14 Aug, each with predictions committed before the run.
+
+    - **A graph cannot branch on the lane it received.** `FlowValue` is
+      `{value, lane}`; `logic.filter` reads `input.value` only, so a filter
+      configured on `lane` emits the same port whether the value arrived
+      canonical or apocryphal. The same output port fires in both cases, and
+      `conditional` never reaches a value at runtime — it is manifest-only,
+      resolved to one of two lanes before anything downstream sees it. The lane
+      *is* returned to the caller, so the platform discloses its epistemic state
+      outward while withholding it from its own control flow. 6/6 predictions
+      held. `docs/2026-08-14-lane-visibility-results.md`.
+    - **Stateful operators launder lanes.** `state.set(...)` stores bare values
+      at `components-state.ts:74, 128, 182, 247`, and `normaliseEmission` takes
+      the single current message — so an aggregate is laned by whichever
+      delivery triggered it, not by what it aggregates. A window fed one
+      apocryphal and one canonical value emits **canonical**. No error fires and
+      no payload records it. 5/5 held.
+      `docs/2026-08-14-state-lane-laundering-results.md`.
+    - **Four ports declare a lane the implementation cannot honour:**
+      `state.latest.snapshot`, `state.window.out`, `state.rollup.out` (all
+      `conditional`, all state-carrying), and `source.timer.out`, which declares
+      **canonical** while its payload carries `ts: new Date().toISOString()`.
+      A wall-clock read is not recomputable by any definition. That last one is
+      the worst of the four, because the other three at least signal doubt.
+      `docs/2026-08-14-bus-eligibility-results.md`.
+
+    Nothing downstream is wrong *today*, because nothing reads a lane to make a
+    decision — which is the first finding. Standing evidence:
+    `npm run verify:bus`.
+
+    A response is proposed in `docs/proposals/canonical-bus.md` (PAPER): treat
+    the graph as the apocryphal lane by construction and certify deterministic
+    work on a separate substrate. It is a fork in the road, not a patch — see
+    §7.
+
+13. ~~**`npx tsx` does not run on this machine, so the standing evidence has not
+    been runnable.**~~ — **FOUND AND FIXED 14 Aug. Item 8 recurring, and the
+    misdiagnosis is the part worth keeping.**
+
+    `tsx` failed, taking out every `.mts` script — including
+    `verify-assistants.mts`, described in §5b as "standing evidence, re-run
+    after every change" — and **all of `npm run test:security`**. So the suite
+    this file tells you to run before touching auth middleware, code tools or
+    `@symbia/crypto` had not been runnable.
+
+    esbuild's error blames a platform mismatch (`@esbuild/aix-ppc64` present,
+    `darwin-arm64` needed) and volunteers that this happens when node_modules is
+    copied between platforms. With `.ec2-last-sync` sitting in the repo root
+    that reads as a complete explanation. **It was wrong.** All 26
+    `node_modules/@esbuild/*` directories were present and **all were empty** —
+    nothing installed for any platform. The shell had `NODE_ENV=production`.
+    esbuild found no binary, fell through to the first entry, and reported the
+    mismatch it could see from inside its own resolver.
+
+    Fix: `NODE_ENV= npm install`. Suite then passes as written, on `tsx`,
+    unchanged — 109 checks, 0 failed (A1 12, A4 8, A2+A3 18, egress 21,
+    seed-guard 9, ratchet 2, redaction 20, cred-crypto 19). No transform change
+    was needed; an intermediate proposal to move to
+    `node --experimental-strip-types` is withdrawn, and would have silently
+    halved the suite, since strip-types does not resolve `.js` specifiers onto
+    `.ts` sources and four of the eight tests import service code that way.
+
+    **Widen item 8's lesson.** It reads "if npm says *up to date* while
+    node_modules is visibly missing packages, check `NODE_ENV` first." The
+    symptom this time was a native binary failing to load, not an npm message.
+    Before reading any native-module error as a code or platform defect, check
+    whether the package directory contains anything at all. A tool's own error
+    message is an observation, not a diagnosis.
+
+14. **`activeExecutions` counts cancelled executions as active.** Found 14 Aug
+    while clearing measurement probes. Observed, not inferred:
+    `GET /api/graphs` reported `loadedGraphs: 0, activeExecutions: 2` while
+    `GET /api/executions` showed both of those executions in state `cancelled`,
+    with `graphId`s that no longer resolve to a loaded graph.
+
+    Two things here and they should not be conflated. The counter is wrong —
+    the figure a console renders overstates what is running. Separately,
+    `DELETE /api/graphs/:id` leaves executions behind referencing a graph that
+    is gone; whether that is retention-by-design or a leak has not been
+    established, and the answer decides whether the counter is the only defect.
+
+    Cleanup helper: `node experiments/cleanup-probes.mjs` (role=`probe` only, by
+    construction — a cleanup script that can delete a real graph is a worse
+    problem than the mess it tidies).
+
+15. **The catalog could not be asked by key — FOUND AND FIXED 15 Aug, route
+    change RUNTIME-VERIFIED 16 Aug.** `storage.getResourceByKey` had no route;
+    `/api/resources/:id` routes are id-only; the list route ignored unknown
+    filters. model-sync's by-key check therefore always 404ed: its update
+    branch had never run (the PUT it would use has no route), and every
+    re-sync re-POSTed into the key's unique constraint — February's
+    TESTING-REPORT "Model sync: Pass" was true once per model. Fixed: exact
+    `key` filter on the list route; model-sync finds-by-key then PATCHes by
+    id (works against pre-filter catalogs too, measured: second boot, 4
+    updates, 0 failures). **The `?key=` filter is verified against a
+    running catalog** — Brian fetched `graphs/hello-world` by exact key
+    through the imagine sidecar on 16 Aug and got the resource back. The
+    "awaits a deployed rebuild" caveat is discharged for the filter; the
+    container image on the docker stack still predates it.
+    Same day, same service: weights digests now flow engine → registry →
+    API → card, with card/file mismatch disclosed at load (measured via a
+    forced-mismatch card). Records: `docs/2026-08-15-models-stage2-*.md`,
+    `experiments/model-derivation/DEFECTS.md`.
+
 ## 7. PAPER — designs and proposals, none built
 
 Moved to `docs/proposals/`. Nothing here exists in code.
@@ -304,8 +551,15 @@ Moved to `docs/proposals/`. Nothing here exists in code.
 | `BEYOND-THE-PLATFORM` | The libraries outside Symbia, with nginx as the worked example. |
 | `POSITIONING` | Positioning paper for @symbia/crypto. Its central framing is flagged unsettled. |
 | `appliance-hardware-intent` | Hardware root of trust. Explicitly not costed or prototyped. |
+| `canonical-bus` | The graph *is* the apocryphal lane; deterministic work is certified on a separate substrate and returned as a receipted token. Response to §6 item 12. Adds a `computation` claim to the claims vocabulary. Its §10 P2 is measured and held; P1 is measured and **broken**, which is evidence for the import-set mechanism in `wasm-runtime` §4. |
 
 ## 8. Findings — recorded, not proposals
+
+Newest first: **`2026-08-16-session-close`** — four gap-closure tracks with
+their measurements, and the five defects they opened (D1–D5, §6 item 0).
+Probes and their registered predictions are in `imagine/probes/`
+(`TRACKS.md`, `TRACK-2.md`) and `experiments/imagine-import/`
+(`PREDICTIONS.md`, `RESULTS.md`).
 
 In `docs/`, dated. Start with **`2026-08-10-lanes-claims-and-lineage`** — it is
 the conceptual spine: port lanes, the claims vocabulary, attestation levels and
@@ -315,16 +569,15 @@ the GKS Lineage grounding, all describing shipped behaviour. Then
 
 ## 9. Git
 
-- Working branch `fix/2026-08-06-api-gaps`, **176 commits ahead of `main`**
-  (measured, not estimated: `git rev-list --count main..HEAD`. The figure here
-  read 122 all day and I first replaced it with an estimate of ~140, which was
-  wrong by 36 — this file does not get to carry guesses.)
-  `main` is 69 behind and every GitHub release (`v1.0.0`–`v1.2.0`, Jan–Feb 2026)
+- Working branch `fix/2026-08-06-api-gaps`, **308 commits ahead of `main`**
+  (measured 16 Aug: `git rev-list --count main..HEAD`; 276 on 15 Aug, 176 on
+  11 Aug — this file does not get to carry guesses.) Every GitHub release (`v1.0.0`–`v1.2.0`, Jan–Feb 2026)
   predates the rebuild.
 - `work/2026-08-05-energy-and-honesty-repairs` — **stranded**, 25 commits never
   merged forward.
-- Local tree clean. **47 commits unpushed** — this line claimed "nothing
-  unpushed" until 11 Aug. Today's work exists on one laptop.
+- Push state is measured at each session close, not here — see the dated
+  `docs/2026-08-*-session-close.md` files. The standing risk is unchanged:
+  a day's work routinely exists on one laptop until pushed.
 
 ## 10. What I would do next
 
@@ -341,12 +594,22 @@ the GKS Lineage grounding, all describing shipped behaviour. Then
    that stops pretending otherwise, or file→DB reconciliation gets built
    deliberately. It is currently neither, and `npm run seed` will silently undo
    a day's work. Unchanged and still the most dangerous entry in this file.
-3. **The remaining rule questions**, deferred deliberately today: whether
+3. **The remaining rule questions**, deferred deliberately on 11 Aug: whether
    first-match-wins should be the only strategy, whether conditions may call a
    tool, whether the *routine* rather than the rule is the right unit, and where
    a step id lives. Recorded in `docs/2026-08-11-rule-configuration-review.md`.
+   **Step identity stopped being deferrable on 15 Aug**: per-step weight
+   pins (step-weights spike, §5c) attach to step ids, and a pin on a
+   step that renumbers is a provenance bug by construction. This is now
+   the prerequisite for the per-step-weights engine work.
 4. **The assistant pool in the default catalog** — Brian has ideas here and we
-   have not had the conversation.
+   have not had the conversation. **Add to that conversation when it happens: a
+   personality strategy for assistants** (flagged 14 Aug, not yet discussed).
+   Note that the roster today is deliberately characterless — three assistants
+   that work, routing deterministic in three tiers, replies carrying an arena
+   and a sealed receipt. Any personality strategy has to sit on top of that
+   without turning a reproducible routing decision into a stylistic one, and
+   without giving a REFUSED reply a voice that softens it into a maybe.
 5. Spyglass gesture interference.
 6. One decision that is not the assistant's: `main` is ~140 commits behind
    reality.

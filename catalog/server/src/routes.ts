@@ -1,12 +1,13 @@
 import type { Express, Response } from "express";
 import { createServer, type Server } from "http";
+import { createHash } from "crypto";
 import fs from "fs";
 import path from "path";
 import { storage } from "./storage";
 import { insertResourceSchema, resourceTypes, resourceStatuses, visibilityLevels, defaultAccessPolicy, componentManifestSchema, appManifestSchema, type AccessPolicy, type Resource } from "@shared/schema";
 import { z } from "zod";
 import { openApiSpec } from "./openapi";
-import { authMiddleware, requireAuth, requireSuperAdmin, generateApiKey } from "./auth";
+import { requirePrincipal, authMiddleware, requireAuth, requireSuperAdmin, generateApiKey } from "./auth";
 import { getIdentityServiceUrl, getUserOrganizations } from "./identity";
 import { canPerformAction, filterResourcesByReadAccess, getPublicReadPolicy } from "./entitlements";
 import { writeRateLimiter, searchRateLimiter, uploadRateLimiter, RATE_LIMITS } from "./rate-limit";
@@ -33,7 +34,16 @@ const updateResourceSchema = z.object({
   description: z.string().nullable().optional(),
   type: z.enum(resourceTypes).optional(),
   status: z.enum(resourceStatuses).optional(),
-  isBootstrap: z.boolean().optional(),
+  /**
+   * SERVER-OWNED. Not accepted from a caller.
+   *
+   * This flag is the authored/seeded boundary: a sealed imagine bundle
+   * exports rows where `isBootstrap === false`, so a client that can set
+   * it can hide its own artifacts from a bundle or smuggle seeded ones
+   * in. Measured 16 Aug (security MAP, S11): `isBootstrap: true` supplied
+   * on create persisted. A provenance boundary the caller controls is not
+   * a boundary. Seeding sets it directly through storage, not this route.
+   */
   tags: z.array(z.string()).nullable().optional(),
   orgId: z.string().nullable().optional(),
   accessPolicy: accessPolicySchema,
@@ -46,7 +56,17 @@ const createResourceSchema = z.object({
   description: z.string().nullable().optional(),
   type: z.enum(resourceTypes),
   status: z.enum(resourceStatuses).optional(),
-  isBootstrap: z.boolean().optional(),
+  /**
+   * SERVER-OWNED. Not accepted from a caller.
+   *
+   * This flag is the authored/seeded boundary: a sealed imagine bundle
+   * exports rows where `isBootstrap === false`, so a client that can set
+   * it can hide its own artifacts from a bundle or smuggle seeded ones
+   * in. Measured 16 Aug (security MAP, S11): `isBootstrap: true` supplied
+   * on create persisted. A provenance boundary the caller controls is not
+   * a boundary. Seeding sets it directly through storage, not this route.
+   */
+
   tags: z.array(z.string()).nullable().optional(),
   orgId: z.string().nullable().optional(),
   accessPolicy: accessPolicySchema,
@@ -118,7 +138,7 @@ const updateContextSchema = z.object({
  */
 function registryLedger(
   req: { user?: { id?: string; isSuperAdmin?: boolean }; headers?: Record<string, unknown> },
-  action: "register" | "publish",
+  action: "register" | "publish" | "update",
   resource: { id?: string; key?: string; type?: string }
 ): void {
   const principal = req.user?.id ?? "anonymous";
@@ -139,6 +159,175 @@ function registryLedger(
       ts: new Date().toISOString(),
     })
   );
+}
+
+
+/**
+ * Check a graph's nodes against the component manifests, at authoring time.
+ *
+ * Why this exists, measured 16 Aug. An agent authored a graph whose
+ * arithmetic node used `value.pages / value.hoursAvailable`. The component
+ * takes `{placeholders}`, says so in its signed manifest, and the manifest
+ * was one call away. The graph stored cleanly, hydrated cleanly, and failed
+ * at EXECUTION with "expression refused: non-arithmetic characters" — three
+ * steps and a wrong mental model later.
+ *
+ * The declaration existed the whole time and was never in the author's path.
+ * This puts it there.
+ *
+ * What it deliberately does NOT do: refuse when a component declares no
+ * config. `componentManifestSchema.config` is optional on purpose — the
+ * schema comment says erasing that would lose the difference between "takes
+ * no config" and "has never declared its config". A gate that treated
+ * undeclared as empty would refuse working graphs, which is worse than the
+ * problem it solves.
+ */
+async function checkGraphAgainstManifests(
+  definition: any,
+  lookup: (key: string) => Promise<Resource | undefined>
+): Promise<Array<{ node: string; problem: string; hint?: string }>> {
+  const problems: Array<{ node: string; problem: string; hint?: string }> = [];
+  const nodes = Array.isArray(definition?.nodes) ? definition.nodes : [];
+
+  for (const node of nodes) {
+    const componentKey = node?.component;
+    if (typeof componentKey !== "string") continue;
+
+    const resource = await lookup(`components/${componentKey}`);
+    if (!resource) {
+      problems.push({
+        node: node.id ?? "(unnamed)",
+        problem: `no component "${componentKey}" is registered`,
+        hint: "list components with GET /api/resources?type=component",
+      });
+      continue;
+    }
+
+    const manifest = (resource.metadata as any)?.manifest;
+    const declared = manifest?.config as Record<string, any> | undefined;
+    // Undeclared config is not empty config. Say nothing.
+    if (!declared) continue;
+
+    const given = (node.config ?? {}) as Record<string, unknown>;
+
+    for (const [name, field] of Object.entries(declared)) {
+      if (field?.required && given[name] === undefined) {
+        problems.push({
+          node: node.id ?? "(unnamed)",
+          problem: `${componentKey} requires config.${name}`,
+          // The manifest's own words, not a paraphrase.
+          hint: field.description,
+        });
+      }
+      if (field?.enum && given[name] !== undefined && !field.enum.includes(given[name])) {
+        problems.push({
+          node: node.id ?? "(unnamed)",
+          problem: `config.${name} must be one of: ${field.enum.join(", ")}`,
+          hint: field.description,
+        });
+      }
+    }
+
+    for (const name of Object.keys(given)) {
+      if (!(name in declared)) {
+        problems.push({
+          node: node.id ?? "(unnamed)",
+          problem: `${componentKey} declares no config.${name}`,
+          hint: `it accepts: ${Object.keys(declared).join(", ") || "(nothing)"}`,
+        });
+      }
+    }
+  }
+  return problems;
+}
+
+
+/**
+ * A measurement that could not have failed has told you nothing.
+ *
+ * Two failures on 16 Aug were invisible to every other check. A tamper test
+ * reported HELD while every case — including the control it never ran — was
+ * being refused. A restart probe claimed "the shim survives a host restart"
+ * on the evidence of a public GET, which would have succeeded whether or not
+ * the claim was true. In both, the observation was compatible with the
+ * prediction being false.
+ *
+ * So a MAP resource declares, per prediction, what would REFUTE it, and a
+ * MAP result declares what was actually observed. A HELD verdict backed by
+ * no observation is refused here.
+ *
+ * MEASURED, AND IT DOES NOT WORK AS A GATE. Refusing was tried first and
+ * failed twice over:
+ *
+ *   - It is theatre for the case it was built for. Replaying the restart
+ *     probe with the inadequate observation it ACTUALLY made returns 201.
+ *     Filling the field satisfies the check; the measurement is no better.
+ *   - It refuses honest work. A real result written as prose — "HELD — the
+ *     refusal went from OPAQUE to SELF-CORRECTING, it now reports…" — has a
+ *     genuine observation in it and no separable field, so a gate rejects
+ *     the good record along with the empty one.
+ *
+ * So it discloses instead of refusing, which is the ruling this project
+ * already made for incomplete traces: hand back what is there and name what
+ * is missing. The assessment rides on the stored resource as
+ * `mapDiscipline`, where a reader — or a later audit — can act on it.
+ *
+ * The judgement that matters is still unmechanised. Whether an observation
+ * BEARS on a refutation condition is semantic, and nothing here decides it.
+ * What the discipline does buy is at authoring time: an author forced to
+ * write down what would refute a prediction designs a different experiment.
+ */
+function checkMapDiscipline(
+  metadata: any,
+  tags: string[] | null | undefined
+): Array<{ prediction: string; problem: string }> {
+  const problems: Array<{ prediction: string; problem: string }> = [];
+  const isMap = (tags ?? []).includes("map");
+  if (!isMap) return problems;
+
+  const predictions = metadata?.predictions;
+  const results = metadata?.results;
+
+  // A predictions resource: every prediction needs a refutation condition.
+  if (predictions && typeof predictions === "object" && !results) {
+    for (const [id, value] of Object.entries(predictions as Record<string, unknown>)) {
+      const refutedBy = (value as any)?.refutedBy;
+      if (typeof value === "string") {
+        problems.push({
+          prediction: id,
+          problem:
+            "a bare string states a claim without stating what would refute it — " +
+            'use { claim, refutedBy } so the measurement can be checked for discriminating power',
+        });
+        continue;
+      }
+      if (!refutedBy || String(refutedBy).trim().length < 10) {
+        problems.push({
+          prediction: id,
+          problem: "no refutedBy: name the observation that would show this prediction is false",
+        });
+      }
+    }
+  }
+
+  // A results resource: a HELD verdict needs an observation behind it.
+  if (results && typeof results === "object") {
+    for (const [id, value] of Object.entries(results as Record<string, unknown>)) {
+      const verdict = typeof value === "string" ? value : (value as any)?.verdict;
+      const observed = typeof value === "string" ? undefined : (value as any)?.observed;
+      if (typeof verdict === "string" && /^HELD/i.test(verdict.trim())) {
+        if (!observed || String(observed).trim().length < 10) {
+          problems.push({
+            prediction: id,
+            problem:
+              "HELD with no `observed`: state what was actually measured. " +
+              "A verdict with nothing behind it is the failure this gate exists for",
+          });
+        }
+      }
+    }
+  }
+  return problems;
 }
 
 export async function registerRoutes(
@@ -426,6 +615,17 @@ export async function registerRoutes(
         console.log("[Resources] After status filter:", accessibleResources.length);
       }
 
+      // Exact-key lookup. `storage.getResourceByKey` existed with no route
+      // exposing it (found 15 Aug 2026), so a keyed store could not be asked
+      // by key: model-sync GETed keys against the :id route, always saw 404,
+      // and its update branch had never run — every re-sync fell into POST
+      // and the key's unique constraint. Kept as a filter on the list route
+      // (rather than a new path) so access filtering above still applies.
+      const keyFilter = req.query.key as string | undefined;
+      if (keyFilter) {
+        accessibleResources = accessibleResources.filter(r => r.key === keyFilter);
+      }
+
       res.json(accessibleResources);
     } catch (error) {
       console.error("Error fetching resources:", error);
@@ -452,10 +652,29 @@ export async function registerRoutes(
   app.post("/api/resources", authMiddleware, writeRateLimiter, async (req, res) => {
     try {
       if (!req.user?.isSuperAdmin && !canPerformAction(req.user, { accessPolicy: defaultAccessPolicy } as any, 'write')) {
+        if (!requirePrincipal(req, res)) return;
         return res.status(403).json({ error: "You don't have permission to create resources" });
       }
 
       const validatedData = createResourceSchema.parse(req.body);
+
+      // Key-prefix ⇄ type agreement for the `models/` prefix (the 9 Aug key
+      // ruling, enforced at the API for the first time — older prefixes are
+      // not retro-gated here because existing rows predate the rule).
+      // A model key is `models/<publisher>/<name…>`: publisher is the
+      // upstream namespace (qwen, meta-llama) or `local`, a provenance fact
+      // — never a Symbia org id (APP-MODEL rule).
+      const keyIsModels = validatedData.key.startsWith("models/");
+      if (keyIsModels !== (validatedData.type === "model")) {
+        return res.status(400).json({
+          error: "key-prefix and type disagree: keys under models/ must have type 'model', and type 'model' requires a models/ key",
+        });
+      }
+      if (keyIsModels && !/^models\/[a-z0-9][\w.-]*\/.+$/.test(validatedData.key)) {
+        return res.status(400).json({
+          error: "model keys are models/<publisher>/<name>: publisher segment required (use 'local' when there is no upstream)",
+        });
+      }
 
       // Component resources must carry a valid manifest (typed ports + capability)
       // so that a graph node referencing this component can be validated against a
@@ -473,6 +692,47 @@ export async function registerRoutes(
           });
         }
         validatedData.metadata = { ...(raw as Record<string, unknown>), manifest: manifest.data };
+      }
+
+      // A MAP resource carries an assessment of its own discriminating
+      // power. Stored, not refused — see checkMapDiscipline.
+      {
+        const mapProblems = checkMapDiscipline(
+          validatedData.metadata as any,
+          validatedData.tags as string[] | null | undefined
+        );
+        if (mapProblems.length) {
+          validatedData.metadata = {
+            ...((validatedData.metadata as Record<string, unknown>) ?? {}),
+            mapDiscipline: {
+              assessed: new Date().toISOString(),
+              gaps: mapProblems,
+              meaning:
+                "These predictions or verdicts do not state, separably, what would have refuted them " +
+                "or what was observed. That does not make them wrong — it makes them uncheckable by " +
+                "anything but a reader.",
+              limit:
+                "This assessment is structural. Whether an observation bears on a refutation is a " +
+                "semantic judgement no write gate can make.",
+            },
+          };
+        }
+      }
+
+      // A graph is checked against the contracts it references, here, where
+      // the author can still act on the answer.
+      if (validatedData.type === "graph") {
+        const def = (validatedData.metadata as any)?.definition;
+        const problems = await checkGraphAgainstManifests(def, (k) => storage.getResourceByKey(k));
+        if (problems.length) {
+          return res.status(400).json({
+            error: "graph does not match the component manifests it references",
+            problems,
+            note:
+              "Every component declares its config in a signed manifest. " +
+              "Read one with GET /api/resources?key=components/<component-key>.",
+          });
+        }
       }
 
       // Apps carry a validated manifest for the same reason components do: an
@@ -511,7 +771,20 @@ export async function registerRoutes(
         accessPolicy: validatedData.accessPolicy || defaultAccessPolicy,
       };
 
-      const resource = await storage.createResource(resourceData as any);
+      // WHO WROTE THIS, recorded by the server on every create.
+      //
+      // `isBootstrap` says whether a row came from a bootstrap file. It does
+      // not say who made it, and those are different questions — the runtime
+      // registers 16 component manifests through this API at boot, which are
+      // ordinary writes and were indistinguishable from a client's. A sealed
+      // imagine bundle carried 18 artifacts for a session that authored 2.
+      //
+      // Taken from the authenticated principal, never from the request body,
+      // for the same reason isBootstrap is not accepted from a client.
+      const resource = await storage.createResource({
+        ...(resourceData as any),
+        createdBy: req.user?.id ?? null,
+      } as any);
       registryLedger(req, "register", resource);
       res.status(201).json(resource);
     } catch (error) {
@@ -531,10 +804,24 @@ export async function registerRoutes(
       }
 
       if (!canPerformAction(req.user, resource, 'write')) {
+        if (!requirePrincipal(req, res)) return;
         return res.status(403).json({ error: "You don't have permission to edit this resource" });
       }
 
       const validatedData = updateResourceSchema.parse(req.body);
+
+      // Same models/ prefix ⇄ type agreement as create, over the EFFECTIVE
+      // values — a PATCH must not be the verb that skips the gate (see the
+      // manifest note below for why that lesson is already written down).
+      {
+        const effKey = validatedData.key ?? resource.key;
+        const effType = validatedData.type ?? resource.type;
+        if (effKey.startsWith("models/") !== (effType === "model")) {
+          return res.status(400).json({
+            error: "key-prefix and type disagree: keys under models/ must have type 'model', and type 'model' requires a models/ key",
+          });
+        }
+      }
 
       if (validatedData.key && validatedData.key !== resource.key) {
         const existing = await storage.getResourceByKey(validatedData.key);
@@ -607,6 +894,7 @@ export async function registerRoutes(
       }
 
       if (!canPerformAction(req.user, resource, 'delete')) {
+        if (!requirePrincipal(req, res)) return;
         return res.status(403).json({ error: "You don't have permission to delete this resource" });
       }
 
@@ -732,6 +1020,7 @@ export async function registerRoutes(
       }
 
       if (!canPerformAction(req.user, resource, 'publish')) {
+        if (!requirePrincipal(req, res)) return;
         return res.status(403).json({ error: "You don't have permission to publish this resource" });
       }
 
@@ -1238,7 +1527,12 @@ export async function registerRoutes(
         name,
         mimeType: type,
         size: buffer.length,
-        checksum: require('crypto').createHash('sha256').update(buffer).digest('hex'),
+        // Was require('crypto') inline — CJS require inside an ESM bundle,
+        // so the imagine packaging threw "Dynamic require of crypto is not
+        // supported" AFTER saving the bytes: the artifact existed on disk and
+        // the route 500'd computing its own checksum. The second witness died
+        // giving testimony. Found 17 Aug by the certify component's E-series.
+        checksum: createHash('sha256').update(buffer).digest('hex'),
         storageUrl,
       });
 

@@ -35,7 +35,7 @@
     "@symbia/md": "file:../symbia-md",
     "@types/connect-pg-simple": "^7.0.3",
     "@types/express": "^5.0.6",
-    "@types/express-session": "^1.18.0",
+    "@types/express-session": "^1.19.0",
     "@types/node": "^22.10.2",
     "@types/ws": "^8.5.13",
     "drizzle-kit": "^0.31.8",
