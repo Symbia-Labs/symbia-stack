@@ -595,13 +595,39 @@ export class GraphExecutor extends EventEmitter {
       nodeIds.add(node.id);
     }
 
-    // Validate edges reference valid nodes
-    for (const edge of definition.edges) {
-      if (!nodeIds.has(edge.source.node)) {
-        throw new Error(`Edge references unknown source node: ${edge.source.node}`);
-      }
-      if (!nodeIds.has(edge.target.node)) {
-        throw new Error(`Edge references unknown target node: ${edge.target.node}`);
+    // A REFUSAL MUST NAME THE SHAPE IT WANTS.
+    //
+    // These two lines read `edge.source.node` with no check that `source` is
+    // an object, so an edge written `{from: "a", to: "b"}` — the shape a
+    // stranger writes first, and the shape most graph libraries use — threw
+    // "Cannot read properties of undefined (reading 'node')" straight out of
+    // the runtime. Measured 17 Aug: that raw TypeError reached a cold agent
+    // running the t0 walkthrough, which correctly recorded CANNOT BE MEASURED
+    // and stopped, blocking every downstream stage. The graph was three
+    // characters from valid and nothing said so.
+    //
+    // The same function already refuses a missing edges array by naming it.
+    // The instinct was here; this path just was not guarded.
+    const SHAPE =
+      'each edge needs {"id","source":{"node","port"},"target":{"node","port"}} — ' +
+      'source and target are OBJECTS naming a node and one of its ports, not bare node ids';
+    for (const [i, edge] of definition.edges.entries()) {
+      const where = `edge ${edge?.id ? `"${edge.id}"` : `at index ${i}`}`;
+      for (const end of ['source', 'target'] as const) {
+        const e = edge?.[end] as { node?: string; port?: string } | undefined;
+        if (!e || typeof e !== 'object') {
+          throw new Error(
+            `${where} has no ${end} object (found ${e === undefined ? 'nothing' : typeof e}). ${SHAPE}`
+          );
+        }
+        if (!e.node) {
+          throw new Error(`${where} declares a ${end} with no node. ${SHAPE}`);
+        }
+        if (!nodeIds.has(e.node)) {
+          throw new Error(
+            `${where} references unknown ${end} node "${e.node}". Declared nodes: ${[...nodeIds].join(', ')}`
+          );
+        }
       }
     }
 

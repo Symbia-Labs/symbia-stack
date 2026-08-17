@@ -38,12 +38,28 @@ Predict at least: how many of your first-draft claims will fail the check; wheth
 
 ## Stage 2 — Retrieve through the witness layer
 
-**2.1** Load a retrieval graph via `symbia_call` (`runtime`, POST `/api/graphs`) with three nodes: `symbia.io.passthrough` → `symbia.io.http-request` (config `{url, method: "GET"}`) → `symbia.io.collect`, plus an `error` edge to a second collect. Execute it (`post_graphs_id_execute`), then inject with `post_ingress_graphName_`.
+**2.1** Load a retrieval graph via `symbia_call` (`service: "runtime"`, `method: "POST"`, `path: "/api/graphs"`). **Use this body exactly** — the edge shape is not guessable and a wrong guess used to produce an unhelpful error:
 
-Fetch this first, as a fixed anchor:
+```json
+{"symbia": "graph/1.0", "name": "t0-fetch", "version": "1.0.0", "author": "t0",
+ "nodes": [
+   {"id": "entry", "component": "symbia.io.passthrough"},
+   {"id": "fetch", "component": "symbia.io.http-request",
+    "config": {"url": "https://www.gao.gov/robots.txt", "method": "GET"}},
+   {"id": "out", "component": "symbia.io.collect"},
+   {"id": "err", "component": "symbia.io.collect"}],
+ "edges": [
+   {"id": "e1", "source": {"node": "entry", "port": "out"}, "target": {"node": "fetch", "port": "in"}},
+   {"id": "e2", "source": {"node": "fetch", "port": "out"}, "target": {"node": "out", "port": "in"}},
+   {"id": "e3", "source": {"node": "fetch", "port": "error"}, "target": {"node": "err", "port": "in"}}],
+ "metadata": {"ingress": {"node": "entry", "port": "in"}}}
 ```
-https://www.gao.gov/robots.txt
-```
+
+> **Edges are objects, not node ids.** `source` and `target` each name a node *and a port*. Writing `{"from": "a", "to": "b"}` is the natural first guess and it is wrong. A cold agent made exactly that guess on 2026-08-17 and the runtime answered `Cannot read properties of undefined (reading 'node')`, which named nothing and stopped the walkthrough dead. The loader now refuses by naming the shape; this block exists so the question never arises.
+
+Then execute it — `symbia_call` with `operationId: "post_graphs_id_execute"`, `params: {"id": "<graph id>"}` — and inject with `operationId: "post_ingress_graphName_"`, `params: {"graphName": "t0-fetch"}`, body `{"go": true}`.
+
+*Note on auth:* `symbia_call` handles credentials for you. If you find yourself constructing bearer tokens by hand, you are working around the tool rather than with it.
 
 **2.2** Record the output's `lane` and `receipt`.
 *Expect:* `lane: "apocryphal"` with a `witness` receipt — a digest of the bytes as received, the source URL, and `transport: "GET 200"`. Apocryphal is correct and is not a complaint: a remote body cannot be recomputed, only witnessed.
