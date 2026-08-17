@@ -23,22 +23,38 @@ COPY symbia-md/package*.json ./symbia-md/
 COPY symbia-id/package*.json ./symbia-id/
 COPY symbia-messaging-client/package*.json ./symbia-messaging-client/
 
+# WHY --legacy-peer-deps, AND WHY NO `|| true` BELOW.
+#
+# @symbia/lineage declares @symbia/crypto as a peerDependency at "*". npm 7+
+# installs peers automatically, so `npm ci` reached for the public registry and
+# got 404 — the workspace libraries are on no registry. Its install failed, its
+# dist came out EMPTY, and `|| true` on the build below turned that into a
+# silent success.
+#
+# The consequence surfaced nine images later, in the assistants service:
+#   ✘ Could not resolve "@symbia/lineage"
+#     The module "./dist/index.js" was not found on the file system
+#
+# A missing toolchain became an empty directory became an unresolvable import
+# in a different service, with nothing in between saying so. Every library build
+# now asserts it produced a dist and fails the image if it did not.
+
 # Install all library dependencies in parallel
-RUN cd symbia-sys && npm ci --ignore-scripts & \
-    cd symbia-crypto && npm ci --ignore-scripts & \
-    cd symbia-pathguard && npm install --ignore-scripts & \
-    cd symbia-egress && npm install --ignore-scripts & \
-    cd symbia-redact && npm install --ignore-scripts & \
-    cd symbia-lineage && npm ci --ignore-scripts & \
-    cd symbia-auth && npm ci --ignore-scripts & \
-    cd symbia-db && npm ci --ignore-scripts & \
-    cd symbia-http && npm ci --ignore-scripts & \
-    cd symbia-relay && npm ci --ignore-scripts & \
-    cd symbia-logging-client && npm ci --ignore-scripts & \
-    cd symbia-seed && npm ci --ignore-scripts & \
-    cd symbia-md && npm ci --ignore-scripts & \
-    cd symbia-id && npm ci --ignore-scripts & \
-    cd symbia-messaging-client && npm ci --ignore-scripts & \
+RUN cd symbia-sys && npm ci --ignore-scripts --legacy-peer-deps & \
+    cd symbia-crypto && npm ci --ignore-scripts --legacy-peer-deps & \
+    cd symbia-pathguard && npm install --ignore-scripts --legacy-peer-deps & \
+    cd symbia-egress && npm install --ignore-scripts --legacy-peer-deps & \
+    cd symbia-redact && npm install --ignore-scripts --legacy-peer-deps & \
+    cd symbia-lineage && npm ci --ignore-scripts --legacy-peer-deps & \
+    cd symbia-auth && npm ci --ignore-scripts --legacy-peer-deps & \
+    cd symbia-db && npm ci --ignore-scripts --legacy-peer-deps & \
+    cd symbia-http && npm ci --ignore-scripts --legacy-peer-deps & \
+    cd symbia-relay && npm ci --ignore-scripts --legacy-peer-deps & \
+    cd symbia-logging-client && npm ci --ignore-scripts --legacy-peer-deps & \
+    cd symbia-seed && npm ci --ignore-scripts --legacy-peer-deps & \
+    cd symbia-md && npm ci --ignore-scripts --legacy-peer-deps & \
+    cd symbia-id && npm ci --ignore-scripts --legacy-peer-deps & \
+    cd symbia-messaging-client && npm ci --ignore-scripts --legacy-peer-deps & \
     wait
 
 # Copy library source files
@@ -60,26 +76,48 @@ COPY symbia-messaging-client/ ./symbia-messaging-client/
 
 # Build libraries in dependency order
 # Level 0: No internal dependencies
-RUN cd symbia-sys && npm run build || true
+# WORKSPACE SIBLINGS, LINKED THE WAY THE MONOREPO LINKS THEM.
+#
+# --legacy-peer-deps stops npm reaching for a registry that has never held these
+# packages. It also means nothing puts them in node_modules, so tsc could not
+# find @symbia/crypto and lineage failed to compile — the same absence, one
+# layer later.
+#
+# In the repository these resolve through workspace symlinks in the root
+# node_modules. Nothing recreates that inside an image, so recreate it here:
+# every library gets a node_modules/@symbia pointing at its siblings. The links
+# are relative, so they survive the COPY --from into each service image.
+RUN set -e; for d in symbia-*/; do \
+      lib=${d%/}; \
+      mkdir -p "$lib/node_modules/@symbia"; \
+      for s in symbia-*/; do \
+        sib=${s%/}; name=${sib#symbia-}; \
+        [ "$sib" = "$lib" ] && continue; \
+        ln -sfn "../../../$sib" "$lib/node_modules/@symbia/$name"; \
+      done; \
+    done; \
+    echo "linked workspace siblings into $(ls -d symbia-*/ | wc -l) libraries"
+
+RUN cd symbia-sys && npm run build && test -n "$(ls dist 2>/dev/null)" || (echo "BASE BUILD FAILED: symbia-sys produced no dist" >&2; exit 1)
 # crypto before http: http imports @symbia/crypto for service identity
-RUN cd symbia-crypto && npm run build || true
+RUN cd symbia-crypto && npm run build && test -n "$(ls dist 2>/dev/null)" || (echo "BASE BUILD FAILED: symbia-crypto produced no dist" >&2; exit 1)
 # pathguard + egress + redact: zero-dependency guards. redact must precede
 # symbia-http, which imports it for request-log redaction.
-RUN cd symbia-pathguard && npm run build || true
-RUN cd symbia-egress && npm run build || true
-RUN cd symbia-redact && npm run build || true
-RUN cd symbia-lineage && npm run build || true
-RUN cd symbia-relay && npm run build || true
-RUN cd symbia-logging-client && npm run build || true
+RUN cd symbia-pathguard && npm run build && test -n "$(ls dist 2>/dev/null)" || (echo "BASE BUILD FAILED: symbia-pathguard produced no dist" >&2; exit 1)
+RUN cd symbia-egress && npm run build && test -n "$(ls dist 2>/dev/null)" || (echo "BASE BUILD FAILED: symbia-egress produced no dist" >&2; exit 1)
+RUN cd symbia-redact && npm run build && test -n "$(ls dist 2>/dev/null)" || (echo "BASE BUILD FAILED: symbia-redact produced no dist" >&2; exit 1)
+RUN cd symbia-lineage && npm run build && test -n "$(ls dist 2>/dev/null)" || (echo "BASE BUILD FAILED: symbia-lineage produced no dist" >&2; exit 1)
+RUN cd symbia-relay && npm run build && test -n "$(ls dist 2>/dev/null)" || (echo "BASE BUILD FAILED: symbia-relay produced no dist" >&2; exit 1)
+RUN cd symbia-logging-client && npm run build && test -n "$(ls dist 2>/dev/null)" || (echo "BASE BUILD FAILED: symbia-logging-client produced no dist" >&2; exit 1)
 
 # Level 1: Depends on Level 0
-RUN cd symbia-auth && npm run build || true
-RUN cd symbia-db && npm run build || true
-RUN cd symbia-http && npm run build || true
-RUN cd symbia-seed && npm run build || true
-RUN cd symbia-md && npm run build || true
-RUN cd symbia-id && npm run build || true
-RUN cd symbia-messaging-client && npm run build || true
+RUN cd symbia-auth && npm run build && test -n "$(ls dist 2>/dev/null)" || (echo "BASE BUILD FAILED: symbia-auth produced no dist" >&2; exit 1)
+RUN cd symbia-db && npm run build && test -n "$(ls dist 2>/dev/null)" || (echo "BASE BUILD FAILED: symbia-db produced no dist" >&2; exit 1)
+RUN cd symbia-http && npm run build && test -n "$(ls dist 2>/dev/null)" || (echo "BASE BUILD FAILED: symbia-http produced no dist" >&2; exit 1)
+RUN cd symbia-seed && npm run build && test -n "$(ls dist 2>/dev/null)" || (echo "BASE BUILD FAILED: symbia-seed produced no dist" >&2; exit 1)
+RUN cd symbia-md && npm run build && test -n "$(ls dist 2>/dev/null)" || (echo "BASE BUILD FAILED: symbia-md produced no dist" >&2; exit 1)
+RUN cd symbia-id && npm run build && test -n "$(ls dist 2>/dev/null)" || (echo "BASE BUILD FAILED: symbia-id produced no dist" >&2; exit 1)
+RUN cd symbia-messaging-client && npm run build && test -n "$(ls dist 2>/dev/null)" || (echo "BASE BUILD FAILED: symbia-messaging-client produced no dist" >&2; exit 1)
 
 # Labels for identification
 LABEL org.symbia.image="base"
