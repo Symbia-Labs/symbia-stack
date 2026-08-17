@@ -17,7 +17,8 @@
  *   node imagine/verify-session.mjs <bundle.json>
  *   node imagine/verify-session.mjs <ledger.jsonl> <session.pub.pem>
  */
-import { readFileSync } from 'node:fs';
+import { readFileSync, existsSync } from 'node:fs';
+import { dirname, join, resolve } from 'node:path';
 import { createPublicKey } from 'node:crypto';
 import { GENESIS, advance, eventDigest, verifyEvent } from '@symbia/lineage';
 
@@ -118,6 +119,63 @@ for (const [k, n] of [...kinds.entries()].sort((a, b) => b[1] - a[1])) console.l
 if (paths.size) {
   console.log('\n  routes exercised:');
   for (const [p, n] of [...paths.entries()].sort((a, b) => b[1] - a[1]).slice(0, 12)) console.log(`    ${String(n).padStart(5)}  ${p}`);
+}
+
+// ── continuity: which chain this one follows ──────────────────────────────
+//
+// Added 17 Aug after a t0 walkthrough registered its predictions, reloaded
+// the connector mid-run, and sealed a bundle in which the predictions could
+// not be found — they were signed and sealed in the PREVIOUS chain. Both
+// halves were sound; neither could reach the other. The successor now names
+// its predecessor's head, and this reports it: the sequence becomes
+// checkable without anyone's word about which conversation these came from.
+const opened = events.find((e) => e.event_type === 'imagine.session.opened');
+const continues = opened?.payload?.continues;
+console.log('\n  continuity');
+if (!continues) {
+  console.log('    this chain cites no predecessor — either it is the first, or it');
+  console.log('    predates continuity citation. Order across chains is NOT checkable here.');
+} else {
+  console.log(`    follows        ${continues.session}`);
+  console.log(`    at head        ${String(continues.head).slice(0, 30)}…`);
+  console.log(`    which ended    ${continues.endedWith}${continues.declaredTotal ? ` (declared ${continues.declaredTotal})` : ' (no declared total — it did not end on its own terms)'}`);
+  // If the predecessor's ledger sits beside this bundle, confirm the cited
+  // head is really its last event. A citation nobody checks is a hyperlink.
+  try {
+    const dir = dirname(resolve(args[0]));
+    const short = String(continues.session).split(':').pop();
+    const p = join(dir, `ledger.${short}.jsonl`);
+    if (existsSync(p)) {
+      // A CITED HEAD NEED NOT BE THE LAST ONE.
+      //
+      // The first version compared against the predecessor's final event and
+      // reported DOES NOT MATCH on a perfectly honest pair: the predecessor
+      // was still running, kept appending, and moved past the point that was
+      // cited. Caught on the first real test. A verifier that cries wolf on
+      // ordinary growth teaches people to ignore it, which is worse than not
+      // checking. The right question is whether the cited head appears
+      // ANYWHERE in that chain — that is what fixes the order.
+      const lines = readFileSync(p, 'utf8').split('\n').filter(Boolean);
+      let at = -1;
+      for (const [i, l] of lines.entries()) {
+        try { if (JSON.parse(l).checksum === continues.head) { at = i + 1; break; } } catch { /* skip */ }
+      }
+      console.log(`    predecessor    found on disk, ${lines.length} events`);
+      if (at > 0) {
+        console.log(`    cited head     FOUND at event ${at} of ${lines.length} — the order is confirmed:`);
+        console.log(`                   that chain had reached ${at} events when this one opened`);
+        if (lines.length > at) {
+          console.log(`                   and continued to ${lines.length} afterwards. Citation fixes a point,`);
+          console.log('                   it does not freeze the file — both can be true at once.');
+        }
+      } else {
+        console.log('    cited head     NOT FOUND in that chain — the citation names a head this');
+        console.log('                   predecessor never held. Different chain, or tampering.');
+      }
+    } else {
+      console.log('    predecessor    not beside this bundle — fetch it to complete the order');
+    }
+  } catch { /* best effort */ }
 }
 
 const ok = chainBad === 0 && sigBad === 0;

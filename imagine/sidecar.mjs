@@ -25,7 +25,7 @@
  */
 import express from "express";
 import { createServer } from "node:http";
-import { readFileSync, readdirSync, existsSync } from "node:fs";
+import { readFileSync, readdirSync, existsSync, statSync } from "node:fs";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { mkdirSync, writeFileSync, openSync, writeSync } from "node:fs";
@@ -211,7 +211,54 @@ try {
   hostLogFd = openSync(join(sessionDir, "host.log"), "a");
   for (const e of RING) writeSync(hostLogFd, `${new Date(e.at).toISOString()} ${e.line}\n`);
 } catch { /* a host without a log file still hosts */ }
+/**
+ * The chain this one follows, if there is one.
+ *
+ * Reads the most recently modified ledger in this directory and takes its
+ * last event. That event is the predecessor's head — a seal or a close if it
+ * ended on its own terms, whatever it reached if it did not. Either way the
+ * successor can name it.
+ *
+ * Deliberately narrow: it cites, it does not merge. Two chains signed by two
+ * ephemeral keys stay two chains, and a reader still verifies each under its
+ * own key. What this buys is ORDER — the thing the t0 walkthrough could not
+ * show on 17 Aug when a mid-run reload put predictions in one chain and the
+ * measurements they governed in another.
+ */
+function findPredecessor(dir) {
+  try {
+    const files = readdirSync(dir)
+      .filter((f) => f.startsWith("ledger.") && f.endsWith(".jsonl"))
+      .map((f) => ({ f, at: statSync(join(dir, f)).mtimeMs }))
+      .sort((a, b) => b.at - a.at);
+    for (const { f } of files) {
+      const lines = readFileSync(join(dir, f), "utf8").split("\n").filter(Boolean);
+      if (lines.length === 0) continue;
+      const last = JSON.parse(lines[lines.length - 1]);
+      return {
+        session: last.actor_identity,
+        head: last.checksum,
+        endedWith: last.event_type,
+        // A predecessor that closed declares its own total; one that was
+        // killed declares nothing, and the difference is worth carrying.
+        declaredTotal: last.payload?.total ?? null,
+        heldAtCitation: lines.length,
+        ledger: f,
+        citedAt: new Date().toISOString(),
+        does_not_assert:
+          "that the predecessor's chain is complete or that this session is its only " +
+          "successor. It names the head this chain was opened after; verify each chain " +
+          "under its own key.",
+      };
+    }
+  } catch { /* no predecessor is the ordinary case for a first run */ }
+  return null;
+}
+const predecessor = findPredecessor(sessionDir);
+if (predecessor) log(`continues ${predecessor.session} at ${String(predecessor.head).slice(0, 22)}… (${predecessor.endedWith})`);
+
 const ledger = createSessionLedger({
+  continues: predecessor,
   path: join(sessionDir, "ledger.jsonl"),
   pubKeyPath: join(sessionDir, "session.pub.pem"),
 });
@@ -353,7 +400,17 @@ app.use((req, res, next) => {
   if (req.path === "/" || req.path === "/health") return next();
   const offered =
     req.get("x-imagine-token") ||
-    (req.get("authorization") || "").replace(/^Bearer\s+/i, "");
+    (req.get("authorization") || "").replace(/^Bearer\s+/i, "") ||
+    // A BROWSER CANNOT SET A HEADER ON A NAVIGATION.
+    //
+    // The observer routes exist to be opened by a person, in a browser, from
+    // a link. Requiring a header there would mean no human could look, which
+    // defeats the point of building them. The token still gates: it is in the
+    // 0600 address file, so possession is the same proof it always was — the
+    // query string just carries it where a header cannot go.
+    (req.path.startsWith("/session/observe") || req.path.startsWith("/session/stream")
+      ? String(req.query.token ?? "")
+      : "");
   if (offered && offered === HOST_TOKEN) return next();
   // Say what is wrong and where the answer lives. A generic 401 here sends a
   // reader looking for a password that does not exist.
@@ -591,6 +648,154 @@ async function sealSession(trigger = "api") {
 app.post("/session/seal", async (_req, res) => {
   const s = await sealSession("api");
   res.status(s.status).json(s.result);
+});
+
+// ── the human observer ────────────────────────────────────────────────────
+//
+// A provenance system whose record can only be read by the thing that wrote
+// it is asking to be taken on faith. These three routes let a person watch
+// the ledger fill in real time, from a browser, and — the part that matters —
+// sign their own attestation into it. An observer note is an ordinary event:
+// sequenced, chained, signed by the session key, sealed with everything else.
+// "A human was watching at seq 214" becomes a fact in the record rather than
+// a claim about it.
+
+/** Events appended since a byte offset. Tailing the file rather than hooking
+ *  append keeps this read-only with respect to the thing it is observing. */
+function readLedgerFrom(offset) {
+  const p = ledger.summary.ledger;
+  if (!p || !existsSync(p)) return { offset, events: [] };
+  const buf = readFileSync(p);
+  if (buf.length <= offset) return { offset, events: [] };
+  const text = buf.subarray(offset).toString("utf8");
+  const complete = text.lastIndexOf("\n");
+  if (complete < 0) return { offset, events: [] };
+  const events = text.slice(0, complete).split("\n").filter(Boolean).map((l) => {
+    try { return JSON.parse(l); } catch { return null; }
+  }).filter(Boolean);
+  return { offset: offset + Buffer.byteLength(text.slice(0, complete + 1)), events };
+}
+
+app.get("/session/stream", (req, res) => {
+  res.writeHead(200, {
+    "content-type": "text/event-stream",
+    "cache-control": "no-cache",
+    connection: "keep-alive",
+  });
+  let offset = req.query.from === "start" ? 0 : (existsSync(ledger.summary.ledger) ? statSync(ledger.summary.ledger).size : 0);
+  res.write(`event: hello\ndata: ${JSON.stringify({ session: ledger.summary.actor, mode: "imagine" })}\n\n`);
+  const tick = setInterval(() => {
+    try {
+      const { offset: next, events } = readLedgerFrom(offset);
+      offset = next;
+      for (const e of events) res.write(`data: ${JSON.stringify(e)}\n\n`);
+    } catch { /* a stream that cannot read must not kill the host */ }
+  }, 400);
+  req.on("close", () => clearInterval(tick));
+});
+
+app.post("/session/note", express.json({ limit: "64kb" }), (req, res) => {
+  const note = String(req.body?.note ?? "").slice(0, 2000);
+  if (!note.trim()) return res.status(400).json({ error: "a note needs text" });
+  const ev = ledger.append("imagine.observer.note", {
+    note,
+    observer: String(req.body?.observer ?? "human"),
+    lane: "apocryphal",
+    does_not_assert:
+      "that the note is true. A human said this, at this position in the chain. " +
+      "Its value is the position, not the sentence.",
+  });
+  res.json({ seq: ev.payload.seq, checksum: ev.checksum, at: ev.timestamp });
+});
+
+const OBSERVER_HTML = `<!doctype html><meta charset="utf-8"><title>Symbia Imagine — observer</title>
+<style>
+:root{color-scheme:dark}
+body{margin:0;background:#0e0e10;color:#e8e6e0;font:13px/1.5 ui-monospace,SFMono-Regular,Menlo,monospace}
+header{padding:12px 16px;border-bottom:1px solid #2a2a2e;display:flex;gap:16px;align-items:baseline;flex-wrap:wrap}
+h1{font-size:14px;margin:0;font-weight:600;letter-spacing:.02em}
+.dim{color:#7a7a82}
+#feed{padding:8px 16px;height:calc(100vh - 168px);overflow:auto}
+.ev{padding:3px 0;border-bottom:1px solid #1a1a1d;display:flex;gap:10px;align-items:baseline}
+.seq{color:#5a5a62;min-width:52px;text-align:right}
+.kind{min-width:170px}
+.mut{color:#d8a657}.note{color:#a9b8ff}.open{color:#89b482}.seal{color:#d3869b}.close{color:#e78a4e}
+.ok{color:#89b482}.bad{color:#ea6962}
+.detail{color:#b8b6b0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+footer{position:fixed;bottom:0;left:0;right:0;background:#141417;border-top:1px solid #2a2a2e;padding:10px 16px;display:flex;gap:8px}
+input{flex:1;background:#0e0e10;border:1px solid #34343a;color:#e8e6e0;padding:8px 10px;border-radius:5px;font:inherit}
+button{background:#2a2a30;border:1px solid #3a3a42;color:#e8e6e0;padding:8px 14px;border-radius:5px;cursor:pointer;font:inherit}
+button:hover{background:#34343c}
+#said{padding:0 16px;color:#7a7a82;height:20px}
+</style>
+<header>
+  <h1>Symbia Imagine — observer</h1>
+  <span class="dim" id="sess">connecting…</span>
+  <span class="dim" id="count">0 events</span>
+  <span class="dim">watching the signed ledger as it is written</span>
+</header>
+<div id="feed"></div>
+<div id="said"></div>
+<footer>
+  <input id="note" placeholder="Attest something into the record — it becomes a signed, sequenced event" autocomplete="off">
+  <button id="send">Sign into the ledger</button>
+</footer>
+<script>
+const q = new URLSearchParams(location.search);
+const token = q.get("token") || "";
+const feed = document.getElementById("feed");
+let n = 0;
+const cls = t => t.includes("mutation") ? "mut" : t.includes("note") ? "note"
+  : t.includes("opened") ? "open" : t.includes("sealed") ? "seal" : t.includes("closed") ? "close" : "";
+function add(e){
+  const p = e.payload || {};
+  const row = document.createElement("div");
+  row.className = "ev";
+  let detail = "";
+  if (e.event_type === "imagine.mutation") {
+    const okc = p.accepted ? "ok" : "bad";
+    detail = '<span class="' + okc + '">' + (p.method||"") + " " + (p.status||"") + "</span> " + (p.path||"");
+  } else if (e.event_type === "imagine.observer.note") {
+    detail = "“" + (p.note||"") + "”";
+  } else {
+    detail = Object.entries(p).filter(([k])=>k!=="seq"&&k!=="does_not_assert")
+      .map(([k,v])=>k+"="+(typeof v==="object"?JSON.stringify(v):v)).join(" ").slice(0,220);
+  }
+  row.innerHTML = '<span class="seq">#'+(p.seq??"")+'</span>'
+    + '<span class="kind '+cls(e.event_type)+'">'+e.event_type.replace("imagine.","")+'</span>'
+    + '<span class="detail">'+detail+'</span>';
+  const atBottom = feed.scrollHeight - feed.scrollTop - feed.clientHeight < 40;
+  feed.appendChild(row);
+  if (atBottom) feed.scrollTop = feed.scrollHeight;
+  document.getElementById("count").textContent = (++n) + " events seen";
+}
+const es = new EventSource("/session/stream?from=start&token=" + encodeURIComponent(token));
+es.addEventListener("hello", ev => {
+  document.getElementById("sess").textContent = JSON.parse(ev.data).session;
+});
+es.onmessage = ev => { try { add(JSON.parse(ev.data)); } catch {} };
+es.onerror = () => { document.getElementById("sess").textContent = "stream closed — the host has gone"; };
+async function send(){
+  const el = document.getElementById("note");
+  const note = el.value.trim();
+  if (!note) return;
+  el.value = "";
+  const r = await fetch("/session/note", {
+    method: "POST",
+    headers: { "content-type": "application/json", "x-imagine-token": token },
+    body: JSON.stringify({ note, observer: "human observer" })
+  });
+  const b = await r.json();
+  document.getElementById("said").textContent = r.ok
+    ? "signed into the chain at seq " + b.seq + " — " + String(b.checksum).slice(0,26) + "…"
+    : "refused: " + (b.error || r.status);
+}
+document.getElementById("send").onclick = send;
+document.getElementById("note").addEventListener("keydown", e => { if (e.key === "Enter") send(); });
+</script>`;
+
+app.get("/session/observe", (_req, res) => {
+  res.type("html").send(OBSERVER_HTML);
 });
 
 const services = [];

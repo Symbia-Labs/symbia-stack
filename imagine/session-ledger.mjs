@@ -93,7 +93,7 @@ export function completenessOf(events) {
   };
 }
 
-export function createSessionLedger({ path, pubKeyPath }) {
+export function createSessionLedger({ path, pubKeyPath, continues }) {
   // Ephemeral by construction. A key that dies with the process is the
   // honest signer for a mode whose claim is that nothing here persists.
   const identity = generateIdentity();
@@ -178,11 +178,29 @@ export function createSessionLedger({ path, pubKeyPath }) {
    * The fingerprint travels with it because the session identity is generated
    * per spawn: this anchor belongs to this key and to no other session.
    */
-  function open() {
+  function open(continues) {
     return append("imagine.session.opened", {
       t0: new Date().toISOString(),
       fingerprint: identity.fingerprint,
       lane: "apocryphal",
+      // THE CHAIN THAT CAME BEFORE THIS ONE, NAMED BY ITS HEAD.
+      //
+      // A per-spawn key is the right construction for an ephemeral stack and
+      // it has a cost nobody paid until 17 Aug: reloading the connector
+      // mid-conversation kills the host, a successor opens with a new key and
+      // a new ledger, and the two chains have no relation. A cold agent
+      // running the t0 walkthrough registered its predictions, reloaded to
+      // pick up a fix, and sealed a bundle that could not show the
+      // predictions preceded the measurements — because they were in the
+      // previous chain. Both halves were signed. Neither could reach the
+      // other.
+      //
+      // Citing the predecessor's head does not merge the chains, and must not
+      // pretend to: each remains verifiable only under its own key. It makes
+      // the SEQUENCE checkable — this chain says which chain it follows and
+      // at what digest, so a reader holding both can order them without
+      // trusting anyone's account of which conversation they came from.
+      ...(continues ? { continues } : {}),
       does_not_assert:
         "anything about the contents of the session. This is a clock reading taken " +
         "at spawn — one of the two anchors placement is derived between, not a " +
@@ -246,7 +264,7 @@ export function createSessionLedger({ path, pubKeyPath }) {
   // Written here, not exposed for a caller to remember. An anchor that depends
   // on somebody calling it is an anchor that is missing from the sessions where
   // it mattered most — the ones that died before anyone got to it.
-  open();
+  open(continues);
 
   return {
     middleware,
