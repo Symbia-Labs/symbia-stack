@@ -153,11 +153,14 @@ This step uses fixed inline canon so the result cannot drift with the live web. 
   {"id": "bad-wrongsource", "claim": "Overpayments were roughly 82 percent.", "source": "src-a.txt", "quote": "roughly 82 percent"}]}
 ```
 
-**REFERENCE ANCHOR B —** verdict digest, measured 2026-08-17 across two calls, a freshly spawned host, and two different canon-delivery paths:
+**REFERENCE ANCHOR B —** verdict digest under **check-v2**, measured 2026-08-17:
 ```
-verdictSha256 starts: 24ddba974668336b664e
+verdictSha256 starts: a4741ca65621c0f52d2f
 passed: 2   failed: 3
+algorithm: check-v2
 ```
+
+> **The anchor moved once, on purpose.** It read `24ddba974668336b664e` under `check-v1`. An external review found two ways past that algorithm — a quote of `"the"` passed, and a number was satisfied by digits inside a longer number — and correcting them changed what the checker outputs. Rather than quietly move the anchor under the same name, the algorithm became `check-v2`. Every v1 verdict remains exactly as true as it was, *about v1*. **Check the `algorithm` field before comparing any digest**: two verdicts from different versions are not supposed to match, and a system where they did would be hiding the correction.
 
 *This is the contract under test:* same canon, same claims, same algorithm → same verdict, on any machine, any day. A mismatch here is the single most important result this walkthrough can produce — it means the verdict depends on something other than its declared inputs. Report the full digest either way.
 

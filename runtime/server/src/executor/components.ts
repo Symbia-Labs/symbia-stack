@@ -812,9 +812,29 @@ registerComponent({
  * the entire point — a verdict that could be argued into changing is not a
  * verdict, it is an opinion with extra steps.
  */
-const CHECK_CLAIMS_VERSION = 'check-v1';
+/**
+ * check-v2. The version is part of the verdict digest, and that is the point:
+ * a pinned algorithm name must mean one thing forever. v1 shipped with two
+ * defects an external review found the same day — a quote of "the" passed,
+ * and "14 employees" passed against a corpus whose only digits were a phone
+ * number. Both are fixed below. Fixing them under the old name would have
+ * silently changed what every published v1 verdict meant, so the name moved
+ * instead. A v1 verdict remains exactly as true as it ever was, about v1.
+ */
+const CHECK_CLAIMS_VERSION = 'check-v2';
 
-function normV1(s: string): string {
+/** How many times a quote may occur across canon before it stops locating anything. */
+const DEFAULT_MAX_QUOTE_OCCURRENCES = 3;
+
+/** Non-overlapping occurrences of `needle` in `hay`. */
+function occurrences(hay: string, needle: string): number {
+  if (!needle) return 0;
+  let n = 0;
+  for (let i = hay.indexOf(needle); i >= 0; i = hay.indexOf(needle, i + needle.length)) n++;
+  return n;
+}
+
+export function normV1(s: string): string {
   return s
     .normalize('NFKC')
     .replace(/[‘’]/g, "'")
@@ -827,27 +847,47 @@ function normV1(s: string): string {
 
 const NUMBER_RE = /\$?\d[\d,]*(?:\.\d+)?(?:\s*(?:billion|trillion|million|thousand|percent|%))?/g;
 
-function numbersOf(text: string): string[] {
+export function numbersOf(text: string): string[] {
   const found = normV1(text).match(NUMBER_RE) ?? [];
   return Array.from(new Set(found.map((n) => n.trim()).filter((n) => /\d/.test(n))));
 }
 
-function numberInCanon(n: string, canonAll: string): boolean {
+export function numberInCanon(n: string, canonAll: string): boolean {
   // A figure may be written with or without its currency mark, and "percent"
   // and "%" are the same number wearing different clothes. Nothing here
   // invents equivalences beyond that: 42 does not match 42.0, because a
   // checker that rounds is a checker that can be talked into things.
+  //
+  // A NUMBER INSIDE ANOTHER NUMBER IS NOT THAT NUMBER.
+  //
+  // v1 asked `canonAll.includes(v)`, which is substring matching, so "14"
+  // was satisfied by the "14" inside a phone number's "514" and "43" by the
+  // "43" inside "3435". Measured against a corpus whose only digits were
+  // (202) 514-3435: the claim "14 employees were disciplined" passed with
+  // nothing to support it. Digits now have to stand alone — no digit, comma
+  // or decimal point may sit against either end.
   const variants = new Set([n, n.replace(/\$/g, ''), n.replace(/\s*percent/, '%'), n.replace(/%/, ' percent')]);
-  for (const v of variants) if (v && canonAll.includes(v)) return true;
+  for (const v of variants) {
+    if (!v) continue;
+    const escaped = v.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    // The trailing guard rejects a digit, and a decimal point or thousands
+    // comma ONLY when a digit follows it — so "14" is refused inside "14.5"
+    // and "1,400", and accepted at the end of a sentence. The first version
+    // of this fix used `(?![\d.,])` flatly and refused "82 percent." and
+    // "$153 billion," for the crime of being followed by punctuation, which
+    // the first test run caught immediately. Over-strict is still wrong.
+    if (new RegExp(`(?<![\\d.,])${escaped}(?!\\d)(?![.,]\\d)`).test(canonAll)) return true;
+  }
   return false;
 }
 
-interface ClaimIn { id?: string; claim?: string; source?: string; quote?: string }
-interface ClaimVerdict { id: string; status: 'PASS' | 'FAIL'; problems: string[] }
+export interface ClaimIn { id?: string; claim?: string; source?: string; quote?: string }
+export interface ClaimVerdict { id: string; status: 'PASS' | 'FAIL'; problems: string[] }
 
-function checkClaimsCore(
+export function checkClaimsCore(
   claims: ClaimIn[],
-  canon: Record<string, string>
+  canon: Record<string, string>,
+  maxQuoteOccurrences: number = DEFAULT_MAX_QUOTE_OCCURRENCES
 ): { results: ClaimVerdict[]; passed: number; failed: number } {
   const normCanon: Record<string, string> = {};
   for (const [k, v] of Object.entries(canon)) normCanon[k] = normV1(v);
@@ -873,6 +913,23 @@ function checkClaimsCore(
           ? `quote is not in the cited source "${src}" — it appears in another canonical source, so this is a misattribution rather than an invention`
           : 'quote does not appear verbatim in any canonical source'
       );
+    } else {
+      // A CITATION THAT MATCHES EVERYWHERE POINTS AT NOTHING.
+      //
+      // v1 asked only whether the quote occurred in the cited source, so the
+      // word "the" satisfied it and could be attached to any claim at all.
+      // The variable is not length — a short quote that occurs once locates a
+      // passage perfectly well — it is how many places the quote could have
+      // come from. A quote found everywhere in the corpus carries no
+      // information about where the claim came from, which is the only thing
+      // a citation is for.
+      const occ = occurrences(all, q);
+      if (occ > maxQuoteOccurrences) {
+        problems.push(
+          `quote occurs ${occ} times across canon (limit ${maxQuoteOccurrences}) — it locates no particular passage, ` +
+          `so it cannot show where this claim came from. Quote something distinctive enough to point at one place.`
+        );
+      }
     }
     for (const n of numbersOf(String(c.claim ?? ''))) {
       if (!numberInCanon(n, all)) problems.push(`number "${n}" does not appear anywhere in canon`);
@@ -902,20 +959,31 @@ function checkClaimsCore(
  * invocation, naming the failure. Absent would be quieter and worse.
  */
 const CONTROL_CANON: Record<string, string> = {
-  'ctrl-a.txt': 'The first canonical document. Value: 42 percent of the total.',
-  'ctrl-b.txt': 'The second canonical document mentions a distinct phrase.',
+  'ctrl-a.txt': 'The first canonical document. Value: 42 percent of the total, per the register and the appendix.',
+  'ctrl-b.txt': 'The second canonical document mentions a distinct phrase. Reach the office at (202) 514-3435 for the schedule.',
 };
 const CONTROL_CLAIMS: ClaimIn[] = [
   { id: 'honest', claim: 'The value is 42 percent.', source: 'ctrl-a.txt', quote: 'Value: 42 percent' },
   { id: 'fabricated-number', claim: 'The value is 99 percent.', source: 'ctrl-a.txt', quote: 'Value: 42 percent' },
   { id: 'paraphrase-as-quote', claim: 'The value is stated.', source: 'ctrl-a.txt', quote: 'the value equals forty-two' },
   { id: 'wrong-source', claim: 'A distinct phrase appears.', source: 'ctrl-a.txt', quote: 'mentions a distinct phrase' },
+  // THE TWO v1 SHIPPED WITHOUT, WHICH IS WHY ITS CONTROL PROVED NOTHING.
+  //
+  // Every v1 vector used a quote of 17-26 distinctive characters — precisely
+  // the case the matching handled correctly. An external review pointed out
+  // that following the recommended procedure therefore produced three green
+  // checks and false confidence. A control that only exercises the working
+  // path is decoration. These two fail on v1 and pass on v2.
+  { id: 'ubiquitous-quote', claim: 'Something was documented.', source: 'ctrl-a.txt', quote: 'the' },
+  { id: 'substring-number', claim: 'There were 14 findings.', source: 'ctrl-b.txt', quote: 'mentions a distinct phrase' },
 ];
 const CONTROL_EXPECTED: Record<string, 'PASS' | 'FAIL'> = {
   honest: 'PASS',
   'fabricated-number': 'FAIL',
   'paraphrase-as-quote': 'FAIL',
   'wrong-source': 'FAIL',
+  'ubiquitous-quote': 'FAIL',
+  'substring-number': 'FAIL',
 };
 
 const CHECK_CONTROL = (() => {
@@ -924,7 +992,7 @@ const CHECK_CONTROL = (() => {
     const got = Object.fromEntries(results.map((r) => [r.id, r.status]));
     const wrong = Object.entries(CONTROL_EXPECTED).filter(([k, v]) => got[k] !== v);
     return wrong.length === 0
-      ? { ok: true, detail: 'check-v1 control: 1 honest claim passed, 3 planted failures caught (fabricated number, paraphrase-as-quote, wrong-source)' }
+      ? { ok: true, detail: `${CHECK_CLAIMS_VERSION} control: 1 honest claim passed, 5 planted failures caught (fabricated number, paraphrase-as-quote, wrong-source, ubiquitous quote, number inside another number)` }
       : { ok: false, detail: wrong.map(([k, v]) => `${k}: expected ${v}, got ${got[k] ?? 'no result'}`).join('; ') };
   } catch (e) {
     return { ok: false, detail: `control threw: ${(e as Error).message}` };
