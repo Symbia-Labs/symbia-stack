@@ -606,6 +606,203 @@ registerComponent({
   },
 });
 
+/**
+ * strip-v1: the pinned text-extraction algorithm. The version IS the
+ * behaviour — any change to this function is a new version string, because
+ * a recipe that names "strip-v1" must reproduce byte-identical output
+ * forever. That is the whole difference between an extraction and an
+ * impression.
+ */
+const EXTRACT_TEXT_VERSION = 'strip-v1';
+const HTML_ENTITIES: Record<string, string> = {
+  amp: '&', lt: '<', gt: '>', quot: '"', apos: "'", nbsp: ' ',
+  rsquo: '’', lsquo: '‘', rdquo: '”', ldquo: '“',
+  ndash: '–', mdash: '—', hellip: '…',
+};
+function stripV1(html: string): string {
+  let t = html.replace(/<script[\s\S]*?<\/script>|<style[\s\S]*?<\/style>|<!--[\s\S]*?-->/gi, ' ');
+  t = t.replace(/<[^>]+>/g, ' ');
+  t = t
+    .replace(/&#(\d+);/g, (_m, d) => String.fromCodePoint(Number(d)))
+    .replace(/&#x([0-9a-f]+);/gi, (_m, h) => String.fromCodePoint(parseInt(h, 16)))
+    .replace(/&(\w+);/g, (m, n) => HTML_ENTITIES[n.toLowerCase()] ?? m);
+  return t.replace(/\s+/g, ' ').trim();
+}
+
+registerComponent({
+  id: 'symbia.transform.extract-text',
+  name: 'Extract Text',
+  description:
+    'Deterministic HTML/text extraction (strip-v1): removes script/style/comments and tags, decodes entities, collapses whitespace. The recipe carries input and output sha256, so the derivation is recomputable by anyone holding the bytes — same input, same version, same output, forever.',
+  inputs: ['in'],
+  outputs: ['out', 'error'],
+  config: {
+    field: {
+      type: 'string',
+      required: false,
+      default: 'body',
+      description:
+        'Field of the incoming message holding the source string. Omitted, "body" — the shape symbia.io.http-request emits.',
+    },
+  },
+  lanes: {
+    out: {
+      lane: 'canonical',
+      receipt: 'recipe',
+      note:
+        'the DERIVATION is canonical — recomputable from the input bytes and the pinned algorithm version in the recipe. Content fetched apocryphal stays apocryphal by tightening; the receipt still proves the extraction was faithful to whatever arrived.',
+    },
+    error: { lane: 'apocryphal', note: 'a refusal is not a recomputable value' },
+  },
+  handler: (input, ctx) => {
+    const field = String(ctx.config.field ?? 'body');
+    const src = (input.value as Record<string, unknown>)?.[field];
+    if (typeof src !== 'string') {
+      return {
+        error: {
+          value: {
+            error: `extract-text refused: field "${field}" is ${src === undefined ? 'absent' : typeof src}, not a string`,
+            accepts: 'a message whose configured field holds the source markup or text',
+          },
+          lane: 'apocryphal' as Lane,
+        },
+      };
+    }
+    const inputSha256 = createHash('sha256').update(src).digest('hex');
+    const text = stripV1(src);
+    const outputSha256 = createHash('sha256').update(text).digest('hex');
+    return {
+      out: {
+        value: { text, sha256: outputSha256, chars: text.length, algorithm: EXTRACT_TEXT_VERSION },
+        lane: 'canonical' as Lane,
+        receipt: {
+          kind: 'recipe',
+          source: 'symbia.transform.extract-text',
+          recipe: {
+            algorithm: EXTRACT_TEXT_VERSION,
+            inputSha256,
+            outputSha256,
+            inputChars: src.length,
+            outputChars: text.length,
+          },
+        },
+      },
+    };
+  },
+});
+
+registerComponent({
+  id: 'symbia.canon.certify',
+  name: 'Certify Canon',
+  description:
+    'Fixes a corpus before judgment: writes a canon manifest to the catalog and attaches each item\'s bytes as an artifact. The catalog computes its own sha256 per artifact; this component verifies that second witness against its own digest and refuses on mismatch. The certification is the manifest\'s ledger position — everything after it can be checked, nothing before it can be smuggled in.',
+  inputs: ['in'],
+  outputs: ['out', 'error'],
+  config: {
+    keyPrefix: {
+      type: 'string',
+      required: false,
+      default: 'canon',
+      description: 'Catalog key prefix; the resource lands at <prefix>/<slug>.',
+    },
+  },
+  lanes: {
+    out: {
+      lane: 'canonical',
+      receipt: 'recipe',
+      note:
+        'the manifest is recomputable from the item digests the recipe carries. The certified CONTENT keeps whatever lane it arrived on — certification fixes bytes, it does not bless them.',
+    },
+    error: { lane: 'apocryphal', note: 'a refusal is not a recomputable value' },
+  },
+  handler: async (input, ctx) => {
+    const v = (input.value ?? {}) as {
+      slug?: string; title?: string;
+      items?: Array<{ name: string; content: string; url?: string; mimeType?: string }>;
+    };
+    const items = Array.isArray(v.items) ? v.items : [];
+    if (items.length === 0 || items.some((i) => !i?.name || typeof i?.content !== 'string')) {
+      return {
+        error: {
+          value: {
+            error: 'certify refused: items must be a non-empty array of {name, content}',
+            accepts: '{slug?, title?, items: [{name, content, url?, mimeType?}]}',
+          },
+          lane: 'apocryphal' as Lane,
+        },
+      };
+    }
+    const catalogUrl = process.env.CATALOG_SERVICE_URL;
+    if (!catalogUrl) {
+      return {
+        error: { value: { error: 'certify refused: CATALOG_SERVICE_URL is not set — no catalog to certify into' }, lane: 'apocryphal' as Lane },
+      };
+    }
+    const digests = items.map((i) => ({
+      name: i.name,
+      url: i.url,
+      sha256: createHash('sha256').update(i.content).digest('hex'),
+      bytes: Buffer.byteLength(i.content),
+    }));
+    const slug = (v.slug ?? `corpus-${Date.now()}`).replace(/[^a-z0-9-]/gi, '-').toLowerCase();
+    const headers = { 'content-type': 'application/json', 'X-Service-Auth': 'internal' };
+    try {
+      const rRes = await fetch(`${catalogUrl}/api/contexts`, {
+        method: 'POST', headers,
+        body: JSON.stringify({
+          key: `${String(ctx.config.keyPrefix ?? 'canon')}/${slug}`,
+          name: v.title ?? `Canon — ${slug}`,
+          type: 'context',
+          tags: ['canon', 'certified'],
+          content: { certified: true, items: digests },
+        }),
+      });
+      if (!rRes.ok) {
+        return { error: { value: { error: `catalog refused the manifest: ${rRes.status}`, detail: (await rRes.text()).slice(0, 300) }, lane: 'apocryphal' as Lane } };
+      }
+      const resource = (await rRes.json()) as { id: string; key: string };
+      const attached: Array<Record<string, unknown>> = [];
+      for (const [idx, item] of items.entries()) {
+        const aRes = await fetch(`${catalogUrl}/api/resources/${resource.id}/artifacts`, {
+          method: 'POST', headers,
+          body: JSON.stringify({
+            name: item.name,
+            // text/html is not in the catalog's MIME allowlist; canon text
+            // travels as text/plain, and the manifest records the original.
+            type: item.mimeType && item.mimeType !== 'text/html' ? item.mimeType : 'text/plain',
+            content: Buffer.from(item.content).toString('base64'),
+          }),
+        });
+        if (!aRes.ok) {
+          return { error: { value: { error: `artifact upload refused for "${item.name}": ${aRes.status}`, detail: (await aRes.text()).slice(0, 300), resourceId: resource.id, attachedSoFar: attached.length }, lane: 'apocryphal' as Lane } };
+        }
+        const artifact = (await aRes.json()) as { id: string; checksum?: string };
+        // THE SECOND WITNESS MUST AGREE. The catalog digested the same bytes
+        // independently; a mismatch means corruption in transit or storage,
+        // and a canon whose store disagrees with its manifest certifies
+        // nothing.
+        if (artifact.checksum && artifact.checksum !== digests[idx].sha256) {
+          return { error: { value: { error: `checksum mismatch on "${item.name}": component ${digests[idx].sha256}, catalog ${artifact.checksum}`, meaning: 'the stored bytes are not the certified bytes; nothing was certified' }, lane: 'apocryphal' as Lane } };
+        }
+        attached.push({ name: item.name, sha256: digests[idx].sha256, artifactId: artifact.id, catalogChecksum: artifact.checksum, secondWitness: artifact.checksum === digests[idx].sha256 });
+      }
+      return {
+        out: {
+          value: { resourceId: resource.id, key: resource.key, items: attached },
+          lane: 'canonical' as Lane,
+          receipt: {
+            kind: 'recipe',
+            source: 'symbia.canon.certify',
+            recipe: { items: digests.map(({ name, sha256 }) => ({ name, sha256 })) },
+          },
+        },
+      };
+    } catch (e) {
+      return { error: { value: { error: `certify failed: ${(e as Error).message}` }, lane: 'apocryphal' as Lane } };
+    }
+  },
+});
+
 registerComponent({
   id: 'symbia.io.delay',
   name: 'Delay',

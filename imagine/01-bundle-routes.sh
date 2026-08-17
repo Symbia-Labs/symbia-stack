@@ -26,12 +26,24 @@ for svc in catalog identity integrations models logging directory network messag
   # one module graph —
   # a second bundle would carry a second pg-mem and seed a store nobody
   # reads). Others still expose routes.ts only.
-  entry="../../$svc/server/src/routes.ts"
-  [ -f "../../$svc/server/src/service.ts" ] && entry="../../$svc/server/src/service.ts"
+  # ONE level up. These paths said ../../ from the days this script lived at
+  # experiments/standalone/; the promotion to imagine/ (5559a19) moved the
+  # script and not the paths, and NOTHING REPORTED IT: esbuild died on a
+  # missing entry, the crash text contains neither "error" nor "✘", the
+  # caller's grep-guard saw nothing, and stale .standalone-routes.mjs files
+  # from the last good build were copied into every subsequent "successful"
+  # package. Found 17 Aug by the grep-a-marker rule: a freshly packaged
+  # bundle contained none of the code just written. Hence set -o pipefail
+  # above and the explicit exit check below — a bundler that cannot build
+  # must say so in its exit code, not in prose someone greps for.
+  entry="../$svc/server/src/routes.ts"
+  [ -f "../$svc/server/src/service.ts" ] && entry="../$svc/server/src/service.ts"
+  [ -f "$entry" ] || { echo "BUNDLE FAILED: no entry for $svc at $entry"; exit 1; }
   npx esbuild "$entry" \
     --bundle --format=esm --platform=node --target=node20 \
     --packages=external \
-    --tsconfig="../../$svc/tsconfig.json" \
-    --outfile="../../$svc/.standalone-routes.mjs" 2>&1 | tail -2
+    --tsconfig="../$svc/tsconfig.json" \
+    --outfile="../$svc/.standalone-routes.mjs" 2>&1 | tail -2 \
+    || { echo "BUNDLE FAILED: esbuild exited non-zero for $svc"; exit 1; }
 done
-echo "done — build/*.mjs"
+echo "done — bundles refreshed in each service directory"

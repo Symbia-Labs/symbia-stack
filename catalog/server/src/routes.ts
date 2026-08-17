@@ -1,5 +1,6 @@
 import type { Express, Response } from "express";
 import { createServer, type Server } from "http";
+import { createHash } from "crypto";
 import fs from "fs";
 import path from "path";
 import { storage } from "./storage";
@@ -1526,7 +1527,12 @@ export async function registerRoutes(
         name,
         mimeType: type,
         size: buffer.length,
-        checksum: require('crypto').createHash('sha256').update(buffer).digest('hex'),
+        // Was require('crypto') inline — CJS require inside an ESM bundle,
+        // so the imagine packaging threw "Dynamic require of crypto is not
+        // supported" AFTER saving the bytes: the artifact existed on disk and
+        // the route 500'd computing its own checksum. The second witness died
+        // giving testimony. Found 17 Aug by the certify component's E-series.
+        checksum: createHash('sha256').update(buffer).digest('hex'),
         storageUrl,
       });
 
