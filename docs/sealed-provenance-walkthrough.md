@@ -30,7 +30,7 @@
 **1.1** Write your predictions for stages 2–6 into the catalog as a context resource, via `symbia_call`:
 `service: "catalog", method: "POST", path: "/api/contexts"`, body `{key, name, type: "context", tags: ["map","predictions"], content: {...}}`.
 
-Predict at least: whether the fetched page digests will match the reference below; whether your first review draft will contain any indefensible claim; and one prediction you **expect to be wrong**. Aim that one at a *join between components*, not at a component itself — that is where this system actually fails.
+Predict at least: how many of your first-draft claims will fail the check; whether the two documents will still be reachable and unchanged; and one prediction you **expect to be wrong**. Aim that one at a *join between components*, not at a component itself — that is where this system actually fails.
 
 *Known defect, not yours:* the catalog accepts the write and returns 201, then reads back with `content` absent. The certification is the **ledger position** of that write, not the catalog's copy. Note it and continue.
 
@@ -144,6 +144,8 @@ passed: 2   failed: 3
 ```
 
 *This is the contract under test:* same canon, same claims, same algorithm → same verdict, on any machine, any day. A mismatch here is the single most important result this walkthrough can produce — it means the verdict depends on something other than its declared inputs. Report the full digest either way.
+
+> **What this anchor is and is not.** It is printed here on purpose, unlike the retrieval anchor, because it tests a different thing: whether the *algorithm* still behaves identically, using canon supplied inline so nothing external can drift. It is **not** evidence that the agent executed anything — a digest on a page can be recited. Execution is proved by the ledger census (`verify-session.mjs`) showing an injection at the right time, and by a freshness challenge. Keep the two questions apart: this one asks *did the algorithm hold*, the other asks *did the work happen*.
 
 ---
 
