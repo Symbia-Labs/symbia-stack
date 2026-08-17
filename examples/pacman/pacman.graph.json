@@ -1,0 +1,617 @@
+{
+  "symbia": "graph/1.0",
+  "name": "pacman",
+  "version": "1.0.0",
+  "author": "imagine",
+  "description": "Pac-Man as a dataflow graph. The maze is the switch port list; walls are the default branch. The win condition is a rollup over the dots: while any remain the board is apocryphal and names them.",
+  "nodes": [
+    {
+      "id": "entry",
+      "component": "symbia.io.passthrough"
+    },
+    {
+      "id": "dir",
+      "component": "symbia.logic.switch",
+      "config": {
+        "field": "dir",
+        "ports": [
+          "up",
+          "down",
+          "left",
+          "right"
+        ]
+      }
+    },
+    {
+      "id": "mv_up",
+      "component": "symbia.compute.arithmetic",
+      "config": {
+        "expression": "{pos} - 7"
+      }
+    },
+    {
+      "id": "mv_down",
+      "component": "symbia.compute.arithmetic",
+      "config": {
+        "expression": "{pos} + 7"
+      }
+    },
+    {
+      "id": "mv_left",
+      "component": "symbia.compute.arithmetic",
+      "config": {
+        "expression": "{pos} - 1"
+      }
+    },
+    {
+      "id": "mv_right",
+      "component": "symbia.compute.arithmetic",
+      "config": {
+        "expression": "{pos} + 1"
+      }
+    },
+    {
+      "id": "shape",
+      "component": "symbia.transform.map",
+      "config": {
+        "mapping": {
+          "pos": "result",
+          "key": "result",
+          "value": "exact"
+        }
+      }
+    },
+    {
+      "id": "maze",
+      "component": "symbia.logic.switch",
+      "config": {
+        "field": "pos",
+        "ports": [
+          "8",
+          "9",
+          "10",
+          "11",
+          "12",
+          "15",
+          "17",
+          "19",
+          "22",
+          "23",
+          "24",
+          "25",
+          "26",
+          "29",
+          "31",
+          "33",
+          "36",
+          "37",
+          "38",
+          "39",
+          "40"
+        ]
+      }
+    },
+    {
+      "id": "board",
+      "component": "symbia.state.rollup",
+      "config": {
+        "expected": [
+          "9",
+          "10",
+          "11",
+          "12",
+          "15",
+          "17",
+          "19",
+          "22",
+          "23",
+          "24",
+          "25",
+          "26",
+          "29",
+          "31",
+          "33",
+          "36",
+          "37",
+          "38",
+          "39",
+          "40"
+        ],
+        "op": "sum",
+        "keyField": "key",
+        "valueField": "value"
+      }
+    },
+    {
+      "id": "moved",
+      "component": "symbia.io.collect"
+    },
+    {
+      "id": "blocked",
+      "component": "symbia.io.collect"
+    },
+    {
+      "id": "badmove",
+      "component": "symbia.io.collect"
+    }
+  ],
+  "edges": [
+    {
+      "id": "e_in",
+      "source": {
+        "node": "entry",
+        "port": "out"
+      },
+      "target": {
+        "node": "dir",
+        "port": "in"
+      }
+    },
+    {
+      "id": "e_up",
+      "source": {
+        "node": "dir",
+        "port": "up"
+      },
+      "target": {
+        "node": "mv_up",
+        "port": "in"
+      }
+    },
+    {
+      "id": "e_dn",
+      "source": {
+        "node": "dir",
+        "port": "down"
+      },
+      "target": {
+        "node": "mv_down",
+        "port": "in"
+      }
+    },
+    {
+      "id": "e_lf",
+      "source": {
+        "node": "dir",
+        "port": "left"
+      },
+      "target": {
+        "node": "mv_left",
+        "port": "in"
+      }
+    },
+    {
+      "id": "e_rt",
+      "source": {
+        "node": "dir",
+        "port": "right"
+      },
+      "target": {
+        "node": "mv_right",
+        "port": "in"
+      }
+    },
+    {
+      "id": "e_bad",
+      "source": {
+        "node": "dir",
+        "port": "default"
+      },
+      "target": {
+        "node": "badmove",
+        "port": "in"
+      }
+    },
+    {
+      "id": "e_s0",
+      "source": {
+        "node": "mv_up",
+        "port": "out"
+      },
+      "target": {
+        "node": "shape",
+        "port": "in"
+      }
+    },
+    {
+      "id": "e_s1",
+      "source": {
+        "node": "mv_down",
+        "port": "out"
+      },
+      "target": {
+        "node": "shape",
+        "port": "in"
+      }
+    },
+    {
+      "id": "e_s2",
+      "source": {
+        "node": "mv_left",
+        "port": "out"
+      },
+      "target": {
+        "node": "shape",
+        "port": "in"
+      }
+    },
+    {
+      "id": "e_s3",
+      "source": {
+        "node": "mv_right",
+        "port": "out"
+      },
+      "target": {
+        "node": "shape",
+        "port": "in"
+      }
+    },
+    {
+      "id": "e_e0",
+      "source": {
+        "node": "mv_up",
+        "port": "error"
+      },
+      "target": {
+        "node": "badmove",
+        "port": "in"
+      }
+    },
+    {
+      "id": "e_e1",
+      "source": {
+        "node": "mv_down",
+        "port": "error"
+      },
+      "target": {
+        "node": "badmove",
+        "port": "in"
+      }
+    },
+    {
+      "id": "e_e2",
+      "source": {
+        "node": "mv_left",
+        "port": "error"
+      },
+      "target": {
+        "node": "badmove",
+        "port": "in"
+      }
+    },
+    {
+      "id": "e_e3",
+      "source": {
+        "node": "mv_right",
+        "port": "error"
+      },
+      "target": {
+        "node": "badmove",
+        "port": "in"
+      }
+    },
+    {
+      "id": "e_maze",
+      "source": {
+        "node": "shape",
+        "port": "out"
+      },
+      "target": {
+        "node": "maze",
+        "port": "in"
+      }
+    },
+    {
+      "id": "e_t0",
+      "source": {
+        "node": "maze",
+        "port": "8"
+      },
+      "target": {
+        "node": "board",
+        "port": "in"
+      }
+    },
+    {
+      "id": "e_t1",
+      "source": {
+        "node": "maze",
+        "port": "9"
+      },
+      "target": {
+        "node": "board",
+        "port": "in"
+      }
+    },
+    {
+      "id": "e_t2",
+      "source": {
+        "node": "maze",
+        "port": "10"
+      },
+      "target": {
+        "node": "board",
+        "port": "in"
+      }
+    },
+    {
+      "id": "e_t3",
+      "source": {
+        "node": "maze",
+        "port": "11"
+      },
+      "target": {
+        "node": "board",
+        "port": "in"
+      }
+    },
+    {
+      "id": "e_t4",
+      "source": {
+        "node": "maze",
+        "port": "12"
+      },
+      "target": {
+        "node": "board",
+        "port": "in"
+      }
+    },
+    {
+      "id": "e_t5",
+      "source": {
+        "node": "maze",
+        "port": "15"
+      },
+      "target": {
+        "node": "board",
+        "port": "in"
+      }
+    },
+    {
+      "id": "e_t6",
+      "source": {
+        "node": "maze",
+        "port": "17"
+      },
+      "target": {
+        "node": "board",
+        "port": "in"
+      }
+    },
+    {
+      "id": "e_t7",
+      "source": {
+        "node": "maze",
+        "port": "19"
+      },
+      "target": {
+        "node": "board",
+        "port": "in"
+      }
+    },
+    {
+      "id": "e_t8",
+      "source": {
+        "node": "maze",
+        "port": "22"
+      },
+      "target": {
+        "node": "board",
+        "port": "in"
+      }
+    },
+    {
+      "id": "e_t9",
+      "source": {
+        "node": "maze",
+        "port": "23"
+      },
+      "target": {
+        "node": "board",
+        "port": "in"
+      }
+    },
+    {
+      "id": "e_t10",
+      "source": {
+        "node": "maze",
+        "port": "24"
+      },
+      "target": {
+        "node": "board",
+        "port": "in"
+      }
+    },
+    {
+      "id": "e_t11",
+      "source": {
+        "node": "maze",
+        "port": "25"
+      },
+      "target": {
+        "node": "board",
+        "port": "in"
+      }
+    },
+    {
+      "id": "e_t12",
+      "source": {
+        "node": "maze",
+        "port": "26"
+      },
+      "target": {
+        "node": "board",
+        "port": "in"
+      }
+    },
+    {
+      "id": "e_t13",
+      "source": {
+        "node": "maze",
+        "port": "29"
+      },
+      "target": {
+        "node": "board",
+        "port": "in"
+      }
+    },
+    {
+      "id": "e_t14",
+      "source": {
+        "node": "maze",
+        "port": "31"
+      },
+      "target": {
+        "node": "board",
+        "port": "in"
+      }
+    },
+    {
+      "id": "e_t15",
+      "source": {
+        "node": "maze",
+        "port": "33"
+      },
+      "target": {
+        "node": "board",
+        "port": "in"
+      }
+    },
+    {
+      "id": "e_t16",
+      "source": {
+        "node": "maze",
+        "port": "36"
+      },
+      "target": {
+        "node": "board",
+        "port": "in"
+      }
+    },
+    {
+      "id": "e_t17",
+      "source": {
+        "node": "maze",
+        "port": "37"
+      },
+      "target": {
+        "node": "board",
+        "port": "in"
+      }
+    },
+    {
+      "id": "e_t18",
+      "source": {
+        "node": "maze",
+        "port": "38"
+      },
+      "target": {
+        "node": "board",
+        "port": "in"
+      }
+    },
+    {
+      "id": "e_t19",
+      "source": {
+        "node": "maze",
+        "port": "39"
+      },
+      "target": {
+        "node": "board",
+        "port": "in"
+      }
+    },
+    {
+      "id": "e_t20",
+      "source": {
+        "node": "maze",
+        "port": "40"
+      },
+      "target": {
+        "node": "board",
+        "port": "in"
+      }
+    },
+    {
+      "id": "e_wall",
+      "source": {
+        "node": "maze",
+        "port": "default"
+      },
+      "target": {
+        "node": "blocked",
+        "port": "in"
+      }
+    },
+    {
+      "id": "e_board",
+      "source": {
+        "node": "board",
+        "port": "out"
+      },
+      "target": {
+        "node": "moved",
+        "port": "in"
+      }
+    }
+  ],
+  "metadata": {
+    "ingress": {
+      "node": "entry",
+      "port": "in"
+    },
+    "game": {
+      "width": 7,
+      "height": 7,
+      "maze": "########P....##.#.#.##.....##.#.#.##....G########",
+      "open": [
+        8,
+        9,
+        10,
+        11,
+        12,
+        15,
+        17,
+        19,
+        22,
+        23,
+        24,
+        25,
+        26,
+        29,
+        31,
+        33,
+        36,
+        37,
+        38,
+        39,
+        40
+      ],
+      "dots": [
+        9,
+        10,
+        11,
+        12,
+        15,
+        17,
+        19,
+        22,
+        23,
+        24,
+        25,
+        26,
+        29,
+        31,
+        33,
+        36,
+        37,
+        38,
+        39,
+        40
+      ],
+      "pacStart": 8,
+      "ghostStart": 40
+    },
+    "expects": "A move into a wall lands on blocked and the board is unchanged. A move onto a dot advances coverage. The board emits apocryphal until every dot in the expected set has been visited, then canonical — winning is a lane transition."
+  }
+}
