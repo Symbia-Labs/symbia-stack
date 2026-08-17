@@ -37,10 +37,11 @@ docker-compose -f docker-compose.yml -f docker-compose.dev.yml up -d
 ```
 
 A one-origin gateway for the persistent packaging does not exist. Worth
-building, and not built. Nothing
-else in the server knows which packaging it reached, and the operating mode
-comes from the host's own response rather than from a flag — a transport that
-hardcoded "imagine" would keep saying so while attached to something else.
+building, and not built.
+
+Nothing else in the server knows which packaging it reached, and the operating
+mode comes from the host's own response rather than from a flag — a transport
+that hardcoded "imagine" would keep saying so while attached to something else.
 
 ## What is source and what is generated
 
