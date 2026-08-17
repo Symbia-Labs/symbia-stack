@@ -557,7 +557,7 @@ Moved to `docs/proposals/`. Nothing here exists in code.
 
 Newest first: **`2026-08-16-session-close`** — four gap-closure tracks with
 their measurements, and the five defects they opened (D1–D5, §6 item 0).
-Probes and their registered predictions are in `experiments/imagine-security/`
+Probes and their registered predictions are in `imagine/probes/`
 (`TRACKS.md`, `TRACK-2.md`) and `experiments/imagine-import/`
 (`PREDICTIONS.md`, `RESULTS.md`).
 

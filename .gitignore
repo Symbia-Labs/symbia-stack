@@ -80,3 +80,18 @@ experiments/standalone/.models/
 
 # imagine session artifacts
 experiments/standalone/.session/
+
+# plugin packaging staging dir — output of the plugin build, 3.4 MB of copies
+# of files already tracked under plugin/symbia-imagine/.
+.plugin-build/
+
+# Generated packagings. `npm run package:imagine` builds build/plugin/ and the
+# .plugin archive from source; the container images come from the Dockerfiles.
+# These were briefly committed and a stale directory survived a rename inside
+# one, because nothing rebuilt the tree from scratch.
+build/
+imagine/services/
+imagine/vendor/
+imagine/node_modules/
+imagine/.session/
+imagine/.models/

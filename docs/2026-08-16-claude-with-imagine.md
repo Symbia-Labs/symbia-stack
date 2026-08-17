@@ -173,7 +173,7 @@ the call returns; it does not change the token bill. That needs saying
 because "it runs locally" is easy to hear as "it is cheaper", and it is not.
 
 Two things do change it, and both were measured against the running sidecar
-on 16 Aug (`experiments/imagine-security/05-token-cost.mjs`, bytes converted
+on 16 Aug (`imagine/probes/05-token-cost.mjs`, bytes converted
 at ~4 chars per token, which is an estimate rather than a count):
 
 | | bytes | ~tokens |
@@ -197,7 +197,7 @@ ten results in my context, each one paid for on every subsequent turn of the
 conversation, not just the turn it arrived on. That is the saving that
 grows, and it was not available until today: it depends on a graph authored
 through MCP actually hydrating and executing, which is exactly what T4 and
-T5 measured (`experiments/imagine-security/02-tracks.mjs`).
+T5 measured (`imagine/probes/02-tracks.mjs`).
 
 What is not saved: my own reasoning. Same model, same context window, same
 cost per token. The connector moves work out of my context; it does not make

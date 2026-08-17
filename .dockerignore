@@ -49,3 +49,10 @@ coverage
 **/coverage
 tmp
 **/tmp
+
+# The ephemeral packaging is not part of any container image. It carries its
+# own node_modules, its own vendored libraries and the bundled services — about
+# 250 MB that the daemon has no use for. Added 16 Aug after the context reached
+# 672 MB and the identity build was still uploading.
+imagine/
+build/

@@ -3,7 +3,7 @@
 Status: PAPER, with measurements, and now the STATED DIRECTION for core
 (Brian, 15 Aug 2026 — "move everything over to this model for core, and
 build design and deploy off it"). Written after the standalone and sidecar
-spikes (`experiments/standalone/RESULTS.md`, `SIDECAR.md`) and revised the
+spikes (`imagine/RESULTS.md`, `SIDECAR.md`) and revised the
 same night once five services had actually been extracted.
 
 ## The direction, in one line

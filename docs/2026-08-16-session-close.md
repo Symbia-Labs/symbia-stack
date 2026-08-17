@@ -364,9 +364,9 @@ exactly what this could not see.
 ## Where the work sits
 
 Branch `fix/2026-08-06-api-gaps`, four commits ahead. Probes live in
-`experiments/imagine-security/` (Tracks 1–3, with `TRACKS.md` and
+`imagine/probes/` (Tracks 1–3, with `TRACKS.md` and
 `TRACK-2.md`) and `experiments/imagine-import/` (Track 4, with
-`PREDICTIONS.md` and `RESULTS.md`). `experiments/standalone/03-seal-bundle.mjs`
+`PREDICTIONS.md` and `RESULTS.md`). `imagine/03-seal-bundle.mjs`
 produces a fresh bundle; `tamper.mjs` is the fastest single check that the
 seal covers what it claims — it runs an unaltered control first, so a pass
 means something.
