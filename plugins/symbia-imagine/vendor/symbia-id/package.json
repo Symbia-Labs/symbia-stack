@@ -1,0 +1,36 @@
+{
+  "name": "@symbia/id",
+  "version": "1.0.0",
+  "license": "MIT",
+  "description": "Unified identity client for Symbia services - user and agent authentication",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "require": "./dist/index.js"
+    }
+  },
+  "dependencies": {},
+  "peerDependencies": {
+    "@symbia/sys": "*"
+  },
+  "peerDependenciesMeta": {
+    "@symbia/sys": {
+      "optional": true
+    }
+  },
+  "files": [
+    "dist",
+    "src"
+  ],
+  "keywords": [
+    "symbia",
+    "identity",
+    "authentication",
+    "agent"
+  ],
+  "_vendored": "dist only; build-time declarations stripped by vendor-libs.sh"
+}

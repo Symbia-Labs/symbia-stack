@@ -53,6 +53,12 @@ __pycache__/
 # payload, and a stale credential in a repo teaches the wrong habit.
 .mcp.json
 
+# The packaged Claude plugin is generated, not edited by hand, and ships as
+# built: its connector config carries no credential, and its libraries run
+# from their compiled dist/.
+!plugins/symbia-imagine/.mcp.json
+!plugins/symbia-imagine/vendor/*/dist/
+
 # Claude Code local settings
 .claude/settings.local.json
 

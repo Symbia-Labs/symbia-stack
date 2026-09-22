@@ -1,0 +1,64 @@
+{
+  "name": "@symbia/imagine-sidecar",
+  "_version": "NOT the source of truth. imagine/plugin/plugin.json declares the version; package-imagine.sh stamps it into the packaged copy of this file. Bumping the line below by hand reintroduces the drift that made three copies disagree.",
+  "version": "0.20.1",
+  "private": true,
+  "type": "module",
+  "description": "An ephemeral Symbia stack an AI client attaches to over MCP. Mounts service bundles from ./services/.",
+  "main": "host.mjs",
+  "scripts": {
+    "start": "node host.mjs",
+    "reload": "bash reload.sh"
+  },
+  "comment": [
+    "WHY THIS FILE EXISTS AT ALL.",
+    "The bundles in ./services/ keep third-party packages external — node-llama-cpp is native and cannot be bundled — and Node resolves those from the importing file upward. Emitting a bundle into a directory with nothing to resolve against fails at import, which is what 01-bundle-routes.sh's comment records from 15 Aug.",
+    "Measured 16 Aug: with the bundles copied here and nothing else changed, 8 of 10 failed to resolve and directory and models succeeded. The survivors were an accident of which packages happen to sit in the workspace root, not a property of those services.",
+    "The dependencies below are the union of what the ten bundles import and could not find. Declaring them here is what lets ./services/ be the mount point, which is what lets this directory leave the machine it was built on.",
+    "Builtins left unprefixed by esbuild (child_process, crypto, events, fs, path, url) resolve without declaration and are deliberately absent below.",
+    "Vendored libraries live at vendor/symbia-<name>, not vendor/@symbia/<name>: a plugin archive containing '@' in any path is refused on install. Each package.json inside still declares the scoped name, so npm places them under node_modules/@symbia."
+  ],
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.6.1",
+    "bcryptjs": "^2.4.3",
+    "dotenv": "^17.2.3",
+    "drizzle-orm": "^0.39.3",
+    "drizzle-zod": "^0.7.0",
+    "jsonwebtoken": "^9.0.3",
+    "pg-mem": "^3.0.5",
+    "uuid": "^13.0.0",
+    "yaml": "^2.7.0",
+    "zod-validation-error": "^3.4.0",
+    "express": "^5.2.1",
+    "pg": "^8.17.1",
+    "zod": "^3.24.2",
+    "ws": "^8.18.0",
+    "@symbia/auth": "file:./vendor/symbia-auth",
+    "@symbia/crypto": "file:./vendor/symbia-crypto",
+    "@symbia/db": "file:./vendor/symbia-db",
+    "@symbia/egress": "file:./vendor/symbia-egress",
+    "@symbia/id": "file:./vendor/symbia-id",
+    "@symbia/lineage": "file:./vendor/symbia-lineage",
+    "@symbia/logging-client": "file:./vendor/symbia-logging-client",
+    "@symbia/md": "file:./vendor/symbia-md",
+    "@symbia/messaging-client": "file:./vendor/symbia-messaging-client",
+    "@symbia/models-client": "file:./vendor/symbia-models-client",
+    "@symbia/pathguard": "file:./vendor/symbia-pathguard",
+    "@symbia/redact": "file:./vendor/symbia-redact",
+    "@symbia/relay": "file:./vendor/symbia-relay",
+    "@symbia/seed": "file:./vendor/symbia-seed",
+    "@symbia/sys": "file:./vendor/symbia-sys",
+    "cookie-parser": "^1.4.7"
+  },
+  "optionalComment": [
+    "WHAT A NEW USER WAITS FOR, AND WHAT THEY DO NOT.",
+    "Measured 17 Aug against the packaged plugin: the first-run install was 263 MB. googleapis was 114 MB of it (43%) and node-llama-cpp 52 MB (20%) — 63% of the wait, for two capabilities an ephemeral stack does not use on the way to its first message.",
+    "googleapis is reached only by identity's Gmail OAuth path, from one function, which now imports it dynamically and says what to install if it is absent.",
+    "node-llama-cpp is local inference. It is real and it is the point of the models service, but it is native, it is the slowest thing in the install, and nobody needs it before their first graph runs.",
+    "Optional means npm continues when they are absent or fail to build. The runtime never guesses: each capability names itself and says how to install when asked for. A first run that works in seconds and grows on request beats one that is complete and times out before the client attaches."
+  ],
+  "optionalDependencies": {
+    "googleapis": "^148.0.0",
+    "node-llama-cpp": "^3.3.0"
+  }
+}

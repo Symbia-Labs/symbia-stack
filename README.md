@@ -2,6 +2,17 @@
 
 An LLM-native orchestration platform for building, deploying, and operating autonomous AI workflows. Symbia provides the foundational infrastructure for creating intelligent assistants, executing graph-based automation, managing real-time messaging, and observing system behavior across a multi-tenant environment.
 
+## Try it in Claude
+
+The `symbia-imagine` plugin runs an ephemeral copy of the stack on your machine and attaches it to Claude over MCP. It runs ten services in one process with an in-memory store, and keeps a signed record of each session. There is no account or API key to set up. In Claude Code:
+
+```
+/plugin marketplace add Symbia-Labs/symbia-stack
+/plugin install symbia-imagine@symbia-stack
+```
+
+It needs Node 20 or later and downloads about 250 MB of dependencies on first run. The packaged plugin is in [`plugins/symbia-imagine`](plugins/symbia-imagine), and its README covers what a session record does and does not prove.
+
 ## Architecture
 
 ```

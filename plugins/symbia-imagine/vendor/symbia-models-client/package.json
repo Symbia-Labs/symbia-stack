@@ -1,0 +1,49 @@
+{
+  "name": "@symbia/models-client",
+  "version": "1.0.0",
+  "description": "Models service client - chat completions, model registry, vision, load/unload, brokered local+remote inference",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "require": "./dist/index.js",
+      "default": "./dist/index.js"
+    },
+    "./client": {
+      "types": "./dist/client.d.ts",
+      "import": "./dist/client.js",
+      "require": "./dist/client.js",
+      "default": "./dist/client.js"
+    },
+    "./types": {
+      "types": "./dist/types.d.ts",
+      "import": "./dist/types.js",
+      "require": "./dist/types.js",
+      "default": "./dist/types.js"
+    }
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "keywords": [
+    "symbia",
+    "models",
+    "inference",
+    "chat-completions",
+    "vision",
+    "broker"
+  ],
+  "author": "Symbia",
+  "license": "MIT",
+  "dependencies": {
+    "@symbia/sys": "file:../symbia-sys"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "_vendored": "dist only; build-time declarations stripped by vendor-libs.sh"
+}

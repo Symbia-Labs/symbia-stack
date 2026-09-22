@@ -1,0 +1,1 @@
+{"version":3,"file":"keyed-hash.d.ts","sourceRoot":"","sources":["../src/keyed-hash.ts"],"names":[],"mappings":"AAAA;;;;;;;;;;;;;GAaG;AAIH,2CAA2C;AAC3C,wBAAgB,aAAa,CAAC,MAAM,EAAE,MAAM,GAAG,MAAM,EAAE,KAAK,EAAE,MAAM,GAAG,MAAM,GAAG,MAAM,CAErF;AAED,+DAA+D;AAC/D,wBAAgB,mBAAmB,CACjC,MAAM,EAAE,MAAM,GAAG,MAAM,EACvB,KAAK,EAAE,MAAM,GAAG,MAAM,EACtB,WAAW,EAAE,MAAM,GAClB,OAAO,CAUT"}

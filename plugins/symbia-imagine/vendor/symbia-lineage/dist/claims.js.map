@@ -1,0 +1,1 @@
+{"version":3,"file":"claims.js","sourceRoot":"","sources":["../src/claims.ts"],"names":[],"mappings":"AAAA;;;;;;;;;;;;;;;;;;;GAmBG;AAYH,MAAM,CAAC,MAAM,MAAM,GAAgC;IACjD,OAAO,EAAE;QACP,OAAO,EACL,6FAA6F;QAC/F,eAAe,EACb,+JAA+J;KAClK;IACD,MAAM,EAAE;QACN,OAAO,EACL,oHAAoH;QACtH,eAAe,EACb,mNAAmN;KACtN;IACD,SAAS,EAAE;QACT,OAAO,EACL,wGAAwG;QAC1G,eAAe,EACb,qNAAqN;KACxN;CACF,CAAC"}
