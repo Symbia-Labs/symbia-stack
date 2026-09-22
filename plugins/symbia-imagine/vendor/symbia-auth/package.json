@@ -1,0 +1,30 @@
+{
+  "name": "@symbia/auth",
+  "version": "1.0.0",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "license": "MIT",
+  "description": "Shared authentication and authorization utilities for Symbia services",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "require": "./dist/index.js",
+      "default": "./dist/index.js"
+    }
+  },
+  "keywords": [
+    "symbia",
+    "auth",
+    "authentication",
+    "authorization",
+    "middleware"
+  ],
+  "author": "Symbia",
+  "peerDependencies": {
+    "@symbia/sys": "*",
+    "express": "^5.0.0"
+  },
+  "_vendored": "dist only; build-time declarations stripped by vendor-libs.sh"
+}

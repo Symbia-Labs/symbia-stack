@@ -1,0 +1,28 @@
+{
+  "name": "@symbia/md",
+  "version": "1.0.0",
+  "description": "Documentation generation, OpenAPI tooling, and Swagger/Redoc serving for Symbia services",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "require": "./dist/index.js",
+      "default": "./dist/index.js"
+    }
+  },
+  "keywords": [
+    "symbia",
+    "documentation",
+    "openapi",
+    "llms.txt"
+  ],
+  "author": "Symbia",
+  "license": "MIT",
+  "peerDependencies": {
+    "express": "^5.0.0"
+  },
+  "_vendored": "dist only; build-time declarations stripped by vendor-libs.sh"
+}

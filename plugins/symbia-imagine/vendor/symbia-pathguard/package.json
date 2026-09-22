@@ -1,0 +1,30 @@
+{
+  "name": "@symbia/pathguard",
+  "version": "1.0.0",
+  "license": "MIT",
+  "description": "Workspace path confinement: safe resolution, symlink defense, and path-policy globs for Symbia services",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "require": "./dist/index.js",
+      "default": "./dist/index.js"
+    }
+  },
+  "dependencies": {},
+  "files": [
+    "dist",
+    "src"
+  ],
+  "keywords": [
+    "symbia",
+    "path",
+    "sandbox",
+    "confinement",
+    "security"
+  ],
+  "_vendored": "dist only; build-time declarations stripped by vendor-libs.sh"
+}

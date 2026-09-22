@@ -1,0 +1,352 @@
+import { DEFAULT_CONFIG, normalizeEndpoint, getHeaders, nowIso, buildBaseMetadata, clampQueue, initSystemAuth, clearSystemAuth, } from "./config.js";
+import { getMetricDefinition } from "./metrics.js";
+/**
+ * Create a telemetry client instance
+ *
+ * @param overrides - Partial config to override defaults from environment
+ * @returns TelemetryClient instance (or no-op client if disabled)
+ *
+ * @example
+ * ```typescript
+ * const telemetry = createTelemetryClient({
+ *   serviceId: 'my-service',
+ * });
+ *
+ * telemetry.event('service.started', 'Service initialized');
+ * telemetry.metric('service.request.count', 1);
+ * ```
+ */
+export function createTelemetryClient(overrides) {
+    const config = {
+        ...DEFAULT_CONFIG,
+        ...overrides,
+        endpoint: normalizeEndpoint(overrides.endpoint || DEFAULT_CONFIG.endpoint),
+    };
+    // Return no-op client if disabled or no endpoint
+    if (!config.enabled || !config.endpoint) {
+        return {
+            // Disabled is not broken. Telemetry was switched off on purpose here, so
+            // the write path is not "failing" — there is no write path. Returning an
+            // error string would make every sink route to its error port on a stack
+            // that is behaving exactly as configured.
+            getLastError: () => null,
+            log: () => undefined,
+            event: () => undefined,
+            metric: () => undefined,
+            span: () => undefined,
+            objectRef: () => undefined,
+            flush: async () => undefined,
+            shutdown: async () => undefined,
+        };
+    }
+    // Internal queues
+    const logQueue = [];
+    const metricQueue = [];
+    const traceQueue = [];
+    const objectQueue = [];
+    // Stream/metric registration cache
+    const metricRegistry = new Map();
+    let logStreamId = null;
+    let objectStreamId = null;
+    // Flush control
+    let timer = null;
+    let flushing = false;
+    let systemAuthInitialized = false;
+    /**
+     * Why the last telemetry write failed, or null if the writer is healthy.
+     *
+     * WHY THIS EXISTS. `request()` below returns `null` once retries are
+     * exhausted, under a comment reading "Silent failure after retries
+     * exhausted". Every caller of this client therefore had no way to learn that
+     * its telemetry was going nowhere — the call returned, nothing threw, and
+     * the data was gone.
+     *
+     * That is the exact defect this platform exists to prevent, sitting in the
+     * component whose entire job is persistence. `runtime`'s `sink.log` reports
+     * success on every message for this reason: it has nothing to report a
+     * failure WITH.
+     *
+     * Deliberately a HEALTH signal, not a per-write result — writes are queued
+     * and flushed in batches, so no individual `log()` call has an outcome yet
+     * when it returns. `MetricWriter` in the runtime already made this exact
+     * distinction and it is copied here on purpose rather than reinvented.
+     */
+    let lastError = null;
+    /**
+     * Ensure system auth is initialized for "system" auth mode
+     */
+    async function ensureSystemAuth() {
+        if (config.authMode !== "system" || systemAuthInitialized)
+            return;
+        await initSystemAuth();
+        systemAuthInitialized = true;
+    }
+    /**
+     * Make HTTP request to telemetry endpoint with retry logic
+     * Handles 401 by clearing system auth cache and retrying
+     */
+    async function request(path, body, attempt = 0, retriedAuth = false) {
+        try {
+            // Ensure system auth is initialized on first request
+            await ensureSystemAuth();
+            const res = await fetch(`${config.endpoint}${path}`, {
+                method: "POST",
+                headers: getHeaders(config),
+                body: JSON.stringify(body),
+            });
+            // On 401 with system auth, clear cache and retry once
+            if (res.status === 401 && config.authMode === "system" && !retriedAuth) {
+                clearSystemAuth();
+                systemAuthInitialized = false;
+                await ensureSystemAuth();
+                return request(path, body, attempt, true);
+            }
+            if (!res.ok) {
+                const text = await res.text();
+                throw new Error(`Telemetry request failed: ${res.status} ${text}`);
+            }
+            lastError = null;
+            return res.json();
+        }
+        catch (error) {
+            if (attempt >= config.retry) {
+                // Retries exhausted. Still returns null — callers of `request` are
+                // fire-and-forget batch flushes and cannot act on a throw — but the
+                // failure is now RECORDED rather than discarded, so `getLastError()`
+                // can tell the truth and `sink.log` can route to its error port.
+                lastError =
+                    error instanceof Error ? error.message : `telemetry write to ${path} failed`;
+                return null;
+            }
+            // Exponential backoff (max 5s)
+            const backoff = Math.min(1000 * (attempt + 1), 5000);
+            await new Promise((resolve) => setTimeout(resolve, backoff));
+            return request(path, body, attempt + 1, retriedAuth);
+        }
+    }
+    /**
+     * Ensure log stream exists and return its ID
+     */
+    async function ensureLogStream() {
+        if (logStreamId)
+            return logStreamId;
+        const response = await request("/logs/streams", {
+            name: `service.${config.serviceId}.logs`,
+            description: "Service telemetry logs",
+            level: "info",
+        });
+        if (response?.id) {
+            logStreamId = response.id;
+        }
+        return logStreamId;
+    }
+    /**
+     * Ensure object stream exists and return its ID
+     */
+    async function ensureObjectStream() {
+        if (objectStreamId)
+            return objectStreamId;
+        const response = await request("/objects/streams", {
+            name: `service.${config.serviceId}.objects`,
+            description: "Service telemetry object references",
+            contentType: "application/octet-stream",
+        });
+        if (response?.id) {
+            objectStreamId = response.id;
+        }
+        return objectStreamId;
+    }
+    /**
+     * Ensure metric exists and return its ID
+     */
+    async function ensureMetric(name) {
+        if (metricRegistry.has(name)) {
+            return metricRegistry.get(name) || null;
+        }
+        const definition = getMetricDefinition(name);
+        const response = await request("/metrics", {
+            name,
+            metricType: definition.type,
+            description: definition.description,
+        });
+        if (response?.id) {
+            metricRegistry.set(name, response.id);
+            return response.id;
+        }
+        return null;
+    }
+    /**
+     * Flush logs to telemetry endpoint
+     */
+    async function flushLogs() {
+        if (!logQueue.length)
+            return;
+        const streamId = await ensureLogStream();
+        if (!streamId)
+            return;
+        const batch = logQueue.splice(0, config.maxBatch);
+        await request("/logs/ingest", { streamId, entries: batch });
+    }
+    /**
+     * Flush metrics to telemetry endpoint
+     */
+    async function flushMetrics() {
+        if (!metricQueue.length)
+            return;
+        const batch = metricQueue.splice(0, config.maxBatch);
+        // Group by metric name
+        const grouped = new Map();
+        for (const item of batch) {
+            if (!grouped.has(item.name)) {
+                grouped.set(item.name, []);
+            }
+            grouped.get(item.name)?.push({
+                timestamp: item.timestamp,
+                value: item.value,
+                labels: item.labels,
+            });
+        }
+        // Ingest each metric separately
+        const entries = Array.from(grouped.entries());
+        for (const [name, dataPoints] of entries) {
+            const metricId = await ensureMetric(name);
+            if (!metricId)
+                continue;
+            await request("/metrics/ingest", { metricId, dataPoints });
+        }
+    }
+    /**
+     * Flush traces to telemetry endpoint
+     */
+    async function flushTraces() {
+        if (!traceQueue.length)
+            return;
+        const batch = traceQueue.splice(0, config.maxBatch);
+        await request("/traces/ingest", { spans: batch });
+    }
+    /**
+     * Flush object references to telemetry endpoint
+     */
+    async function flushObjects() {
+        if (!objectQueue.length)
+            return;
+        const streamId = await ensureObjectStream();
+        if (!streamId)
+            return;
+        const batch = objectQueue.splice(0, config.maxBatch);
+        for (const entry of batch) {
+            await request("/objects/ingest", { streamId, ...entry });
+        }
+    }
+    /**
+     * Flush all queues
+     */
+    async function flush() {
+        if (flushing)
+            return;
+        flushing = true;
+        try {
+            await flushLogs();
+            await flushMetrics();
+            await flushTraces();
+            await flushObjects();
+        }
+        finally {
+            flushing = false;
+        }
+    }
+    /**
+     * Start periodic flush timer
+     */
+    function startTimer() {
+        if (timer)
+            return;
+        timer = setInterval(() => {
+            flush().catch(() => undefined);
+        }, config.flushMs);
+    }
+    /**
+     * Log a message
+     */
+    function log(level, message, metadata = {}) {
+        logQueue.push({
+            timestamp: nowIso(),
+            level,
+            message,
+            metadata: { ...buildBaseMetadata(config), ...metadata },
+        });
+        clampQueue(logQueue, config.maxQueue);
+        startTimer();
+    }
+    /**
+     * Track a domain event
+     */
+    function event(eventType, message, metadata = {}, level = "info") {
+        log(level, message, { eventType, ...metadata });
+    }
+    /**
+     * Record a metric
+     */
+    function metric(name, value, labels = {}) {
+        metricQueue.push({
+            name,
+            timestamp: nowIso(),
+            value,
+            labels: { ...buildBaseMetadata(config), ...labels },
+        });
+        clampQueue(metricQueue, config.maxQueue);
+        startTimer();
+    }
+    /**
+     * Record a distributed tracing span
+     */
+    function span(spanData) {
+        traceQueue.push({
+            ...spanData,
+            serviceName: spanData.serviceName || config.serviceId,
+            attributes: { ...buildBaseMetadata(config), ...spanData.attributes },
+        });
+        clampQueue(traceQueue, config.maxQueue);
+        startTimer();
+    }
+    /**
+     * Track a binary object reference
+     */
+    function objectRef(entry) {
+        objectQueue.push({
+            ...entry,
+            metadata: { ...buildBaseMetadata(config), ...entry.metadata },
+        });
+        clampQueue(objectQueue, config.maxQueue);
+        startTimer();
+    }
+    /**
+     * Gracefully shutdown (stop timer and flush)
+     */
+    async function shutdown() {
+        if (timer) {
+            clearInterval(timer);
+            timer = null;
+        }
+        await flush();
+    }
+    return {
+        log,
+        event,
+        metric,
+        span,
+        objectRef,
+        flush,
+        shutdown,
+        /**
+         * Why the last flush failed, or null if the writer is healthy.
+         *
+         * Health, not per-write outcome: writes are batched, so a `log()` that has
+         * just returned has not been attempted yet. "The write path is currently
+         * failing" is the strongest honest claim available, and it is strictly
+         * better than the silence it replaces.
+         */
+        getLastError: () => lastError,
+    };
+}
+//# sourceMappingURL=client.js.map

@@ -1,0 +1,30 @@
+{
+  "name": "@symbia/crypto",
+  "version": "1.0.0",
+  "license": "MIT",
+  "description": "Canonical serialization, digests and ed25519 identity for Symbia services",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "require": "./dist/index.js",
+      "default": "./dist/index.js"
+    }
+  },
+  "dependencies": {},
+  "files": [
+    "dist",
+    "src"
+  ],
+  "keywords": [
+    "symbia",
+    "crypto",
+    "canonical-json",
+    "ed25519",
+    "provenance"
+  ],
+  "_vendored": "dist only; build-time declarations stripped by vendor-libs.sh"
+}

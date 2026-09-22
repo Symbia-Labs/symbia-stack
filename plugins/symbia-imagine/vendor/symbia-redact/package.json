@@ -1,0 +1,29 @@
+{
+  "name": "@symbia/redact",
+  "version": "1.0.0",
+  "license": "MIT",
+  "description": "One log-redaction implementation for Symbia services: deep, pattern-matched, cycle-safe",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "require": "./dist/index.js",
+      "default": "./dist/index.js"
+    }
+  },
+  "dependencies": {},
+  "files": [
+    "dist",
+    "src"
+  ],
+  "keywords": [
+    "symbia",
+    "redaction",
+    "logging",
+    "security"
+  ],
+  "_vendored": "dist only; build-time declarations stripped by vendor-libs.sh"
+}

@@ -1,0 +1,118 @@
+import { drizzle } from "drizzle-orm/node-postgres";
+import pg from "pg";
+import { createMemoryDatabase, exportMemoryDatabase } from "./memory.js";
+import { attachRLSPoolWrapper } from "./als-context.js";
+const { Pool } = pg;
+/**
+ * Initialize a database connection (real PostgreSQL or in-memory)
+ *
+ * @example
+ * ```typescript
+ * import { initializeDatabase } from '@symbia/persistence';
+ * import * as schema from './schema';
+ *
+ * const { db, pool } = initializeDatabase({
+ *   serviceId: 'my-service',
+ *   memorySchema: MEMORY_SCHEMA_SQL,
+ * }, schema);
+ * ```
+ */
+export function initializeDatabase(config, schema) {
+    const { databaseUrl = process.env.DATABASE_URL, useMemoryDb: forceMemory = false, memorySchema, serviceId = "unknown", enableLogging = true, memoryDbEnvVar, } = config;
+    // Determine if we should use memory database
+    let useMemory = forceMemory || !databaseUrl;
+    // Check custom environment variable if provided
+    if (memoryDbEnvVar && process.env[memoryDbEnvVar] === "true") {
+        useMemory = true;
+    }
+    let pool;
+    let isMemory = false;
+    if (useMemory) {
+        pool = createMemoryDatabase(memorySchema);
+        isMemory = true;
+        if (enableLogging) {
+            console.log(`[${serviceId}] Using in-memory database (pg-mem).`);
+            // Loud on purpose: pg-mem does not implement Postgres RLS, so the
+            // multi-tenant isolation devs believe is "automatic" is absent in this
+            // mode (adversarial analysis A5, 13 Aug 2026).
+            console.warn(`[${serviceId}] WARNING: RLS NOT ENFORCED (pg-mem). ` +
+                `Row-level tenant isolation is unavailable in memory-db mode.`);
+        }
+    }
+    else {
+        pool = new Pool({ connectionString: databaseUrl });
+        // Survive a Postgres restart (13 Aug 2026, adversarial analysis C):
+        // pg emits 'error' on idle clients when the backend goes away, and an
+        // unhandled 'error' event kills the process. Four services crashed this
+        // way. Log and carry on — the pool discards the broken client and dials
+        // fresh connections on demand once Postgres is back.
+        pool.on("error", (err) => {
+            console.error(`[${serviceId}] Postgres pool error (backend gone away?): ${err.message}. ` +
+                `Continuing; new connections will be attempted on next query.`);
+        });
+        // Pooled one-shot queries honor the ambient AsyncLocalStorage RLS
+        // context on a pinned client + transaction (see als-context.ts).
+        attachRLSPoolWrapper(pool);
+        if (enableLogging) {
+            console.log(`[${serviceId}] Connected to PostgreSQL database.`);
+        }
+    }
+    const db = schema ? drizzle(pool, { schema }) : drizzle(pool);
+    /**
+     * Export the in-memory database to a file
+     */
+    function exportToFile(filePath) {
+        if (!isMemory) {
+            if (enableLogging) {
+                console.log(`[${serviceId}] Skipping export - not using in-memory database`);
+            }
+            return false;
+        }
+        return exportMemoryDatabase(filePath, serviceId);
+    }
+    /**
+     * Close the database connection gracefully
+     */
+    async function close() {
+        try {
+            await pool.end();
+            if (enableLogging) {
+                console.log(`[${serviceId}] Database connection closed`);
+            }
+        }
+        catch (error) {
+            if (enableLogging) {
+                console.error(`[${serviceId}] Error closing database:`, error);
+            }
+        }
+    }
+    return {
+        db,
+        pool,
+        isMemory,
+        exportToFile,
+        close,
+    };
+}
+/**
+ * Check if database connection is configured
+ */
+export function isDatabaseConfigured() {
+    return Boolean(process.env.DATABASE_URL);
+}
+/**
+ * Get database configuration from environment variables
+ */
+export function getDatabaseConfig(servicePrefix) {
+    const config = {
+        databaseUrl: process.env.DATABASE_URL,
+    };
+    if (servicePrefix) {
+        const memoryVar = `${servicePrefix}_USE_MEMORY_DB`;
+        config.memoryDbEnvVar = memoryVar;
+        if (process.env[memoryVar] === "true") {
+            config.useMemoryDb = true;
+        }
+    }
+    return config;
+}

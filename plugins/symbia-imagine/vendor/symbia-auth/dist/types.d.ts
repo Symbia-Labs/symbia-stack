@@ -1,0 +1,122 @@
+/**
+ * @symbia/auth - Type definitions
+ */
+import type { Request, Response, NextFunction } from 'express';
+/**
+ * Organization membership information
+ */
+export interface AuthOrganization {
+    id: string;
+    name: string;
+    slug: string;
+    role: 'admin' | 'member' | 'viewer';
+}
+/**
+ * Authenticated user information
+ */
+export interface AuthUser {
+    /** User or agent ID */
+    id: string;
+    /** Email address (may be undefined for agents) */
+    email?: string;
+    /** Display name */
+    name?: string;
+    /** Principal type */
+    type: 'user' | 'agent';
+    /** Agent identifier (e.g., "assistant:onboarding") - only set for agents */
+    agentId?: string;
+    /** Primary organization ID */
+    orgId?: string;
+    /** Organization memberships */
+    organizations: AuthOrganization[];
+    /** Capability entitlements */
+    entitlements: string[];
+    /** Role assignments */
+    roles: string[];
+    /** Super admin flag */
+    isSuperAdmin: boolean;
+}
+/**
+ * Session cookie information
+ */
+export interface SessionCookie {
+    name: string;
+    value: string;
+}
+/**
+ * Configuration for the auth client
+ */
+export interface AuthClientConfig {
+    /** Identity service URL (e.g., "http://localhost:5001") */
+    identityServiceUrl: string;
+}
+/**
+ * Options for auth middleware creation
+ */
+export interface AuthMiddlewareOptions {
+    /**
+     * Service-to-service admission via X-Service-Auth. On by default: every
+     * service in this stack needs it, and the eight divergent hand-rolled
+     * versions it replaces were all opt-in by accident rather than by decision.
+     * Set `enabled: false` for a service that must never admit one.
+     */
+    serviceAuth?: {
+        enabled?: boolean;
+        /** Shared secret. Defaults to SYMBIA_INTERNAL_SERVICE_TOKEN. */
+        token?: string;
+        /** uuid the service principal acts as. Rows are filed against it. */
+        principalId?: string;
+    };
+    /** Identity service URL */
+    identityServiceUrl: string;
+    /** Service-specific admin entitlements to check (e.g., ["messaging:admin"]) */
+    adminEntitlements?: string[];
+    /** Enable X-As-User-Id impersonation header (default: false) */
+    enableImpersonation?: boolean;
+    /** Custom logger function */
+    logger?: (level: 'info' | 'warn' | 'error', message: string, meta?: Record<string, unknown>) => void;
+    /**
+     * Optional hook run in place of `next()` once the request is authenticated and
+     * `req.user` is set (and any authz check has passed). A service uses this to
+     * run the rest of the request inside a context — e.g. an ALS/RLS scope via
+     * `@symbia/db`'s `runWithRLSContext` — without `@symbia/auth` depending on the
+     * database layer. When omitted, `next()` is called directly and behaviour is
+     * unchanged. It is the hook's responsibility to eventually call `next`.
+     */
+    onAuthenticated?: (req: Request, res: Response, next: NextFunction) => void;
+}
+/**
+ * Token introspection response from Identity service
+ */
+export interface TokenIntrospectionResponse {
+    active?: boolean;
+    sub?: string;
+    email?: string;
+    name?: string;
+    type?: 'user' | 'agent';
+    agentId?: string;
+    orgId?: string;
+    organizations?: AuthOrganization[];
+    entitlements?: string[];
+    capabilities?: string[];
+    roles?: string[];
+    isSuperAdmin?: boolean;
+}
+/**
+ * API key verification response from Identity service
+ */
+export interface ApiKeyVerificationResponse {
+    valid?: boolean;
+    error?: string;
+    keyId?: string;
+    name?: string;
+    orgId?: string | null;
+    scopes?: string[];
+    creator?: {
+        id?: string;
+        email?: string;
+        entitlements?: string[];
+        roles?: string[];
+    };
+}
+//# sourceMappingURL=types.d.ts.map
