@@ -1,8 +1,20 @@
-// ../directory/server/src/routes.ts
-import { Router } from "express";
-import { loadServiceIdentity } from "@symbia/crypto";
+import { createRequire as __symbiaCreateRequire } from "node:module";globalThis.require ??= __symbiaCreateRequire(import.meta.url);
+import {
+  loadServiceIdentity
+} from "../chunks/chunk-2JVNKTJS.mjs";
+import {
+  require_express
+} from "../chunks/chunk-WXJ3LX3E.mjs";
+import "../chunks/chunk-SG5E4KLZ.mjs";
+import "../chunks/chunk-QB3Z7RRP.mjs";
+import "../chunks/chunk-MXWCS3YP.mjs";
+import "../chunks/chunk-572SKMOA.mjs";
+import {
+  __toESM
+} from "../chunks/chunk-JCYRGLK6.mjs";
 
-// ../directory/server/src/registry.ts
+// build/plugin/symbia-imagine/services/directory.mjs
+var import_express = __toESM(require_express(), 1);
 import fs from "node:fs";
 import path from "node:path";
 var peers = /* @__PURE__ */ new Map();
@@ -121,8 +133,6 @@ function listForeign() {
   evictExpiredForeign();
   return [...foreign.values()];
 }
-
-// ../directory/server/src/config.ts
 var config = {
   host: process.env.HOST || "0.0.0.0",
   nodeEnv: process.env.NODE_ENV || "development",
@@ -149,8 +159,6 @@ var config = {
   /** Default TTL applied when a foreign registration omits one. */
   defaultForeignTtlSeconds: parseInt(process.env.DIRECTORY_FOREIGN_TTL_SECONDS || "60", 10)
 };
-
-// ../directory/server/src/admission.ts
 function checkAdmission(req) {
   if (!config.joinSecret) return { ok: true };
   const presented = req.header("x-symbia-join-secret");
@@ -162,8 +170,6 @@ function checkAdmission(req) {
   }
   return { ok: true };
 }
-
-// ../directory/server/src/openapi.ts
 var apiDocumentation = {
   openapi: "3.0.3",
   info: {
@@ -274,10 +280,8 @@ var apiDocumentation = {
     }
   }
 };
-
-// ../directory/server/src/routes.ts
 function createRouter() {
-  const router = Router();
+  const router = (0, import_express.Router)();
   router.get("/openapi.json", (_req, res) => {
     res.json(apiDocumentation);
   });

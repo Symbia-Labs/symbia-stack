@@ -23,7 +23,11 @@ In Claude Code:
 
 Nothing else to configure — no API key, no config file to edit, no token to paste.
 
-**First run downloads dependencies.** About 250 MB, once per install, and half of it is a Google API client pulled in by a code path this never reaches. It needs a network and takes as long as npm takes. Progress goes to the log; if it fails, it names the directory it failed in.
+**Nothing is downloaded on first run.** The runtime dependencies are bundled into the plugin (about 7 MB unpacked), so the connector starts the same way on a desktop and in a claude.ai cloud session, with no network and no install step. The stack takes about 11 seconds to boot when a conversation opens; a tool called before then waits for it.
+
+Two capabilities are left out because of their size, and each names itself if you ask for it: local model inference (`node-llama-cpp`, about 700 MB of platform binaries on Linux) and sending mail through Gmail (`googleapis`, about 125 MB). To add one, run `npm install node-llama-cpp` (or `googleapis`) in the plugin directory.
+
+If the connector cannot start, it still attaches and `symbia_selftest` returns the reason.
 
 Requires Node 20 or later on your PATH.
 

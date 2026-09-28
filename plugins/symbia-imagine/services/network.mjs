@@ -1,8 +1,45 @@
-// ../network/server/src/routes.ts
-import { ServiceId as ServiceId3, resolveServiceUrl as resolveServiceUrl2 } from "@symbia/sys";
+import { createRequire as __symbiaCreateRequire } from "node:module";globalThis.require ??= __symbiaCreateRequire(import.meta.url);
+import {
+  v4_default
+} from "../chunks/chunk-HRJVIKUH.mjs";
+import {
+  hmacSha256Hex,
+  verifyHmacSha256Hex
+} from "../chunks/chunk-2JVNKTJS.mjs";
+import {
+  require_express
+} from "../chunks/chunk-WXJ3LX3E.mjs";
+import "../chunks/chunk-SG5E4KLZ.mjs";
+import "../chunks/chunk-QB3Z7RRP.mjs";
+import "../chunks/chunk-MXWCS3YP.mjs";
+import {
+  createTelemetryClient
+} from "../chunks/chunk-AXIMLSIR.mjs";
+import {
+  createAuthClient,
+  hasEntitlement
+} from "../chunks/chunk-P2CNEUXS.mjs";
+import {
+  ServiceId,
+  ServicePorts,
+  contextForEvent,
+  eventHeaders,
+  resolveOwnPort,
+  resolveServiceUrl,
+  traceHeaders
+} from "../chunks/chunk-B6I54FM5.mjs";
+import "../chunks/chunk-572SKMOA.mjs";
+import {
+  __toESM
+} from "../chunks/chunk-JCYRGLK6.mjs";
 
-// ../network/server/src/config.ts
-import { ServiceId, ServicePorts, resolveServiceUrl, resolveOwnPort } from "@symbia/sys";
+// build/plugin/symbia-imagine/services/network.mjs
+var import_express = __toESM(require_express(), 1);
+var import_express2 = __toESM(require_express(), 1);
+var import_express3 = __toESM(require_express(), 1);
+var import_express4 = __toESM(require_express(), 1);
+import fs from "fs";
+import path from "path";
 function getEnvArray(key, defaultValue) {
   const value = process.env[key];
   if (!value) return defaultValue;
@@ -48,12 +85,6 @@ var config = {
   maxEventHistorySize: parseInt(process.env.MAX_EVENT_HISTORY_SIZE || "10000", 10),
   maxTraceHistorySize: parseInt(process.env.MAX_TRACE_HISTORY_SIZE || "5000", 10)
 };
-
-// ../network/server/src/services/policy.ts
-import { hmacSha256Hex, verifyHmacSha256Hex } from "@symbia/crypto";
-
-// ../network/server/src/telemetry.ts
-import { createTelemetryClient } from "@symbia/logging-client";
 var telemetry = createTelemetryClient({
   serviceId: process.env.TELEMETRY_SERVICE_ID || config.serviceId
 });
@@ -146,8 +177,6 @@ var NetworkEvents = {
   SDN_WATCH_STOPPED: "network.sdn.watch.stopped",
   TOPOLOGY_CHANGED: "network.topology.changed"
 };
-
-// ../network/server/src/services/policy.ts
 var policies = /* @__PURE__ */ new Map();
 var HASH_SECRET = process.env.NETWORK_HASH_SECRET;
 if (!HASH_SECRET && process.env.NODE_ENV === "production") {
@@ -316,9 +345,6 @@ function initDefaultPolicies() {
     { type: "log", level: "warn" }
   );
 }
-
-// ../network/server/src/services/registry.ts
-import { v4 as uuidv4 } from "uuid";
 var nodes = /* @__PURE__ */ new Map();
 var contracts = /* @__PURE__ */ new Map();
 var bridges = /* @__PURE__ */ new Map();
@@ -405,7 +431,7 @@ function createDefaultServiceContracts(nodeId) {
 }
 function createContractInternal(from, to, allowedEventTypes, boundaries, expiresAt) {
   const contract = {
-    id: uuidv4(),
+    id: v4_default(),
     from,
     to,
     allowedEventTypes,
@@ -498,7 +524,7 @@ function createContract(from, to, allowedEventTypes, boundaries, expiresAt) {
     return null;
   }
   const contract = {
-    id: uuidv4(),
+    id: v4_default(),
     from,
     to,
     allowedEventTypes,
@@ -551,7 +577,7 @@ function deleteContract(contractId) {
 }
 function registerBridge(name, type, endpoint, eventTypes, bridgeConfig) {
   const bridge = {
-    id: uuidv4(),
+    id: v4_default(),
     name,
     type,
     endpoint,
@@ -640,15 +666,6 @@ function cleanupExpiredContracts() {
   }
   return expiredIds;
 }
-
-// ../network/server/src/routes/registry.ts
-import { Router } from "express";
-
-// ../network/server/src/middleware/auth.ts
-import {
-  createAuthClient,
-  hasEntitlement
-} from "@symbia/auth";
 var authClient = createAuthClient({
   identityServiceUrl: config.identityServiceUrl
 });
@@ -749,8 +766,6 @@ function requirePermission(permission) {
     next();
   };
 }
-
-// ../network/server/src/types.ts
 var NetworkPermissions = {
   // Read permissions
   TOPOLOGY_READ: "cap:network.topology.read",
@@ -763,13 +778,11 @@ var NetworkPermissions = {
   // Admin permissions
   NODES_ADMIN: "cap:network.nodes.admin"
 };
-
-// ../network/server/src/routes/registry.ts
 function getParam(params, key) {
   const value = params[key];
   return Array.isArray(value) ? value[0] : value ?? "";
 }
-var router = Router();
+var router = (0, import_express.Router)();
 router.use(requireAuth);
 router.post("/nodes", requirePermission(NetworkPermissions.NODES_ADMIN), (req, res) => {
   const { id, name, type, capabilities, endpoint, metadata } = req.body;
@@ -906,19 +919,12 @@ router.delete("/bridges/:id", requirePermission(NetworkPermissions.NODES_ADMIN),
   res.json({ ok: true });
 });
 var registry_default = router;
-
-// ../network/server/src/routes/events.ts
-import { Router as Router2 } from "express";
-
-// ../network/server/src/services/router.ts
-import { v4 as uuidv42 } from "uuid";
-import { eventHeaders, contextForEvent, traceHeaders } from "@symbia/sys";
 var eventHistory = [];
 var traces = /* @__PURE__ */ new Map();
 var eventHandlers = /* @__PURE__ */ new Map();
 function createEvent(payload, source, runId, options = {}) {
   const wrapper = {
-    id: uuidv42(),
+    id: v4_default(),
     runId,
     timestamp: (/* @__PURE__ */ new Date()).toISOString(),
     source,
@@ -1229,13 +1235,11 @@ function getStats() {
     errorCount: traceList.filter((t) => t.status === "error").length
   };
 }
-
-// ../network/server/src/routes/events.ts
 function getParam2(params, key) {
   const value = params[key];
   return Array.isArray(value) ? value[0] : value ?? "";
 }
-var eventsRouter = Router2();
+var eventsRouter = (0, import_express2.Router)();
 eventsRouter.use(requireAuth);
 eventsRouter.post("/", requirePermission(NetworkPermissions.EVENTS_READ), async (req, res) => {
   const { payload, source, runId, target, causedBy, boundary } = req.body;
@@ -1321,14 +1325,11 @@ eventsRouter.get("/stats", requirePermission(NetworkPermissions.EVENTS_READ), (_
   res.json(stats);
 });
 var events_default = eventsRouter;
-
-// ../network/server/src/routes/policies.ts
-import { Router as Router3 } from "express";
 function getParam3(params, key) {
   const value = params[key];
   return Array.isArray(value) ? value[0] : value ?? "";
 }
-var policiesRouter = Router3();
+var policiesRouter = (0, import_express3.Router)();
 policiesRouter.post("/", requirePermission(NetworkPermissions.POLICIES_WRITE), (req, res) => {
   const { name, priority, conditions, action } = req.body;
   if (!name || priority === void 0 || !conditions || !action) {
@@ -1413,14 +1414,11 @@ policiesRouter.post("/test", requirePermission(NetworkPermissions.POLICIES_READ)
   });
 });
 var policies_default = policiesRouter;
-
-// ../network/server/src/routes/sdn.ts
-import { Router as Router4 } from "express";
 function getParam4(params, key) {
   const value = params[key];
   return Array.isArray(value) ? value[0] : value ?? "";
 }
-var sdnRouter = Router4();
+var sdnRouter = (0, import_express4.Router)();
 sdnRouter.get("/topology", requirePermission(NetworkPermissions.TOPOLOGY_READ), (_req, res) => {
   const topology = getTopology();
   res.json(topology);
@@ -1581,12 +1579,6 @@ sdnRouter.get("/graph", requirePermission(NetworkPermissions.TOPOLOGY_READ), (_r
   });
 });
 var sdn_default = sdnRouter;
-
-// ../network/server/src/doc-routes.ts
-import fs from "fs";
-import path from "path";
-
-// ../network/server/src/openapi.ts
 var apiDocumentation = {
   openapi: "3.0.3",
   info: {
@@ -2300,8 +2292,6 @@ var apiDocumentation = {
     __paths[key] = { ...__paths[key] || {}, ...ops };
   }
 }
-
-// ../network/server/src/doc-routes.ts
 var docsRoot = path.resolve(process.cwd(), "docs");
 function sendDocFile(res, filename, contentType) {
   const filePath = path.join(docsRoot, filename);
@@ -2348,54 +2338,51 @@ function registerDocRoutes(app) {
     res.redirect(302, "/docs/llms-full.txt");
   });
 }
-
-// ../network/server/src/seed.ts
-import { ServiceId as ServiceId2, ServicePorts as ServicePorts2 } from "@symbia/sys";
 var DEV_SERVICE_SHAPES = [
   {
-    id: ServiceId2.IDENTITY,
+    id: ServiceId.IDENTITY,
     name: "Identity Service",
     type: "service",
     capabilities: ["auth", "users", "orgs", "api-keys"]
   },
   {
-    id: ServiceId2.LOGGING,
+    id: ServiceId.LOGGING,
     name: "Logging Service",
     type: "service",
     capabilities: ["telemetry", "logs", "metrics", "traces"]
   },
   {
-    id: ServiceId2.CATALOG,
+    id: ServiceId.CATALOG,
     name: "Catalog Service",
     type: "service",
     capabilities: ["resources", "schemas", "manifests"]
   },
   {
-    id: ServiceId2.ASSISTANTS,
+    id: ServiceId.ASSISTANTS,
     name: "Assistants Service",
     type: "assistant",
     capabilities: ["graphs", "actors", "runs", "ai-engine"]
   },
   {
-    id: ServiceId2.MESSAGING,
+    id: ServiceId.MESSAGING,
     name: "Messaging Service",
     type: "service",
     capabilities: ["conversations", "messages", "realtime"]
   },
   {
-    id: ServiceId2.RUNTIME,
+    id: ServiceId.RUNTIME,
     name: "Runtime Service",
     type: "sandbox",
     capabilities: ["graphs", "execution", "sandbox"]
   },
   {
-    id: ServiceId2.INTEGRATIONS,
+    id: ServiceId.INTEGRATIONS,
     name: "Integrations Service",
     type: "bridge",
     capabilities: ["providers", "credentials", "external-apis"]
   },
   {
-    id: ServiceId2.NETWORK,
+    id: ServiceId.NETWORK,
     name: "Network Service",
     type: "service",
     capabilities: ["registry", "routing", "policies", "sdn"]
@@ -2403,7 +2390,7 @@ var DEV_SERVICE_SHAPES = [
 ];
 var DEV_SERVICES = DEV_SERVICE_SHAPES.map((s) => ({
   ...s,
-  port: ServicePorts2[s.id]
+  port: ServicePorts[s.id]
 }));
 async function seedDevServices() {
   const isDev = process.env.NODE_ENV === "development" || process.env.NETWORK_DEV_SEED === "true";
@@ -2449,64 +2436,64 @@ function seedDevContracts() {
   const contractDefs = [
     // Assistants -> Runtime: workflow execution
     {
-      from: ServiceId2.ASSISTANTS,
-      to: ServiceId2.RUNTIME,
+      from: ServiceId.ASSISTANTS,
+      to: ServiceId.RUNTIME,
       events: ["graph.execute", "graph.input", "graph.output", "node.execute"],
       boundaries: ["intra"]
     },
     // Assistants -> Integrations: LLM calls
     {
-      from: ServiceId2.ASSISTANTS,
-      to: ServiceId2.INTEGRATIONS,
+      from: ServiceId.ASSISTANTS,
+      to: ServiceId.INTEGRATIONS,
       events: ["llm.invoke", "llm.complete", "provider.execute"],
       boundaries: ["intra", "extra"]
     },
     // Runtime -> Integrations: external API calls from graph nodes
     {
-      from: ServiceId2.RUNTIME,
-      to: ServiceId2.INTEGRATIONS,
+      from: ServiceId.RUNTIME,
+      to: ServiceId.INTEGRATIONS,
       events: ["provider.execute", "http.request", "api.call"],
       boundaries: ["intra", "extra"]
     },
     // Runtime -> Catalog: load graph definitions
     {
-      from: ServiceId2.RUNTIME,
-      to: ServiceId2.CATALOG,
+      from: ServiceId.RUNTIME,
+      to: ServiceId.CATALOG,
       events: ["resource.get", "schema.validate", "manifest.load"],
       boundaries: ["intra"]
     },
     // Assistants -> Catalog: load actor configs
     {
-      from: ServiceId2.ASSISTANTS,
-      to: ServiceId2.CATALOG,
+      from: ServiceId.ASSISTANTS,
+      to: ServiceId.CATALOG,
       events: ["resource.get", "actor.config", "graph.definition"],
       boundaries: ["intra"]
     },
     // Messaging -> Assistants: route messages to AI
     {
-      from: ServiceId2.MESSAGING,
-      to: ServiceId2.ASSISTANTS,
+      from: ServiceId.MESSAGING,
+      to: ServiceId.ASSISTANTS,
       events: ["message.received", "message.new", "conversation.started", "user.input"],
       boundaries: ["intra"]
     },
     // Messaging -> Integrations: route assistant messages to channel bridge
     {
-      from: ServiceId2.MESSAGING,
-      to: ServiceId2.INTEGRATIONS,
+      from: ServiceId.MESSAGING,
+      to: ServiceId.INTEGRATIONS,
       events: ["message.new"],
       boundaries: ["intra"]
     },
     // Assistants -> Messaging: send AI responses
     {
-      from: ServiceId2.ASSISTANTS,
-      to: ServiceId2.MESSAGING,
+      from: ServiceId.ASSISTANTS,
+      to: ServiceId.MESSAGING,
       events: ["message.send", "message.response", "assistant.action.respond", "typing.start", "typing.stop", "stream.chunk"],
       boundaries: ["intra"]
     },
     // Integrations -> external (bridge) - logging
     {
-      from: ServiceId2.INTEGRATIONS,
-      to: ServiceId2.LOGGING,
+      from: ServiceId.INTEGRATIONS,
+      to: ServiceId.LOGGING,
       events: ["api.request", "api.response", "api.error", "llm.request", "llm.response"],
       boundaries: ["extra"]
     }
@@ -2523,10 +2510,10 @@ function seedDevContracts() {
     }
   }
   for (const service of DEV_SERVICES) {
-    if (service.id !== ServiceId2.LOGGING) {
+    if (service.id !== ServiceId.LOGGING) {
       const contract = createContract(
         service.id,
-        ServiceId2.LOGGING,
+        ServiceId.LOGGING,
         [
           "log.write",
           "metric.record",
@@ -2557,10 +2544,10 @@ function seedDevContracts() {
     }
   }
   for (const service of DEV_SERVICES) {
-    if (service.id !== ServiceId2.NETWORK) {
+    if (service.id !== ServiceId.NETWORK) {
       const contract = createContract(
         service.id,
-        ServiceId2.NETWORK,
+        ServiceId.NETWORK,
         [
           "obs.http.request",
           "obs.http.response",
@@ -2577,10 +2564,10 @@ function seedDevContracts() {
     }
   }
   for (const service of DEV_SERVICES) {
-    if (service.id !== ServiceId2.IDENTITY) {
+    if (service.id !== ServiceId.IDENTITY) {
       const contract = createContract(
         service.id,
-        ServiceId2.IDENTITY,
+        ServiceId.IDENTITY,
         ["auth.verify", "token.validate", "user.lookup", "permission.check"],
         ["intra"]
       );
@@ -2594,71 +2581,71 @@ async function seedDevEvents() {
   const eventSequence = [
     // User sends a message
     {
-      source: ServiceId2.MESSAGING,
-      target: ServiceId2.ASSISTANTS,
+      source: ServiceId.MESSAGING,
+      target: ServiceId.ASSISTANTS,
       type: "message.received",
       data: { content: "Hello, can you help me analyze this data?", userId: "demo-user" },
       boundary: "intra"
     },
     // Assistants validates auth
     {
-      source: ServiceId2.ASSISTANTS,
-      target: ServiceId2.IDENTITY,
+      source: ServiceId.ASSISTANTS,
+      target: ServiceId.IDENTITY,
       type: "auth.verify",
       data: { userId: "demo-user", action: "assistant.invoke" },
       boundary: "intra"
     },
     // Assistants loads graph definition
     {
-      source: ServiceId2.ASSISTANTS,
-      target: ServiceId2.CATALOG,
+      source: ServiceId.ASSISTANTS,
+      target: ServiceId.CATALOG,
       type: "resource.get",
       data: { resourceType: "graph", resourceId: "data-analysis-graph" },
       boundary: "intra"
     },
     // Assistants triggers graph execution
     {
-      source: ServiceId2.ASSISTANTS,
-      target: ServiceId2.RUNTIME,
+      source: ServiceId.ASSISTANTS,
+      target: ServiceId.RUNTIME,
       type: "graph.execute",
       data: { graphId: "data-analysis-graph", input: { query: "analyze data" } },
       boundary: "intra"
     },
     // Runtime calls LLM via integrations
     {
-      source: ServiceId2.RUNTIME,
-      target: ServiceId2.INTEGRATIONS,
+      source: ServiceId.RUNTIME,
+      target: ServiceId.INTEGRATIONS,
       type: "llm.invoke",
       data: { provider: "openai", model: "gpt-4o-mini", prompt: "Analyze the following..." },
       boundary: "extra"
     },
     // Integrations logs the external call
     {
-      source: ServiceId2.INTEGRATIONS,
-      target: ServiceId2.LOGGING,
+      source: ServiceId.INTEGRATIONS,
+      target: ServiceId.LOGGING,
       type: "api.request",
       data: { provider: "openai", endpoint: "/v1/chat/completions", status: 200 },
       boundary: "extra"
     },
     // Assistants sends response back
     {
-      source: ServiceId2.ASSISTANTS,
-      target: ServiceId2.MESSAGING,
+      source: ServiceId.ASSISTANTS,
+      target: ServiceId.MESSAGING,
       type: "message.send",
       data: { content: "I've analyzed your data. Here are the insights...", userId: "demo-user" },
       boundary: "intra"
     },
     // Telemetry events
     {
-      source: ServiceId2.RUNTIME,
-      target: ServiceId2.LOGGING,
+      source: ServiceId.RUNTIME,
+      target: ServiceId.LOGGING,
       type: "metric.record",
       data: { metric: "graph.execution.duration", value: 1250, unit: "ms" },
       boundary: "intra"
     },
     {
-      source: ServiceId2.ASSISTANTS,
-      target: ServiceId2.LOGGING,
+      source: ServiceId.ASSISTANTS,
+      target: ServiceId.LOGGING,
       type: "trace.span",
       data: { operation: "assistant.process", duration: 1842, success: true },
       boundary: "intra"
@@ -2685,11 +2672,11 @@ async function seedDevEvents() {
 }
 function startPeriodicEventGenerator() {
   const eventTypes = [
-    { source: ServiceId2.RUNTIME, type: "metric.record", data: () => ({ metric: "graph.executions", value: Math.floor(Math.random() * 100), unit: "count" }) },
-    { source: ServiceId2.ASSISTANTS, type: "trace.span", data: () => ({ operation: "assistant.invoke", duration: Math.floor(Math.random() * 2e3), success: true }) },
-    { source: ServiceId2.INTEGRATIONS, type: "api.request", data: () => ({ provider: "openai", latency: Math.floor(Math.random() * 500), status: 200 }) },
-    { source: ServiceId2.MESSAGING, type: "message.received", data: () => ({ conversationId: `conv-${Date.now()}`, messageCount: Math.floor(Math.random() * 10) + 1 }) },
-    { source: ServiceId2.CATALOG, type: "resource.access", data: () => ({ resourceType: "graph", action: "read", cached: Math.random() > 0.5 }) }
+    { source: ServiceId.RUNTIME, type: "metric.record", data: () => ({ metric: "graph.executions", value: Math.floor(Math.random() * 100), unit: "count" }) },
+    { source: ServiceId.ASSISTANTS, type: "trace.span", data: () => ({ operation: "assistant.invoke", duration: Math.floor(Math.random() * 2e3), success: true }) },
+    { source: ServiceId.INTEGRATIONS, type: "api.request", data: () => ({ provider: "openai", latency: Math.floor(Math.random() * 500), status: 200 }) },
+    { source: ServiceId.MESSAGING, type: "message.received", data: () => ({ conversationId: `conv-${Date.now()}`, messageCount: Math.floor(Math.random() * 10) + 1 }) },
+    { source: ServiceId.CATALOG, type: "resource.access", data: () => ({ resourceType: "graph", action: "read", cached: Math.random() > 0.5 }) }
   ];
   let eventIndex = 0;
   setInterval(async () => {
@@ -2700,15 +2687,13 @@ function startPeriodicEventGenerator() {
       { type: eventDef.type, data: eventDef.data() },
       eventDef.source,
       runId,
-      { target: ServiceId2.LOGGING, boundary: "intra" }
+      { target: ServiceId.LOGGING, boundary: "intra" }
     );
     recordEvent(event);
     await routeEvent(event);
   }, 5e3);
   console.log("[Network Seed] Started periodic event generator (every 5s)");
 }
-
-// ../network/server/src/routes.ts
 async function registerRoutes(_server, app) {
   initDefaultPolicies();
   registerDocRoutes(app);
@@ -2760,16 +2745,16 @@ async function registerRoutes(_server, app) {
   app.use("/api/sdn", sdn_default);
   app.get("/api/platform/health", async (_req, res) => {
     const services = [
-      { id: ServiceId3.IDENTITY, name: "Identity" },
-      { id: ServiceId3.LOGGING, name: "Logging" },
-      { id: ServiceId3.CATALOG, name: "Catalog" },
-      { id: ServiceId3.MESSAGING, name: "Messaging" },
-      { id: ServiceId3.RUNTIME, name: "Runtime" },
-      { id: ServiceId3.ASSISTANTS, name: "Assistants" }
+      { id: ServiceId.IDENTITY, name: "Identity" },
+      { id: ServiceId.LOGGING, name: "Logging" },
+      { id: ServiceId.CATALOG, name: "Catalog" },
+      { id: ServiceId.MESSAGING, name: "Messaging" },
+      { id: ServiceId.RUNTIME, name: "Runtime" },
+      { id: ServiceId.ASSISTANTS, name: "Assistants" }
     ];
     const results = await Promise.all(
       services.map(async ({ id, name }) => {
-        const url = resolveServiceUrl2(id);
+        const url = resolveServiceUrl(id);
         try {
           const response = await fetch(`${url}/health`, {
             signal: AbortSignal.timeout(3e3)

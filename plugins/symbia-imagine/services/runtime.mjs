@@ -1,10 +1,63 @@
-// ../runtime/server/src/service.ts
-import { createTelemetryClient } from "@symbia/logging-client";
+import { createRequire as __symbiaCreateRequire } from "node:module";globalThis.require ??= __symbiaCreateRequire(import.meta.url);
+import {
+  v4_default
+} from "../chunks/chunk-HRJVIKUH.mjs";
+import {
+  identityFromPublicPem,
+  loadServiceIdentity,
+  signDocument,
+  verifyDocument
+} from "../chunks/chunk-2JVNKTJS.mjs";
+import {
+  require_dist
+} from "../chunks/chunk-242E7XRN.mjs";
+import {
+  safeFetch
+} from "../chunks/chunk-ZNW4YLHV.mjs";
+import {
+  require_express
+} from "../chunks/chunk-WXJ3LX3E.mjs";
+import "../chunks/chunk-SG5E4KLZ.mjs";
+import "../chunks/chunk-QB3Z7RRP.mjs";
+import "../chunks/chunk-MXWCS3YP.mjs";
+import {
+  registerDocRoutes
+} from "../chunks/chunk-5LPTNHU5.mjs";
+import {
+  createTelemetryClient
+} from "../chunks/chunk-AXIMLSIR.mjs";
+import {
+  require_main
+} from "../chunks/chunk-EWQDMZT4.mjs";
+import {
+  createAuthMiddleware
+} from "../chunks/chunk-P2CNEUXS.mjs";
+import {
+  ServiceId,
+  fetchBootstrapConfig,
+  resolveOwnPort,
+  resolveServiceUrl
+} from "../chunks/chunk-B6I54FM5.mjs";
+import {
+  initializeDatabase
+} from "../chunks/chunk-DSXICZVV.mjs";
+import "../chunks/chunk-572SKMOA.mjs";
+import {
+  __toESM
+} from "../chunks/chunk-JCYRGLK6.mjs";
 
-// ../runtime/server/src/config.ts
-import dotenv from "dotenv";
-import { resolveOwnPort, resolveServiceUrl, ServiceId } from "@symbia/sys";
-dotenv.config();
+// build/plugin/symbia-imagine/services/runtime.mjs
+var import_dotenv = __toESM(require_main(), 1);
+import { createHash } from "node:crypto";
+import { createHash as createHash2 } from "crypto";
+import { EventEmitter } from "events";
+var import_express = __toESM(require_express(), 1);
+import path from "path";
+var import_express2 = __toESM(require_express(), 1);
+var import_yaml = __toESM(require_dist(), 1);
+var import_express3 = __toESM(require_express(), 1);
+var import_express4 = __toESM(require_express(), 1);
+import_dotenv.default.config();
 var config = {
   port: resolveOwnPort(ServiceId.RUNTIME),
   identityServiceUrl: resolveServiceUrl(ServiceId.IDENTITY),
@@ -63,8 +116,6 @@ var config = {
   // that any logged-in principal can post to is not a gated capability.
   ingressEnforcement: process.env.RUNTIME_INGRESS_ENFORCEMENT || "strict"
 };
-
-// ../runtime/server/src/executor/preview.ts
 function preview(value, max = 200) {
   let text;
   try {
@@ -74,10 +125,6 @@ function preview(value, max = 200) {
   }
   return text.length > max ? `${text.slice(0, max)}\u2026` : text;
 }
-
-// ../runtime/server/src/executor/components.ts
-import { createHash } from "node:crypto";
-import { safeFetch } from "@symbia/egress";
 var registry = /* @__PURE__ */ new Map();
 function registerComponent(def) {
   registry.set(def.id, def);
@@ -1050,8 +1097,6 @@ registerComponent({
     return { out: input };
   }
 });
-
-// ../runtime/server/src/executor/components-sinks.ts
 function field(obj, name) {
   return obj && typeof obj === "object" ? obj[name] : void 0;
 }
@@ -1172,9 +1217,6 @@ function registerSinkComponents(deps) {
     }
   });
 }
-
-// ../runtime/server/src/executor/metric-writer.ts
-import { fetchBootstrapConfig } from "@symbia/sys";
 function normalizeEndpoint(raw) {
   const trimmed = raw.replace(/\/$/, "");
   return trimmed.endsWith("/api") ? trimmed : `${trimmed}/api`;
@@ -1336,8 +1378,6 @@ var MetricWriter = class {
     }
   }
 };
-
-// ../runtime/server/src/executor/state-store.ts
 var StateStore = class {
   pool;
   durable;
@@ -1483,11 +1523,6 @@ function getStateStore() {
   }
   return active;
 }
-
-// ../runtime/server/src/db.ts
-import { initializeDatabase } from "@symbia/db";
-
-// ../runtime/server/src/memory-schema.ts
 var MEMORY_SCHEMA_SQL = `
 CREATE TABLE "graph_executions" (
   "id" varchar PRIMARY KEY,
@@ -1518,8 +1553,6 @@ CREATE TABLE "operator_state" (
 
 CREATE INDEX "operator_state_graph_key_idx" ON "operator_state" ("graph_key");
 `;
-
-// ../runtime/server/src/db.ts
 var database = initializeDatabase({
   serviceId: "runtime-service",
   memorySchema: MEMORY_SCHEMA_SQL,
@@ -1527,8 +1560,6 @@ var database = initializeDatabase({
 });
 var { db, pool, isMemory, close } = database;
 var isDurable = !isMemory;
-
-// ../runtime/server/src/executor/components-state.ts
 function stateFor(ctx) {
   const store2 = getStateStore();
   const graphKey = ctx.graphKey ?? "adhoc";
@@ -1884,9 +1915,6 @@ registerComponent({
     return { [port]: { value: payload, lane: input.lane, receipt } };
   }
 });
-
-// ../runtime/server/src/executor/components-catalog.ts
-import { createHash as createHash2 } from "crypto";
 function resolveNamespacedKey(namespace, key) {
   const ns = String(namespace ?? "").trim();
   const k = String(key ?? "").trim();
@@ -2136,8 +2164,6 @@ registerComponent({
     }
   }
 });
-
-// ../runtime/server/src/executor/components-routine.ts
 function stateFor2(ctx) {
   const store2 = getStateStore();
   const graphKey = ctx.graphKey ?? "adhoc";
@@ -2579,8 +2605,6 @@ registerComponent({
     })
   })
 });
-
-// ../runtime/server/src/executor/components-sources.ts
 var TIMER_COMPONENT = "symbia.source.timer";
 registerComponent({
   id: TIMER_COMPONENT,
@@ -2611,10 +2635,6 @@ registerComponent({
   },
   handler: (input) => ({ out: input })
 });
-
-// ../runtime/server/src/executor/graph-executor.ts
-import { v4 as uuid } from "uuid";
-import { EventEmitter } from "events";
 var GraphExecutor = class extends EventEmitter {
   loadedGraphs = /* @__PURE__ */ new Map();
   executions = /* @__PURE__ */ new Map();
@@ -2696,7 +2716,7 @@ var GraphExecutor = class extends EventEmitter {
    * closes it for the one reconciler that exists.
    */
   async loadGraph(definition, opts = {}) {
-    const graphId = uuid();
+    const graphId = v4_default();
     this.validateGraph(definition);
     const topology = this.buildTopology(definition);
     const loadedGraph = {
@@ -2843,7 +2863,7 @@ var GraphExecutor = class extends EventEmitter {
             inbox.set(edge.target.node, list);
             execution.metrics.messagesEmitted++;
             this.emit("port:emit", {
-              id: uuid(),
+              id: v4_default(),
               executionId: execution.id,
               sourceNodeId: nodeId,
               sourcePort: port,
@@ -2873,7 +2893,7 @@ var GraphExecutor = class extends EventEmitter {
     if (this.executions.size >= this.config.maxConcurrentExecutions) {
       throw new Error(`Maximum concurrent executions reached: ${this.config.maxConcurrentExecutions}`);
     }
-    const executionId = uuid();
+    const executionId = v4_default();
     const instances = /* @__PURE__ */ new Map();
     for (const n of graph.definition.nodes) {
       instances.set(n.id, {
@@ -3220,9 +3240,6 @@ var GraphExecutor = class extends EventEmitter {
     };
   }
 };
-
-// ../runtime/server/src/catalog/client.ts
-import { resolveServiceUrl as resolveServiceUrl2, ServiceId as ServiceId2 } from "@symbia/sys";
 var CatalogUnavailableError = class extends Error {
   constructor(message, cause) {
     super(message);
@@ -3235,7 +3252,7 @@ var RuntimeCatalogClient = class {
   serviceToken;
   timeoutMs;
   constructor(opts = {}) {
-    this.endpoint = (opts.endpoint ?? process.env.CATALOG_ENDPOINT ?? resolveServiceUrl2(ServiceId2.CATALOG)).replace(/\/$/, "");
+    this.endpoint = (opts.endpoint ?? process.env.CATALOG_ENDPOINT ?? resolveServiceUrl(ServiceId.CATALOG)).replace(/\/$/, "");
     this.serviceToken = opts.serviceToken ?? process.env.CATALOG_INTERNAL_SERVICE_TOKEN ?? "internal";
     this.timeoutMs = opts.timeoutMs ?? Number(process.env.CATALOG_TIMEOUT_MS ?? 1e4);
   }
@@ -3325,14 +3342,6 @@ var RuntimeCatalogClient = class {
     }
   }
 };
-
-// ../runtime/server/src/catalog/manifests.ts
-import {
-  loadServiceIdentity,
-  signDocument,
-  verifyDocument,
-  identityFromPublicPem
-} from "@symbia/crypto";
 var COMPONENT_KEY_PREFIX = "components/";
 var COMPONENT_CONTRACT_VERSION = process.env.RUNTIME_COMPONENT_CONTRACT_VERSION ?? "1.5.0";
 var COMPONENT_CAPABILITY = process.env.RUNTIME_COMPONENT_CAPABILITY ?? "cap:runtime.execute";
@@ -3503,8 +3512,6 @@ async function fetchManifestedComponentKeys(catalog) {
   }
   return keys;
 }
-
-// ../runtime/server/src/catalog/ingress.ts
 var INGRESS_KEY_PREFIX = "ingress/";
 function readIngress(definition) {
   const meta = definition.metadata ?? {};
@@ -3596,8 +3603,6 @@ function refuse(reason, enforcement) {
   }
   return { allowed: false, reason };
 }
-
-// ../runtime/server/src/catalog/sync.ts
 var STANDING_ROLES = /* @__PURE__ */ new Set(["pipeline", "service"]);
 function definitionOf(resource) {
   const meta = resource.metadata ?? {};
@@ -3818,8 +3823,6 @@ var CatalogSync = class {
     }
   }
 };
-
-// ../runtime/server/src/executor.ts
 var catalogSync;
 var graphExecutor = new GraphExecutor({
   maxConcurrentExecutions: config.runtime.maxConcurrentExecutions,
@@ -3830,15 +3833,6 @@ var graphExecutor = new GraphExecutor({
   manifestResolver: () => catalogSync?.getManifestedKeys()
 });
 catalogSync = new CatalogSync(graphExecutor);
-
-// ../runtime/server/src/routes.ts
-import express from "express";
-import path from "path";
-
-// ../runtime/server/src/auth.ts
-import {
-  createAuthMiddleware
-} from "@symbia/auth";
 var auth = createAuthMiddleware({
   identityServiceUrl: config.identityServiceUrl,
   adminEntitlements: ["runtime:admin"],
@@ -3855,11 +3849,6 @@ var {
 var introspectToken = authClient.introspectToken;
 var verifyApiKey = authClient.verifyApiKey;
 var verifySessionCookie = authClient.verifySessionCookie;
-
-// ../runtime/server/src/doc-routes.ts
-import { registerDocRoutes } from "@symbia/md";
-
-// ../runtime/server/src/openapi.ts
 var openApiSpec = {
   "openapi": "3.1.0",
   "info": {
@@ -4616,8 +4605,6 @@ var openApiSpec = {
     __paths[key] = { ...__paths[key] || {}, ...ops };
   }
 }
-
-// ../runtime/server/src/doc-routes.ts
 function setupDocRoutes(app) {
   registerDocRoutes(app, {
     spec: openApiSpec,
@@ -4625,19 +4612,11 @@ function setupDocRoutes(app) {
     includeWellKnown: false
   });
 }
-
-// ../runtime/server/src/routes/graphs.ts
-import { Router } from "express";
-import { parse as parseYaml } from "yaml";
-
-// ../runtime/server/src/types/routine.ts
 function isRoutineDefinition(obj) {
   if (typeof obj !== "object" || obj === null) return false;
   const def = obj;
   return def.symbia === "routine/1.0" && Array.isArray(def.routines);
 }
-
-// ../runtime/server/src/compiler/routine-compiler.ts
 var STEP_TYPE_TO_COMPONENT = {
   say: "symbia.routine.say",
   ask: "symbia.routine.ask",
@@ -5047,23 +5026,21 @@ var CompilationError = class extends Error {
   }
 };
 var routineCompiler = new RoutineCompiler();
-
-// ../runtime/server/src/routes/graphs.ts
 function getParamId(params, key) {
   const value = params[key];
   return Array.isArray(value) ? value[0] : value;
 }
 function createGraphRoutes(executor) {
-  const router = Router();
+  const router = (0, import_express2.Router)();
   router.post("/", requireAuth, async (req, res) => {
     try {
       let rawBody;
       const contentType = req.headers["content-type"] || "";
       if (contentType.includes("yaml") || contentType.includes("x-yaml")) {
-        rawBody = parseYaml(req.body);
+        rawBody = (0, import_yaml.parse)(req.body);
       } else if (typeof req.body === "string") {
         try {
-          rawBody = parseYaml(req.body);
+          rawBody = (0, import_yaml.parse)(req.body);
         } catch {
           rawBody = JSON.parse(req.body);
         }
@@ -5208,15 +5185,12 @@ function createGraphRoutes(executor) {
   });
   return router;
 }
-
-// ../runtime/server/src/routes/executions.ts
-import { Router as Router2 } from "express";
 function getParamId2(params, key) {
   const value = params[key];
   return Array.isArray(value) ? value[0] : value;
 }
 function createExecutionRoutes(executor) {
-  const router = Router2();
+  const router = (0, import_express3.Router)();
   router.get("/", optionalAuth, async (_req, res) => {
     const executions = executor.getAllExecutions();
     res.json({
@@ -5349,11 +5323,8 @@ function createExecutionRoutes(executor) {
   });
   return router;
 }
-
-// ../runtime/server/src/routes/routines.ts
-import { Router as Router3 } from "express";
 function createRoutineRoutes(executor) {
-  const router = Router3();
+  const router = (0, import_express4.Router)();
   router.post("/validate", requireAuth, async (req, res) => {
     try {
       const definition = req.body;
@@ -5456,11 +5427,9 @@ function createRoutineRoutes(executor) {
   });
   return router;
 }
-
-// ../runtime/server/src/routes.ts
 var docsDir = path.resolve(process.cwd(), "docs");
 async function registerRoutes(_server, app) {
-  app.use("/docs", express.static(docsDir));
+  app.use("/docs", import_express.default.static(docsDir));
   app.use((_req, res, next) => {
     res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
     next();
@@ -5682,8 +5651,6 @@ async function registerRoutes(_server, app) {
     res.json(graphExecutor.getStats());
   });
 }
-
-// ../runtime/server/src/service.ts
 var wired = false;
 var store;
 function stateStore() {
