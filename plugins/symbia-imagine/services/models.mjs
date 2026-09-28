@@ -1,3 +1,40 @@
+import { createRequire as __symbiaCreateRequire } from "node:module";globalThis.require ??= __symbiaCreateRequire(import.meta.url);
+import {
+  GENESIS,
+  lineageLine,
+  registeredPayload,
+  sealArtifactEvent
+} from "../chunks/chunk-X6QZCZWF.mjs";
+import {
+  identityId,
+  loadServiceIdentity
+} from "../chunks/chunk-2JVNKTJS.mjs";
+import {
+  createAuthMiddleware
+} from "../chunks/chunk-P2CNEUXS.mjs";
+import {
+  external_exports
+} from "../chunks/chunk-TCCFD4DK.mjs";
+import "../chunks/chunk-JCYRGLK6.mjs";
+
+// build/plugin/symbia-imagine/services/models.mjs
+import { appendFileSync, existsSync, readFileSync, writeFileSync } from "node:fs";
+import { join } from "node:path";
+import { readdir, stat, readFile, writeFile } from "fs/promises";
+import { createReadStream } from "fs";
+import { createHash } from "node:crypto";
+import { pipeline } from "node:stream/promises";
+import { join as join2 } from "path";
+import { createHash as createHash2 } from "node:crypto";
+import { createWriteStream } from "node:fs";
+import { rename, stat as stat2, unlink } from "node:fs/promises";
+import { existsSync as existsSync2 } from "node:fs";
+import { join as join3 } from "node:path";
+import { Readable, Transform } from "node:stream";
+import { pipeline as pipeline2 } from "node:stream/promises";
+import { existsSync as existsSync3 } from "node:fs";
+import path from "node:path";
+import { createHash as createHash3 } from "node:crypto";
 var __defProp = Object.defineProperty;
 var __getOwnPropNames = Object.getOwnPropertyNames;
 var __esm = (fn, res) => function __init() {
@@ -7,8 +44,6 @@ var __export = (target, all) => {
   for (var name in all)
     __defProp(target, name, { get: all[name], enumerable: true });
 };
-
-// ../models/server/src/config.ts
 var config;
 var init_config = __esm({
   "../models/server/src/config.ts"() {
@@ -47,19 +82,6 @@ var init_config = __esm({
     };
   }
 });
-
-// ../models/server/src/lineage-ledger.ts
-import { appendFileSync, existsSync, readFileSync, writeFileSync } from "node:fs";
-import { join } from "node:path";
-import {
-  loadServiceIdentity,
-  identityId
-} from "@symbia/crypto";
-import {
-  GENESIS,
-  sealArtifactEvent,
-  lineageLine
-} from "@symbia/lineage";
 function serviceIdentity() {
   if (cachedIdentity === void 0) {
     try {
@@ -120,7 +142,9 @@ function appendArtifactRegistered(payload) {
   }
   return sealed.event;
 }
-var cachedIdentity, ledgerPath, pubKeyPath;
+var cachedIdentity;
+var ledgerPath;
+var pubKeyPath;
 var init_lineage_ledger = __esm({
   "../models/server/src/lineage-ledger.ts"() {
     "use strict";
@@ -129,8 +153,6 @@ var init_lineage_ledger = __esm({
     pubKeyPath = () => join(config.modelsPath, ".lineage.pub.pem");
   }
 });
-
-// ../models/server/src/catalog/model-sync.ts
 var model_sync_exports = {};
 __export(model_sync_exports, {
   buildModelKey: () => buildModelKey,
@@ -330,10 +352,7 @@ var init_model_sync = __esm({
     init_lineage_ledger();
   }
 });
-
-// ../models/server/src/auth.ts
 init_config();
-import { createAuthMiddleware } from "@symbia/auth";
 var auth = createAuthMiddleware({
   identityServiceUrl: config.identityServiceUrl,
   adminEntitlements: ["models:admin", "cap:models.admin"],
@@ -347,18 +366,20 @@ var {
   requireAdmin,
   authClient
 } = auth;
-
-// ../models/server/src/handlers/chat-completions.ts
-import { z } from "zod";
-
-// ../models/server/src/llama/engine.ts
 init_config();
-import { getLlama, LlamaChatSession } from "node-llama-cpp";
-import { readdir, stat, readFile, writeFile } from "fs/promises";
-import { createReadStream } from "fs";
-import { createHash } from "node:crypto";
-import { pipeline } from "node:stream/promises";
-import { join as join2 } from "path";
+var llamaModule = null;
+async function loadLlama() {
+  if (llamaModule) return llamaModule;
+  try {
+    llamaModule = await import("node-llama-cpp");
+    return llamaModule;
+  } catch (err) {
+    const detail = err instanceof Error ? err.message : String(err);
+    throw new Error(
+      `Local inference needs the node-llama-cpp package, which is optional and not installed here (${detail}). Install it in the plugin directory with: npm install node-llama-cpp`
+    );
+  }
+}
 function attemptsPath() {
   return join2(config.modelsPath, ".load-attempts.json");
 }
@@ -437,6 +458,7 @@ var LlamaEngine = class {
   async _doInitialize() {
     try {
       console.log("[llama] Initializing llama.cpp...");
+      const { getLlama } = await loadLlama();
       this.llama = await getLlama();
       console.log("[llama] llama.cpp initialized");
       await this.scanModels();
@@ -630,6 +652,7 @@ var LlamaEngine = class {
     const systemPrompt = messages.find((m) => m.role === "system")?.content;
     const userMessages = messages.filter((m) => m.role !== "system");
     const sequence = loaded.context.getSequence();
+    const { LlamaChatSession } = await loadLlama();
     const session = new LlamaChatSession({
       contextSequence: sequence,
       systemPrompt
@@ -739,8 +762,6 @@ function getEngine() {
   }
   return engineInstance;
 }
-
-// ../models/server/src/remote.ts
 init_config();
 var REMOTE_PROVIDERS = /* @__PURE__ */ new Set(["openai", "anthropic", "huggingface"]);
 function canBroker(provider) {
@@ -816,8 +837,6 @@ async function executeRemoteChat(req, auth2) {
     droppedParams: dropped
   };
 }
-
-// ../models/server/src/handlers/chat-completions.ts
 async function handleRemote(req, res, opts) {
   const bearer = req.headers.authorization?.startsWith("Bearer ") ? req.headers.authorization.slice(7) : void 0;
   if (!bearer) {
@@ -883,12 +902,12 @@ async function handleRemote(req, res, opts) {
     }
   });
 }
-var chatCompletionRequestSchema = z.object({
-  model: z.string(),
-  messages: z.array(
-    z.object({
-      role: z.enum(["system", "user", "assistant"]),
-      content: z.string()
+var chatCompletionRequestSchema = external_exports.object({
+  model: external_exports.string(),
+  messages: external_exports.array(
+    external_exports.object({
+      role: external_exports.enum(["system", "user", "assistant"]),
+      content: external_exports.string()
     })
   ),
   // ABSENT MEANS ABSENT — no default.
@@ -901,13 +920,13 @@ var chatCompletionRequestSchema = z.object({
   // A default nobody asked for is not a convenience; it is an unrequested
   // claim about how the caller wants the model to behave, and for some models
   // it is a hard error.
-  temperature: z.number().min(0).max(2).optional(),
-  max_tokens: z.number().positive().optional(),
-  stream: z.boolean().optional().default(false),
-  top_p: z.number().min(0).max(1).optional(),
-  frequency_penalty: z.number().min(-2).max(2).optional(),
-  presence_penalty: z.number().min(-2).max(2).optional(),
-  stop: z.union([z.string(), z.array(z.string())]).optional()
+  temperature: external_exports.number().min(0).max(2).optional(),
+  max_tokens: external_exports.number().positive().optional(),
+  stream: external_exports.boolean().optional().default(false),
+  top_p: external_exports.number().min(0).max(1).optional(),
+  frequency_penalty: external_exports.number().min(-2).max(2).optional(),
+  presence_penalty: external_exports.number().min(-2).max(2).optional(),
+  stop: external_exports.union([external_exports.string(), external_exports.array(external_exports.string())]).optional()
 });
 async function handleChatCompletions(req, res) {
   try {
@@ -1043,8 +1062,6 @@ async function handleChatCompletions(req, res) {
     });
   }
 }
-
-// ../models/server/src/registry.ts
 init_config();
 async function remoteProviders(auth2) {
   const url = `${config.integrationsServiceUrl}/api/integrations/providers`;
@@ -1156,8 +1173,6 @@ async function unifiedRegistry(auth2) {
   const [local, remote] = await Promise.all([localModels(), remoteProviders(auth2)]);
   return [...local, ...remote];
 }
-
-// ../models/server/src/handlers/models.ts
 function getParam(params, key) {
   const value = params[key];
   return Array.isArray(value) ? value[0] : value ?? "";
@@ -1319,25 +1334,22 @@ async function handleUnloadModel(req, res) {
     });
   }
 }
-
-// ../models/server/src/handlers/execute.ts
-import { z as z2 } from "zod";
 init_config();
-var executeRequestSchema = z2.object({
-  provider: z2.string(),
-  operation: z2.string(),
-  params: z2.object({
-    model: z2.string(),
-    messages: z2.array(
-      z2.object({
-        role: z2.enum(["system", "user", "assistant"]),
-        content: z2.string()
+var executeRequestSchema = external_exports.object({
+  provider: external_exports.string(),
+  operation: external_exports.string(),
+  params: external_exports.object({
+    model: external_exports.string(),
+    messages: external_exports.array(
+      external_exports.object({
+        role: external_exports.enum(["system", "user", "assistant"]),
+        content: external_exports.string()
       })
     ).optional(),
-    prompt: z2.string().optional(),
-    temperature: z2.number().optional(),
-    maxTokens: z2.number().optional(),
-    input: z2.union([z2.string(), z2.array(z2.string())]).optional()
+    prompt: external_exports.string().optional(),
+    temperature: external_exports.number().optional(),
+    maxTokens: external_exports.number().optional(),
+    input: external_exports.union([external_exports.string(), external_exports.array(external_exports.string())]).optional()
   })
 });
 async function handleExecute(req, res) {
@@ -1432,26 +1444,15 @@ async function handleExecute(req, res) {
     });
   }
 }
-
-// ../models/server/src/handlers/pull.ts
-import { z as z3 } from "zod";
-import { createHash as createHash2 } from "node:crypto";
-import { createWriteStream } from "node:fs";
-import { rename, stat as stat2, unlink } from "node:fs/promises";
-import { existsSync as existsSync2 } from "node:fs";
-import { join as join3 } from "node:path";
-import { Readable, Transform } from "node:stream";
-import { pipeline as pipeline2 } from "node:stream/promises";
-import { registeredPayload } from "@symbia/lineage";
 init_config();
 init_lineage_ledger();
 init_model_sync();
-var pullSchema = z3.object({
+var pullSchema = external_exports.object({
   /** HuggingFace `owner/repo`. */
-  repo: z3.string().regex(/^[A-Za-z0-9][\w.-]*\/[A-Za-z0-9][\w.-]*$/),
+  repo: external_exports.string().regex(/^[A-Za-z0-9][\w.-]*\/[A-Za-z0-9][\w.-]*$/),
   /** A GGUF filename — no path separators, so it cannot escape MODELS_PATH. */
-  file: z3.string().regex(/^[A-Za-z0-9][\w.-]*\.gguf$/),
-  revision: z3.string().regex(/^[\w.-]+$/).default("main")
+  file: external_exports.string().regex(/^[A-Za-z0-9][\w.-]*\.gguf$/),
+  revision: external_exports.string().regex(/^[\w.-]+$/).default("main")
 });
 function modelIdFor(filename) {
   return filename.replace(/\.gguf$/, "").toLowerCase().replace(/[^a-z0-9-]/g, "-");
@@ -1537,12 +1538,7 @@ async function handlePullModel(req, res) {
     res.status(500).json({ error: { message: err instanceof Error ? err.message : "pull failed" } });
   }
 }
-
-// ../models/server/src/vision.ts
 init_config();
-import { existsSync as existsSync3 } from "node:fs";
-import path from "node:path";
-import { createHash as createHash3 } from "node:crypto";
 function modelPaths() {
   const dir = config.modelsPath;
   const model = process.env.VISION_MODEL;
@@ -1586,8 +1582,6 @@ async function classifyImage(req) {
     remedy: "Implement the LlamaContext image path in models/server/src/vision.ts. The model files are present, so this is the only remaining step."
   };
 }
-
-// ../models/server/src/openapi.ts
 var apiDocumentation = {
   openapi: "3.1.0",
   info: {
@@ -2339,8 +2333,6 @@ When using through the Integrations service, use provider: "symbia-labs"`
     }
   ]
 };
-
-// ../models/server/src/routes.ts
 async function registerRoutes(httpServer, app) {
   app.get("/docs/openapi.json", (_req, res) => {
     res.json(apiDocumentation);

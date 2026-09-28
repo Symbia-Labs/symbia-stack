@@ -1,22 +1,75 @@
+import { createRequire as __symbiaCreateRequire } from "node:module";globalThis.require ??= __symbiaCreateRequire(import.meta.url);
+import {
+  registerDocRoutes
+} from "../chunks/chunk-5LPTNHU5.mjs";
+import {
+  createInsertSchema
+} from "../chunks/chunk-6PY65LKM.mjs";
+import {
+  createTelemetryClient
+} from "../chunks/chunk-AXIMLSIR.mjs";
+import {
+  require_main
+} from "../chunks/chunk-EWQDMZT4.mjs";
+import {
+  createAuthClient,
+  createAuthMiddleware,
+  generateApiKey
+} from "../chunks/chunk-P2CNEUXS.mjs";
+import {
+  ServiceId,
+  canBypassOrgFilterForService,
+  resolveOwnPort,
+  resolveServiceUrl
+} from "../chunks/chunk-B6I54FM5.mjs";
+import {
+  external_exports
+} from "../chunks/chunk-TCCFD4DK.mjs";
+import {
+  and,
+  bigint,
+  desc,
+  eq,
+  gte,
+  inArray,
+  index,
+  initializeDatabase,
+  integer,
+  jsonb,
+  like,
+  lte,
+  pgTable,
+  real,
+  runWithRLSContext,
+  splitSqlStatements,
+  sql,
+  text,
+  timestamp,
+  varchar
+} from "../chunks/chunk-DSXICZVV.mjs";
+import "../chunks/chunk-572SKMOA.mjs";
+import {
+  __toESM
+} from "../chunks/chunk-JCYRGLK6.mjs";
+
+// build/plugin/symbia-imagine/services/logging.mjs
+var import_dotenv = __toESM(require_main(), 1);
+import { timingSafeEqual } from "crypto";
+
+// build/plugin/symbia-imagine/node_modules/drizzle-orm/sql/functions/aggregate.js
+function count(expression) {
+  return sql`count(${expression || sql.raw("*")})`.mapWith(Number);
+}
+
+// build/plugin/symbia-imagine/services/logging.mjs
+import { createHash } from "crypto";
+import { EventEmitter } from "events";
 var __defProp = Object.defineProperty;
 var __export = (target, all) => {
   for (var name in all)
     __defProp(target, name, { get: all[name], enumerable: true });
 };
-
-// ../logging/server/src/auth.ts
-import {
-  createAuthMiddleware,
-  createAuthClient,
-  hashApiKey,
-  generateApiKey as generateApiKeyBase
-} from "@symbia/auth";
-import { timingSafeEqual } from "crypto";
-
-// ../logging/server/src/config.ts
-import dotenv from "dotenv";
-import { resolveOwnPort, resolveServiceUrl, ServiceId } from "@symbia/sys";
-dotenv.config();
+import_dotenv.default.config();
 var config = {
   port: resolveOwnPort(ServiceId.LOGGING),
   databaseUrl: process.env.DATABASE_URL || "",
@@ -38,14 +91,6 @@ var config = {
     policyRef: process.env.LOGGING_DEFAULT_POLICY_REF || "policy/default"
   }
 };
-
-// ../logging/server/src/auth.ts
-import { runWithRLSContext } from "@symbia/db";
-
-// ../logging/server/src/storage.ts
-import { canBypassOrgFilterForService as canBypassOrgFilterForService2 } from "@symbia/sys";
-
-// ../logging/shared/schema.ts
 var schema_exports = {};
 __export(schema_exports, {
   apiKeys: () => apiKeys,
@@ -82,10 +127,6 @@ __export(schema_exports, {
   tracesQuerySchema: () => tracesQuerySchema,
   users: () => users
 });
-import { sql } from "drizzle-orm";
-import { pgTable, text, varchar, timestamp, real, integer, jsonb, bigint, index } from "drizzle-orm/pg-core";
-import { createInsertSchema } from "drizzle-zod";
-import { z } from "zod";
 var users = pgTable("users", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   username: text("username").notNull().unique(),
@@ -336,98 +377,93 @@ var insertIntegrationSchema = createInsertSchema(integrations).omit({
   createdAt: true,
   lastCheckedAt: true
 });
-var logsQuerySchema = z.object({
-  streamIds: z.array(z.string()).optional(),
-  startTime: z.string().optional(),
-  endTime: z.string().optional(),
-  level: z.enum(["debug", "info", "warn", "error", "fatal"]).optional(),
-  search: z.string().optional(),
-  metadata: z.record(z.string()).optional(),
-  limit: z.number().optional(),
-  offset: z.number().optional()
+var logsQuerySchema = external_exports.object({
+  streamIds: external_exports.array(external_exports.string()).optional(),
+  startTime: external_exports.string().optional(),
+  endTime: external_exports.string().optional(),
+  level: external_exports.enum(["debug", "info", "warn", "error", "fatal"]).optional(),
+  search: external_exports.string().optional(),
+  metadata: external_exports.record(external_exports.string()).optional(),
+  limit: external_exports.number().optional(),
+  offset: external_exports.number().optional()
 });
-var metricsQuerySchema = z.object({
-  metricIds: z.array(z.string()).optional(),
-  startTime: z.string().optional(),
-  endTime: z.string().optional(),
-  aggregation: z.enum(["avg", "sum", "min", "max", "count", "last"]).optional(),
-  interval: z.string().optional(),
-  labels: z.record(z.string()).optional(),
-  limit: z.number().optional(),
-  offset: z.number().optional()
+var metricsQuerySchema = external_exports.object({
+  metricIds: external_exports.array(external_exports.string()).optional(),
+  startTime: external_exports.string().optional(),
+  endTime: external_exports.string().optional(),
+  aggregation: external_exports.enum(["avg", "sum", "min", "max", "count", "last"]).optional(),
+  interval: external_exports.string().optional(),
+  labels: external_exports.record(external_exports.string()).optional(),
+  limit: external_exports.number().optional(),
+  offset: external_exports.number().optional()
 });
-var tracesQuerySchema = z.object({
-  traceIds: z.array(z.string()).optional(),
-  serviceName: z.string().optional(),
-  startTime: z.string().optional(),
-  endTime: z.string().optional(),
-  status: z.enum(["unset", "ok", "error"]).optional(),
-  minDurationMs: z.number().optional(),
-  maxDurationMs: z.number().optional(),
-  limit: z.number().optional(),
-  offset: z.number().optional()
+var tracesQuerySchema = external_exports.object({
+  traceIds: external_exports.array(external_exports.string()).optional(),
+  serviceName: external_exports.string().optional(),
+  startTime: external_exports.string().optional(),
+  endTime: external_exports.string().optional(),
+  status: external_exports.enum(["unset", "ok", "error"]).optional(),
+  minDurationMs: external_exports.number().optional(),
+  maxDurationMs: external_exports.number().optional(),
+  limit: external_exports.number().optional(),
+  offset: external_exports.number().optional()
 });
-var objectsQuerySchema = z.object({
-  streamIds: z.array(z.string()).optional(),
-  startTime: z.string().optional(),
-  endTime: z.string().optional(),
-  contentType: z.string().optional(),
-  minSize: z.number().optional(),
-  maxSize: z.number().optional(),
-  limit: z.number().optional(),
-  offset: z.number().optional()
+var objectsQuerySchema = external_exports.object({
+  streamIds: external_exports.array(external_exports.string()).optional(),
+  startTime: external_exports.string().optional(),
+  endTime: external_exports.string().optional(),
+  contentType: external_exports.string().optional(),
+  minSize: external_exports.number().optional(),
+  maxSize: external_exports.number().optional(),
+  limit: external_exports.number().optional(),
+  offset: external_exports.number().optional()
 });
 var queryConfigSchema = metricsQuerySchema;
-var ingestBatchSchema = z.object({
-  metricId: z.string(),
-  dataPoints: z.array(z.object({
-    timestamp: z.string(),
-    value: z.number(),
-    labels: z.record(z.string()).optional()
+var ingestBatchSchema = external_exports.object({
+  metricId: external_exports.string(),
+  dataPoints: external_exports.array(external_exports.object({
+    timestamp: external_exports.string(),
+    value: external_exports.number(),
+    labels: external_exports.record(external_exports.string()).optional()
   }))
 });
-var logsIngestSchema = z.object({
-  streamId: z.string(),
-  entries: z.array(z.object({
-    timestamp: z.string(),
-    level: z.string(),
-    message: z.string(),
-    metadata: z.record(z.unknown()).optional()
+var logsIngestSchema = external_exports.object({
+  streamId: external_exports.string(),
+  entries: external_exports.array(external_exports.object({
+    timestamp: external_exports.string(),
+    level: external_exports.string(),
+    message: external_exports.string(),
+    metadata: external_exports.record(external_exports.unknown()).optional()
   }))
 });
-var tracesIngestSchema = z.object({
-  spans: z.array(z.object({
-    traceId: z.string(),
-    spanId: z.string(),
-    parentSpanId: z.string().optional(),
-    name: z.string(),
-    serviceName: z.string().optional(),
-    kind: z.string().optional(),
-    status: z.string().optional(),
-    startTime: z.string(),
-    endTime: z.string().optional(),
-    attributes: z.record(z.unknown()).optional(),
-    events: z.array(z.object({
-      name: z.string(),
-      timestamp: z.string(),
-      attributes: z.record(z.unknown()).optional()
+var tracesIngestSchema = external_exports.object({
+  spans: external_exports.array(external_exports.object({
+    traceId: external_exports.string(),
+    spanId: external_exports.string(),
+    parentSpanId: external_exports.string().optional(),
+    name: external_exports.string(),
+    serviceName: external_exports.string().optional(),
+    kind: external_exports.string().optional(),
+    status: external_exports.string().optional(),
+    startTime: external_exports.string(),
+    endTime: external_exports.string().optional(),
+    attributes: external_exports.record(external_exports.unknown()).optional(),
+    events: external_exports.array(external_exports.object({
+      name: external_exports.string(),
+      timestamp: external_exports.string(),
+      attributes: external_exports.record(external_exports.unknown()).optional()
     })).optional()
   }))
 });
-var objectsIngestSchema = z.object({
-  streamId: z.string(),
-  filename: z.string().optional(),
-  contentType: z.string().optional(),
-  size: z.number().optional(),
-  checksum: z.string().optional(),
-  storageUrl: z.string().optional(),
-  metadata: z.record(z.unknown()).optional()
+var objectsIngestSchema = external_exports.object({
+  streamId: external_exports.string(),
+  filename: external_exports.string().optional(),
+  contentType: external_exports.string().optional(),
+  size: external_exports.number().optional(),
+  checksum: external_exports.string().optional(),
+  storageUrl: external_exports.string().optional(),
+  metadata: external_exports.record(external_exports.unknown()).optional()
 });
-
-// ../logging/server/src/db.ts
-import { initializeDatabase, setSessionContext, clearSessionContext, withRLSContext, splitSqlStatements } from "@symbia/db";
-
-// ../logging/server/src/memory-schema.ts
 var MEMORY_SCHEMA_SQL = `
 CREATE TABLE "users" (
   "id" varchar PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
@@ -643,8 +679,6 @@ CREATE INDEX idx_spans_trace_id ON "spans"("trace_id");
 CREATE INDEX idx_spans_span_id ON "spans"("span_id");
 CREATE INDEX idx_spans_parent ON "spans"("parent_span_id");
 `;
-
-// ../logging/server/src/db.ts
 var database = initializeDatabase({
   serviceId: "logging-service",
   memorySchema: MEMORY_SCHEMA_SQL,
@@ -674,11 +708,6 @@ async function ensureLoggingSchema() {
     client.release();
   }
 }
-
-// ../logging/server/src/dbStorage.ts
-import { eq, and, gte, lte, desc, inArray, like, sql as sql2, count } from "drizzle-orm";
-import { createHash } from "crypto";
-import { canBypassOrgFilterForService } from "@symbia/sys";
 function canReadAllOrgs(context) {
   const authContext = {
     authType: "jwt",
@@ -716,7 +745,7 @@ var DatabaseStorage = class {
     return user;
   }
   async getApiKeys() {
-    return db.select().from(apiKeys).where(sql2`${apiKeys.revokedAt} IS NULL`).orderBy(desc(apiKeys.createdAt));
+    return db.select().from(apiKeys).where(sql`${apiKeys.revokedAt} IS NULL`).orderBy(desc(apiKeys.createdAt));
   }
   async getApiKey(id) {
     const [key] = await db.select().from(apiKeys).where(eq(apiKeys.id, id));
@@ -1166,18 +1195,14 @@ var DatabaseStorage = class {
   }
 };
 var dbStorage = new DatabaseStorage();
-
-// ../logging/server/src/storage.ts
 var SEED_ORG_ID = process.env.LOGGING_DEFAULT_ORG_ID || "symbia-dev";
 var SEED_SERVICE_ID = process.env.LOGGING_DEFAULT_SERVICE_ID || "logging-service";
 var SEED_ENV = process.env.LOGGING_DEFAULT_ENV || "dev";
 var SEED_DATA_CLASS = process.env.LOGGING_DEFAULT_DATA_CLASS || "none";
 var SEED_POLICY_REF = process.env.LOGGING_DEFAULT_POLICY_REF || "policy/default";
 var storage = dbStorage;
-
-// ../logging/server/src/auth.ts
-function generateApiKey() {
-  return generateApiKeyBase("slk");
+function generateApiKey2() {
+  return generateApiKey("slk");
 }
 var authClient = createAuthClient({
   identityServiceUrl: config.identityServiceUrl
@@ -1466,14 +1491,6 @@ async function rlsMiddleware(req, res, next) {
     }
   }
 }
-
-// ../logging/server/src/routes.ts
-import { createTelemetryClient as createTelemetryClient2 } from "@symbia/logging-client";
-
-// ../logging/server/src/doc-routes.ts
-import { registerDocRoutes } from "@symbia/md";
-
-// ../logging/server/src/openapi.ts
 var scopingParameters = [
   { $ref: "#/components/parameters/OrgIdHeader" },
   { $ref: "#/components/parameters/ServiceIdHeader" },
@@ -3479,8 +3496,6 @@ var openApiSpec = {
     __paths[key] = { ...__paths[key] || {}, ...ops };
   }
 }
-
-// ../logging/server/src/doc-routes.ts
 function setupDocRoutes(app) {
   registerDocRoutes(app, {
     spec: openApiSpec,
@@ -3595,13 +3610,7 @@ function setupDocRoutes(app) {
     `);
   });
 }
-
-// ../logging/server/src/log-assistant.ts
-import { createTelemetryClient } from "@symbia/logging-client";
-
-// ../logging/server/src/integrations-client.ts
-import { resolveServiceUrl as resolveServiceUrl2, ServiceId as ServiceId2 } from "@symbia/sys";
-var INTEGRATIONS_SERVICE_URL = resolveServiceUrl2(ServiceId2.INTEGRATIONS);
+var INTEGRATIONS_SERVICE_URL = resolveServiceUrl(ServiceId.INTEGRATIONS);
 async function parseJsonResponse(response) {
   return response.json();
 }
@@ -3670,8 +3679,6 @@ async function getIntegrationsStatus() {
     return { available: false, providers: [] };
   }
 }
-
-// ../logging/server/src/log-assistant.ts
 var telemetry = null;
 try {
   telemetry = createTelemetryClient({
@@ -4462,9 +4469,6 @@ Be specific and actionable.`;
   }
 };
 var logAssistant = new LogAssistantService();
-
-// ../logging/server/src/log-broadcaster.ts
-import { EventEmitter } from "events";
 var LogBroadcaster = class extends EventEmitter {
   clients = /* @__PURE__ */ new Map();
   clientIdCounter = 0;
@@ -4556,10 +4560,6 @@ var logBroadcaster = new LogBroadcaster();
 setInterval(() => {
   logBroadcaster.sendHeartbeats();
 }, 3e4);
-
-// ../logging/server/src/routes.ts
-import { resolveServiceUrl as resolveServiceUrl3, ServiceId as ServiceId3 } from "@symbia/sys";
-import { z as z2 } from "zod";
 async function parseJsonResponse2(response) {
   return response.json();
 }
@@ -4580,14 +4580,14 @@ function applyScopedDefaults(payload, context) {
   };
 }
 async function registerRoutes(httpServer, app) {
-  const telemetry2 = createTelemetryClient2({
+  const telemetry2 = createTelemetryClient({
     serviceId: process.env.TELEMETRY_SERVICE_ID || "symbia-logging-service"
   });
-  const loginSchema = z2.object({
-    username: z2.string().min(1),
-    password: z2.string().min(1)
+  const loginSchema = external_exports.object({
+    username: external_exports.string().min(1),
+    password: external_exports.string().min(1)
   });
-  const identityBase = resolveServiceUrl3(ServiceId3.IDENTITY);
+  const identityBase = resolveServiceUrl(ServiceId.IDENTITY);
   function getBearerToken(req) {
     const authHeader = req.headers.authorization || "";
     if (authHeader.toLowerCase().startsWith("bearer ")) {
@@ -4795,14 +4795,14 @@ async function registerRoutes(httpServer, app) {
       res.json({ authenticated: false });
     }
   });
-  const createApiKeySchema = z2.object({
-    name: z2.string().min(1),
-    description: z2.string().optional(),
-    orgId: z2.string().optional(),
-    serviceId: z2.string().optional(),
-    env: z2.string().optional(),
-    scopes: z2.array(z2.string()).optional(),
-    expiresAt: z2.string().datetime().optional()
+  const createApiKeySchema = external_exports.object({
+    name: external_exports.string().min(1),
+    description: external_exports.string().optional(),
+    orgId: external_exports.string().optional(),
+    serviceId: external_exports.string().optional(),
+    env: external_exports.string().optional(),
+    scopes: external_exports.array(external_exports.string()).optional(),
+    expiresAt: external_exports.string().datetime().optional()
   });
   app.get("/api/auth/keys", async (req, res) => {
     try {
@@ -4832,7 +4832,7 @@ async function registerRoutes(httpServer, app) {
     try {
       const context = requireAuthContext(req);
       const body = createApiKeySchema.parse(req.body);
-      const { key, prefix, hash } = generateApiKey();
+      const { key, prefix, hash } = generateApiKey2();
       const apiKey = await storage.createApiKey({
         name: body.name,
         description: body.description,
@@ -4938,7 +4938,7 @@ async function registerRoutes(httpServer, app) {
       const stream = await storage.createLogStream(context, parsed);
       res.status(201).json(stream);
     } catch (error) {
-      if (error instanceof z2.ZodError) {
+      if (error instanceof external_exports.ZodError) {
         return res.status(400).json({ error: "Validation failed", details: error.errors });
       }
       res.status(500).json({ error: "Failed to create log stream" });
@@ -4955,7 +4955,7 @@ async function registerRoutes(httpServer, app) {
       }
       res.json(stream);
     } catch (error) {
-      if (error instanceof z2.ZodError) {
+      if (error instanceof external_exports.ZodError) {
         return res.status(400).json({ error: "Validation failed", details: error.errors });
       }
       res.status(500).json({ error: "Failed to update log stream" });
@@ -4980,7 +4980,7 @@ async function registerRoutes(httpServer, app) {
       const data = await storage.queryLogEntries(context, query);
       res.json({ data, rowCount: data.length });
     } catch (error) {
-      if (error instanceof z2.ZodError) {
+      if (error instanceof external_exports.ZodError) {
         return res.status(400).json({ error: "Validation failed", details: error.errors });
       }
       res.status(500).json({ error: "Failed to query logs" });
@@ -5013,7 +5013,7 @@ async function registerRoutes(httpServer, app) {
       }
       res.json({ success: true, count: count2 });
     } catch (error) {
-      if (error instanceof z2.ZodError) {
+      if (error instanceof external_exports.ZodError) {
         return res.status(400).json({ error: "Validation failed", details: error.errors });
       }
       res.status(500).json({ error: "Failed to ingest logs" });
@@ -5079,7 +5079,7 @@ data: ${JSON.stringify({
       const metric = await storage.createMetric(context, parsed);
       res.status(201).json(metric);
     } catch (error) {
-      if (error instanceof z2.ZodError) {
+      if (error instanceof external_exports.ZodError) {
         return res.status(400).json({ error: "Validation failed", details: error.errors });
       }
       res.status(500).json({ error: "Failed to create metric" });
@@ -5096,7 +5096,7 @@ data: ${JSON.stringify({
       }
       res.json(metric);
     } catch (error) {
-      if (error instanceof z2.ZodError) {
+      if (error instanceof external_exports.ZodError) {
         return res.status(400).json({ error: "Validation failed", details: error.errors });
       }
       res.status(500).json({ error: "Failed to update metric" });
@@ -5121,7 +5121,7 @@ data: ${JSON.stringify({
       const data = await storage.queryDataPoints(context, config2);
       res.json({ data, rowCount: data.length });
     } catch (error) {
-      if (error instanceof z2.ZodError) {
+      if (error instanceof external_exports.ZodError) {
         return res.status(400).json({ error: "Validation failed", details: error.errors });
       }
       res.status(500).json({ error: "Failed to execute query" });
@@ -5138,7 +5138,7 @@ data: ${JSON.stringify({
       const count2 = await storage.insertDataPointsBatch(context, batch.metricId, batch.dataPoints);
       res.json({ success: true, count: count2 });
     } catch (error) {
-      if (error instanceof z2.ZodError) {
+      if (error instanceof external_exports.ZodError) {
         return res.status(400).json({ error: "Validation failed", details: error.errors });
       }
       res.status(500).json({ error: "Failed to ingest data" });
@@ -5151,7 +5151,7 @@ data: ${JSON.stringify({
       const data = await storage.queryDataPoints(context, config2);
       res.json({ data, rowCount: data.length });
     } catch (error) {
-      if (error instanceof z2.ZodError) {
+      if (error instanceof external_exports.ZodError) {
         return res.status(400).json({ error: "Validation failed", details: error.errors });
       }
       res.status(500).json({ error: "Failed to execute query" });
@@ -5168,7 +5168,7 @@ data: ${JSON.stringify({
       const count2 = await storage.insertDataPointsBatch(context, batch.metricId, batch.dataPoints);
       res.json({ success: true, count: count2 });
     } catch (error) {
-      if (error instanceof z2.ZodError) {
+      if (error instanceof external_exports.ZodError) {
         return res.status(400).json({ error: "Validation failed", details: error.errors });
       }
       res.status(500).json({ error: "Failed to ingest data" });
@@ -5211,7 +5211,7 @@ data: ${JSON.stringify({
       const data = await storage.getTraces(context, query);
       res.json({ data, rowCount: data.length });
     } catch (error) {
-      if (error instanceof z2.ZodError) {
+      if (error instanceof external_exports.ZodError) {
         return res.status(400).json({ error: "Validation failed", details: error.errors });
       }
       res.status(500).json({ error: "Failed to query traces" });
@@ -5224,7 +5224,7 @@ data: ${JSON.stringify({
       const count2 = await storage.insertSpansBatch(context, batch.spans);
       res.json({ success: true, count: count2 });
     } catch (error) {
-      if (error instanceof z2.ZodError) {
+      if (error instanceof external_exports.ZodError) {
         return res.status(400).json({ error: "Validation failed", details: error.errors });
       }
       res.status(500).json({ error: "Failed to ingest traces" });
@@ -5259,7 +5259,7 @@ data: ${JSON.stringify({
       const stream = await storage.createObjectStream(context, parsed);
       res.status(201).json(stream);
     } catch (error) {
-      if (error instanceof z2.ZodError) {
+      if (error instanceof external_exports.ZodError) {
         return res.status(400).json({ error: "Validation failed", details: error.errors });
       }
       res.status(500).json({ error: "Failed to create object stream" });
@@ -5276,7 +5276,7 @@ data: ${JSON.stringify({
       }
       res.json(stream);
     } catch (error) {
-      if (error instanceof z2.ZodError) {
+      if (error instanceof external_exports.ZodError) {
         return res.status(400).json({ error: "Validation failed", details: error.errors });
       }
       res.status(500).json({ error: "Failed to update object stream" });
@@ -5301,7 +5301,7 @@ data: ${JSON.stringify({
       const data = await storage.queryObjectEntries(context, query);
       res.json({ data, rowCount: data.length });
     } catch (error) {
-      if (error instanceof z2.ZodError) {
+      if (error instanceof external_exports.ZodError) {
         return res.status(400).json({ error: "Validation failed", details: error.errors });
       }
       res.status(500).json({ error: "Failed to query objects" });
@@ -5327,7 +5327,7 @@ data: ${JSON.stringify({
       });
       res.json({ success: true, entry: result });
     } catch (error) {
-      if (error instanceof z2.ZodError) {
+      if (error instanceof external_exports.ZodError) {
         return res.status(400).json({ error: "Validation failed", details: error.errors });
       }
       res.status(500).json({ error: "Failed to ingest object" });
@@ -5362,7 +5362,7 @@ data: ${JSON.stringify({
       const source = await storage.createDataSource(context, parsed);
       res.status(201).json(source);
     } catch (error) {
-      if (error instanceof z2.ZodError) {
+      if (error instanceof external_exports.ZodError) {
         return res.status(400).json({ error: "Validation failed", details: error.errors });
       }
       res.status(500).json({ error: "Failed to create data source" });
@@ -5379,7 +5379,7 @@ data: ${JSON.stringify({
       }
       res.json(source);
     } catch (error) {
-      if (error instanceof z2.ZodError) {
+      if (error instanceof external_exports.ZodError) {
         return res.status(400).json({ error: "Validation failed", details: error.errors });
       }
       res.status(500).json({ error: "Failed to update data source" });
@@ -5441,7 +5441,7 @@ data: ${JSON.stringify({
       const integration = await storage.createIntegration(context, parsed);
       res.status(201).json(integration);
     } catch (error) {
-      if (error instanceof z2.ZodError) {
+      if (error instanceof external_exports.ZodError) {
         return res.status(400).json({ error: "Validation failed", details: error.errors });
       }
       res.status(500).json({ error: "Failed to create integration" });
@@ -5458,7 +5458,7 @@ data: ${JSON.stringify({
       }
       res.json(integration);
     } catch (error) {
-      if (error instanceof z2.ZodError) {
+      if (error instanceof external_exports.ZodError) {
         return res.status(400).json({ error: "Validation failed", details: error.errors });
       }
       res.status(500).json({ error: "Failed to update integration" });
@@ -5659,8 +5659,6 @@ data: ${JSON.stringify({
   setupDocRoutes(app);
   return httpServer;
 }
-
-// ../logging/server/src/service.ts
 async function bootstrap() {
   await ensureLoggingSchema();
   await initSystemBootstrap();

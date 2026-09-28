@@ -8,6 +8,63 @@ before concluding a fix is live.
 
 While the major version is 0, a behaviour change bumps the minor.
 
+## 0.21.0 — 2026-09-28
+
+### Fixed
+- **The connector starts in claude.ai cloud sessions.** A cloud session syncs
+  the plugin without `node_modules`, and the shim installed dependencies before
+  answering the MCP handshake. Measured on 0.20.1 in a cloud container: the
+  install took 35 s and wrote 912 MB (669 MB of it `@node-llama-cpp` Linux
+  binaries), the client's 30 s startup timeout expired first, and the session
+  had no `symbia_*` tools and nothing saying why. The package now bundles its
+  runtime dependencies (`imagine/vendor-bundle.mjs`, a new packaging step):
+  nothing is installed on launch, no `node_modules` is created, and the
+  handshake answered in 0.2–0.3 s in the same container. The unpacked plugin
+  is 6.9 MB and the archive 1.5 MB.
+- **A connector that cannot start says so.** If the MCP server cannot load, the
+  shim serves a minimal stand-in whose `symbia_selftest` (and the initialize
+  instructions) carry the reason, instead of exiting. If the host fails to
+  boot, every host-touching tool and `symbia_selftest` return the reason,
+  including the host's last error lines. Before, both cases surfaced as
+  missing tools or "fetch failed" thirteen times.
+- **Calls made while the host boots wait for it.** Up to 30 s
+  (`SYMBIA_HOST_WAIT_MS`), then they report "starting". Before, the connector
+  answered with mode `durable` for the first ~12 s of every conversation,
+  because no base URL was read as port mode. The mode now reads `starting`, or
+  `unavailable` after a failed boot.
+- **The first client write no longer gets a 429.** The catalog admitted service
+  calls as the seeded admin user (`650e8400-…`), which is also the principal
+  the connector logs in as, so the runtime's 37 component manifests spent the
+  caller's 30-writes-per-minute budget at boot, and seven of them were refused.
+  The catalog now files service writes under `service:internal`, which is the
+  budget the 23 Aug service limit was written for. Measured: 37 of 37 manifests
+  registered, first client write 2xx.
+- **authoredCount counts only what the client authored.** The same principal
+  mix-up made the 30 boot-time manifests read as client-authored; a fresh
+  session with one write sealed with `authoredCount: 30` before this change and
+  `1` after.
+- **An exit with nothing authored writes no bundle.** The takedown seal is
+  skipped when the catalog was read and held nothing authored. An unread list
+  still seals, with `artifactsUnread`.
+
+### Changed
+- `node-llama-cpp` and `googleapis` are no longer installed at all by default.
+  Each names itself when asked for; `npm install <name>` in the plugin
+  directory adds it. The models service now mounts without `node-llama-cpp`
+  (its import is lazy), so model listing and pulls work and inference reports
+  the missing package.
+- `package-imagine.sh` refuses a working tree with uncommitted or untracked
+  changes (override: `IMAGINE_ALLOW_DIRTY=1` for a local test build), and runs
+  `npm ci` in `symbia-mcp-server/` when it has no `node_modules`.
+- The `symbia-durable` connector's build marker is stamped at package time; it
+  reported `unstamped` before.
+
+### Known gaps
+- Boot takes about 11 s, 7 s of it the assistants service retrying a bootstrap
+  config fetch that fails ("Failed to fetch bootstrap config after retries").
+- `symbia_seal` still reports mode `imagine` where every other tool reports
+  `ephemeral`.
+
 ## 0.20.1 — 2026-09-22
 
 ### Changed

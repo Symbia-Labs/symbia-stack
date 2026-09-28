@@ -1,13 +1,67 @@
+import { createRequire as __symbiaCreateRequire } from "node:module";globalThis.require ??= __symbiaCreateRequire(import.meta.url);
+import {
+  createInsertSchema
+} from "../chunks/chunk-6PY65LKM.mjs";
+import {
+  require_main
+} from "../chunks/chunk-EWQDMZT4.mjs";
+import {
+  createAuthMiddleware,
+  generateApiKey,
+  hashApiKey
+} from "../chunks/chunk-P2CNEUXS.mjs";
+import {
+  Capabilities,
+  Roles,
+  ServiceId,
+  buildEntitlements,
+  resolveOwnPort,
+  resolveServiceUrl
+} from "../chunks/chunk-B6I54FM5.mjs";
+import {
+  external_exports
+} from "../chunks/chunk-TCCFD4DK.mjs";
+import {
+  and,
+  bigint,
+  boolean,
+  desc,
+  eq,
+  ilike,
+  index,
+  initializeDatabase,
+  integer,
+  jsonb,
+  or,
+  pgTable,
+  relations,
+  runWithRLSContext,
+  sql,
+  text,
+  timestamp,
+  varchar
+} from "../chunks/chunk-DSXICZVV.mjs";
+import "../chunks/chunk-572SKMOA.mjs";
+import {
+  __toESM
+} from "../chunks/chunk-JCYRGLK6.mjs";
+
+// build/plugin/symbia-imagine/services/catalog.mjs
+var import_dotenv = __toESM(require_main(), 1);
+import { join, dirname } from "path";
+import { fileURLToPath } from "url";
+import { readFileSync, existsSync, readdirSync } from "fs";
+import { createHash } from "crypto";
+import fs2 from "fs";
+import path2 from "path";
+import fs from "fs/promises";
+import path from "path";
+import crypto from "crypto";
 var __defProp = Object.defineProperty;
 var __export = (target, all) => {
   for (var name in all)
     __defProp(target, name, { get: all[name], enumerable: true });
 };
-
-// ../catalog/server/src/db.ts
-import { initializeDatabase, setSessionContext, clearSessionContext } from "@symbia/db";
-
-// ../catalog/shared/schema.ts
 var schema_exports = {};
 __export(schema_exports, {
   accessPolicyActions: () => accessPolicyActions,
@@ -46,23 +100,19 @@ __export(schema_exports, {
   systemSettings: () => systemSettings,
   visibilityLevels: () => visibilityLevels
 });
-import { sql, relations } from "drizzle-orm";
-import { pgTable, text, varchar, timestamp, boolean, jsonb, integer, bigint, index } from "drizzle-orm/pg-core";
-import { createInsertSchema } from "drizzle-zod";
-import { z } from "zod";
 var resourceStatuses = ["draft", "published", "deprecated"];
 var resourceTypes = ["context", "integration", "graph", "assistant", "component", "app", "model", "document", "host-capability"];
 var portLanes = ["inherit", "canonical", "apocryphal", "conditional"];
 var receiptKinds = ["recipe", "witness", "none"];
-var componentPortSchema = z.object({
-  name: z.string().min(1),
-  schema: z.record(z.unknown()).optional(),
-  required: z.boolean().optional(),
-  lane: z.enum(portLanes).optional(),
-  laneNote: z.string().optional(),
-  receipt: z.enum(receiptKinds).optional()
+var componentPortSchema = external_exports.object({
+  name: external_exports.string().min(1),
+  schema: external_exports.record(external_exports.unknown()).optional(),
+  required: external_exports.boolean().optional(),
+  lane: external_exports.enum(portLanes).optional(),
+  laneNote: external_exports.string().optional(),
+  receipt: external_exports.enum(receiptKinds).optional()
 });
-var componentConfigFieldSchema = z.object({
+var componentConfigFieldSchema = external_exports.object({
   /**
    * THE THIRD COPY OF THIS UNION, AND THE ONE THAT REJECTS.
    *
@@ -80,96 +130,96 @@ var componentConfigFieldSchema = z.object({
    * an active lie that would have made a graph honouring it take the wrong
    * port in silence.
    */
-  type: z.enum(["string", "number", "boolean", "object", "array", "any"]),
-  required: z.boolean().optional(),
-  default: z.unknown().optional(),
-  enum: z.array(z.string()).optional(),
-  description: z.string().min(1)
+  type: external_exports.enum(["string", "number", "boolean", "object", "array", "any"]),
+  required: external_exports.boolean().optional(),
+  default: external_exports.unknown().optional(),
+  enum: external_exports.array(external_exports.string()).optional(),
+  description: external_exports.string().min(1)
 });
-var componentManifestSchema = z.object({
-  key: z.string().min(1),
-  version: z.string().min(1),
-  implementation: z.enum(["builtin", "expression", "wasm", "integration", "remote-service"]),
-  inputs: z.array(componentPortSchema).default([]),
-  outputs: z.array(componentPortSchema).default([]),
+var componentManifestSchema = external_exports.object({
+  key: external_exports.string().min(1),
+  version: external_exports.string().min(1),
+  implementation: external_exports.enum(["builtin", "expression", "wasm", "integration", "remote-service"]),
+  inputs: external_exports.array(componentPortSchema).default([]),
+  outputs: external_exports.array(componentPortSchema).default([]),
   // Deliberately NOT .default({}) — that would erase the difference between a
   // component that takes no config and one that has never declared its config.
-  config: z.record(componentConfigFieldSchema).optional(),
-  capability: z.string().optional(),
-  description: z.string().optional()
+  config: external_exports.record(componentConfigFieldSchema).optional(),
+  capability: external_exports.string().optional(),
+  description: external_exports.string().optional()
 });
-var hostParameterSchema = z.object({
-  type: z.enum(["string", "number", "boolean", "object", "array", "any"]),
-  required: z.boolean().optional(),
-  default: z.unknown().optional(),
-  enum: z.array(z.string()).optional(),
-  description: z.string().min(1),
+var hostParameterSchema = external_exports.object({
+  type: external_exports.enum(["string", "number", "boolean", "object", "array", "any"]),
+  required: external_exports.boolean().optional(),
+  default: external_exports.unknown().optional(),
+  enum: external_exports.array(external_exports.string()).optional(),
+  description: external_exports.string().min(1),
   // A datasource parameter selects a piece of hardware. Its VALUE namespace
   // (device uid, format key) is declared by the binding host type, never
   // here — today's lesson that camera and audio uids live in different
   // OS namespaces is exactly the fact this boundary keeps out of the
   // common layer.
-  datasource: z.boolean().optional()
+  datasource: external_exports.boolean().optional()
 });
-var hostCapabilityManifestSchema = z.object({
-  key: z.string().min(1),
-  version: z.string().min(1),
-  direction: z.enum(["input", "output", "telemetry"]),
-  parameters: z.record(hostParameterSchema).default({}),
+var hostCapabilityManifestSchema = external_exports.object({
+  key: external_exports.string().min(1),
+  version: external_exports.string().min(1),
+  direction: external_exports.enum(["input", "output", "telemetry"]),
+  parameters: external_exports.record(hostParameterSchema).default({}),
   // field name → what the field asserts. A conforming implementation returns
   // every one of these on every operation.
-  receipt: z.record(z.string().min(1)),
+  receipt: external_exports.record(external_exports.string().min(1)),
   // Consent semantics the binding host type must implement (e.g. OS-level
   // user consent before first capture, with a distinct not-yet-asked state).
-  consent: z.string().optional(),
-  doesNotAssert: z.array(z.string()).default([]),
-  description: z.string().optional()
+  consent: external_exports.string().optional(),
+  doesNotAssert: external_exports.array(external_exports.string()).default([]),
+  description: external_exports.string().optional()
 });
-var appConfigFieldSchema = z.object({
-  type: z.enum(["string", "number", "boolean"]),
-  required: z.boolean().optional(),
-  description: z.string().optional(),
-  default: z.unknown().optional()
+var appConfigFieldSchema = external_exports.object({
+  type: external_exports.enum(["string", "number", "boolean"]),
+  required: external_exports.boolean().optional(),
+  description: external_exports.string().optional(),
+  default: external_exports.unknown().optional()
 });
-var appManifestSchema = z.object({
-  key: z.string().min(1),
-  version: z.string().min(1),
-  description: z.string().optional(),
-  requires: z.object({
-    platform: z.string().optional(),
-    components: z.array(z.string()).default([]),
-    services: z.array(z.string()).default([])
+var appManifestSchema = external_exports.object({
+  key: external_exports.string().min(1),
+  version: external_exports.string().min(1),
+  description: external_exports.string().optional(),
+  requires: external_exports.object({
+    platform: external_exports.string().optional(),
+    components: external_exports.array(external_exports.string()).default([]),
+    services: external_exports.array(external_exports.string()).default([])
   }).optional(),
-  provides: z.object({
-    graphs: z.array(z.string()).default([]),
-    components: z.array(z.string()).default([]),
-    ingresses: z.array(z.string()).default([])
+  provides: external_exports.object({
+    graphs: external_exports.array(external_exports.string()).default([]),
+    components: external_exports.array(external_exports.string()).default([]),
+    ingresses: external_exports.array(external_exports.string()).default([])
   }).optional(),
-  surfaces: z.object({
-    ingress: z.array(z.string()).default([]),
-    metrics: z.array(z.string()).default([]),
+  surfaces: external_exports.object({
+    ingress: external_exports.array(external_exports.string()).default([]),
+    metrics: external_exports.array(external_exports.string()).default([]),
     // Nullable as well as optional, matching `principal`. An explicit null is
     // a statement — "this app was considered for a UI and has none" — which is
     // worth more than an absent key, and the schema should not force an author
     // to say it by omission.
-    ui: z.string().nullable().optional()
+    ui: external_exports.string().nullable().optional()
   }).optional(),
-  config: z.record(appConfigFieldSchema).optional(),
-  privilege: z.object({
-    crossAppRead: z.boolean().optional(),
-    crossOrgRead: z.boolean().optional(),
-    reason: z.string().optional()
+  config: external_exports.record(appConfigFieldSchema).optional(),
+  privilege: external_exports.object({
+    crossAppRead: external_exports.boolean().optional(),
+    crossOrgRead: external_exports.boolean().optional(),
+    reason: external_exports.string().optional()
   }).optional(),
-  outside: z.array(z.object({
-    what: z.string().min(1),
-    why: z.string().min(1)
+  outside: external_exports.array(external_exports.object({
+    what: external_exports.string().min(1),
+    why: external_exports.string().min(1)
   })).default([]),
-  principal: z.string().nullable().optional()
+  principal: external_exports.string().nullable().optional()
 }).superRefine((manifest, ctx) => {
   const p = manifest.privilege;
   if ((p?.crossAppRead || p?.crossOrgRead) && !p?.reason?.trim()) {
     ctx.addIssue({
-      code: z.ZodIssueCode.custom,
+      code: external_exports.ZodIssueCode.custom,
       path: ["privilege", "reason"],
       message: "privilege.reason is required when requesting crossAppRead or crossOrgRead"
     });
@@ -423,8 +473,6 @@ var insertApiKeySchema = createInsertSchema(apiKeys).omit({
   createdAt: true,
   lastUsedAt: true
 });
-
-// ../catalog/server/src/memory-schema.ts
 var MEMORY_SCHEMA_SQL = `
 CREATE TABLE "resources" (
   "id" varchar PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
@@ -542,26 +590,13 @@ CREATE INDEX idx_entitlements_principal ON "entitlements"("principal_id");
 CREATE INDEX idx_api_keys_active ON "api_keys"("is_active");
 CREATE INDEX idx_api_keys_created_by ON "api_keys"("created_by");
 `;
-
-// ../catalog/server/src/db.ts
 var database = initializeDatabase({
   serviceId: "catalog-service",
   memorySchema: MEMORY_SCHEMA_SQL,
   memoryDbEnvVar: "CATALOG_USE_MEMORY_DB"
 }, schema_exports);
 var { db, pool, isMemory, exportToFile, close } = database;
-
-// ../catalog/server/src/auth.ts
-import {
-  createAuthMiddleware,
-  hashApiKey,
-  generateApiKey as generateApiKeyBase
-} from "@symbia/auth";
-
-// ../catalog/server/src/config.ts
-import dotenv from "dotenv";
-import { resolveOwnPort, resolveServiceUrl, ServiceId } from "@symbia/sys";
-dotenv.config();
+import_dotenv.default.config();
 var config = {
   port: resolveOwnPort(ServiceId.CATALOG),
   databaseUrl: process.env.DATABASE_URL || "",
@@ -576,9 +611,6 @@ var config = {
   // CORS
   corsOrigins: (process.env.CORS_ALLOWED_ORIGINS || process.env.CORS_ORIGINS || "").split(",").map((origin) => origin.trim().replace(/\/$/, "")).filter(Boolean)
 };
-
-// ../catalog/server/src/storage.ts
-import { eq, desc, and, or, ilike, sql as sql2 } from "drizzle-orm";
 var DatabaseStorage = class {
   // Resources
   async getResources() {
@@ -721,18 +753,18 @@ var DatabaseStorage = class {
   }
   // Stats
   async getStats() {
-    const [resourceCount] = await db.select({ count: sql2`count(*)::int` }).from(resources);
-    const [publishedCount] = await db.select({ count: sql2`count(*)::int` }).from(resources).where(eq(resources.status, "published"));
-    const [bootstrapCount] = await db.select({ count: sql2`count(*)::int` }).from(resources).where(eq(resources.isBootstrap, true));
-    const [assistantCount] = await db.select({ count: sql2`count(*)::int` }).from(resources).where(eq(resources.type, "assistant"));
-    const [contextCount] = await db.select({ count: sql2`count(*)::int` }).from(resources).where(eq(resources.type, "context"));
-    const [integrationCount] = await db.select({ count: sql2`count(*)::int` }).from(resources).where(
+    const [resourceCount] = await db.select({ count: sql`count(*)::int` }).from(resources);
+    const [publishedCount] = await db.select({ count: sql`count(*)::int` }).from(resources).where(eq(resources.status, "published"));
+    const [bootstrapCount] = await db.select({ count: sql`count(*)::int` }).from(resources).where(eq(resources.isBootstrap, true));
+    const [assistantCount] = await db.select({ count: sql`count(*)::int` }).from(resources).where(eq(resources.type, "assistant"));
+    const [contextCount] = await db.select({ count: sql`count(*)::int` }).from(resources).where(eq(resources.type, "context"));
+    const [integrationCount] = await db.select({ count: sql`count(*)::int` }).from(resources).where(
       and(
         eq(resources.type, "integration"),
-        sql2`${resources.key} LIKE '%/config'`
+        sql`${resources.key} LIKE '%/config'`
       )
     );
-    const [graphCount] = await db.select({ count: sql2`count(*)::int` }).from(resources).where(eq(resources.type, "graph"));
+    const [graphCount] = await db.select({ count: sql`count(*)::int` }).from(resources).where(eq(resources.type, "graph"));
     return {
       totalResources: resourceCount?.count ?? 0,
       publishedVersions: publishedCount?.count ?? 0,
@@ -766,17 +798,32 @@ var DatabaseStorage = class {
   }
 };
 var storage = new DatabaseStorage();
-
-// ../catalog/server/src/auth.ts
-import { runWithRLSContext } from "@symbia/db";
-function generateApiKey() {
-  return generateApiKeyBase("sos");
+function generateApiKey2() {
+  return generateApiKey("sos");
 }
 var auth = createAuthMiddleware({
   identityServiceUrl: config.identityServiceUrl,
   adminEntitlements: ["catalog:admin", "cap:catalog.admin"],
   enableImpersonation: true,
-  logger: (level, message) => console.log(`[Catalog Auth] ${message}`)
+  logger: (level, message) => console.log(`[Catalog Auth] ${message}`),
+  // SERVICE WRITES ARE FILED UNDER A SERVICE PRINCIPAL IN THIS SERVICE.
+  //
+  // @symbia/auth admits X-Service-Auth callers as the seeded super-admin user
+  // (650e8400-…) by default, because identity files credentials against a uuid
+  // with a foreign key. The catalog has no such constraint (created_by is
+  // varchar), and that default made every service write indistinguishable from
+  // the seeded admin, which is also the principal the imagine connector logs in
+  // as. Measured 28 Sep on a fresh imagine host: the runtime's 37 component
+  // manifests were filed under 650e8400-…, spent the caller write budget
+  // (30/min) the MCP client then hit with a 429, and were counted as
+  // client-authored in the seal (authoredCount 30 with nothing authored).
+  //
+  // The rate limiter's separate service budget (23 Aug) and the fallback
+  // below both key on `service:`, and neither could fire, because this
+  // admission ran first and returned the user id.
+  serviceAuth: {
+    principalId: process.env.CATALOG_SERVICE_PRINCIPAL_ID ?? "service:internal"
+  }
 });
 var {
   getCurrentUser,
@@ -853,20 +900,6 @@ function requirePrincipal(req, res) {
   });
   return false;
 }
-
-// ../catalog/server/src/service.ts
-import { eq as eq2 } from "drizzle-orm";
-import { join, dirname } from "path";
-import { fileURLToPath } from "url";
-import { readFileSync, existsSync, readdirSync } from "fs";
-
-// ../catalog/server/src/routes.ts
-import { createHash } from "crypto";
-import fs2 from "fs";
-import path2 from "path";
-import { z as z2 } from "zod";
-
-// ../catalog/server/src/openapi.ts
 var RESOURCE_TYPE_ENUM = [...resourceTypes];
 var openApiSpec = {
   openapi: "3.0.3",
@@ -2459,10 +2492,7 @@ if (openApiSpec.paths) {
     __paths[key] = { ...__paths[key] || {}, ...ops };
   }
 }
-
-// ../catalog/server/src/identity.ts
-import { resolveServiceUrl as resolveServiceUrl2, ServiceId as ServiceId2 } from "@symbia/sys";
-var IDENTITY_SERVICE_URL = resolveServiceUrl2(ServiceId2.IDENTITY);
+var IDENTITY_SERVICE_URL = resolveServiceUrl(ServiceId.IDENTITY);
 async function getUserOrganizations(token) {
   try {
     const response = await fetch(`${IDENTITY_SERVICE_URL}/api/orgs`, {
@@ -2484,9 +2514,6 @@ async function getUserOrganizations(token) {
 function getIdentityServiceUrl() {
   return IDENTITY_SERVICE_URL;
 }
-
-// ../catalog/server/src/entitlements.ts
-import { Capabilities, Roles, buildEntitlements } from "@symbia/sys";
 function getPrincipalEntitlements(user) {
   if (!user) {
     return ["public"];
@@ -2537,8 +2564,6 @@ function canPerformAction(user, resource, action) {
 function filterResourcesByReadAccess(resources2, user) {
   return resources2.filter((resource) => canPerformAction(user, resource, "read"));
 }
-
-// ../catalog/server/src/rate-limit.ts
 var stores = /* @__PURE__ */ new Map();
 var isInternalService = (req) => typeof req.user?.id === "string" && req.user.id.startsWith("service:");
 function createRateLimiter(name, getWindowMs2, getMaxRequests, message, getServiceMaxRequests) {
@@ -2621,11 +2646,6 @@ var uploadRateLimiter = createRateLimiter(
   getUploadMax,
   "Too many upload requests, please try again later"
 );
-
-// ../catalog/server/src/artifact-storage.ts
-import fs from "fs/promises";
-import path from "path";
-import crypto from "crypto";
 var DEFAULT_CONFIG = {
   type: "filesystem",
   basePath: "./artifacts",
@@ -2725,8 +2745,6 @@ var ArtifactStorage = class {
   }
 };
 var artifactStorage = new ArtifactStorage();
-
-// ../catalog/server/src/bootstrap-summary.ts
 var CONTEXT_LABELS = {
   architecture: "Architecture",
   domain: "Domains",
@@ -2821,9 +2839,6 @@ function buildBootstrapSummary(resources2) {
     }
   };
 }
-
-// ../catalog/server/src/app-requires.ts
-import { ServiceId as ServiceId3 } from "@symbia/sys";
 var PLATFORM_VERSION = process.env.SYMBIA_PLATFORM_VERSION || "1.1.1";
 function parseVersion(v) {
   const m = /^(\d+)\.(\d+)\.(\d+)/.exec(v.trim());
@@ -2912,7 +2927,7 @@ async function checkAppRequires(manifest) {
       }
     }
   }
-  const knownServices = new Set(Object.values(ServiceId3));
+  const knownServices = new Set(Object.values(ServiceId));
   for (const service of requires.services ?? []) {
     if (!knownServices.has(service)) {
       failures.push({
@@ -2924,24 +2939,22 @@ async function checkAppRequires(manifest) {
   }
   return failures;
 }
-
-// ../catalog/server/src/routes.ts
 function getParam(params, key) {
   const value = params[key];
   return Array.isArray(value) ? value[0] : value ?? "";
 }
-var accessPolicySchema = z2.object({
-  visibility: z2.enum(visibilityLevels),
-  actions: z2.record(z2.object({
-    anyOf: z2.array(z2.string())
+var accessPolicySchema = external_exports.object({
+  visibility: external_exports.enum(visibilityLevels),
+  actions: external_exports.record(external_exports.object({
+    anyOf: external_exports.array(external_exports.string())
   })).optional()
 }).optional();
-var updateResourceSchema = z2.object({
-  key: z2.string().min(1).max(255).optional(),
-  name: z2.string().min(1).max(255).optional(),
-  description: z2.string().nullable().optional(),
-  type: z2.enum(resourceTypes).optional(),
-  status: z2.enum(resourceStatuses).optional(),
+var updateResourceSchema = external_exports.object({
+  key: external_exports.string().min(1).max(255).optional(),
+  name: external_exports.string().min(1).max(255).optional(),
+  description: external_exports.string().nullable().optional(),
+  type: external_exports.enum(resourceTypes).optional(),
+  status: external_exports.enum(resourceStatuses).optional(),
   /**
    * SERVER-OWNED. Not accepted from a caller.
    *
@@ -2952,10 +2965,10 @@ var updateResourceSchema = z2.object({
    * on create persisted. A provenance boundary the caller controls is not
    * a boundary. Seeding sets it directly through storage, not this route.
    */
-  tags: z2.array(z2.string()).nullable().optional(),
-  orgId: z2.string().nullable().optional(),
+  tags: external_exports.array(external_exports.string()).nullable().optional(),
+  orgId: external_exports.string().nullable().optional(),
   accessPolicy: accessPolicySchema,
-  metadata: z2.record(z2.unknown()).nullable().optional()
+  metadata: external_exports.record(external_exports.unknown()).nullable().optional()
   /**
    * `.strict()` on update as well as create.
    *
@@ -2970,12 +2983,12 @@ var updateResourceSchema = z2.object({
    * key rather than guess what it meant.
    */
 }).strict();
-var createResourceSchema = z2.object({
-  key: z2.string().min(1).max(255),
-  name: z2.string().min(1).max(255),
-  description: z2.string().nullable().optional(),
-  type: z2.enum(resourceTypes),
-  status: z2.enum(resourceStatuses).optional(),
+var createResourceSchema = external_exports.object({
+  key: external_exports.string().min(1).max(255),
+  name: external_exports.string().min(1).max(255),
+  description: external_exports.string().nullable().optional(),
+  type: external_exports.enum(resourceTypes),
+  status: external_exports.enum(resourceStatuses).optional(),
   /**
    * SERVER-OWNED. Not accepted from a caller.
    *
@@ -2986,10 +2999,10 @@ var createResourceSchema = z2.object({
    * on create persisted. A provenance boundary the caller controls is not
    * a boundary. Seeding sets it directly through storage, not this route.
    */
-  tags: z2.array(z2.string()).nullable().optional(),
-  orgId: z2.string().nullable().optional(),
+  tags: external_exports.array(external_exports.string()).nullable().optional(),
+  orgId: external_exports.string().nullable().optional(),
   accessPolicy: accessPolicySchema,
-  metadata: z2.record(z2.unknown()).nullable().optional()
+  metadata: external_exports.record(external_exports.unknown()).nullable().optional()
   /**
    * `.strict()` HERE TOO — and it took sixteen days to reach this schema.
    *
@@ -3015,35 +3028,35 @@ var createResourceSchema = z2.object({
    * one round trip.
    */
 }).strict();
-var createGraphSchema = z2.object({
-  key: z2.string().min(1).max(255),
-  name: z2.string().min(1).max(255),
-  description: z2.string().nullable().optional(),
-  orgId: z2.string().min(1),
-  tags: z2.array(z2.string()).nullable().optional(),
-  metadata: z2.record(z2.unknown()).nullable().optional()
+var createGraphSchema = external_exports.object({
+  key: external_exports.string().min(1).max(255),
+  name: external_exports.string().min(1).max(255),
+  description: external_exports.string().nullable().optional(),
+  orgId: external_exports.string().min(1),
+  tags: external_exports.array(external_exports.string()).nullable().optional(),
+  metadata: external_exports.record(external_exports.unknown()).nullable().optional()
 }).strict();
-var updateGraphSchema = z2.object({
-  name: z2.string().min(1).max(255).optional(),
-  description: z2.string().nullable().optional(),
-  tags: z2.array(z2.string()).nullable().optional(),
-  metadata: z2.record(z2.unknown()).nullable().optional()
+var updateGraphSchema = external_exports.object({
+  name: external_exports.string().min(1).max(255).optional(),
+  description: external_exports.string().nullable().optional(),
+  tags: external_exports.array(external_exports.string()).nullable().optional(),
+  metadata: external_exports.record(external_exports.unknown()).nullable().optional()
 }).strict();
-var createContextSchema = z2.object({
-  key: z2.string().min(1).max(255),
-  name: z2.string().min(1).max(255),
-  description: z2.string().nullable().optional(),
-  orgId: z2.string().nullable().optional(),
-  tags: z2.array(z2.string()).nullable().optional(),
+var createContextSchema = external_exports.object({
+  key: external_exports.string().min(1).max(255),
+  name: external_exports.string().min(1).max(255),
+  description: external_exports.string().nullable().optional(),
+  orgId: external_exports.string().nullable().optional(),
+  tags: external_exports.array(external_exports.string()).nullable().optional(),
   accessPolicy: accessPolicySchema,
-  metadata: z2.record(z2.unknown()).nullable().optional()
+  metadata: external_exports.record(external_exports.unknown()).nullable().optional()
 }).strict();
-var updateContextSchema = z2.object({
-  name: z2.string().min(1).max(255).optional(),
-  description: z2.string().nullable().optional(),
-  tags: z2.array(z2.string()).nullable().optional(),
+var updateContextSchema = external_exports.object({
+  name: external_exports.string().min(1).max(255).optional(),
+  description: external_exports.string().nullable().optional(),
+  tags: external_exports.array(external_exports.string()).nullable().optional(),
   accessPolicy: accessPolicySchema,
-  metadata: z2.record(z2.unknown()).nullable().optional()
+  metadata: external_exports.record(external_exports.unknown()).nullable().optional()
 }).strict();
 function registryLedger(req, action, resource) {
   const principal = req.user?.id ?? "anonymous";
@@ -3565,7 +3578,7 @@ async function registerRoutes(httpServer, app) {
       registryLedger(req, "register", resource);
       res.status(201).json(resource);
     } catch (error) {
-      if (error instanceof z2.ZodError) {
+      if (error instanceof external_exports.ZodError) {
         return res.status(400).json({ error: "Validation error", details: error.errors });
       }
       console.error("Error creating resource:", error);
@@ -3645,7 +3658,7 @@ async function registerRoutes(httpServer, app) {
       registryLedger(req, "update", updated ?? resource);
       res.json(updated);
     } catch (error) {
-      if (error instanceof z2.ZodError) {
+      if (error instanceof external_exports.ZodError) {
         return res.status(400).json({ error: "Validation error", details: error.errors });
       }
       console.error("Error updating resource:", error);
@@ -3669,12 +3682,12 @@ async function registerRoutes(httpServer, app) {
       res.status(500).json({ error: "Failed to delete resource" });
     }
   });
-  const bulkActionSchema = z2.object({
-    ids: z2.array(z2.string()).min(1).max(100),
-    action: z2.enum(["publish", "delete", "updateStatus", "addTags", "removeTags"]),
-    payload: z2.object({
-      status: z2.enum(resourceStatuses).optional(),
-      tags: z2.array(z2.string()).optional()
+  const bulkActionSchema = external_exports.object({
+    ids: external_exports.array(external_exports.string()).min(1).max(100),
+    action: external_exports.enum(["publish", "delete", "updateStatus", "addTags", "removeTags"]),
+    payload: external_exports.object({
+      status: external_exports.enum(resourceStatuses).optional(),
+      tags: external_exports.array(external_exports.string()).optional()
     }).optional()
   });
   app.post("/api/resources/bulk", authMiddleware, writeRateLimiter, async (req, res) => {
@@ -3750,7 +3763,7 @@ async function registerRoutes(httpServer, app) {
         results
       });
     } catch (error) {
-      if (error instanceof z2.ZodError) {
+      if (error instanceof external_exports.ZodError) {
         return res.status(400).json({ error: "Validation error", details: error.errors });
       }
       console.error("Error performing bulk operation:", error);
@@ -3874,7 +3887,7 @@ async function registerRoutes(httpServer, app) {
       if (!name || typeof name !== "string" || name.trim().length === 0) {
         return res.status(400).json({ error: "Name is required" });
       }
-      const { key, prefix, hash } = generateApiKey();
+      const { key, prefix, hash } = generateApiKey2();
       const apiKey = await storage.createApiKey({
         name: name.trim(),
         keyHash: hash,
@@ -3990,7 +4003,7 @@ async function registerRoutes(httpServer, app) {
       });
       res.status(201).json(graph);
     } catch (error) {
-      if (error instanceof z2.ZodError) {
+      if (error instanceof external_exports.ZodError) {
         const unknownKeys = error.errors.filter((e) => e.code === "unrecognized_keys").flatMap((e) => e.keys ?? []);
         if (unknownKeys.length > 0) {
           return res.status(400).json({
@@ -4023,7 +4036,7 @@ async function registerRoutes(httpServer, app) {
       const updated = await storage.updateResource(getParam(req.params, "id"), updateData);
       res.json(updated);
     } catch (error) {
-      if (error instanceof z2.ZodError) {
+      if (error instanceof external_exports.ZodError) {
         return res.status(400).json({ error: "Validation error", details: error.errors });
       }
       console.error("Error updating graph:", error);
@@ -4150,7 +4163,7 @@ async function registerRoutes(httpServer, app) {
       });
       res.status(201).json(context);
     } catch (error) {
-      if (error instanceof z2.ZodError) {
+      if (error instanceof external_exports.ZodError) {
         return res.status(400).json({ error: "Validation error", details: error.errors });
       }
       console.error("Error creating context:", error);
@@ -4170,7 +4183,7 @@ async function registerRoutes(httpServer, app) {
       const updated = await storage.updateResource(getParam(req.params, "id"), validatedData);
       res.json(updated);
     } catch (error) {
-      if (error instanceof z2.ZodError) {
+      if (error instanceof external_exports.ZodError) {
         return res.status(400).json({ error: "Validation error", details: error.errors });
       }
       console.error("Error updating context:", error);
@@ -4307,8 +4320,6 @@ async function registerRoutes(httpServer, app) {
   });
   return httpServer;
 }
-
-// ../catalog/server/src/service.ts
 var __filename = fileURLToPath(import.meta.url);
 var __dirname = dirname(__filename);
 var middleware = [authMiddleware];
@@ -4420,7 +4431,7 @@ async function seedFromDataFiles() {
 var BOOTSTRAP_COMPLETED_KEY = "bootstrap_completed";
 async function isBootstrapCompleted() {
   try {
-    const result = await db.select().from(systemSettings).where(eq2(systemSettings.key, BOOTSTRAP_COMPLETED_KEY));
+    const result = await db.select().from(systemSettings).where(eq(systemSettings.key, BOOTSTRAP_COMPLETED_KEY));
     return result.length > 0 && result[0].value === "true";
   } catch (error) {
     console.log("[catalog] Could not check bootstrap flag (table may not exist yet)");

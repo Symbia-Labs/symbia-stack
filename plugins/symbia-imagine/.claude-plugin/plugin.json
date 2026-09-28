@@ -1,6 +1,6 @@
 {
   "name": "symbia-imagine",
-  "version": "0.20.1",
+  "version": "0.21.0",
   "description": "An ephemeral Symbia stack on your machine, attached over MCP. Every value carries whether it can be recomputed and the evidence for that claim; every session keeps a signed record of what was done and in what order.",
   "author": {
     "name": "Symbia Labs"

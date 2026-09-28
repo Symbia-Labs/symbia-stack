@@ -25,13 +25,14 @@
  *                                 spawn nothing
  */
 import { spawn, spawnSync } from "node:child_process";
-import { existsSync, mkdtempSync, mkdirSync, rmSync } from "node:fs";
+import { existsSync, mkdtempSync, mkdirSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { createRequire } from "node:module";
 import { randomBytes } from "node:crypto";
 import { readAddress, addressFile } from "./host-address.mjs";
+import { serveFailure } from "./failure-mcp.mjs";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const log = (...a) => console.error("[shim]", ...a);
@@ -155,6 +156,54 @@ function status(s) {
 }
 
 /**
+ * A boot that cannot finish, said where the session can read it.
+ *
+ * stderr is the plugin's log, which a cloud chat session never shows. The MCP
+ * server reads SYMBIA_BOOT_FAILED and returns it from every host-touching tool
+ * and from symbia_selftest, so the failure reaches the conversation as text.
+ */
+function failed(reason) {
+  process.env.SYMBIA_BOOT_FAILED = reason;
+  status(`failed: ${reason}`);
+  log(`FAILED: ${reason}`);
+  return false;
+}
+
+/**
+ * The host's last stderr lines, kept so a failed boot can quote its own reason.
+ */
+const hostStderr = [];
+function keepHostStderr(chunk) {
+  process.stderr.write(chunk);
+  for (const line of chunk.toString().split("\n")) {
+    // Stack frames push the error message itself out of the kept tail.
+    if (!line.trim() || /^\s+at /.test(line)) continue;
+    hostStderr.push(line);
+    if (hostStderr.length > 12) hostStderr.shift();
+  }
+}
+const hostStderrTail = () =>
+  hostStderr.length ? ` Last host output: ${hostStderr.slice(-6).join(" | ").slice(0, 1200)}` : "";
+
+/**
+ * VENDORED PACKAGES NEED NO INSTALL (0.21.0).
+ *
+ * The packaged plugin bundles its runtime dependencies (imagine/vendor-bundle.mjs)
+ * and says so in package.json. Measured 28 Sep in a claude.ai cloud session:
+ * the first-launch install took 35 s and 912 MB and ran before the handshake,
+ * so the client gave up at 30 s and the session had no tools. A vendored
+ * package skips the install entirely; a checkout still installs.
+ */
+function isVendored() {
+  try {
+    return JSON.parse(readFileSync(join(depRoot(), "package.json"), "utf8")).symbiaVendored === true;
+  } catch {
+    return false;
+  }
+}
+const VENDORED = isVendored();
+
+/**
  * ASYNC, because a synchronous install would freeze the transport.
  *
  * This was `spawnSync`, which was correct while the MCP server was imported
@@ -165,6 +214,7 @@ function status(s) {
  * than the timeout it replaced.
  */
 async function ensureDependencies() {
+  if (VENDORED) return true;
   const root = depRoot();
 
   // THE SENTINEL WAS CHECKING THE WRONG THING.
@@ -226,9 +276,7 @@ async function ensureDependencies() {
       owner = false;
     }
     if (!owner) {
-      status("dependency install did not complete and is still locked by another connector");
-      log("gave up waiting on " + lockDir + " — the other connector's install neither finished nor released the lock");
-      return false;
+      return failed(`dependency install did not complete: another connector still holds the install lock at ${lockDir}.`);
     }
   }
 
@@ -270,13 +318,10 @@ async function ensureDependencies() {
       p.on("exit", (code) => resolve({ status: code }));
     });
     if (r.status !== 0) {
-      status(`dependency install failed (npm exited ${r.status})`);
-      log(`FAILED: npm install exited ${r.status} in ${root}. The sidecar cannot start without it.`);
-      return false;
+      return failed(`dependency install failed: npm install exited ${r.status} in ${root}.`);
     }
     if (!depsPresent()) {
-      log("dependencies installed, but the expected packages are still missing (ajv and/or the vendored @symbia/* copy) — check vendor-libs.sh ran");
-      return false;
+      return failed("dependencies installed, but ajv and/or the vendored @symbia/* copy are still missing; check vendor-libs.sh ran.");
     }
     log("dependencies installed");
     return true;
@@ -298,9 +343,13 @@ async function startOwnedHost() {
     // by crash, or by SIGKILL, which runs no cleanup code at all — the kernel
     // closes the pipe and the host takes itself down. Lifecycle by
     // construction, not by handler.
-    stdio: ["pipe", "ignore", "inherit"],
+    // stderr is piped rather than inherited so the shim can keep the last lines
+    // and quote them if the boot fails. It is still copied to this process's
+    // stderr, so the plugin log reads as before.
+    stdio: ["pipe", "ignore", "pipe"],
     env: { ...process.env, IMAGINE_HOST_MODE: "1", IMAGINE_OWNED: "1" },
   });
+  child.stderr.on("data", keepHostStderr);
   // NOT detached, NOT unref'd — the 16 Aug design inverted. Belt to the
   // pipe's braces: on any exit this process can act on, say goodbye first.
   process.on("exit", () => { try { child.kill("SIGTERM"); } catch { /* already gone */ } });
@@ -309,14 +358,16 @@ async function startOwnedHost() {
   while (Date.now() < deadline) {
     await new Promise((r) => setTimeout(r, 500));
     if (child.exitCode !== null) {
-      log(`the host exited (code ${child.exitCode}) before publishing an address — its stderr above is the diagnosis`);
+      hostFailure = `the host process exited with code ${child.exitCode} before publishing an address`;
       return null;
     }
     const addr = await findHost();
     if (addr) return addr;
   }
+  hostFailure = "the host did not publish an address within 60 s";
   return null;
 }
+let hostFailure = null;
 
 // STACK MODE: A BASE URL THE CALLER SET IS AN INSTRUCTION, NOT A DEFAULT.
 //
@@ -358,8 +409,7 @@ const STACK_BASE = process.env.SYMBIA_BASE_URL?.replace(/\/$/, "") || null;
  */
 async function bringUpHost() {
   if (!(await ensureDependencies())) {
-    status("dependency install failed — see stderr");
-    log("dependencies could not be installed; the host cannot start");
+    // failed() has already recorded the reason where the MCP server reads it.
     return;
   }
 
@@ -396,13 +446,15 @@ async function bringUpHost() {
           `The host died without cleaning up. Start one:  node ${join(here, "host.mjs")}`
         : `--attach: no shared host is running. Start one:  node ${join(here, "host.mjs")}`
     );
-  } else {
-    log("the owned host did not come up — its stderr above says why (a boot that fails must name its reason)");
   }
   // NOT process.exit. The transport is already connected and serving; killing
   // it here would turn a diagnosable failure into a client-side disconnect
   // with no message. Leave it up so the readiness gate can say what went wrong.
-  status("the stack failed to start — see the plugin's stderr for the reason");
+  failed(
+    ATTACH
+      ? "--attach: no shared host answered at the default address file."
+      : `the owned host did not come up: ${hostFailure ?? "no reason recorded"}.${hostStderrTail()}`
+  );
   return;
 }
 
@@ -490,6 +542,7 @@ if (host) {
 // So: name the candidates, and if none exists say which were tried. A missing
 // import that names nothing is the failure this repository keeps paying for.
 const MCP_CANDIDATES = [
+  join(here, "mcp-server", "index.mjs"),         // packaged and vendored (0.21.0+)
   join(here, "mcp-server", "index.js"),          // packaged, and the repo after a build
   join(here, "..", "symbia-mcp-server", "dist", "index.js"), // repository checkout
 ];
@@ -515,13 +568,19 @@ const canLoad = (p) => {
     return false;
   }
 };
-const mcpEntry =
-  MCP_CANDIDATES.filter(existsSync).find(canLoad) ?? MCP_CANDIDATES.find(existsSync);
+// A vendored entry carries its SDK inside the bundle, so there is nothing for
+// createRequire to resolve; it loads by construction.
+const mcpEntry = VENDORED
+  ? MCP_CANDIDATES.find(existsSync)
+  : MCP_CANDIDATES.filter(existsSync).find(canLoad) ?? MCP_CANDIDATES.find(existsSync);
 if (!mcpEntry) {
-  log("could not find symbia-mcp-server. Tried:");
-  for (const c of MCP_CANDIDATES) log(`  ${c}`);
-  log("In a checkout: npm run build -w symbia-mcp-server. In a plugin: the archive was built without it.");
-  process.exit(1);
+  // Not process.exit: an exit here is a connector with no tools and no message,
+  // which is the failure 0.21.0 exists to remove. The fallback server answers
+  // with the reason instead.
+  await serveFailure(
+    "the plugin has no symbia-mcp-server to load (tried " + MCP_CANDIDATES.join(", ") + "). " +
+      "The package was built without it; reinstall the plugin."
+  );
 }
 // CREDENTIAL DEFAULTS BEFORE THE IMPORT, ADDRESS AFTER.
 //
@@ -613,24 +672,43 @@ if (!STACK_BASE) status("starting");
 // Measured against the real Claude Desktop config, not reasoned about. The
 // honest test is the one the next line performs anyway — can Node resolve the
 // SDK from where the entry point sits.
-let DEPS_PRESENT = false;
-try {
-  createRequire(mcpEntry).resolve("@modelcontextprotocol/sdk/server/mcp.js");
-  DEPS_PRESENT = true;
-} catch {
-  DEPS_PRESENT = false;
+let DEPS_PRESENT = VENDORED;
+if (!DEPS_PRESENT) {
+  try {
+    createRequire(mcpEntry).resolve("@modelcontextprotocol/sdk/server/mcp.js");
+    DEPS_PRESENT = true;
+  } catch {
+    DEPS_PRESENT = false;
+  }
+}
+
+/**
+ * Import the MCP server; if it cannot load, serve the reason instead.
+ *
+ * A broken or partial package (a missing chunk, a truncated sync) used to end
+ * here with ERR_MODULE_NOT_FOUND and an exited process: the client showed no
+ * tools and nothing said why. Measured 28 Sep in a cloud session.
+ */
+async function startMcp() {
+  try {
+    await import(pathToFileURL(mcpEntry).href);
+  } catch (err) {
+    const detail = err?.code ? `${err.code}: ${err.message}` : String(err?.message ?? err);
+    await serveFailure(`the connector could not load ${mcpEntry}: ${detail}`);
+  }
 }
 
 if (DEPS_PRESENT) {
   // A rejection here must not take the transport with it: an unhandled
   // rejection in a stdio MCP server is a silent disconnect on the client side.
   bringUpHost().catch((err) => {
-    status(`the stack failed to start: ${err?.message ?? err}`);
+    failed(`host bring-up threw: ${err?.message ?? err}`);
     log(`host bring-up threw: ${err?.stack ?? err}`);
   });
-  await import(pathToFileURL(mcpEntry).href);
+  await startMcp();
 } else {
   log("cold install — the connector's own dependencies are not present yet, so the stack must be installed before the transport can start");
   await bringUpHost();
-  await import(pathToFileURL(mcpEntry).href);
+  if (process.env.SYMBIA_BOOT_FAILED) await serveFailure(process.env.SYMBIA_BOOT_FAILED);
+  await startMcp();
 }

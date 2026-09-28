@@ -1,3 +1,55 @@
+import { createRequire as __symbiaCreateRequire } from "node:module";globalThis.require ??= __symbiaCreateRequire(import.meta.url);
+import {
+  v4_default
+} from "../chunks/chunk-HRJVIKUH.mjs";
+import {
+  emitEvent
+} from "../chunks/chunk-L3PULR7W.mjs";
+import "../chunks/chunk-DC2WQTDC.mjs";
+import {
+  require_express
+} from "../chunks/chunk-WXJ3LX3E.mjs";
+import "../chunks/chunk-SG5E4KLZ.mjs";
+import "../chunks/chunk-QB3Z7RRP.mjs";
+import "../chunks/chunk-MXWCS3YP.mjs";
+import {
+  registerDocRoutes
+} from "../chunks/chunk-5LPTNHU5.mjs";
+import {
+  require_main
+} from "../chunks/chunk-EWQDMZT4.mjs";
+import {
+  createAuthMiddleware,
+  isOrgAdmin,
+  isOrgMember
+} from "../chunks/chunk-P2CNEUXS.mjs";
+import {
+  ServiceId,
+  resolveOwnPort,
+  resolveServiceUrl
+} from "../chunks/chunk-B6I54FM5.mjs";
+import {
+  attachRLSPoolWrapper,
+  esm_default,
+  getCurrentRLSContext,
+  require_pg_mem,
+  runWithRLSContext,
+  withRLSContext
+} from "../chunks/chunk-DSXICZVV.mjs";
+import "../chunks/chunk-572SKMOA.mjs";
+import {
+  __toESM
+} from "../chunks/chunk-JCYRGLK6.mjs";
+
+// build/plugin/symbia-imagine/services/messaging.mjs
+var import_dotenv = __toESM(require_main(), 1);
+var import_pg_mem = __toESM(require_pg_mem(), 1);
+import { randomUUID } from "crypto";
+var import_express = __toESM(require_express(), 1);
+import path from "path";
+var import_express2 = __toESM(require_express(), 1);
+var import_express3 = __toESM(require_express(), 1);
+var import_express4 = __toESM(require_express(), 1);
 var __defProp = Object.defineProperty;
 var __getOwnPropNames = Object.getOwnPropertyNames;
 var __esm = (fn, res) => function __init() {
@@ -7,15 +59,11 @@ var __export = (target, all) => {
   for (var name in all)
     __defProp(target, name, { get: all[name], enumerable: true });
 };
-
-// ../messaging/server/src/config.ts
-import dotenv from "dotenv";
-import { resolveOwnPort, resolveServiceUrl, ServiceId } from "@symbia/sys";
 var config;
 var init_config = __esm({
   "../messaging/server/src/config.ts"() {
     "use strict";
-    dotenv.config();
+    import_dotenv.default.config();
     config = {
       port: resolveOwnPort(ServiceId.MESSAGING),
       databaseUrl: process.env.DATABASE_URL || "",
@@ -41,12 +89,6 @@ var init_config = __esm({
     };
   }
 });
-
-// ../messaging/server/src/database.ts
-import pg from "pg";
-import { randomUUID } from "crypto";
-import { newDb, DataType } from "pg-mem";
-import { attachRLSPoolWrapper } from "@symbia/db";
 async function initDatabase() {
   const client = await pool.connect();
   try {
@@ -156,32 +198,35 @@ async function initDatabase() {
     client.release();
   }
 }
-var Pool, USE_MEMORY_DB, pool, memDb;
+var Pool;
+var USE_MEMORY_DB;
+var pool;
+var memDb;
 var init_database = __esm({
   "../messaging/server/src/database.ts"() {
     "use strict";
     init_config();
-    ({ Pool } = pg);
+    ({ Pool } = esm_default);
     USE_MEMORY_DB = process.env.MESSAGING_USE_MEMORY_DB === "true" || !config.databaseUrl;
     memDb = null;
     if (USE_MEMORY_DB) {
-      memDb = newDb({ autoCreateForeignKeyIndices: true });
+      memDb = (0, import_pg_mem.newDb)({ autoCreateForeignKeyIndices: true });
       const mem = memDb;
       mem.public.registerFunction({
         name: "gen_random_uuid",
-        returns: DataType.uuid,
+        returns: import_pg_mem.DataType.uuid,
         impure: true,
         implementation: () => randomUUID()
       });
       mem.public.registerFunction({
         name: "uuid_generate_v4",
-        returns: DataType.uuid,
+        returns: import_pg_mem.DataType.uuid,
         impure: true,
         implementation: () => randomUUID()
       });
       mem.public.registerFunction({
         name: "now",
-        returns: DataType.timestamptz,
+        returns: import_pg_mem.DataType.timestamptz,
         impure: true,
         implementation: () => /* @__PURE__ */ new Date()
       });
@@ -201,8 +246,6 @@ var init_database = __esm({
     }
   }
 });
-
-// ../messaging/server/src/models/conversation.ts
 var conversation_exports = {};
 __export(conversation_exports, {
   ConversationModel: () => ConversationModel
@@ -319,21 +362,9 @@ var init_conversation = __esm({
     };
   }
 });
-
-// ../messaging/server/src/routes.ts
 init_config();
 init_database();
-import express from "express";
-import path from "path";
-
-// ../messaging/server/src/auth.ts
 init_config();
-import {
-  createAuthMiddleware,
-  isOrgAdmin,
-  isOrgMember
-} from "@symbia/auth";
-import { runWithRLSContext } from "@symbia/db";
 var auth = createAuthMiddleware({
   identityServiceUrl: config.identityServiceUrl,
   adminEntitlements: ["messaging:admin", "collaborate:admin"],
@@ -372,10 +403,7 @@ var introspectToken = authClient.introspectToken;
 var verifyApiKey = authClient.verifyApiKey;
 var verifySessionCookie = authClient.verifySessionCookie;
 var buildIdentityUrl = authClient.buildIdentityUrl;
-
-// ../messaging/server/src/routes/auth.ts
-import { Router } from "express";
-var router = Router();
+var router = (0, import_express2.Router)();
 router.post("/login", async (req, res) => {
   try {
     const response = await fetch(buildIdentityUrl("/auth/login"), {
@@ -450,13 +478,7 @@ router.get("/session", async (req, res) => {
   }
 });
 var auth_default = router;
-
-// ../messaging/server/src/routes/conversations.ts
-import { Router as Router2 } from "express";
-import { v4 as uuidv42 } from "uuid";
 init_conversation();
-
-// ../messaging/server/src/models/participant.ts
 init_database();
 var ParticipantModel = {
   /**
@@ -613,10 +635,7 @@ var ParticipantModel = {
     return result.rowCount ?? 0;
   }
 };
-
-// ../messaging/server/src/models/message.ts
 init_database();
-import { withRLSContext, getCurrentRLSContext } from "@symbia/db";
 var MessageModel = {
   async create(input) {
     const runTxn = async (client2) => {
@@ -756,10 +775,6 @@ var MessageModel = {
     return (result.rowCount ?? 0) > 0;
   }
 };
-
-// ../messaging/server/src/webhooks.ts
-import { v4 as uuidv4 } from "uuid";
-import { emitEvent } from "@symbia/relay";
 init_conversation();
 init_config();
 async function notifyAssistants(conversationId, message, senderId, authToken, runId) {
@@ -774,7 +789,7 @@ async function notifyAssistants(conversationId, message, senderId, authToken, ru
   }
   console.log(`[SDN] Found ${assistants.length} assistant participant(s): ${assistants.map((a) => a.user_id).join(", ")}`);
   const conversation = await ConversationModel.getById(conversationId);
-  const flowRunId = runId || `run_msg_${uuidv4()}`;
+  const flowRunId = runId || `run_msg_${v4_default()}`;
   console.log(`[SDN] Emitting message.new to ${assistants.length} assistant(s), runId: ${flowRunId}`);
   const senderEntityId = await ParticipantModel.getByEntityId(conversationId, senderId).then((p) => p?.entity_id).catch(() => void 0);
   const recipientEntityIds = await ParticipantModel.getEntityIdsForConversation(conversationId).catch(() => []);
@@ -890,17 +905,12 @@ async function notifyAssistantsViaHttp(assistants, conversationId, message, send
     }
   }
 }
-
-// ../messaging/server/src/socket.ts
 var socketServer = null;
 function emitConversationEvent(conversationId, event, payload) {
   if (!socketServer) return;
   socketServer.to(`conversation:${conversationId}`).emit(event, payload);
 }
-
-// ../messaging/server/src/routes/conversations.ts
-import { emitEvent as emitEvent2 } from "@symbia/relay";
-var router2 = Router2();
+var router2 = (0, import_express3.Router)();
 var UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 router2.param("id", (_req, res, next, id) => {
   if (!UUID_RE.test(String(id))) {
@@ -1218,9 +1228,9 @@ router2.post("/:id/messages", requireAuth, async (req, res) => {
       const conversation = await ConversationModel.getById(id);
       const channelMetadata = conversation?.metadata?.channel;
       if (channelMetadata?.connectionId) {
-        const runId2 = uuidv42();
+        const runId2 = v4_default();
         console.log(`[SDN] Agent message to channel-linked conversation ${id}, emitting message.new`);
-        emitEvent2("message.new", {
+        emitEvent("message.new", {
           conversationId: id,
           message: {
             id: message.id,
@@ -1294,12 +1304,9 @@ router2.post("/:id/control", requireAuth, async (req, res) => {
   }
 });
 var conversations_default = router2;
-
-// ../messaging/server/src/routes/admin.ts
-import { Router as Router3 } from "express";
 init_conversation();
 init_database();
-var router3 = Router3();
+var router3 = (0, import_express4.Router)();
 var UUID_RE2 = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 router3.param("id", (_req, res, next, id) => {
   if (!UUID_RE2.test(String(id))) {
@@ -1508,11 +1515,6 @@ router3.get("/stats", requireAdmin, async (req, res) => {
   }
 });
 var admin_default = router3;
-
-// ../messaging/server/src/doc-routes.ts
-import { registerDocRoutes } from "@symbia/md";
-
-// ../messaging/server/src/openapi.ts
 var openApiSpec = {
   "openapi": "3.1.0",
   "info": {
@@ -3032,8 +3034,6 @@ var openApiSpec = {
     __paths[key] = { ...__paths[key] || {}, ...ops };
   }
 }
-
-// ../messaging/server/src/doc-routes.ts
 function setupDocRoutes(app) {
   registerDocRoutes(app, {
     spec: openApiSpec,
@@ -3041,12 +3041,10 @@ function setupDocRoutes(app) {
     includeWellKnown: false
   });
 }
-
-// ../messaging/server/src/routes.ts
 var docsDir = path.resolve(process.cwd(), "docs");
 async function registerRoutes(_server, app) {
   await initDatabase();
-  app.use("/docs", express.static(docsDir));
+  app.use("/docs", import_express.default.static(docsDir));
   app.use((_req, res, next) => {
     res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
     next();

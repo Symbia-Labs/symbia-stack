@@ -1,7 +1,7 @@
 {
   "name": "@symbia/imagine-sidecar",
   "_version": "NOT the source of truth. imagine/plugin/plugin.json declares the version; package-imagine.sh stamps it into the packaged copy of this file. Bumping the line below by hand reintroduces the drift that made three copies disagree.",
-  "version": "0.20.1",
+  "version": "0.21.0",
   "private": true,
   "type": "module",
   "description": "An ephemeral Symbia stack an AI client attaches to over MCP. Mounts service bundles from ./services/.",
@@ -18,38 +18,7 @@
     "Builtins left unprefixed by esbuild (child_process, crypto, events, fs, path, url) resolve without declaration and are deliberately absent below.",
     "Vendored libraries live at vendor/symbia-<name>, not vendor/@symbia/<name>: a plugin archive containing '@' in any path is refused on install. Each package.json inside still declares the scoped name, so npm places them under node_modules/@symbia."
   ],
-  "dependencies": {
-    "@modelcontextprotocol/sdk": "^1.6.1",
-    "bcryptjs": "^2.4.3",
-    "dotenv": "^17.2.3",
-    "drizzle-orm": "^0.39.3",
-    "drizzle-zod": "^0.7.0",
-    "jsonwebtoken": "^9.0.3",
-    "pg-mem": "^3.0.5",
-    "uuid": "^13.0.0",
-    "yaml": "^2.7.0",
-    "zod-validation-error": "^3.4.0",
-    "express": "^5.2.1",
-    "pg": "^8.17.1",
-    "zod": "^3.24.2",
-    "ws": "^8.18.0",
-    "@symbia/auth": "file:./vendor/symbia-auth",
-    "@symbia/crypto": "file:./vendor/symbia-crypto",
-    "@symbia/db": "file:./vendor/symbia-db",
-    "@symbia/egress": "file:./vendor/symbia-egress",
-    "@symbia/id": "file:./vendor/symbia-id",
-    "@symbia/lineage": "file:./vendor/symbia-lineage",
-    "@symbia/logging-client": "file:./vendor/symbia-logging-client",
-    "@symbia/md": "file:./vendor/symbia-md",
-    "@symbia/messaging-client": "file:./vendor/symbia-messaging-client",
-    "@symbia/models-client": "file:./vendor/symbia-models-client",
-    "@symbia/pathguard": "file:./vendor/symbia-pathguard",
-    "@symbia/redact": "file:./vendor/symbia-redact",
-    "@symbia/relay": "file:./vendor/symbia-relay",
-    "@symbia/seed": "file:./vendor/symbia-seed",
-    "@symbia/sys": "file:./vendor/symbia-sys",
-    "cookie-parser": "^1.4.7"
-  },
+  "dependencies": {},
   "optionalComment": [
     "WHAT A NEW USER WAITS FOR, AND WHAT THEY DO NOT.",
     "Measured 17 Aug against the packaged plugin: the first-run install was 263 MB. googleapis was 114 MB of it (43%) and node-llama-cpp 52 MB (20%) — 63% of the wait, for two capabilities an ephemeral stack does not use on the way to its first message.",
@@ -60,5 +29,7 @@
   "optionalDependencies": {
     "googleapis": "^148.0.0",
     "node-llama-cpp": "^3.3.0"
-  }
+  },
+  "symbiaVendored": true,
+  "_vendored": "Runtime dependencies are bundled into sidecar/, services/ and chunks/ at package time (imagine/vendor-bundle.mjs). Nothing is installed on launch. optionalDependencies are the capabilities left out; `npm install <name>` here adds one."
 }

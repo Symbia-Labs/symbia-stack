@@ -1,3 +1,467 @@
+import { createRequire as __symbiaCreateRequire } from "node:module";globalThis.require ??= __symbiaCreateRequire(import.meta.url);
+import {
+  v4_default
+} from "../chunks/chunk-HRJVIKUH.mjs";
+import {
+  GENESIS,
+  advance,
+  signEvent
+} from "../chunks/chunk-X6QZCZWF.mjs";
+import "../chunks/chunk-KBV6ZZYE.mjs";
+import "../chunks/chunk-P45NL53C.mjs";
+import "../chunks/chunk-QBVP4NZ7.mjs";
+import "../chunks/chunk-ZEHBX6Z6.mjs";
+import {
+  DEFAULT_ORG_IDS
+} from "../chunks/chunk-SYI65BHD.mjs";
+import {
+  canonicalJson,
+  loadServiceIdentity,
+  sha256Hex,
+  signDocument
+} from "../chunks/chunk-2JVNKTJS.mjs";
+import {
+  createModelsClient,
+  outbound_exports
+} from "../chunks/chunk-26D4SBW3.mjs";
+import {
+  emitEvent
+} from "../chunks/chunk-L3PULR7W.mjs";
+import {
+  safeFetch
+} from "../chunks/chunk-ZNW4YLHV.mjs";
+import "../chunks/chunk-DC2WQTDC.mjs";
+import {
+  require_express
+} from "../chunks/chunk-WXJ3LX3E.mjs";
+import "../chunks/chunk-SG5E4KLZ.mjs";
+import "../chunks/chunk-QB3Z7RRP.mjs";
+import "../chunks/chunk-MXWCS3YP.mjs";
+import {
+  registerDocRoutes
+} from "../chunks/chunk-5LPTNHU5.mjs";
+import {
+  ServiceId,
+  getRefSuggestions,
+  interpolate,
+  interpolateObject,
+  parseRef,
+  resolveRef,
+  resolveServiceUrl,
+  validateTemplate
+} from "../chunks/chunk-B6I54FM5.mjs";
+import {
+  and,
+  boolean,
+  clearSessionContext,
+  desc,
+  eq,
+  index,
+  initializeDatabase,
+  integer,
+  jsonb,
+  pgEnum,
+  pgTable,
+  relations,
+  runWithRLSContext,
+  setSessionContext,
+  text,
+  timestamp,
+  uniqueIndex,
+  uuid,
+  varchar
+} from "../chunks/chunk-DSXICZVV.mjs";
+import "../chunks/chunk-572SKMOA.mjs";
+import {
+  __toESM
+} from "../chunks/chunk-JCYRGLK6.mjs";
+
+// build/plugin/symbia-imagine/services/assistants.mjs
+import { createHash } from "node:crypto";
+
+// build/plugin/symbia-imagine/vendor/symbia-messaging-client/dist/client.js
+var DEFAULT_ENDPOINT = "http://localhost:5005";
+var MessagingClient = class {
+  endpoint;
+  token;
+  apiKey;
+  onError;
+  constructor(config = {}) {
+    const env = typeof process !== "undefined" ? process.env : {};
+    this.endpoint = (config.endpoint || env?.MESSAGING_ENDPOINT || DEFAULT_ENDPOINT).replace(/\/$/, "");
+    this.token = config.token || env?.MESSAGING_SERVICE_TOKEN;
+    this.apiKey = config.apiKey || env?.MESSAGING_API_KEY;
+    this.onError = config.onError;
+  }
+  /**
+   * Set authentication token
+   */
+  setToken(token) {
+    this.token = token;
+  }
+  /**
+   * Set API key
+   */
+  setApiKey(apiKey) {
+    this.apiKey = apiKey;
+  }
+  getHeaders(asUserId, orgId) {
+    const headers2 = {
+      "Content-Type": "application/json"
+    };
+    if (this.token) {
+      headers2["Authorization"] = `Bearer ${this.token}`;
+    }
+    if (this.apiKey) {
+      headers2["X-API-Key"] = this.apiKey;
+    }
+    if (asUserId) {
+      headers2["X-As-User-Id"] = asUserId;
+    }
+    if (orgId) {
+      headers2["X-Org-Id"] = orgId;
+    }
+    return headers2;
+  }
+  async request(method, path2, body, options) {
+    const url = `${this.endpoint}${path2}`;
+    const headers2 = this.getHeaders(options?.asUserId, options?.orgId);
+    try {
+      const response = await fetch(url, {
+        method,
+        headers: headers2,
+        body: body ? JSON.stringify(body) : void 0
+      });
+      if (!response.ok) {
+        const errorText = await response.text();
+        const error = new Error(`Messaging API error: ${response.status} - ${errorText}`);
+        this.onError?.(error);
+        throw error;
+      }
+      if (response.status === 204) {
+        return void 0;
+      }
+      return response.json();
+    } catch (error) {
+      if (error instanceof Error) {
+        this.onError?.(error);
+      }
+      throw error;
+    }
+  }
+  // ============================================
+  // Conversation Operations
+  // ============================================
+  /**
+   * Create a new conversation
+   */
+  async createConversation(params, options) {
+    return this.request("POST", "/api/conversations", {
+      type: params.type,
+      name: params.name,
+      description: params.description,
+      orgId: params.orgId,
+      participants: params.participants,
+      metadata: params.metadata
+    }, options);
+  }
+  /**
+   * Get a conversation by ID
+   */
+  async getConversation(conversationId, options) {
+    try {
+      return await this.request("GET", `/api/conversations/${conversationId}`, void 0, options);
+    } catch (error) {
+      if (error instanceof Error && error.message.includes("404")) {
+        return null;
+      }
+      throw error;
+    }
+  }
+  /**
+   * List conversations for the authenticated user
+   */
+  async listConversations(orgId, options) {
+    const query = orgId ? `?orgId=${encodeURIComponent(orgId)}` : "";
+    return this.request("GET", `/api/conversations${query}`, void 0, { ...options, orgId });
+  }
+  /**
+   * Update a conversation
+   */
+  async updateConversation(conversationId, updates, options) {
+    return this.request("PATCH", `/api/conversations/${conversationId}`, updates, options);
+  }
+  /**
+   * Delete a conversation
+   */
+  async deleteConversation(conversationId, options) {
+    await this.request("DELETE", `/api/conversations/${conversationId}`, void 0, options);
+  }
+  // ============================================
+  // Participant Operations
+  // ============================================
+  /**
+   * Add a participant to a conversation
+   */
+  async addParticipant(conversationId, userId, userType = "user", options) {
+    return this.request("POST", `/api/conversations/${conversationId}/participants`, {
+      userId,
+      userType
+    }, options);
+  }
+  /**
+   * Remove a participant from a conversation
+   */
+  async removeParticipant(conversationId, userId, options) {
+    await this.request("DELETE", `/api/conversations/${conversationId}/participants/${userId}`, void 0, options);
+  }
+  /**
+   * Join a conversation (as the authenticated user)
+   */
+  async joinConversation(conversationId, options) {
+    return this.request("POST", `/api/conversations/${conversationId}/join`, void 0, options);
+  }
+  /**
+   * Leave a conversation
+   */
+  async leaveConversation(conversationId, options) {
+    await this.request("POST", `/api/conversations/${conversationId}/leave`, void 0, options);
+  }
+  // ============================================
+  // Message Operations
+  // ============================================
+  /**
+   * Send a message to a conversation
+   */
+  async sendMessage(params, options) {
+    return this.request("POST", `/api/conversations/${params.conversationId}/messages`, {
+      content: params.content,
+      contentType: params.contentType || "text",
+      replyTo: params.replyTo,
+      metadata: params.metadata,
+      runId: params.runId,
+      traceId: params.traceId,
+      priority: params.priority,
+      interruptible: params.interruptible
+    }, options);
+  }
+  /**
+   * Get messages in a conversation
+   */
+  async getMessages(conversationId, params, options) {
+    const searchParams = new URLSearchParams();
+    if (params?.limit) {
+      searchParams.set("limit", params.limit.toString());
+    }
+    if (params?.before) {
+      const before = params.before instanceof Date ? params.before.toISOString() : params.before;
+      searchParams.set("before", before);
+    }
+    if (params?.after) {
+      const after = params.after instanceof Date ? params.after.toISOString() : params.after;
+      searchParams.set("after", after);
+    }
+    const query = searchParams.toString() ? `?${searchParams.toString()}` : "";
+    return this.request("GET", `/api/conversations/${conversationId}/messages${query}`, void 0, options);
+  }
+  /**
+   * Send a control event to a conversation
+   */
+  async sendControl(conversationId, params, options) {
+    return this.request("POST", `/api/conversations/${conversationId}/control`, params, options);
+  }
+};
+function createMessagingClient(config) {
+  return new MessagingClient(config);
+}
+
+// build/plugin/symbia-imagine/vendor/symbia-pathguard/dist/index.js
+import * as path from "path";
+import * as fsp from "fs/promises";
+function matchGlob(relativePath, pattern) {
+  const escaped = pattern.replace(/[.+^${}()|[\]\\]/g, "\\$&");
+  const regex = escaped.replace(/\*\*\//g, "").replace(/\*\*/g, "\0").replace(/\*/g, "[^/]*").replace(/\?/g, "[^/]").replace(/\u0001/g, "(?:.*\\/)?").replace(/\u0000/g, ".*");
+  return new RegExp(`^${regex}$`).test(relativePath);
+}
+function isPathBlocked(relativePath, blockedPaths) {
+  return blockedPaths.some((p) => matchGlob(relativePath, p));
+}
+function isPathAllowed(relativePath, policy) {
+  if (isPathBlocked(relativePath, policy.blockedPaths))
+    return false;
+  if (policy.paths.length === 0)
+    return true;
+  return policy.paths.some((p) => matchGlob(relativePath, p));
+}
+async function resolveConfinedPath(rootPath, targetPath, policy) {
+  const root = path.resolve(rootPath);
+  const resolved = path.resolve(root, targetPath ?? ".");
+  if (resolved !== root && !resolved.startsWith(root + path.sep)) {
+    throw new Error("Path escapes workspace");
+  }
+  const realRoot = await fsp.realpath(root);
+  let existing = resolved;
+  for (; ; ) {
+    try {
+      const real = await fsp.realpath(existing);
+      const remainder = path.relative(existing, resolved);
+      const realResolved = remainder ? path.join(real, remainder) : real;
+      if (realResolved !== realRoot && !realResolved.startsWith(realRoot + path.sep)) {
+        throw new Error("Path escapes workspace (symlink)");
+      }
+      break;
+    } catch (err) {
+      if (err?.code === "ENOENT") {
+        const parent = path.dirname(existing);
+        if (parent === existing)
+          break;
+        existing = parent;
+        continue;
+      }
+      throw err;
+    }
+  }
+  if (policy) {
+    const rel = path.relative(root, resolved);
+    if (rel) {
+      if (isPathBlocked(rel, policy.blockedPaths)) {
+        throw new Error(`Path is blocked by workspace policy: ${rel}`);
+      }
+      if (!isPathAllowed(rel, policy)) {
+        throw new Error(`Path is not in the workspace's allowed paths: ${rel}`);
+      }
+    }
+  }
+  return resolved;
+}
+
+// build/plugin/symbia-imagine/services/assistants.mjs
+import { createHash as createHash2 } from "node:crypto";
+import { runInNewContext } from "node:vm";
+import { createHash as createHash3 } from "node:crypto";
+var import_express = __toESM(require_express(), 1);
+
+// build/plugin/symbia-imagine/vendor/symbia-id/dist/index.js
+var IDENTITY_DEFAULT_PORT = 5001;
+function getIdentityServiceUrl() {
+  return process.env.IDENTITY_SERVICE_URL || process.env.IDENTITY_URL || `http://localhost:${IDENTITY_DEFAULT_PORT}`;
+}
+var tokenCache = /* @__PURE__ */ new Map();
+var TOKEN_REFRESH_BUFFER_MS = 5 * 60 * 1e3;
+var DEFAULT_TOKEN_LIFETIME_MS = 7 * 24 * 60 * 60 * 1e3;
+var IdentityClient = class {
+  baseUrl;
+  agentCredential;
+  constructor(config = {}) {
+    this.baseUrl = config.baseUrl || getIdentityServiceUrl();
+    this.agentCredential = config.agentCredential || process.env.AGENT_CREDENTIAL || "symbia-agent-dev-secret-32chars-min!!";
+  }
+  async request(method, path2, body, token) {
+    const url = `${this.baseUrl}${path2}`;
+    const headers2 = {
+      "Content-Type": "application/json"
+    };
+    if (token) {
+      headers2["Authorization"] = `Bearer ${token}`;
+    }
+    const response = await fetch(url, {
+      method,
+      headers: headers2,
+      body: body ? JSON.stringify(body) : void 0
+    });
+    if (!response.ok) {
+      const error = await response.text();
+      throw new Error(`Identity API error: ${response.status} - ${error}`);
+    }
+    if (response.status === 204) {
+      return void 0;
+    }
+    return response.json();
+  }
+  // ===========================================================================
+  // User Authentication
+  // ===========================================================================
+  /**
+   * Login a user with email and password
+   */
+  async loginUser(email, password) {
+    return this.request("POST", "/api/auth/user/login", { email, password });
+  }
+  /**
+   * Get current user info from a token
+   */
+  async getUser(token) {
+    return this.request("GET", "/api/auth/user/me", void 0, token);
+  }
+  /**
+   * Introspect a token to get user/agent info
+   */
+  async introspect(token) {
+    return this.request("POST", "/api/auth/introspect", { token }, token);
+  }
+  // ===========================================================================
+  // Agent Authentication
+  // ===========================================================================
+  /**
+   * Login an agent with agentId and credential
+   */
+  async loginAgent(agentId, credential) {
+    return this.request("POST", "/api/auth/agent/login", {
+      agentId,
+      credential: credential || this.agentCredential
+    });
+  }
+  /**
+   * Get current agent info from a token
+   */
+  async getAgent(token) {
+    return this.request("GET", "/api/auth/agent/me", void 0, token);
+  }
+  /**
+   * Register a new agent
+   */
+  async registerAgent(data) {
+    return this.request("POST", "/api/auth/agent/register", data);
+  }
+};
+var defaultClient = null;
+function getDefaultClient() {
+  if (!defaultClient) {
+    defaultClient = new IdentityClient();
+  }
+  return defaultClient;
+}
+function createIdentityClient(config) {
+  return new IdentityClient(config);
+}
+async function getAgentToken(agentId, client) {
+  const cacheKey = agentId;
+  const cached2 = tokenCache.get(cacheKey);
+  if (cached2 && cached2.expiresAt > Date.now() + TOKEN_REFRESH_BUFFER_MS) {
+    return cached2.token;
+  }
+  const identityClient = client || getDefaultClient();
+  const { token } = await identityClient.loginAgent(agentId);
+  tokenCache.set(cacheKey, {
+    token,
+    expiresAt: Date.now() + DEFAULT_TOKEN_LIFETIME_MS
+  });
+  console.log(`[Identity] Agent ${agentId} authenticated`);
+  return token;
+}
+function clearAgentToken(agentId) {
+  tokenCache.delete(agentId);
+}
+
+// build/plugin/symbia-imagine/services/assistants.mjs
+var import_express2 = __toESM(require_express(), 1);
+var import_express3 = __toESM(require_express(), 1);
+var import_express4 = __toESM(require_express(), 1);
+var import_express5 = __toESM(require_express(), 1);
+var import_express6 = __toESM(require_express(), 1);
+var import_express7 = __toESM(require_express(), 1);
+var import_express8 = __toESM(require_express(), 1);
+var import_express9 = __toESM(require_express(), 1);
 var __defProp = Object.defineProperty;
 var __getOwnPropNames = Object.getOwnPropertyNames;
 var __esm = (fn, res) => function __init() {
@@ -7,22 +471,6 @@ var __export = (target, all) => {
   for (var name in all)
     __defProp(target, name, { get: all[name], enumerable: true });
 };
-
-// ../assistants/server/src/engine/provenance.ts
-import { createHash } from "node:crypto";
-import {
-  GENESIS,
-  advance,
-  sha256Hex,
-  signEvent,
-  verifyEvent
-} from "@symbia/lineage";
-import {
-  canonicalJson,
-  loadServiceIdentity,
-  signDocument,
-  verifyDocument
-} from "@symbia/crypto";
 function provenanceSigningIdentity() {
   return serviceIdentity();
 }
@@ -226,7 +674,9 @@ function seal(input) {
     hash
   };
 }
-var cachedIdentity, chainHeads, CONTENT_ACTIONS;
+var cachedIdentity;
+var chainHeads;
+var CONTENT_ACTIONS;
 var init_provenance = __esm({
   "../assistants/server/src/engine/provenance.ts"() {
     "use strict";
@@ -240,10 +690,8 @@ var init_provenance = __esm({
     ]);
   }
 });
-
-// ../assistants/server/src/engine/condition-evaluator.ts
-function getNestedValue(obj, path) {
-  const parts = path.split(".");
+function getNestedValue(obj, path2) {
+  const parts = path2.split(".");
   let current = obj;
   for (const part of parts) {
     if (current === null || current === void 0) {
@@ -430,8 +878,6 @@ var init_condition_evaluator = __esm({
     "use strict";
   }
 });
-
-// ../assistants/server/src/engine/actions/base.ts
 var BaseActionHandler;
 var init_base = __esm({
   "../assistants/server/src/engine/actions/base.ts"() {
@@ -456,10 +902,6 @@ var init_base = __esm({
     };
   }
 });
-
-// ../assistants/server/src/integrations-client.ts
-import { resolveServiceUrl, ServiceId } from "@symbia/sys";
-import { createModelsClient } from "@symbia/models-client";
 async function invokeViaModels(token, options) {
   const { provider = "openai", model = "gpt-4o-mini", messages: messages2, temperature, maxTokens, orgId } = options;
   const headers2 = { Authorization: `Bearer ${token}` };
@@ -674,7 +1116,10 @@ async function invokeEmbedding(token, options) {
     throw error;
   }
 }
-var INTEGRATIONS_SERVICE_URL, modelsClient, TokenAuthError, DEFAULT_MODEL;
+var INTEGRATIONS_SERVICE_URL;
+var modelsClient;
+var TokenAuthError;
+var DEFAULT_MODEL;
 var init_integrations_client = __esm({
   "../assistants/server/src/integrations-client.ts"() {
     "use strict";
@@ -700,28 +1145,18 @@ var init_integrations_client = __esm({
     };
   }
 });
-
-// ../assistants/server/src/engine/template.ts
 var template_exports = {};
 __export(template_exports, {
   formatValue: () => formatValue,
   getContextValue: () => getContextValue,
   getRefSuggestions: () => getRefSuggestions,
-  interpolate: () => interpolate,
-  interpolateObject: () => interpolateObject,
+  interpolate: () => interpolate2,
+  interpolateObject: () => interpolateObject2,
   parseRef: () => parseRef,
   resolveRef: () => resolveRef,
   toResolutionContext: () => toResolutionContext,
   validateTemplate: () => validateTemplate
 });
-import {
-  interpolate as scriptInterpolate,
-  interpolateObject as scriptInterpolateObject,
-  parseRef,
-  resolveRef,
-  getRefSuggestions,
-  validateTemplate
-} from "@symbia/sys";
 function toResolutionContext(ctx) {
   return {
     orgId: ctx.orgId,
@@ -788,21 +1223,21 @@ function toResolutionContext(ctx) {
     steps: ctx.context?.steps
   };
 }
-function interpolate(template, ctx) {
+function interpolate2(template, ctx) {
   const resCtx = toResolutionContext(ctx);
-  return scriptInterpolate(template, resCtx);
+  return interpolate(template, resCtx);
 }
-function interpolateObject(obj, ctx) {
+function interpolateObject2(obj, ctx) {
   const resCtx = toResolutionContext(ctx);
-  return scriptInterpolateObject(obj, resCtx);
+  return interpolateObject(obj, resCtx);
 }
-function getContextValue(path, ctx) {
+function getContextValue(path2, ctx) {
   const resCtx = toResolutionContext(ctx);
-  if (path.startsWith("@")) {
-    const result = resolveRef(path, resCtx);
+  if (path2.startsWith("@")) {
+    const result = resolveRef(path2, resCtx);
     return result.success ? result.value : void 0;
   }
-  const parts = path.split(".");
+  const parts = path2.split(".");
   const walk = (root) => {
     let current = root;
     for (const part of parts) {
@@ -834,8 +1269,6 @@ var init_template = __esm({
     init_assistant_loader();
   }
 });
-
-// ../assistants/server/src/engine/answer-policy.ts
 function parseAnswerPolicy(raw) {
   if (!raw || typeof raw !== "object") return null;
   const r = raw;
@@ -892,9 +1325,6 @@ var init_answer_policy = __esm({
     };
   }
 });
-
-// ../assistants/server/src/services/speaker.ts
-import { ServiceId as ServiceId2, resolveServiceUrl as resolveServiceUrl2 } from "@symbia/sys";
 function renderSpeaker(speaker) {
   if (!speaker) return "";
   const room = (speaker.otherParticipants ?? []).filter((p) => !p.name.startsWith("assistant:")).map((p) => p.capacity ? `${p.name} (${p.capacity})` : p.name);
@@ -912,9 +1342,6 @@ var init_speaker = __esm({
     TTL_MS = Number(process.env.SPEAKER_CACHE_TTL_MS || 6e4);
   }
 });
-
-// ../assistants/server/src/services/matter.ts
-import { ServiceId as ServiceId3, resolveServiceUrl as resolveServiceUrl3 } from "@symbia/sys";
 function renderMatter(matter) {
   if (!matter) return "";
   if ("unreadable" in matter) {
@@ -930,8 +1357,6 @@ var init_matter = __esm({
     "use strict";
   }
 });
-
-// ../assistants/server/src/engine/actions/attachments.ts
 function buildAttachmentBlock(context, template) {
   const meta = context.message?.metadata ?? {};
   const frame = meta.symbiaFrame;
@@ -977,13 +1402,10 @@ var init_attachments = __esm({
     "use strict";
   }
 });
-
-// ../assistants/server/src/engine/conversation-history.ts
-import { resolveServiceUrl as resolveServiceUrl4 } from "@symbia/sys";
 async function fetchPriorTurns(conversationId, selfPrincipalId, opts = {}) {
   const limit = opts.limit ?? DEFAULT_TURNS;
   if (!conversationId) return { turns: [], error: "no conversationId on the execution context" };
-  const base = resolveServiceUrl4("messaging");
+  const base = resolveServiceUrl("messaging");
   const url = `${base}/api/conversations/${encodeURIComponent(conversationId)}/messages?limit=${limit + 1}`;
   const ctl = new AbortController();
   const timer = setTimeout(() => ctl.abort(), 6e3);
@@ -1019,7 +1441,8 @@ async function fetchPriorTurns(conversationId, selfPrincipalId, opts = {}) {
     clearTimeout(timer);
   }
 }
-var DEFAULT_TURNS, MAX_CHARS;
+var DEFAULT_TURNS;
+var MAX_CHARS;
 var init_conversation_history = __esm({
   "../assistants/server/src/engine/conversation-history.ts"() {
     "use strict";
@@ -1027,8 +1450,6 @@ var init_conversation_history = __esm({
     MAX_CHARS = Number(process.env.ASSISTANT_HISTORY_MAX_CHARS || 1200);
   }
 });
-
-// ../assistants/server/src/engine/actions/llm-invoke.ts
 var LLMInvokeHandler;
 var init_llm_invoke = __esm({
   "../assistants/server/src/engine/actions/llm-invoke.ts"() {
@@ -1092,11 +1513,11 @@ var init_llm_invoke = __esm({
       }
       buildPrompt(params, context) {
         const template = params.promptTemplate || params.userPrompt || "{{message.content}}";
-        const prompt = interpolate(template, context);
+        const prompt = interpolate2(template, context);
         return prompt + buildAttachmentBlock(context, template);
       }
       async callLLM(params, prompt, context) {
-        const interpolatedSystem = interpolate(
+        const interpolatedSystem = interpolate2(
           params.systemPrompt || "You are a helpful assistant.",
           context
         );
@@ -1183,9 +1604,9 @@ var init_llm_invoke = __esm({
     };
   }
 });
-
-// ../assistants/server/src/engine/actions/handoff.ts
-var HandoffCreateHandler, HandoffAssignHandler, HandoffResolveHandler;
+var HandoffCreateHandler;
+var HandoffAssignHandler;
+var HandoffResolveHandler;
 var init_handoff = __esm({
   "../assistants/server/src/engine/actions/handoff.ts"() {
     "use strict";
@@ -1276,9 +1697,6 @@ var init_handoff = __esm({
     };
   }
 });
-
-// ../assistants/server/src/engine/actions/message.ts
-import { outbound } from "@symbia/redact";
 var MessageSendHandler;
 var init_message = __esm({
   "../assistants/server/src/engine/actions/message.ts"() {
@@ -1294,8 +1712,8 @@ var init_message = __esm({
         try {
           let content = params.content || "";
           const template = params.template || params.contentTemplate || content;
-          content = interpolate(template, context);
-          const redaction = outbound.redactOutbound(content);
+          content = interpolate2(template, context);
+          const redaction = outbound_exports.redactOutbound(content);
           if (!redaction.clean) {
             content = redaction.text;
             console.warn(
@@ -1306,7 +1724,7 @@ var init_message = __esm({
           const modelStepIds = steps.filter((st) => st.action === "llm.invoke").map((st) => st.id);
           const contentFromModel = modelStepIds.some((id) => template.includes(id));
           const delegation = context.message?.metadata?.symbia?.delegation;
-          const fields = params.fields ? interpolateObject({ ...params.fields }, context) : void 0;
+          const fields = params.fields ? interpolateObject2({ ...params.fields }, context) : void 0;
           const envelope = seal({
             content,
             fields,
@@ -1348,9 +1766,6 @@ var init_message = __esm({
     };
   }
 });
-
-// ../assistants/server/src/engine/actions/notify.ts
-import { safeFetch } from "@symbia/egress";
 var NotifyHandler;
 var init_notify = __esm({
   "../assistants/server/src/engine/actions/notify.ts"() {
@@ -1365,7 +1780,7 @@ var init_notify = __esm({
         try {
           let content = params.content || "";
           if (params.contentTemplate) {
-            content = interpolate(params.contentTemplate, context);
+            content = interpolate2(params.contentTemplate, context);
           }
           const notification = {
             id: crypto.randomUUID(),
@@ -1417,9 +1832,8 @@ var init_notify = __esm({
     };
   }
 });
-
-// ../assistants/server/src/engine/actions/state-transition.ts
-var VALID_TRANSITIONS, StateTransitionHandler;
+var VALID_TRANSITIONS;
+var StateTransitionHandler;
 var init_state_transition = __esm({
   "../assistants/server/src/engine/actions/state-transition.ts"() {
     "use strict";
@@ -1465,8 +1879,6 @@ var init_state_transition = __esm({
     };
   }
 });
-
-// ../assistants/server/src/engine/actions/context-update.ts
 var ContextUpdateHandler;
 var init_context_update = __esm({
   "../assistants/server/src/engine/actions/context-update.ts"() {
@@ -1533,9 +1945,6 @@ var init_context_update = __esm({
     };
   }
 });
-
-// ../assistants/server/src/engine/actions/webhook-call.ts
-import { safeFetch as safeFetch2 } from "@symbia/egress";
 var WebhookCallHandler;
 var init_webhook_call = __esm({
   "../assistants/server/src/engine/actions/webhook-call.ts"() {
@@ -1551,12 +1960,12 @@ var init_webhook_call = __esm({
           return this.failure("url is required", Date.now() - start2);
         }
         try {
-          const url = interpolate(params.url, context);
+          const url = interpolate2(params.url, context);
           const method = params.method || "POST";
           const timeout = params.timeout || 3e4;
           let body;
           if (params.bodyTemplate) {
-            body = interpolate(params.bodyTemplate, context);
+            body = interpolate2(params.bodyTemplate, context);
           } else if (params.body) {
             body = JSON.stringify(params.body);
           } else if (method !== "GET" && method !== "DELETE") {
@@ -1575,7 +1984,7 @@ var init_webhook_call = __esm({
           const controller = new AbortController();
           const timeoutId = setTimeout(() => controller.abort(), timeout);
           try {
-            const response = await safeFetch2(url, {
+            const response = await safeFetch(url, {
               method,
               headers: headers2,
               body,
@@ -1611,23 +2020,20 @@ var init_webhook_call = __esm({
     };
   }
 });
-
-// ../assistants/server/src/engine/actions/service-call.ts
-import { ServiceId as ServiceId4, resolveServiceUrl as resolveServiceUrl5 } from "@symbia/sys";
 function getServiceEndpoint(service) {
   const serviceMap = {
-    logging: ServiceId4.LOGGING,
-    catalog: ServiceId4.CATALOG,
-    identity: ServiceId4.IDENTITY,
-    messaging: ServiceId4.MESSAGING,
-    runtime: ServiceId4.RUNTIME,
-    network: ServiceId4.NETWORK,
-    integrations: ServiceId4.INTEGRATIONS,
+    logging: ServiceId.LOGGING,
+    catalog: ServiceId.CATALOG,
+    identity: ServiceId.IDENTITY,
+    messaging: ServiceId.MESSAGING,
+    runtime: ServiceId.RUNTIME,
+    network: ServiceId.NETWORK,
+    integrations: ServiceId.INTEGRATIONS,
     // Absent until 16 Aug, which stranded local inference behind the assistant
     // layer: with llm.invoke gated on a broken health probe, the obvious
     // workaround — service.call straight to /v1/chat/completions — failed with
     // "Unknown service: models". Every other mounted service was addressable.
-    models: ServiceId4.MODELS,
+    models: ServiceId.MODELS,
     // THE ONE SERVICE THIS ENGINE COULD NOT CALL WAS ITS OWN.
     //
     // Eight services were addressable and `assistants` was not, which nothing
@@ -1640,13 +2046,13 @@ function getServiceEndpoint(service) {
     // Self-addressing is the ordinary case for an engine whose service also
     // publishes data the rules want. Its absence was not a decision, it was a
     // list that was never finished.
-    assistants: ServiceId4.ASSISTANTS
+    assistants: ServiceId.ASSISTANTS
   };
   const serviceId = serviceMap[service];
   if (!serviceId) return null;
   const envOverride = process.env[`${service.toUpperCase()}_ENDPOINT`];
   if (envOverride) return envOverride;
-  return resolveServiceUrl5(serviceId);
+  return resolveServiceUrl(serviceId);
 }
 var ServiceCallHandler;
 var init_service_call = __esm({
@@ -1665,8 +2071,8 @@ var init_service_call = __esm({
           if (!baseUrl) {
             return this.failure(`Unknown service: ${params.service}`, Date.now() - start2);
           }
-          const resolvedPath = interpolate(params.path, context);
-          const resolvedBody = params.body ? interpolateObject(params.body, context) : void 0;
+          const resolvedPath = interpolate2(params.path, context);
+          const resolvedBody = params.body ? interpolateObject2(params.body, context) : void 0;
           const basePath = params.basePath ?? "/api";
           const url = `${baseUrl}${basePath}${resolvedPath}`;
           const token = context.metadata?.token;
@@ -1712,8 +2118,6 @@ var init_service_call = __esm({
     };
   }
 });
-
-// ../assistants/server/src/engine/actions/wait.ts
 var WaitHandler;
 var init_wait = __esm({
   "../assistants/server/src/engine/actions/wait.ts"() {
@@ -1762,13 +2166,11 @@ var init_wait = __esm({
         }
       }
       sleep(ms) {
-        return new Promise((resolve) => setTimeout(resolve, ms));
+        return new Promise((resolve2) => setTimeout(resolve2, ms));
       }
     };
   }
 });
-
-// ../assistants/server/src/engine/actions/parallel.ts
 var ParallelHandler;
 var init_parallel = __esm({
   "../assistants/server/src/engine/actions/parallel.ts"() {
@@ -1888,8 +2290,6 @@ var init_parallel = __esm({
     };
   }
 });
-
-// ../assistants/server/src/engine/actions/condition.ts
 var ConditionHandler;
 var init_condition = __esm({
   "../assistants/server/src/engine/actions/condition.ts"() {
@@ -1968,8 +2368,6 @@ var init_condition = __esm({
     };
   }
 });
-
-// ../assistants/server/src/engine/actions/loop.ts
 var LoopHandler;
 var init_loop = __esm({
   "../assistants/server/src/engine/actions/loop.ts"() {
@@ -2072,8 +2470,8 @@ var init_loop = __esm({
           };
         }
       }
-      resolveContextPath(path, context) {
-        const parts = path.split(".");
+      resolveContextPath(path2, context) {
+        const parts = path2.split(".");
         let current = context;
         for (const part of parts) {
           if (current === null || current === void 0) {
@@ -2086,10 +2484,6 @@ var init_loop = __esm({
     };
   }
 });
-
-// ../assistants/server/src/engine/actions/assistant-route.ts
-import { emitEvent } from "@symbia/relay";
-import { createMessagingClient } from "@symbia/messaging-client";
 var AssistantRouteHandler;
 var init_assistant_route = __esm({
   "../assistants/server/src/engine/actions/assistant-route.ts"() {
@@ -2253,8 +2647,6 @@ var init_assistant_route = __esm({
     };
   }
 });
-
-// ../assistants/server/src/config/llm-config-resolver.ts
 function deepMerge(target, source) {
   const result = { ...target };
   for (const key of Object.keys(source)) {
@@ -2359,7 +2751,8 @@ function shouldUseLLMFallback(resolvedConfig, embeddingSimilarity) {
   }
   return true;
 }
-var SYSTEM_DEFAULTS, PRESETS;
+var SYSTEM_DEFAULTS;
+var PRESETS;
 var init_llm_config_resolver = __esm({
   "../assistants/server/src/config/llm-config-resolver.ts"() {
     "use strict";
@@ -2515,9 +2908,9 @@ var init_llm_config_resolver = __esm({
     };
   }
 });
-
-// ../assistants/server/src/engine/actions/embedding-route.ts
-var embeddingCache, CACHE_TTL_MS, EmbeddingRouteHandler;
+var embeddingCache;
+var CACHE_TTL_MS;
+var EmbeddingRouteHandler;
 var init_embedding_route = __esm({
   "../assistants/server/src/engine/actions/embedding-route.ts"() {
     "use strict";
@@ -2727,13 +3120,15 @@ var init_embedding_route = __esm({
     };
   }
 });
-
-// ../assistants/server/src/engine/actions/code-tool-invoke.ts
-import { resolveConfinedPath, isPathBlocked } from "@symbia/pathguard";
 async function resolveSafePath(workspace, targetPath) {
   return resolveConfinedPath(workspace.rootPath, targetPath, workspace.permissions);
 }
-var CODE_TOOLS_ENABLED, DEFAULT_BLOCKED_PATHS, workspaces, CodeToolInvokeHandler, WorkspaceCreateHandler, WorkspaceDestroyHandler;
+var CODE_TOOLS_ENABLED;
+var DEFAULT_BLOCKED_PATHS;
+var workspaces;
+var CodeToolInvokeHandler;
+var WorkspaceCreateHandler;
+var WorkspaceDestroyHandler;
 var init_code_tool_invoke = __esm({
   "../assistants/server/src/engine/actions/code-tool-invoke.ts"() {
     "use strict";
@@ -2817,14 +3212,14 @@ var init_code_tool_invoke = __esm({
       }
       async executeFileWrite(params, workspace) {
         const fs = await import("fs/promises");
-        const path = await import("path");
+        const path2 = await import("path");
         if (!workspace.permissions.write) {
           throw new Error("Write permission denied");
         }
         const filePath = params.path;
         const content = params.content;
         const fullPath = await resolveSafePath(workspace, filePath);
-        await fs.mkdir(path.dirname(fullPath), { recursive: true });
+        await fs.mkdir(path2.dirname(fullPath), { recursive: true });
         await fs.writeFile(fullPath, content, "utf-8");
         return {
           path: filePath,
@@ -2833,7 +3228,7 @@ var init_code_tool_invoke = __esm({
       }
       async executeFileEdit(params, workspace) {
         const fs = await import("fs/promises");
-        const path = await import("path");
+        const path2 = await import("path");
         if (!workspace.permissions.write) {
           throw new Error("Write permission denied");
         }
@@ -2857,7 +3252,7 @@ var init_code_tool_invoke = __esm({
       }
       async executeGlob(params, workspace) {
         const fs = await import("fs/promises");
-        const path = await import("path");
+        const path2 = await import("path");
         if (!workspace.permissions.read) {
           throw new Error("Read permission denied");
         }
@@ -2867,20 +3262,20 @@ var init_code_tool_invoke = __esm({
         await this.findFilesRecursive(cwd, pattern, files, 1e3, workspace);
         return {
           pattern,
-          files: files.map((f) => path.relative(workspace.rootPath, f)),
+          files: files.map((f) => path2.relative(workspace.rootPath, f)),
           truncated: files.length >= 1e3
         };
       }
       async findFilesRecursive(dir, pattern, results, maxResults, workspace) {
         const fs = await import("fs/promises");
-        const path = await import("path");
+        const path2 = await import("path");
         if (results.length >= maxResults) return;
         try {
           const entries = await fs.readdir(dir, { withFileTypes: true });
           for (const entry of entries) {
             if (results.length >= maxResults) break;
-            const fullPath = path.join(dir, entry.name);
-            const relPath = path.relative(workspace.rootPath, fullPath);
+            const fullPath = path2.join(dir, entry.name);
+            const relPath = path2.relative(workspace.rootPath, fullPath);
             if (isPathBlocked(relPath, workspace.permissions.blockedPaths)) continue;
             if (entry.isDirectory() && !entry.name.startsWith(".")) {
               await this.findFilesRecursive(fullPath, pattern, results, maxResults, workspace);
@@ -2899,7 +3294,7 @@ var init_code_tool_invoke = __esm({
       }
       async executeGrep(params, workspace) {
         const fs = await import("fs/promises");
-        const path = await import("path");
+        const path2 = await import("path");
         if (!workspace.permissions.read) {
           throw new Error("Read permission denied");
         }
@@ -2916,14 +3311,14 @@ var init_code_tool_invoke = __esm({
       }
       async searchFilesRecursive(dir, rootPath, regex, results, maxResults, workspace) {
         const fs = await import("fs/promises");
-        const path = await import("path");
+        const path2 = await import("path");
         if (results.length >= maxResults) return;
         try {
           const entries = await fs.readdir(dir, { withFileTypes: true });
           for (const entry of entries) {
             if (results.length >= maxResults) break;
-            const fullPath = path.join(dir, entry.name);
-            const relPath = path.relative(workspace.rootPath, fullPath);
+            const fullPath = path2.join(dir, entry.name);
+            const relPath = path2.relative(workspace.rootPath, fullPath);
             if (isPathBlocked(relPath, workspace.permissions.blockedPaths)) continue;
             if (entry.isDirectory() && !entry.name.startsWith(".") && entry.name !== "node_modules") {
               await this.searchFilesRecursive(fullPath, rootPath, regex, results, maxResults, workspace);
@@ -2934,7 +3329,7 @@ var init_code_tool_invoke = __esm({
                 for (let i = 0; i < lines.length && results.length < maxResults; i++) {
                   if (regex.test(lines[i])) {
                     results.push({
-                      file: path.relative(rootPath, fullPath),
+                      file: path2.relative(rootPath, fullPath),
                       line: i + 1,
                       content: lines[i].trim()
                     });
@@ -2950,7 +3345,7 @@ var init_code_tool_invoke = __esm({
       }
       async executeLs(params, workspace) {
         const fs = await import("fs/promises");
-        const path = await import("path");
+        const path2 = await import("path");
         if (!workspace.permissions.read) {
           throw new Error("Read permission denied");
         }
@@ -2960,7 +3355,7 @@ var init_code_tool_invoke = __esm({
         const result = [];
         for (const entry of entries) {
           if (!params.includeHidden && entry.name.startsWith(".")) continue;
-          const entryPath = path.join(fullPath, entry.name);
+          const entryPath = path2.join(fullPath, entry.name);
           const stat = await fs.stat(entryPath).catch(() => null);
           result.push({
             name: entry.name,
@@ -2983,12 +3378,12 @@ var init_code_tool_invoke = __esm({
         const start2 = Date.now();
         const params = config.params;
         try {
-          const { v4: uuid2 } = await import("uuid");
+          const { v4: uuid2 } = await import("../chunks/dist-node-IGJIYF57.mjs");
           const os = await import("os");
-          const path = await import("path");
+          const path2 = await import("path");
           const fs = await import("fs/promises");
           const workspaceId = uuid2();
-          const rootPath = path.join(os.tmpdir(), "symbia-workspaces", workspaceId);
+          const rootPath = path2.join(os.tmpdir(), "symbia-workspaces", workspaceId);
           await fs.mkdir(rootPath, { recursive: true });
           const requested = params.permissions ?? {};
           const workspace = {
@@ -3046,8 +3441,6 @@ var init_code_tool_invoke = __esm({
     };
   }
 });
-
-// ../assistants/server/src/engine/conversation-memory.ts
 function recall(conversationId) {
   return conversationId ? memory.get(conversationId) : void 0;
 }
@@ -3135,7 +3528,11 @@ function countTurn(conversationId, kind) {
   counts.set(kind, seen + 1);
   return seen;
 }
-var memory, BACK_REFERENCES, REPEAT, CORRECTIONS, turnCounts;
+var memory;
+var BACK_REFERENCES;
+var REPEAT;
+var CORRECTIONS;
+var turnCounts;
 var init_conversation_memory = __esm({
   "../assistants/server/src/engine/conversation-memory.ts"() {
     "use strict";
@@ -3161,8 +3558,6 @@ var init_conversation_memory = __esm({
     turnCounts = /* @__PURE__ */ new Map();
   }
 });
-
-// ../assistants/server/src/engine/conversational-turns.ts
 function classifyTurn(text2) {
   const t = String(text2 ?? "");
   for (const [kind, re] of PATTERNS) {
@@ -3186,7 +3581,10 @@ ${roster}`;
   if (seen === 1) return `${DECLINED}Still outside what my team covers, I am afraid.`;
   return `${DECLINED}Also no \u2014 arithmetic is genuinely all I have people for.`;
 }
-var PATTERNS, CONVERSATIONAL_TURN_PATTERNS, REPLIES, DECLINED;
+var PATTERNS;
+var CONVERSATIONAL_TURN_PATTERNS;
+var REPLIES;
+var DECLINED;
 var init_conversational_turns = __esm({
   "../assistants/server/src/engine/conversational-turns.ts"() {
     "use strict";
@@ -3242,8 +3640,6 @@ var init_conversational_turns = __esm({
     DECLINED = "DECLINED::";
   }
 });
-
-// ../assistants/server/src/engine/explain-provenance.ts
 function aspectOf(question) {
   for (const [re, aspect] of ASPECT_PATTERNS) if (re.test(question)) return aspect;
   return "full";
@@ -3360,7 +3756,8 @@ ${describeSteps(envelope).join("\n")}`;
       ].filter((l) => l !== void 0).join("\n");
   }
 }
-var ASPECT_PATTERNS, PROVENANCE_QUESTION_PATTERNS;
+var ASPECT_PATTERNS;
+var PROVENANCE_QUESTION_PATTERNS;
 var init_explain_provenance = __esm({
   "../assistants/server/src/engine/explain-provenance.ts"() {
     "use strict";
@@ -3390,9 +3787,6 @@ var init_explain_provenance = __esm({
     );
   }
 });
-
-// ../assistants/server/src/engine/intent-classifier.ts
-import { createHash as createHash2 } from "node:crypto";
 function features(text2) {
   const norm = String(text2 ?? "").toLowerCase().replace(/\d+(?:\.\d+)?/g, "0").replace(/\s+/g, " ").trim();
   const out = [];
@@ -3401,7 +3795,10 @@ function features(text2) {
   for (let i = 0; i + 3 <= padded.length; i++) out.push(`c:${padded.slice(i, i + 3)}`);
   return out;
 }
-var NONE_CLASS, DEFAULT_NEGATIVES, IntentClassifier, intentClassifier;
+var NONE_CLASS;
+var DEFAULT_NEGATIVES;
+var IntentClassifier;
+var intentClassifier;
 var init_intent_classifier = __esm({
   "../assistants/server/src/engine/intent-classifier.ts"() {
     "use strict";
@@ -3523,10 +3920,6 @@ var init_intent_classifier = __esm({
     intentClassifier = new IntentClassifier();
   }
 });
-
-// ../assistants/server/src/engine/actions/tool-invoke.ts
-import { runInNewContext } from "node:vm";
-import { createHash as createHash3 } from "node:crypto";
 function stripFiller(raw) {
   const out = String(raw ?? "").replace(CONVERSATIONAL_FILLER, "");
   return out.trim() === "" ? String(raw ?? "") : out;
@@ -3539,7 +3932,13 @@ function normalizeMathInput(raw) {
   const stripped = s.trim();
   return stripped === "" ? raw.trim() : stripped;
 }
-var MATH_LEAD_IN, CONVERSATIONAL_FILLER, MathEvaluator, UnitConverter, StatsAnalyzer, CodeExecutor, ToolInvokeHandler;
+var MATH_LEAD_IN;
+var CONVERSATIONAL_FILLER;
+var MathEvaluator;
+var UnitConverter;
+var StatsAnalyzer;
+var CodeExecutor;
+var ToolInvokeHandler;
 var init_tool_invoke = __esm({
   "../assistants/server/src/engine/actions/tool-invoke.ts"() {
     "use strict";
@@ -3905,7 +4304,7 @@ var init_tool_invoke = __esm({
               Date.now() - start2
             );
           }
-          const input = interpolate(params.input || "", context);
+          const input = interpolate2(params.input || "", context);
           let result;
           switch (params.tool) {
             case "math.evaluate":
@@ -4194,16 +4593,14 @@ ${suggestion}`
     };
   }
 });
-
-// ../assistants/server/src/engine/actions/integration-invoke.ts
-import { resolveServiceUrl as resolveServiceUrl6, ServiceId as ServiceId5 } from "@symbia/sys";
-var INTEGRATIONS_SERVICE_URL2, IntegrationInvokeHandler;
+var INTEGRATIONS_SERVICE_URL2;
+var IntegrationInvokeHandler;
 var init_integration_invoke = __esm({
   "../assistants/server/src/engine/actions/integration-invoke.ts"() {
     "use strict";
     init_base();
     init_template();
-    INTEGRATIONS_SERVICE_URL2 = resolveServiceUrl6(ServiceId5.INTEGRATIONS);
+    INTEGRATIONS_SERVICE_URL2 = resolveServiceUrl(ServiceId.INTEGRATIONS);
     IntegrationInvokeHandler = class extends BaseActionHandler {
       type = "integration.invoke";
       async execute(config, context) {
@@ -4262,7 +4659,7 @@ var init_integration_invoke = __esm({
         }
       }
       buildTemplatedBody(template, context) {
-        const replaced = interpolate(template, context);
+        const replaced = interpolate2(template, context);
         try {
           return JSON.parse(replaced);
         } catch {
@@ -4272,12 +4669,11 @@ var init_integration_invoke = __esm({
     };
   }
 });
-
-// ../assistants/server/src/engine/actions/index.ts
 function getActionHandler(type) {
   return handlerMap.get(type);
 }
-var handlers, handlerMap;
+var handlers;
+var handlerMap;
 var init_actions = __esm({
   "../assistants/server/src/engine/actions/index.ts"() {
     "use strict";
@@ -4355,8 +4751,6 @@ var init_actions = __esm({
     }
   }
 });
-
-// ../assistants/server/src/engine/rule-executor.ts
 function describeSource(action, output) {
   const p = action.params || {};
   switch (action.type) {
@@ -4391,7 +4785,8 @@ function describeSource(action, output) {
       return action.type;
   }
 }
-var RuleExecutor, ruleExecutor;
+var RuleExecutor;
+var ruleExecutor;
 var init_rule_executor = __esm({
   "../assistants/server/src/engine/rule-executor.ts"() {
     "use strict";
@@ -4654,8 +5049,6 @@ var init_rule_executor = __esm({
     ruleExecutor = new RuleExecutor();
   }
 });
-
-// ../assistants/server/src/engine/run-coordinator.ts
 function setRuleSet(orgId, ruleSet) {
   inMemoryRuleSets[orgId] = ruleSet;
 }
@@ -4665,7 +5058,12 @@ function getRuns() {
 function clearRuns() {
   inMemoryRuns.length = 0;
 }
-var RunCoordinator, inMemoryState, inMemoryContext, inMemoryRuleSets, inMemoryRuns, defaultCoordinator;
+var RunCoordinator;
+var inMemoryState;
+var inMemoryContext;
+var inMemoryRuleSets;
+var inMemoryRuns;
+var defaultCoordinator;
 var init_run_coordinator = __esm({
   "../assistants/server/src/engine/run-coordinator.ts"() {
     "use strict";
@@ -4776,11 +5174,6 @@ var init_run_coordinator = __esm({
     });
   }
 });
-
-// ../assistants/server/src/routes/assistants/rule-based-handler.ts
-import { Router } from "express";
-import { resolveServiceUrl as resolveServiceUrl7, ServiceId as ServiceId6 } from "@symbia/sys";
-import { createIdentityClient } from "@symbia/id";
 async function getCoordinatorToken() {
   if (coordinatorTokenCache && Date.now() < coordinatorTokenCache.expires) {
     return coordinatorTokenCache.token;
@@ -4807,7 +5200,7 @@ async function getCoordinatorToken() {
   }
 }
 function createRuleBasedAssistantRouter(config) {
-  const router8 = Router();
+  const router8 = (0, import_express.Router)();
   const defaultOrgId = "default";
   setRuleSet(`${config.key}:${defaultOrgId}`, config.defaultRules);
   router8.get("/", (_req, res) => {
@@ -4854,7 +5247,7 @@ function createRuleBasedAssistantRouter(config) {
       return;
     }
     try {
-      const messagingUrl = resolveServiceUrl7(ServiceId6.MESSAGING);
+      const messagingUrl = resolveServiceUrl(ServiceId.MESSAGING);
       const token = req.headers.authorization;
       const messagesResponse = await fetch(
         `${messagingUrl}/api/conversations/${conversationId}/messages?limit=10`,
@@ -4958,7 +5351,8 @@ function extractCapabilities(ruleSet) {
   }
   return Array.from(capabilities);
 }
-var coordinatorTokenCache, BOOTSTRAP_AGENT_CREDENTIAL;
+var coordinatorTokenCache;
+var BOOTSTRAP_AGENT_CREDENTIAL;
 var init_rule_based_handler = __esm({
   "../assistants/server/src/routes/assistants/rule-based-handler.ts"() {
     "use strict";
@@ -4968,10 +5362,6 @@ var init_rule_based_handler = __esm({
     BOOTSTRAP_AGENT_CREDENTIAL = process.env.AGENT_CREDENTIAL || "symbia-agent-dev-secret-32chars-min!!";
   }
 });
-
-// ../assistants/server/src/middleware/auth.ts
-import { resolveServiceUrl as resolveServiceUrl8 } from "@symbia/sys";
-import { runWithRLSContext } from "@symbia/db";
 function extractToken(req) {
   const authHeader = req.headers.authorization;
   if (authHeader?.startsWith("Bearer ")) {
@@ -5124,12 +5514,9 @@ var IDENTITY_SERVICE_URL;
 var init_auth = __esm({
   "../assistants/server/src/middleware/auth.ts"() {
     "use strict";
-    IDENTITY_SERVICE_URL = process.env.IDENTITY_ENDPOINT || resolveServiceUrl8("identity");
+    IDENTITY_SERVICE_URL = process.env.IDENTITY_ENDPOINT || resolveServiceUrl("identity");
   }
 });
-
-// ../assistants/server/src/routes/rules.ts
-import { Router as Router2 } from "express";
 function getParam(params, key) {
   const value = params[key];
   return Array.isArray(value) ? value[0] : value ?? "";
@@ -5141,13 +5528,15 @@ function registerRuleSet(orgId, ruleSet) {
 function getAllRuleSets() {
   return ruleSets;
 }
-var router, ruleSets, rules_default;
+var router;
+var ruleSets;
+var rules_default;
 var init_rules = __esm({
   "../assistants/server/src/routes/rules.ts"() {
     "use strict";
     init_run_coordinator();
     init_auth();
-    router = Router2();
+    router = (0, import_express2.Router)();
     router.use(requireAuth);
     ruleSets = {};
     router.get("/", (_req, res) => {
@@ -5280,8 +5669,6 @@ var init_rules = __esm({
     rules_default = router;
   }
 });
-
-// ../assistants/server/src/services/assistant-loader.ts
 var assistant_loader_exports = {};
 __export(assistant_loader_exports, {
   createAssistantsListRouter: () => createAssistantsListRouter,
@@ -5291,13 +5678,11 @@ __export(assistant_loader_exports, {
   loadedAssistantKey: () => loadedAssistantKey,
   resolveAssistant: () => resolveAssistant
 });
-import { Router as Router3 } from "express";
-import { ServiceId as ServiceId7, resolveServiceUrl as resolveServiceUrl9 } from "@symbia/sys";
 function getCatalogEndpoint() {
   if (process.env.CATALOG_ENDPOINT) {
     return process.env.CATALOG_ENDPOINT;
   }
-  return `${resolveServiceUrl9(ServiceId7.CATALOG)}/api`;
+  return `${resolveServiceUrl(ServiceId.CATALOG)}/api`;
 }
 async function fetchFromCatalog(type, options = {}) {
   const { maxRetries = 5, retryDelayMs = 2e3, status } = options;
@@ -5312,7 +5697,7 @@ async function fetchFromCatalog(type, options = {}) {
       if (!response.ok) {
         console.warn(`[Assistant Loader] Catalog returned ${response.status} for type=${type} (attempt ${attempt}/${maxRetries})`);
         if (attempt < maxRetries) {
-          await new Promise((resolve) => setTimeout(resolve, retryDelayMs));
+          await new Promise((resolve2) => setTimeout(resolve2, retryDelayMs));
           continue;
         }
         return [];
@@ -5324,7 +5709,7 @@ async function fetchFromCatalog(type, options = {}) {
       }
       if (attempt < maxRetries) {
         console.log(`[Assistant Loader] Catalog returned 0 ${type}s, retrying in ${retryDelayMs}ms... (attempt ${attempt}/${maxRetries})`);
-        await new Promise((resolve) => setTimeout(resolve, retryDelayMs));
+        await new Promise((resolve2) => setTimeout(resolve2, retryDelayMs));
         continue;
       }
       return [];
@@ -5332,7 +5717,7 @@ async function fetchFromCatalog(type, options = {}) {
       const errorMsg = error instanceof Error ? error.message : String(error);
       if (attempt < maxRetries) {
         console.warn(`[Assistant Loader] Failed to fetch from Catalog (attempt ${attempt}/${maxRetries}): ${errorMsg}`);
-        await new Promise((resolve) => setTimeout(resolve, retryDelayMs));
+        await new Promise((resolve2) => setTimeout(resolve2, retryDelayMs));
         continue;
       }
       console.warn("[Assistant Loader] Failed to fetch from Catalog after all retries:", errorMsg);
@@ -5580,7 +5965,7 @@ function ruleSetToRoutines(ruleSet) {
   }));
 }
 function createAssistantsListRouter() {
-  const router8 = Router3();
+  const router8 = (0, import_express3.Router)();
   router8.get("/", (_req, res) => {
     const assistants = getAllLoadedAssistants().map((a) => ({
       key: a.resource.key.includes("/") ? a.resource.key.split("/").pop() : a.resource.key,
@@ -5632,8 +6017,6 @@ var init_assistant_loader = __esm({
     loadedAssistants = /* @__PURE__ */ new Map();
   }
 });
-
-// ../assistants/shared/schema.ts
 var schema_exports = {};
 __export(schema_exports, {
   actorPrincipals: () => actorPrincipals,
@@ -5702,9 +6085,71 @@ __export(schema_exports, {
   users: () => users,
   usersRelations: () => usersRelations
 });
-import { pgTable, uuid, varchar, text, timestamp, jsonb, boolean, integer, pgEnum, uniqueIndex, index } from "drizzle-orm/pg-core";
-import { relations } from "drizzle-orm";
-var orgs, membershipRoleEnum, orgMemberships, users, conversationStatusEnum, conversations, participantRoleEnum, conversationParticipants, eventTypeEnum, conversationEvents, contextSnapshots, messageRoleEnum, messages, promptSequences, stepTypeEnum, promptSequenceSteps, providerTypeEnum, llmProviders, providerUsageLogs, handoffStatusEnum, handoffRequests, contextSourceTypeEnum, contextSources, inferredContexts, catalogBindings, messagingChannelTypeEnum, messagingChannels, notificationStatusEnum, notifications, auditLogs, orgsRelations, usersRelations, orgMembershipsRelations, conversationsRelations, conversationParticipantsRelations, conversationEventsRelations, contextSnapshotsRelations, messagesRelations, promptSequencesRelations, promptSequenceStepsRelations, llmProvidersRelations, providerUsageLogsRelations, handoffRequestsRelations, contextSourcesRelations, inferredContextsRelations, catalogBindingsRelations, messagingChannelsRelations, notificationsRelations, auditLogsRelations, promptGraphs, compiledGraphs, graphRunStatusEnum, graphRunPriorityEnum, graphRuns, runLogLevelEnum, runLogs, principalTypeEnum, agentPrincipals, actorPrincipals, promptGraphsRelations, compiledGraphsRelations, graphRunsRelations, runLogsRelations, agentPrincipalsRelations, actorPrincipalsRelations;
+var orgs;
+var membershipRoleEnum;
+var orgMemberships;
+var users;
+var conversationStatusEnum;
+var conversations;
+var participantRoleEnum;
+var conversationParticipants;
+var eventTypeEnum;
+var conversationEvents;
+var contextSnapshots;
+var messageRoleEnum;
+var messages;
+var promptSequences;
+var stepTypeEnum;
+var promptSequenceSteps;
+var providerTypeEnum;
+var llmProviders;
+var providerUsageLogs;
+var handoffStatusEnum;
+var handoffRequests;
+var contextSourceTypeEnum;
+var contextSources;
+var inferredContexts;
+var catalogBindings;
+var messagingChannelTypeEnum;
+var messagingChannels;
+var notificationStatusEnum;
+var notifications;
+var auditLogs;
+var orgsRelations;
+var usersRelations;
+var orgMembershipsRelations;
+var conversationsRelations;
+var conversationParticipantsRelations;
+var conversationEventsRelations;
+var contextSnapshotsRelations;
+var messagesRelations;
+var promptSequencesRelations;
+var promptSequenceStepsRelations;
+var llmProvidersRelations;
+var providerUsageLogsRelations;
+var handoffRequestsRelations;
+var contextSourcesRelations;
+var inferredContextsRelations;
+var catalogBindingsRelations;
+var messagingChannelsRelations;
+var notificationsRelations;
+var auditLogsRelations;
+var promptGraphs;
+var compiledGraphs;
+var graphRunStatusEnum;
+var graphRunPriorityEnum;
+var graphRuns;
+var runLogLevelEnum;
+var runLogs;
+var principalTypeEnum;
+var agentPrincipals;
+var actorPrincipals;
+var promptGraphsRelations;
+var compiledGraphsRelations;
+var graphRunsRelations;
+var runLogsRelations;
+var agentPrincipalsRelations;
+var actorPrincipalsRelations;
 var init_schema = __esm({
   "../assistants/shared/schema.ts"() {
     "use strict";
@@ -6235,8 +6680,6 @@ var init_schema = __esm({
     actorPrincipalsRelations = agentPrincipalsRelations;
   }
 });
-
-// ../assistants/server/src/lib/memory-schema.ts
 var MEMORY_SCHEMA_SQL;
 var init_memory_schema = __esm({
   "../assistants/server/src/lib/memory-schema.ts"() {
@@ -6391,8 +6834,6 @@ CREATE TABLE "bot_principals" (
 `;
   }
 });
-
-// ../assistants/server/src/lib/db.ts
 var db_exports = {};
 __export(db_exports, {
   clearSessionContext: () => clearSessionContext,
@@ -6405,7 +6846,6 @@ __export(db_exports, {
   setRLSContext: () => setRLSContext,
   setSessionContext: () => setSessionContext
 });
-import { initializeDatabase, setSessionContext, clearSessionContext } from "@symbia/db";
 async function setRLSContext(context) {
   await setSessionContext(pool, {
     orgId: context.orgId || "",
@@ -6415,7 +6855,12 @@ async function setRLSContext(context) {
     serviceId: "assistants"
   });
 }
-var database, db, pool, isMemory, exportToFile, close;
+var database;
+var db;
+var pool;
+var isMemory;
+var exportToFile;
+var close;
 var init_db = __esm({
   "../assistants/server/src/lib/db.ts"() {
     "use strict";
@@ -6429,14 +6874,11 @@ var init_db = __esm({
     ({ db, pool, isMemory, exportToFile, close } = database);
   }
 });
-
-// ../assistants/server/src/capability-digest.ts
 var capability_digest_exports = {};
 __export(capability_digest_exports, {
   buildCapabilityDigest: () => buildCapabilityDigest,
   renderDigest: () => renderDigest
 });
-import { resolveServiceUrl as resolveServiceUrl10 } from "@symbia/sys";
 async function getJson(url, timeoutMs = 6e3) {
   const ctl = new AbortController();
   const t = setTimeout(() => ctl.abort(), timeoutMs);
@@ -6470,7 +6912,7 @@ function describedIn(llms) {
   return line ? line.trim().replace(/^>\s*/, "").trim() : null;
 }
 async function factsFor(service) {
-  const base = resolveServiceUrl10(service);
+  const base = resolveServiceUrl(service);
   try {
     const [llms, spec] = await Promise.all([
       getText(`${base}/docs/llms.txt`).catch(() => ""),
@@ -6500,7 +6942,7 @@ async function factsFor(service) {
 }
 async function assistantRoster() {
   try {
-    const base = resolveServiceUrl10("assistants");
+    const base = resolveServiceUrl("assistants");
     const body = await getJson(`${base}/api/assistants?limit=50`);
     const rows = Array.isArray(body) ? body : body?.assistants ?? [];
     return rows.map((a) => ({
@@ -6515,7 +6957,7 @@ async function assistantRoster() {
 }
 async function mcpTools() {
   try {
-    const base = resolveServiceUrl10("integrations");
+    const base = resolveServiceUrl("integrations");
     const info = await getJson(`${base}/api/integrations/mcp/info`);
     const tools = info.tools ?? info.capabilities?.tools;
     if (Array.isArray(tools)) {
@@ -6579,7 +7021,10 @@ function renderDigest(d, opts = {}) {
   }
   return lines.join("\n");
 }
-var SERVICES, TTL_MS2, cached, PROVENANCE_WORDS;
+var SERVICES;
+var TTL_MS2;
+var cached;
+var PROVENANCE_WORDS;
 var init_capability_digest = __esm({
   "../assistants/server/src/capability-digest.ts"() {
     "use strict";
@@ -6599,24 +7044,16 @@ var init_capability_digest = __esm({
     PROVENANCE_WORDS = /(provenance|lineage|attest|receipt|chain|seal|promote|signature|sign|verify|digest|hash)/i;
   }
 });
-
-// ../assistants/server/src/service.ts
 init_assistant_loader();
 init_rules();
-
-// ../assistants/server/src/routes.ts
 init_db();
-
-// ../assistants/server/src/routes/graphs.ts
 init_db();
 init_schema();
-import { Router as Router4 } from "express";
-import { eq, and, desc } from "drizzle-orm";
 function getParam2(params, key) {
   const value = params[key];
   return Array.isArray(value) ? value[0] : value ?? "";
 }
-var router2 = Router4();
+var router2 = (0, import_express4.Router)();
 function requireOrgId(req, res) {
   const authedOrgId = req.orgId;
   const orgId = authedOrgId || req.headers["x-org-id"];
@@ -6772,17 +7209,13 @@ router2.get("/:id/runs", async (req, res) => {
   }
 });
 var graphs_default = router2;
-
-// ../assistants/server/src/routes/runs.ts
 init_db();
 init_schema();
-import { Router as Router5 } from "express";
-import { eq as eq2, and as and2, desc as desc2 } from "drizzle-orm";
 function getParam3(params, key) {
   const value = params[key];
   return Array.isArray(value) ? value[0] : value ?? "";
 }
-var router3 = Router5();
+var router3 = (0, import_express5.Router)();
 function requireOrgId2(req, res) {
   const authedOrgId = req.orgId;
   const orgId = authedOrgId || req.headers["x-org-id"];
@@ -6797,11 +7230,11 @@ router3.get("/", async (req, res) => {
     const orgId = requireOrgId2(req, res);
     if (!orgId) return;
     const { conversationId, graphId, status } = req.query;
-    let conditions = [eq2(graphRuns.orgId, orgId)];
-    if (conversationId) conditions.push(eq2(graphRuns.conversationId, conversationId));
-    if (graphId) conditions.push(eq2(graphRuns.graphId, graphId));
-    if (status) conditions.push(eq2(graphRuns.status, status));
-    const runs = await db.select().from(graphRuns).where(and2(...conditions)).orderBy(desc2(graphRuns.startedAt)).limit(100);
+    let conditions = [eq(graphRuns.orgId, orgId)];
+    if (conversationId) conditions.push(eq(graphRuns.conversationId, conversationId));
+    if (graphId) conditions.push(eq(graphRuns.graphId, graphId));
+    if (status) conditions.push(eq(graphRuns.status, status));
+    const runs = await db.select().from(graphRuns).where(and(...conditions)).orderBy(desc(graphRuns.startedAt)).limit(100);
     res.json({ runs });
   } catch (error) {
     console.error("Error fetching runs:", error);
@@ -6813,7 +7246,7 @@ router3.get("/:id", async (req, res) => {
     const orgId = requireOrgId2(req, res);
     if (!orgId) return;
     const id = getParam3(req.params, "id");
-    const run = await db.select().from(graphRuns).where(and2(eq2(graphRuns.id, id), eq2(graphRuns.orgId, orgId))).limit(1);
+    const run = await db.select().from(graphRuns).where(and(eq(graphRuns.id, id), eq(graphRuns.orgId, orgId))).limit(1);
     if (!run.length) {
       return res.status(404).json({ error: "Run not found" });
     }
@@ -6829,13 +7262,13 @@ router3.get("/:id/logs", async (req, res) => {
     if (!orgId) return;
     const id = getParam3(req.params, "id");
     const { level } = req.query;
-    const run = await db.select().from(graphRuns).where(and2(eq2(graphRuns.id, id), eq2(graphRuns.orgId, orgId))).limit(1);
+    const run = await db.select().from(graphRuns).where(and(eq(graphRuns.id, id), eq(graphRuns.orgId, orgId))).limit(1);
     if (!run.length) {
       return res.status(404).json({ error: "Run not found" });
     }
-    let conditions = [eq2(runLogs.runId, id)];
-    if (level) conditions.push(eq2(runLogs.level, level));
-    const logs = await db.select().from(runLogs).where(and2(...conditions)).orderBy(desc2(runLogs.createdAt)).limit(500);
+    let conditions = [eq(runLogs.runId, id)];
+    if (level) conditions.push(eq(runLogs.level, level));
+    const logs = await db.select().from(runLogs).where(and(...conditions)).orderBy(desc(runLogs.createdAt)).limit(500);
     res.json({ logs });
   } catch (error) {
     console.error("Error fetching logs:", error);
@@ -6843,20 +7276,14 @@ router3.get("/:id/logs", async (req, res) => {
   }
 });
 var runs_default = router3;
-
-// ../assistants/server/src/routes.ts
 init_auth();
-
-// ../assistants/server/src/routes/actors.ts
 init_db();
 init_schema();
-import { Router as Router6 } from "express";
-import { eq as eq3, and as and3, desc as desc3 } from "drizzle-orm";
 function getParam4(params, key) {
   const value = params[key];
   return Array.isArray(value) ? value[0] : value ?? "";
 }
-var router4 = Router6();
+var router4 = (0, import_express6.Router)();
 function requireOrgId3(req, res) {
   const orgId = req.headers["x-org-id"] || req.query.orgId || req.body?.orgId;
   if (!orgId) {
@@ -6870,7 +7297,7 @@ router4.get("/", async (req, res) => {
     const orgId = requireOrgId3(req, res);
     if (!orgId) return;
     const principalType = req.query.type;
-    let query = db.select().from(agentPrincipals).where(eq3(agentPrincipals.orgId, orgId)).orderBy(desc3(agentPrincipals.createdAt));
+    let query = db.select().from(agentPrincipals).where(eq(agentPrincipals.orgId, orgId)).orderBy(desc(agentPrincipals.createdAt));
     const agents = await query;
     const filtered = principalType ? agents.filter((a) => a.principalType === principalType) : agents;
     res.json(filtered);
@@ -6884,7 +7311,7 @@ router4.get("/:id", async (req, res) => {
     const orgId = requireOrgId3(req, res);
     if (!orgId) return;
     const id = getParam4(req.params, "id");
-    const agent = await db.select().from(agentPrincipals).where(and3(eq3(agentPrincipals.id, id), eq3(agentPrincipals.orgId, orgId))).limit(1);
+    const agent = await db.select().from(agentPrincipals).where(and(eq(agentPrincipals.id, id), eq(agentPrincipals.orgId, orgId))).limit(1);
     if (!agent.length) {
       return res.status(404).json({ error: "Agent not found" });
     }
@@ -6942,7 +7369,7 @@ router4.put("/:id", async (req, res) => {
       assistantConfig,
       isActive,
       updatedAt: /* @__PURE__ */ new Date()
-    }).where(and3(eq3(agentPrincipals.id, id), eq3(agentPrincipals.orgId, orgId))).returning();
+    }).where(and(eq(agentPrincipals.id, id), eq(agentPrincipals.orgId, orgId))).returning();
     if (!updated) {
       return res.status(404).json({ error: "Agent not found" });
     }
@@ -6957,7 +7384,7 @@ router4.delete("/:id", async (req, res) => {
     const orgId = requireOrgId3(req, res);
     if (!orgId) return;
     const id = getParam4(req.params, "id");
-    const [deleted] = await db.delete(agentPrincipals).where(and3(eq3(agentPrincipals.id, id), eq3(agentPrincipals.orgId, orgId))).returning();
+    const [deleted] = await db.delete(agentPrincipals).where(and(eq(agentPrincipals.id, id), eq(agentPrincipals.orgId, orgId))).returning();
     if (!deleted) {
       return res.status(404).json({ error: "Agent not found" });
     }
@@ -6968,8 +7395,6 @@ router4.delete("/:id", async (req, res) => {
   }
 });
 var actors_default = router4;
-
-// ../assistants/server/src/routes/webhooks.ts
 init_db();
 init_schema();
 init_run_coordinator();
@@ -6980,21 +7405,8 @@ init_assistant_loader();
 init_integrations_client();
 init_speaker();
 init_matter();
-import { Router as Router7 } from "express";
-import { eq as eq4, and as and4, desc as desc4 } from "drizzle-orm";
-import { v4 as uuidv4 } from "uuid";
-import { createMessagingClient as createMessagingClient2 } from "@symbia/messaging-client";
-import { getAgentToken, createIdentityClient as createIdentityClient2, clearAgentToken } from "@symbia/id";
-import {
-  emitEvent as emitEvent2,
-  emitClaim,
-  emitDefer,
-  emitObserve,
-  waitForClaimWindow
-} from "@symbia/relay";
-import { DEFAULT_ORG_IDS } from "@symbia/seed";
 var DEFAULT_ORG_ID = DEFAULT_ORG_IDS.SYMBIA_LABS;
-var router5 = Router7();
+var router5 = (0, import_express7.Router)();
 var bootstrapTokenCache = /* @__PURE__ */ new Map();
 var catalogCache = null;
 var catalogCacheExpiry = 0;
@@ -7029,7 +7441,7 @@ async function getAssistantToken(assistantUserId, assistantKey, forceRefresh = f
     }
     let token = bootstrapTokenCache.get(assistantUserId);
     if (!token) {
-      const identityClient = createIdentityClient2();
+      const identityClient = createIdentityClient();
       const credential = BOOTSTRAP_AGENT_CREDENTIAL2;
       try {
         const result = await identityClient.registerAgent({
@@ -7071,7 +7483,7 @@ async function getAssistantMessagingClient(assistantUserId, assistantKey) {
   if (loadedAssistant?.resource.isBootstrap) {
     let token = bootstrapTokenCache.get(assistantUserId);
     if (!token) {
-      const identityClient = createIdentityClient2();
+      const identityClient = createIdentityClient();
       try {
         const result = await identityClient.registerAgent({
           agentId: assistantUserId,
@@ -7094,12 +7506,12 @@ async function getAssistantMessagingClient(assistantUserId, assistantKey) {
         }
       }
     }
-    const client2 = createMessagingClient2({ token });
+    const client2 = createMessagingClient({ token });
     return { client: client2, asUserId: void 0 };
   }
   const agentToken = await getAgentToken(assistantUserId);
   console.log(`[Webhook] Using agent token for catalog assistant: ${assistantKey}`);
-  const client = createMessagingClient2({ token: agentToken });
+  const client = createMessagingClient({ token: agentToken });
   return { client, asUserId: void 0 };
 }
 router5.post("/message", async (req, res) => {
@@ -7108,10 +7520,10 @@ router5.post("/message", async (req, res) => {
     if (!envelope.conversationId || !envelope.orgId || !envelope.to?.principalId) {
       return res.status(400).json({ error: "Invalid message envelope" });
     }
-    const actor = await db.select().from(actorPrincipals).where(and4(
-      eq4(actorPrincipals.principalId, envelope.to.principalId),
-      eq4(actorPrincipals.orgId, envelope.orgId),
-      eq4(actorPrincipals.isActive, true)
+    const actor = await db.select().from(actorPrincipals).where(and(
+      eq(actorPrincipals.principalId, envelope.to.principalId),
+      eq(actorPrincipals.orgId, envelope.orgId),
+      eq(actorPrincipals.isActive, true)
     )).limit(1);
     if (!actor.length) {
       return res.status(404).json({ error: "Actor principal not found or inactive" });
@@ -7119,20 +7531,20 @@ router5.post("/message", async (req, res) => {
     const actorData = actor[0];
     let run = null;
     if (envelope.runId) {
-      const existingRun = await db.select().from(graphRuns).where(and4(
-        eq4(graphRuns.id, envelope.runId),
-        eq4(graphRuns.orgId, envelope.orgId)
+      const existingRun = await db.select().from(graphRuns).where(and(
+        eq(graphRuns.id, envelope.runId),
+        eq(graphRuns.orgId, envelope.orgId)
       )).limit(1);
       run = existingRun[0] || null;
     }
     if (!run && actorData.defaultGraphId) {
-      const latestCompiled = await db.select().from(compiledGraphs).where(eq4(compiledGraphs.graphId, actorData.defaultGraphId)).orderBy(desc4(compiledGraphs.version)).limit(1);
+      const latestCompiled = await db.select().from(compiledGraphs).where(eq(compiledGraphs.graphId, actorData.defaultGraphId)).orderBy(desc(compiledGraphs.version)).limit(1);
       const [newRun] = await db.insert(graphRuns).values({
         graphId: actorData.defaultGraphId,
         compiledGraphId: latestCompiled[0]?.id,
         conversationId: envelope.conversationId,
         orgId: envelope.orgId,
-        traceId: envelope.traceId || uuidv4(),
+        traceId: envelope.traceId || v4_default(),
         priority: envelope.priority || "normal",
         state: {
           currentNode: "start",
@@ -7232,8 +7644,8 @@ router5.post("/messaging", async (req, res) => {
       },
       catalog
     };
-    const { interpolate: interpolate2 } = await Promise.resolve().then(() => (init_template(), template_exports));
-    const transpiled = interpolate2(payload.message.content, executionContext);
+    const { interpolate: interpolate22 } = await Promise.resolve().then(() => (init_template(), template_exports));
+    const transpiled = interpolate22(payload.message.content, executionContext);
     console.log(`[Webhook] Transpiled message:`, {
       original: payload.message.content,
       transpiled
@@ -7422,10 +7834,10 @@ router5.post("/control", async (req, res) => {
     if (!event.event || !event.conversationId || !event.orgId) {
       return res.status(400).json({ error: "Invalid control event: event, conversationId, and orgId required" });
     }
-    const runs = await db.select().from(graphRuns).where(and4(
-      eq4(graphRuns.conversationId, event.conversationId),
-      eq4(graphRuns.orgId, event.orgId),
-      eq4(graphRuns.status, "running")
+    const runs = await db.select().from(graphRuns).where(and(
+      eq(graphRuns.conversationId, event.conversationId),
+      eq(graphRuns.orgId, event.orgId),
+      eq(graphRuns.status, "running")
     )).limit(10);
     for (const run of runs) {
       let newStatus = run.status;
@@ -7453,7 +7865,7 @@ router5.post("/control", async (req, res) => {
           ...run.state,
           lastControlEvent: event
         }
-      }).where(eq4(graphRuns.id, run.id));
+      }).where(eq(graphRuns.id, run.id));
       await db.insert(runLogs).values({
         runId: run.id,
         level: "info",
@@ -7473,14 +7885,9 @@ router5.post("/control", async (req, res) => {
   }
 });
 var webhooks_default = router5;
-
-// ../assistants/server/src/routes.ts
 init_rules();
-
-// ../assistants/server/src/routes/settings.ts
 init_auth();
-import { Router as Router8 } from "express";
-var router6 = Router8();
+var router6 = (0, import_express8.Router)();
 router6.use(requireAuth);
 var llmSettings = {};
 var defaultLLMSettings = {
@@ -7540,15 +7947,12 @@ router6.put("/llm", (req, res) => {
   });
 });
 var settings_default = router6;
-
-// ../assistants/server/src/routes/assistants-admin.ts
 init_auth();
-import { Router as Router9 } from "express";
 function getParam5(params, key) {
   const value = params[key];
   return Array.isArray(value) ? value[0] : value ?? "";
 }
-var router7 = Router9();
+var router7 = (0, import_express9.Router)();
 router7.use(requireAuth);
 function getCatalogEndpoint2() {
   const base = process.env.CATALOG_SERVICE_URL ?? "http://localhost:5003";
@@ -7584,8 +7988,8 @@ function toConfig(r) {
     updatedAt: r.updatedAt ? new Date(r.updatedAt) : /* @__PURE__ */ new Date()
   };
 }
-async function catalogFetch(req, path, init = {}) {
-  const r = await fetch(`${getCatalogEndpoint2()}${path}`, {
+async function catalogFetch(req, path2, init = {}) {
+  const r = await fetch(`${getCatalogEndpoint2()}${path2}`, {
     ...init,
     headers: { ...headers(req), ...init.headers ?? {} }
   });
@@ -7727,11 +8131,6 @@ router7.delete("/:key", async (req, res) => {
   });
 });
 var assistants_admin_default = router7;
-
-// ../assistants/server/src/doc-routes.ts
-import { registerDocRoutes } from "@symbia/md";
-
-// ../assistants/server/src/openapi.ts
 var openApiSpec = {
   openapi: "3.0.3",
   info: {
@@ -8589,8 +8988,6 @@ var openApiSpec = {
     __paths[key] = { ...__paths[key] || {}, ...ops };
   }
 }
-
-// ../assistants/server/src/doc-routes.ts
 function setupDocRoutes(app) {
   registerDocRoutes(app, {
     spec: openApiSpec,
@@ -8598,8 +8995,6 @@ function setupDocRoutes(app) {
     includeWellKnown: false
   });
 }
-
-// ../assistants/server/src/routes.ts
 init_provenance();
 init_assistant_loader();
 async function registerRoutes(_server, app) {
@@ -8627,7 +9022,7 @@ async function registerRoutes(_server, app) {
     console.log("Auto-seeding in-memory database...");
     try {
       const { orgs: orgs2, agentPrincipals: agentPrincipals2, promptGraphs: promptGraphs3 } = await Promise.resolve().then(() => (init_schema(), schema_exports));
-      const { DEFAULT_ORG_IDS: DEFAULT_ORG_IDS2 } = await import("@symbia/seed");
+      const { DEFAULT_ORG_IDS: DEFAULT_ORG_IDS2 } = await import("../chunks/dist-WX5UWYTO.mjs");
       await db.insert(orgs2).values([
         {
           id: DEFAULT_ORG_IDS2.SYMBIA_LABS,
@@ -8652,7 +9047,7 @@ async function registerRoutes(_server, app) {
         }
       ]).onConflictDoNothing();
       console.log("[SEED] \u2713 Seeded orgs table");
-      const { seedAssistantsData } = await import("@symbia/seed");
+      const { seedAssistantsData } = await import("../chunks/dist-WX5UWYTO.mjs");
       await seedAssistantsData(db, {
         agents: agentPrincipals2,
         graphs: promptGraphs3
@@ -8806,8 +9201,6 @@ async function registerRoutes(_server, app) {
   });
   await loadAssistants(app);
 }
-
-// ../assistants/server/src/service.ts
 async function start(ctx) {
   await loadAssistants(ctx.app);
   await publishRulesToOrg();
