@@ -77,6 +77,12 @@ export interface RetrieveResult {
   note: string | null;
 }
 
+/** One string, or null. Never an array — see the call sites below. */
+function normalizeCertField(v: string | string[] | undefined | null): string | null {
+  if (Array.isArray(v)) return v[0] ?? null;
+  return v ?? null;
+}
+
 function describeCert(cert: DetailedPeerCertificate | undefined): RetrievalSource['tls'] {
   if (!cert || !cert.subject) return null;
   // Walk to the root, guarding against the self-referential last link — the
@@ -91,11 +97,17 @@ function describeCert(cert: DetailedPeerCertificate | undefined): RetrievalSourc
       ? node.issuerCertificate : undefined;
   }
   return {
-    subject: cert.subject?.CN ?? null,
-    issuer: cert.issuer?.CN ?? null,
+    subject: normalizeCertField(cert.subject?.CN),
+    issuer: normalizeCertField(cert.issuer?.CN),
     fingerprint256: cert.fingerprint256 ?? null,
-    valid_from: cert.valid_from ?? null,
-    valid_to: cert.valid_to ?? null,
+    // Newer @types/node types these as `string | string[]`; older ones as
+    // `string`. The runtime value is a string, and a record that sometimes
+    // holds an array here would be a different field. Narrowed explicitly
+    // so this library builds from a CLEAN install — the version skew was
+    // invisible locally (stale node_modules) and only surfaced in a docker
+    // build on 15 Aug.
+    valid_from: normalizeCertField(cert.valid_from),
+    valid_to: normalizeCertField(cert.valid_to),
     chain_length: chain || null,
   };
 }

@@ -140,7 +140,23 @@ export function registerSinkComponents(deps: SinkDeps): void {
       const ok = deps.log(
         level,
         `${prefix}${preview(input.value, 500)}`,
-        { node: ctx.nodeId, lane: input.lane }
+        // WHAT PRODUCED THIS ENTRY, BY REFERENCE.
+        //
+        // The entry carried `node` and `lane` and nothing else, so tying a
+        // log line back to the run that wrote it rested on timestamp
+        // adjacency — correlation, not reference. Found 16 Aug 2026 by
+        // Brian verifying a hello-world graph end to end: every other link
+        // in the chain was measured and this one had to be assumed.
+        //
+        // The component whose whole job is persisting evidence must not be
+        // the one that drops the pointer back to its cause. Both ids are
+        // already on the context; they were simply never passed.
+        {
+          node: ctx.nodeId,
+          lane: input.lane,
+          executionId: ctx.executionId,
+          ...(ctx.graphKey ? { graphKey: ctx.graphKey } : {}),
+        }
       );
       // A persistence component that cannot fail is lying. This one used to
       // return `out` unconditionally, so a graph writing into a dead log path

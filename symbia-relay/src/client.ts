@@ -120,33 +120,52 @@ export class RelayClient {
   }
 
   /**
-   * Register this node with the network
+   * Register this node with the network.
+   *
+   * Re-emits on ack timeout. The network service attaches its socket handlers
+   * only AFTER awaiting token introspection on authenticated connections
+   * (network/server/src/socket.ts `io.on('connection', async ...)`), so a
+   * register emitted immediately on connect can land before any listener
+   * exists and is silently dropped — observed 12 Aug 2026 as a bridge that
+   * "connected" and then hung forever. Registration is an upsert server-side,
+   * so retrying is safe; a client that waits forever on a dropped emit is not.
    */
   private async register(): Promise<void> {
-    return new Promise((resolve, reject) => {
-      if (!this.socket) {
-        reject(new Error('Not connected'));
+    const attempt = (): Promise<'ok' | 'timeout'> =>
+      new Promise((resolve, reject) => {
+        if (!this.socket) {
+          reject(new Error('Not connected'));
+          return;
+        }
+        const timer = setTimeout(() => resolve('timeout'), 2000);
+        this.socket.emit('node:register', {
+          id: this.config.nodeId,
+          name: this.config.nodeName,
+          type: this.config.nodeType,
+          capabilities: this.config.capabilities,
+          endpoint: this.config.endpoint,
+          metadata: this.config.metadata,
+        }, (response: any) => {
+          clearTimeout(timer);
+          if (response.ok) {
+            resolve('ok');
+          } else {
+            reject(new Error(response.error || 'Registration failed'));
+          }
+        });
+      });
+
+    for (let i = 0; i < 5; i++) {
+      const result = await attempt();
+      if (result === 'ok') {
+        console.log(`[Relay] Registered as ${this.config.nodeId}`);
+        this.registered = true;
+        this.startHeartbeat();
         return;
       }
-
-      this.socket.emit('node:register', {
-        id: this.config.nodeId,
-        name: this.config.nodeName,
-        type: this.config.nodeType,
-        capabilities: this.config.capabilities,
-        endpoint: this.config.endpoint,
-        metadata: this.config.metadata,
-      }, (response: any) => {
-        if (response.ok) {
-          console.log(`[Relay] Registered as ${this.config.nodeId}`);
-          this.registered = true;
-          this.startHeartbeat();
-          resolve();
-        } else {
-          reject(new Error(response.error || 'Registration failed'));
-        }
-      });
-    });
+      console.log(`[Relay] node:register unacknowledged after 2s (attempt ${i + 1}/5) — re-emitting`);
+    }
+    throw new Error('Registration failed: no acknowledgement after 5 attempts');
   }
 
   /**

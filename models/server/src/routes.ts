@@ -8,13 +8,26 @@ import { requireAuth } from "./auth.js";
 import { handleChatCompletions } from "./handlers/chat-completions.js";
 import { handleListModels, handleGetModel, handleLoadModel, handleUnloadModel } from "./handlers/models.js";
 import { handleExecute } from "./handlers/execute.js";
+import { handlePullModel } from "./handlers/pull.js";
 
 import { classifyImage, visionReadiness } from "./vision.js";
+import { apiDocumentation } from "./openapi.js";
 
 export async function registerRoutes(
   httpServer: Server,
   app: Express
 ): Promise<void> {
+  // THE SPEC IS A ROUTE, SO IT BELONGS WITH THE ROUTES.
+  //
+  // This was mounted in index.ts, which meant it existed on the deployed
+  // stack and nowhere else. Measured 16 Aug in the imagine sidecar: the
+  // dispatcher fetches /docs/openapi.json to learn what a service can do,
+  // got 404 for models, and reported zero operations — so every models
+  // endpoint was unreachable through MCP, and the failure read as "no such
+  // operation" rather than "the spec could not be fetched".
+  app.get("/docs/openapi.json", (_req, res) => {
+    res.json(apiDocumentation);
+  });
   // OpenAI-compatible endpoints
   app.post("/v1/chat/completions", handleChatCompletions);
   app.get("/v1/models", handleListModels);
@@ -25,6 +38,11 @@ export async function registerRoutes(
 
   // Model management endpoints
   app.get("/api/models", handleListModels);
+
+  // Acquire weights through the platform: egress-gated download, digest
+  // during the stream, signed artifact.registered in the ledger, card in
+  // the catalog. Replaces the QUICKSTART hand-curl (DEFECTS.md §2).
+  app.post("/api/models/pull", requireAuth, handlePullModel);
 
   // Vision classification for captured frames (the spyglass).
   //

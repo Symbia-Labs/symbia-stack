@@ -15,7 +15,7 @@ import {
 } from '@symbia/auth';
 import { config } from './config.js';
 import { storage } from './storage.js';
-import { setRLSContext } from './db.js';
+import { runWithRLSContext } from '@symbia/db';
 
 // Re-export
 export type { AuthUser };
@@ -114,17 +114,47 @@ export async function authMiddleware(
 
   req.user = user;
 
-  // Set RLS context
+  // Fail-closed AsyncLocalStorage RLS scope (A4, 13 Aug 2026): pooled
+  // queries run on a pinned client with SET LOCAL context. The previous
+  // pool-level setRLSContext was a no-op under pooling, and errors fell open.
   try {
-    await setRLSContext({
-      orgId: user?.organizations?.[0]?.id,
-      userId: user?.id,
-      isSuperAdmin: user?.isSuperAdmin,
-      capabilities: user?.entitlements,
-    });
+    runWithRLSContext(
+      {
+        orgId: user?.organizations?.[0]?.id ?? '',
+        userId: user?.id ?? 'anonymous',
+        isSuperAdmin: user?.isSuperAdmin,
+        capabilities: user?.entitlements,
+        serviceId: 'catalog',
+      },
+      () => next()
+    );
   } catch (error) {
-    console.error('[Catalog Auth] Failed to set RLS context:', error);
+    console.error('[Catalog Auth] Failed to establish RLS context:', error);
+    if (!res.headersSent) {
+      res.status(500).json({ error: 'Failed to establish request security context' });
+    }
   }
+}
 
-  next();
+/**
+ * "Nobody is here" and "this person may not" are different answers.
+ *
+ * Measured 16 Aug: every catalog write answered 403 whether a caller sent a
+ * valid token, an expired one, or none at all — so a client whose session
+ * died could not tell that from a real permission denial, and no client
+ * retried. 401 invites re-authentication; 403 tells you to stop asking.
+ * The MCP server re-logs-in on 401 only, so a host restart left every shim
+ * permanently unable to write.
+ *
+ * logging and runtime already answered 401 here. Catalog was the outlier.
+ */
+export function requirePrincipal(req: any, res: any): boolean {
+  if (req.user) return true;
+  res.status(401).json({
+    error: "Not authenticated",
+    detail:
+      "No principal on this request. A token was absent, expired, or issued by a different host — " +
+      "which is a different thing from lacking permission. Authenticate and retry.",
+  });
+  return false;
 }

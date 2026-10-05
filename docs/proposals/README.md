@@ -18,6 +18,7 @@ Before reading any of them, read `/STATUS.md`, which says what actually runs.
 | `beyond-the-platform.md` | Unbuilt sketch. Verdict section says build it second, as a demonstration, not a product. |
 | `positioning-crypto.md` | Positioning argument. Its central framing is explicitly marked unsettled. |
 | `appliance-hardware.md` | Statement of intent. Nothing measured, priced, or prototyped, and it says so. |
+| `wasm-runtime.md` | Unbuilt. Implement the declared-but-empty `wasm` ComponentRuntime; code-tool first, rest stays TS. Only evidence is two `experiments/` spikes; ergonomics unproven (§6). |
 
 If one of these gets built, move the parts that became true into `docs/` as a
 dated finding, and leave the proposal here marked as superseded.

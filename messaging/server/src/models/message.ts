@@ -1,4 +1,6 @@
+import type { PoolClient } from 'pg';
 import { pool } from '../database.js';
+import { withRLSContext, getCurrentRLSContext } from '@symbia/db';
 
 export interface Message {
   id: string;
@@ -40,10 +42,11 @@ export interface CreateMessageInput {
 
 export const MessageModel = {
   async create(input: CreateMessageInput): Promise<Message> {
-    const client = await pool.connect();
-    try {
-      await client.query('BEGIN');
-
+    // This is a multi-statement transaction on one pinned connection, which the
+    // ambient RLS pool wrapper does NOT cover (R2). When a request RLS context
+    // is in scope, run the transaction through withRLSContext so the org context
+    // is SET LOCAL on that client; otherwise fall back to a plain transaction.
+    const runTxn = async (client: PoolClient): Promise<Message> => {
       const conversation = await client.query(
         'SELECT org_id FROM conversations WHERE id = $1 FOR UPDATE',
         [input.conversationId]
@@ -112,10 +115,24 @@ export const MessageModel = {
         [input.conversationId]
       );
 
-      await client.query('COMMIT');
       if (!message) {
         throw new Error('Failed to create message');
       }
+      return message;
+    };
+
+    // withRLSContext manages BEGIN → SET LOCAL context → COMMIT / ROLLBACK.
+    const rlsCtx = getCurrentRLSContext();
+    if (rlsCtx) {
+      return withRLSContext(pool, rlsCtx, runTxn);
+    }
+
+    // No request scope (internal/boot path): plain transaction, no RLS context.
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+      const message = await runTxn(client);
+      await client.query('COMMIT');
       return message;
     } catch (e) {
       await client.query('ROLLBACK');

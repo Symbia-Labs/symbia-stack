@@ -5,7 +5,7 @@
  * The hash is a cryptographic commitment to the security policy.
  */
 
-import { createHash } from 'crypto';
+import { hmacSha256Hex, verifyHmacSha256Hex } from '@symbia/crypto';
 import type {
   SandboxEvent,
   EventPayload,
@@ -38,28 +38,32 @@ export function computeEventHash(
   payload: EventPayload,
   wrapper: Omit<EventWrapper, 'path'>
 ): string {
-  const hashInput = JSON.stringify({
+  // A3 (13 Aug 2026): real HMAC-SHA256 (was SHA256(data ‖ secret), a
+  // secret-suffix construction the docs called HMAC). The hash now also
+  // covers id and timestamp — the replay-relevant fields network/INTENT.md
+  // always claimed were covered and were not.
+  return hmacSha256Hex(hashSecret, eventHashInput(payload, wrapper));
+}
+
+function eventHashInput(payload: EventPayload, wrapper: Omit<EventWrapper, 'path'>): string {
+  return JSON.stringify({
     type: payload.type,
     data: payload.data,
+    id: wrapper.id,
+    timestamp: wrapper.timestamp,
     source: wrapper.source,
     runId: wrapper.runId,
     boundary: wrapper.boundary,
     target: wrapper.target,
   });
-
-  return createHash('sha256')
-    .update(hashInput)
-    .update(hashSecret)
-    .digest('hex');
 }
 
 /**
- * Verify an event's hash is valid
+ * Verify an event's hash is valid (constant-time compare)
  */
 export function verifyEventHash(event: SandboxEvent): boolean {
   const { path, ...wrapperWithoutPath } = event.wrapper;
-  const expectedHash = computeEventHash(event.payload, wrapperWithoutPath);
-  return event.hash === expectedHash;
+  return verifyHmacSha256Hex(hashSecret, eventHashInput(event.payload, wrapperWithoutPath), event.hash);
 }
 
 /**

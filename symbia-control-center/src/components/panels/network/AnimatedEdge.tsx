@@ -6,10 +6,19 @@
  */
 
 import { memo, type CSSProperties } from 'react';
-import { BaseEdge, getSmoothStepPath, type Position } from '@xyflow/react';
+import { BaseEdge, useInternalNode, type Position } from '@xyflow/react';
+import { bowedMidpoint, bowedPath, centreOf, facingSide, sideAnchor, type Rect } from './floatingGeometry';
 
-// Spacing between parallel edges in pixels
-const PARALLEL_EDGE_SPACING = 20;
+/**
+ * How far apart parallel edges bow, and how much curve every edge gets.
+ *
+ * The base bow is not decoration. It separates the two directions of a
+ * bidirectional pair — the perpendicular flips with the direction of travel,
+ * so A→B and B→A curve to opposite sides instead of lying on top of each
+ * other as one line.
+ */
+const BASE_BOW = 18;
+const PARALLEL_BOW_STEP = 26;
 
 export interface AnimatedEdgeData extends Record<string, unknown> {
   isEventTraffic?: boolean;
@@ -26,6 +35,8 @@ export interface AnimatedEdgeData extends Record<string, unknown> {
 
 interface AnimatedEdgeProps {
   id: string;
+  source: string;
+  target: string;
   sourceX: number;
   sourceY: number;
   targetX: number;
@@ -39,38 +50,58 @@ interface AnimatedEdgeProps {
 
 function AnimatedEdgeComponent({
   id,
+  source,
+  target,
   sourceX,
   sourceY,
   targetX,
   targetY,
-  sourcePosition,
-  targetPosition,
   style,
   data,
   markerEnd,
 }: AnimatedEdgeProps) {
-  // Apply parallel edge offset to spread overlapping edges
+  // FLOATING GEOMETRY. The endpoints are computed from where the nodes
+  // actually are, not from the handle React Flow picked. See
+  // floatingGeometry.ts: a fixed handle makes every wire leave the right face
+  // and enter the left one, so a call to a node sitting directly above still
+  // routes out, around and back — which is how ten peer-to-peer calls came to
+  // share four rectilinear corridors and read as a backplane.
+  const sourceNode = useInternalNode(source);
+  const targetNode = useInternalNode(target);
+
+  const rectOf = (n: typeof sourceNode): Rect | null =>
+    n && n.measured?.width && n.measured?.height
+      ? {
+          x: n.internals.positionAbsolute.x,
+          y: n.internals.positionAbsolute.y,
+          width: n.measured.width,
+          height: n.measured.height,
+        }
+      : null;
+
+  const sRect = rectOf(sourceNode);
+  const tRect = rectOf(targetNode);
+
+  // Bow grows with the parallel index so stacked edges fan out. Sign is kept
+  // from the index so edges alternate sides rather than all bending one way.
   const parallelOffsetIndex = data?.parallelOffset || 0;
-  const parallelOffset = parallelOffsetIndex * PARALLEL_EDGE_SPACING;
+  const bow = BASE_BOW + parallelOffsetIndex * PARALLEL_BOW_STEP;
 
-  // Offset perpendicular to the main edge direction (vertical offset for LR layout)
-  const offsetSourceY = sourceY + parallelOffset;
-  const offsetTargetY = targetY + parallelOffset;
+  // Falls back to React Flow's handle coordinates when a node has not been
+  // measured yet — on the first frame, before layout. Straight and honest
+  // rather than absent: a missing measurement is not a reason to drop an edge.
+  // Land on a CONNECTION POINT, not a bare stretch of border. Each node
+  // carries a handle on all four faces; this picks the pair that face one
+  // another, so the wire ends exactly on the dot a reader can see.
+  const a = sRect && tRect
+    ? sideAnchor(sRect, facingSide(sRect, centreOf(tRect)))
+    : { x: sourceX, y: sourceY };
+  const b = sRect && tRect
+    ? sideAnchor(tRect, facingSide(tRect, centreOf(sRect)))
+    : { x: targetX, y: targetY };
 
-  // Vary the elbow offset so edges turn at different points
-  // Base offset is 20, each parallel edge adds 15 to stagger the turns
-  const elbowOffset = 20 + Math.abs(parallelOffsetIndex) * 15;
-
-  const [edgePath] = getSmoothStepPath({
-    sourceX,
-    sourceY: offsetSourceY,
-    sourcePosition,
-    targetX,
-    targetY: offsetTargetY,
-    targetPosition,
-    borderRadius: 0, // Sharp right-angle elbows
-    offset: elbowOffset, // Stagger where edges make their first turn
-  });
+  const edgePath = bowedPath(a, b, bow);
+  const mid = bowedMidpoint(a, b, bow);
 
   // Determine edge type and styling
   const isActive = data?.isEventTraffic || data?.recentActivity;
@@ -175,8 +206,8 @@ function AnimatedEdgeComponent({
       {isActive && eventCount > 0 && (
         <g className="traffic-badge">
           <rect
-            x={(sourceX + targetX) / 2 - 14}
-            y={(offsetSourceY + offsetTargetY) / 2 - 10}
+            x={mid.x - 14}
+            y={mid.y - 10}
             width={28}
             height={20}
             rx={10}
@@ -185,8 +216,8 @@ function AnimatedEdgeComponent({
             strokeWidth={1}
           />
           <text
-            x={(sourceX + targetX) / 2}
-            y={(offsetSourceY + offsetTargetY) / 2 + 4}
+            x={mid.x}
+            y={mid.y + 4}
             textAnchor="middle"
             className="text-[10px] font-medium"
             style={{ pointerEvents: 'none', fill: 'var(--text-secondary, #8b949e)' }}

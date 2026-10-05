@@ -42,6 +42,13 @@ const IconLogs = () => (
   </svg>
 );
 
+const IconModels = () => (
+  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    {/* stacked layers — weights at rest, one highlighted */}
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 3l8 4.5-8 4.5-8-4.5L12 3zM4 12l8 4.5 8-4.5M4 16.5L12 21l8-4.5" />
+  </svg>
+);
+
 const IconCatalog = () => (
   <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 6a2 2 0 012-2h12a2 2 0 012 2v12a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM8 4v16M12 8h5M12 12h5" />
@@ -65,6 +72,7 @@ export type PanelId =
   | 'catalog'
   | 'assistants'
   | 'integrations'
+  | 'models'
   | 'logs'
   | 'chat';
 
@@ -284,6 +292,7 @@ export function MainLayout({ activePanel, onPanelChange, children }: MainLayoutP
     { id: 'catalog', label: 'Catalog', icon: IconCatalog },
     { id: 'assistants', label: 'Assistants', icon: IconAssistants, badge: loadedAssistants.length },
     { id: 'integrations', label: 'Integrations', icon: IconIntegrations, badge: integrations.length },
+    { id: 'models', label: 'Models', icon: IconModels },
     { id: 'logs', label: 'Logs', icon: IconLogs },
     { id: 'chat', label: 'Chat', icon: IconChat },
   ];

@@ -1,0 +1,60 @@
+{
+  "symbia": "graph/1.0",
+  "name": "payment-integrity-rollup",
+  "version": "1.0.0",
+  "description": "Federal payment integrity demonstration. A government-wide improper payment total is rolled up from the set of programs determined susceptible to significant improper payments. GAO-26-108694 (Apr 27 2026) reports that the FY2025 government-wide figure of about $186B across 64 programs excludes certain programs the agencies themselves determined are susceptible, naming HHS Temporary Assistance for Needy Families. This graph makes that exclusion mechanical: the rollup declares an expected key set, and any total assembled without every member is emitted on the apocryphal lane with the missing members named. Per-program dollar values fed to this graph are ILLUSTRATIVE and in millions of dollars; the structural claim, not the arithmetic, is what is being demonstrated.",
+  "author": "federal-demo",
+  "nodes": [
+    { "id": "entry", "component": "symbia.io.passthrough" },
+
+    { "id": "valid", "component": "symbia.logic.filter",
+      "config": { "field": "value", "op": "exists" } },
+
+    { "id": "rollup", "component": "symbia.state.rollup",
+      "config": {
+        "expected": [
+          "hhs.medicaid",
+          "hhs.medicare-ffs",
+          "treasury.eitc",
+          "dol.unemployment-insurance",
+          "sba.disaster-assistance",
+          "hhs.tanf"
+        ],
+        "op": "sum",
+        "keyField": "key",
+        "valueField": "value"
+      } },
+
+    { "id": "rollupOut", "component": "symbia.io.collect" },
+
+    { "id": "toBillions", "component": "symbia.compute.arithmetic",
+      "config": { "expression": "{value} / 1000" } },
+
+    { "id": "billionsOut", "component": "symbia.io.collect" },
+    { "id": "arithErr",    "component": "symbia.io.collect" },
+
+    { "id": "auditLog", "component": "symbia.sink.log",
+      "config": { "level": "warn", "message": "[payment-integrity rollup]" } },
+    { "id": "logOut", "component": "symbia.io.collect" }
+  ],
+  "edges": [
+    { "id": "e1", "source": { "node": "entry",  "port": "out" },  "target": { "node": "valid",  "port": "in" } },
+    { "id": "e2", "source": { "node": "valid",  "port": "pass" }, "target": { "node": "rollup", "port": "in" } },
+
+    { "id": "e3", "source": { "node": "rollup", "port": "out" },  "target": { "node": "rollupOut",  "port": "in" } },
+    { "id": "e4", "source": { "node": "rollup", "port": "out" },  "target": { "node": "toBillions", "port": "in" } },
+    { "id": "e5", "source": { "node": "rollup", "port": "out" },  "target": { "node": "auditLog",   "port": "in" } },
+
+    { "id": "e6", "source": { "node": "toBillions", "port": "out" },   "target": { "node": "billionsOut", "port": "in" } },
+    { "id": "e7", "source": { "node": "toBillions", "port": "error" }, "target": { "node": "arithErr",    "port": "in" } },
+
+    { "id": "e8", "source": { "node": "auditLog", "port": "out" }, "target": { "node": "logOut", "port": "in" } }
+  ],
+  "metadata": {
+    "domain": "federal.payment-integrity",
+    "role": "pipeline",
+    "citation": "GAO-26-108694, Payment Integrity: Agencies' Estimated Improper Payments Increased to $186 Billion in Fiscal Year 2025",
+    "predictionsLedgerSeq": 1198,
+    "ingress": { "node": "entry", "port": "in" }
+  }
+}

@@ -1,0 +1,78 @@
+name: Verify
+
+# Gates the work verified on 13 Aug 2026 so it cannot silently regress:
+#   - type gate (npm run check) — was off with 159 errors; kept green here
+#   - port invariant (check:ports) — asserts the single-published-port fact
+#   - security suite (A1 code-tools, A4 tenancy, A2/A3 crypto)
+#   - A4 LIVE — RLS isolation against a real PostgreSQL
+#
+# Uses the modern root workspace scripts, not the pre-rebuild per-package CI
+# in ci.yml. Runs on the working branch and on PRs into main/develop.
+
+on:
+  push:
+    branches: [main, develop, "fix/**", "work/**"]
+  pull_request:
+    branches: [main, develop]
+
+concurrency:
+  group: verify-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  checks:
+    name: Type check + port invariant
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+      - name: Install (workspaces)
+        run: npm ci
+      - name: Type check (npm run check)
+        run: npm run check
+      - name: Port invariant (npm run check:ports)
+        run: npm run check:ports
+
+  security:
+    name: Security suite (A1/A2/A3/A4)
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_USER: symbia
+          POSTGRES_PASSWORD: symbia_dev
+          POSTGRES_DB: symbia
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U symbia"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+      - name: Install (workspaces)
+        run: npm ci
+      - name: Build libs the tests import from dist (tsc only)
+        run: npm run build -w symbia-sys -w symbia-crypto -w symbia-pathguard -w symbia-egress -w symbia-redact -w symbia-db
+      # One command, not six steps. Until 14 Aug this job ran `test:security`
+      # (A1 + A4 + crypto) and then listed egress, seed-guard and the ratchet
+      # as separate steps — so CI covered six suites while the documented local
+      # command covered three, and a developer running the documented command
+      # got a green that CI did not mean. `test:security` is now the whole
+      # stack-free set; adding a step here without adding it to that script is
+      # how the gap reopens.
+      - name: Stubbed security suite (A1, A4, crypto, egress, seed-guard, ratchet, redaction)
+        run: npm run test:security
+      - name: LIVE — A4 and messaging RLS isolation against real Postgres
+        env:
+          DATABASE_URL: postgres://symbia:symbia_dev@localhost:5432/symbia
+        run: npm run test:security:live

@@ -19,7 +19,7 @@ Use /api as the base path for all endpoints.
 
 ## Quick Reference
 
-- GET /health - Health check
+- GET /api/health - Health check
 - GET /api/bootstrap/service - Service bootstrap
 - GET /api/graphs - List loaded graphs
 - POST /api/graphs - Load a graph definition
@@ -36,6 +36,11 @@ Use /api as the base path for all endpoints.
 - GET /api/components - List available components
 - POST /api/components - Register custom component
 - GET /api/components/{id} - Get component definition
+- GET /api/stats - List stats
+- POST /api/ingress/{graphName} - Create ingress
+- POST /api/routines - Create routines
+- POST /api/routines/preview - Preview routines preview
+- POST /api/routines/validate - Validate routines validate
 
 ## Authentication
 

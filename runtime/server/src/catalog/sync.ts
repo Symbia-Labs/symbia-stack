@@ -156,7 +156,10 @@ export class CatalogSync {
           report.errors.push({ key: `component:${f.key}`, error: f.error });
         }
         console.log(
-          `[CatalogSync] component manifests — registered ${result.registered.length}, updated ${result.updated.length}, unchanged ${result.unchanged.length}, failed ${result.failed.length}`
+          `[CatalogSync] component manifests — registered ${result.registered.length}, updated ${result.updated.length}, unchanged ${result.unchanged.length}, failed ${result.failed.length}` +
+            (result.unsigned.length
+              ? `, UNSIGNED ${result.unsigned.length} (no service identity — these manifests carry no signature)`
+              : '')
         );
       }
 

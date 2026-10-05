@@ -4,9 +4,9 @@
  * Defines the API spec for local LLM inference endpoints.
  */
 
-import type { OpenAPIObject } from "@symbia/md";
+import type { OpenAPISpec } from "@symbia/md";
 
-export const apiDocumentation: OpenAPIObject = {
+export const apiDocumentation: OpenAPISpec = {
   openapi: "3.1.0",
   info: {
     title: "Symbia Models Service",
@@ -171,11 +171,46 @@ When using through the Integrations service, use provider: "symbia-labs"`,
         },
       },
     },
+    "/api/models/pull": {
+      post: {
+        operationId: "pullModel",
+        summary: "Pull weights through the platform, receipted",
+        description:
+          "Acquire a GGUF weights artifact. The bytes enter through the integrations service (egress-gated; any HuggingFace credential comes from the vault and never touches this service), are sha256-digested during the stream, sealed as a signed artifact.registered lineage event in the ledger beside the weights, and registered in the catalog. Idempotent: re-pulling a present file answers 200 alreadyPresent with the digest. Auth required; the caller's own credential (bearer or session cookie) is forwarded to integrations.",
+        tags: ["Model Management"],
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: {
+                type: "object",
+                required: ["repo", "file"],
+                properties: {
+                  repo: { type: "string", description: "HuggingFace owner/repo" },
+                  file: { type: "string", description: "A plain .gguf filename — no path separators" },
+                  revision: { type: "string", default: "main" },
+                },
+              },
+            },
+          },
+        },
+        responses: {
+          "201": {
+            description:
+              "Pulled. Carries id, digest (sha256 of the artifact), bytes, source, and the signed registration event's id and checksum.",
+          },
+          "200": { description: "Already present; digest included." },
+          "401": { description: "No usable credential presented." },
+          "502": { description: "Upstream or integrations failure, with the status observed." },
+        },
+      },
+    },
     "/api/models/{id}": {
       get: {
         operationId: "getModelApi",
         summary: "Get model details",
-        description: "Returns detailed information about a specific model.",
+        description:
+          "Returns detailed information about a specific model, including the weights digest (sha256 — the model's content address) and, when the catalog card and the file disagree, a digest_mismatch disclosure.",
         tags: ["Model Management"],
         parameters: [
           {

@@ -1,0 +1,39 @@
+{
+  "routineId": "spike-step-weights-v1",
+  "description": "Three steps, three ways of resolving weights. The routine declares WHAT each step needs; the broker's registry answers WITH WHAT.",
+  "steps": [
+    {
+      "id": "route-intent",
+      "kind": "route",
+      "note": "Deterministic tier — no model. Present so the receipt shows a COMPUTED step beside GENERATED ones.",
+      "patterns": { "math": "\\d" }
+    },
+    {
+      "id": "think-answer",
+      "kind": "think",
+      "prompt": "A store discounts an $80 item by 15%, then adds 8% sales tax on the discounted price. What is the final price in dollars? Think step by step, briefly. End with a line: ANSWER: <number>",
+      "llm": {
+        "constraints": { "source": "local", "capability": "chat" },
+        "sampling": { "samples": 3, "temperature": 1.2, "maxTokens": 400 },
+        "onDisagreement": {
+          "threshold": 2,
+          "escalateTo": {
+            "pin": { "digest": "sha256:8e0ae26000627ed62de0e78e41860af70094558b9d2913385c842a6aa06cf3fc" },
+            "temperature": 0,
+            "maxTokens": 400
+          }
+        }
+      }
+    },
+    {
+      "id": "say-format",
+      "kind": "say",
+      "promptTemplate": "State this result in one plain sentence for a customer: the final price is ${answer}. No preamble.",
+      "llm": {
+        "pin": { "digest": "sha256:eeac84f264d9a9a3836dbc1baaa1436d3c82d8bdb8b8dc5208f68745ddc532e4" },
+        "temperature": 0,
+        "maxTokens": 80
+      }
+    }
+  ]
+}

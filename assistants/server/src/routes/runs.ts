@@ -14,9 +14,13 @@ function getParam(params: Record<string, string | string[] | undefined>, key: st
 const router = Router();
 
 function requireOrgId(req: Request, res: Response): string | null {
-  const orgId = (req.headers['x-org-id'] as string) || (req.query.orgId as string) || req.body?.orgId;
+  // SECURITY (A4): the authenticated org (membership-checked by the auth
+  // middleware) wins. The raw header is only a fallback for unauthenticated
+  // dev use; query/body are no longer accepted as org sources.
+  const authedOrgId = (req as Request & { orgId?: string }).orgId;
+  const orgId = authedOrgId || (req.headers['x-org-id'] as string);
   if (!orgId) {
-    res.status(400).json({ error: 'orgId required (via X-Org-Id header, query param, or body)' });
+    res.status(400).json({ error: 'orgId required (authenticate, or provide X-Org-Id header)' });
     return null;
   }
   return orgId;

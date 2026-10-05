@@ -389,9 +389,12 @@ export function CurriculumOverviewSection({ resource }: CurriculumOverviewSectio
       )}
 
       {/* LLM Configuration Summary */}
-      {metadata.llmConfig && (
+      {/* `metadata.llmConfig` is unknown; `unknown && JSX` types the whole
+          child as unknown, which is not a valid ReactNode. Ternary keeps the
+          rendered value JSX | null. */}
+      {metadata.llmConfig ? (
         <LLMConfigDisplay config={metadata.llmConfig as Record<string, unknown>} />
-      )}
+      ) : null}
     </div>
   );
 }

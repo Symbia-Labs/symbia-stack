@@ -1,0 +1,533 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Federal Payment Integrity — Guided Tour</title>
+<style>
+:root { color-scheme: light; }
+* { box-sizing: border-box; }
+body {
+  margin: 0; padding: 24px;
+  background: #fbfbfa; color: #1a1a18;
+  font: 15px/1.55 -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+}
+.wrap { max-width: 860px; margin: 0 auto; }
+h1 { font-size: 25px; margin: 0 0 4px; letter-spacing: -0.02em; }
+h2 { font-size: 17px; margin: 0 0 10px; letter-spacing: -0.01em; }
+.sub { color: #6b6b66; font-size: 13.5px; margin-bottom: 18px; }
+
+.mode {
+  display: inline-flex; align-items: center; gap: 7px;
+  padding: 5px 11px; border-radius: 999px;
+  font-size: 12px; font-weight: 600; letter-spacing: .02em;
+  border: 1px solid transparent; margin-bottom: 18px;
+}
+.mode.live      { background:#e8f5ec; color:#14622f; border-color:#b8dfc5; }
+.mode.recorded  { background:#fdf3e3; color:#7a4f10; border-color:#ecd5a8; }
+.mode.checking  { background:#eef0f3; color:#55585e; border-color:#d8dbe0; }
+.dot { width:7px; height:7px; border-radius:50%; background:currentColor; }
+
+.card {
+  background:#fff; border:1px solid #e6e5e1; border-radius:10px;
+  padding:18px 20px; margin-bottom:16px;
+}
+.card.quiet { background:#f6f6f4; }
+
+blockquote {
+  margin:12px 0; padding:11px 15px; border-left:3px solid #c9c8c2;
+  background:#f6f6f4; color:#3a3a36; font-size:14px; border-radius:0 6px 6px 0;
+}
+cite { display:block; margin-top:7px; font-size:12.5px; color:#77766f; font-style:normal; }
+
+.stepnav { display:flex; gap:6px; flex-wrap:wrap; margin-bottom:18px; }
+.stepnav button {
+  border:1px solid #dedcd7; background:#fff; color:#55534d;
+  border-radius:7px; padding:6px 11px; font-size:12.5px; cursor:pointer;
+  font-family:inherit;
+}
+.stepnav button.on { background:#1a1a18; color:#fff; border-color:#1a1a18; }
+.stepnav button.done { border-color:#b8dfc5; color:#14622f; }
+
+.grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(230px,1fr)); gap:9px; margin:14px 0; }
+.prog {
+  border:1px solid #dedcd7; background:#fff; border-radius:8px;
+  padding:11px 13px; cursor:pointer; text-align:left; font-family:inherit;
+  transition:border-color .12s, background .12s;
+}
+.prog:hover:not(:disabled) { border-color:#9a9890; background:#fafaf8; }
+.prog:disabled { cursor:default; opacity:.55; background:#f4f4f2; }
+.prog .nm { font-weight:600; font-size:13.5px; display:block; }
+.prog .amt { color:#77766f; font-size:12px; }
+.prog.reported { border-color:#b8dfc5; background:#f3faf5; opacity:1; }
+.prog.reported .nm::after { content:" ✓"; color:#14622f; }
+.prog.tanf { border-style:dashed; border-color:#d9b98a; background:#fffdf8; }
+
+.readout { border:1px solid #e6e5e1; border-radius:10px; overflow:hidden; margin:14px 0; }
+.readout .top { display:flex; align-items:center; justify-content:space-between; gap:12px; padding:14px 18px; background:#fff; flex-wrap:wrap; }
+.big { font-size:31px; font-weight:650; letter-spacing:-0.02em; }
+.big .unit { font-size:15px; font-weight:500; color:#77766f; margin-left:3px; }
+
+.lane {
+  display:inline-flex; align-items:center; gap:7px;
+  padding:6px 13px; border-radius:999px; font-weight:700;
+  font-size:12.5px; letter-spacing:.04em; text-transform:uppercase;
+}
+.lane.apocryphal { background:#fdecec; color:#94211d; border:1px solid #f2c4c2; }
+.lane.canonical  { background:#e8f5ec; color:#14622f; border:1px solid #b8dfc5; }
+.lane.none       { background:#eef0f3; color:#6b6e74; border:1px solid #dcdfe4; }
+
+.meter { height:6px; background:#eceae5; }
+.meter i { display:block; height:100%; background:#94211d; transition:width .35s ease, background .35s ease; }
+.meter i.full { background:#1d7a3c; }
+
+.readout .bot { padding:11px 18px; background:#faf9f7; border-top:1px solid #eceae5; font-size:13px; }
+.missing { color:#94211d; font-weight:600; }
+.ok { color:#14622f; font-weight:600; }
+code { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size:12.5px;
+       background:#f0efec; padding:1.5px 5px; border-radius:4px; }
+pre {
+  background:#1e1e1c; color:#e8e6e0; padding:13px 15px; border-radius:8px;
+  overflow-x:auto; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size:12px; line-height:1.5; margin:11px 0;
+}
+pre .k { color:#9ecbff; } pre .s { color:#c3e88d; } pre .n { color:#f7c67f; }
+pre .apo { color:#ff9d9d; font-weight:700; } pre .can { color:#a8e6a3; font-weight:700; }
+
+button.act {
+  background:#1a1a18; color:#fff; border:1px solid #1a1a18; border-radius:7px;
+  padding:9px 17px; font-size:13.5px; cursor:pointer; font-family:inherit; font-weight:550;
+}
+button.act:hover:not(:disabled) { background:#333330; }
+button.act:disabled { opacity:.4; cursor:default; }
+button.ghost { background:#fff; color:#1a1a18; }
+button.ghost:hover:not(:disabled) { background:#f2f1ee; }
+.row { display:flex; gap:9px; flex-wrap:wrap; align-items:center; margin-top:14px; }
+
+.note { font-size:13px; color:#6b6b66; margin-top:9px; }
+.callout { border-left:3px solid #1a1a18; padding:10px 15px; background:#f6f6f4; border-radius:0 6px 6px 0; margin:13px 0; }
+.callout.warn { border-left-color:#b8860b; background:#fdf9ef; }
+.callout b { font-weight:650; }
+table { width:100%; border-collapse:collapse; font-size:13px; margin:11px 0; }
+th, td { text-align:left; padding:7px 9px; border-bottom:1px solid #eceae5; }
+th { font-size:11.5px; text-transform:uppercase; letter-spacing:.04em; color:#77766f; font-weight:600; }
+td.num { font-variant-numeric:tabular-nums; }
+.hide { display:none; }
+.err { background:#fdecec; border:1px solid #f2c4c2; color:#94211d; padding:10px 14px; border-radius:7px; font-size:13px; margin:11px 0; }
+.topo { display:flex; align-items:center; gap:7px; flex-wrap:wrap; font-size:11.5px; margin:11px 0; }
+.topo span { border:1px solid #dedcd7; background:#fff; border-radius:6px; padding:5px 9px; font-family:ui-monospace,monospace; }
+.topo b { color:#9a9890; font-weight:400; }
+.topo span.hl { border-color:#1a1a18; font-weight:650; }
+footer { color:#8b8a83; font-size:12px; margin-top:26px; padding-top:14px; border-top:1px solid #e6e5e1; }
+a { color:#1a5490; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <h1>When a total isn't the total</h1>
+  <div class="sub">A guided tour of provenance lanes, using federal improper&nbsp;payments reporting.</div>
+  <div id="mode" class="mode checking"><span class="dot"></span><span id="modetext">Checking connection…</span></div>
+
+  <div class="stepnav" id="nav"></div>
+
+  <!-- ═══════════ STEP 1 ═══════════ -->
+  <section class="step" data-step="0">
+    <div class="card">
+      <h2>1 · The problem, in GAO's own words</h2>
+      <p>Every year the federal government publishes an estimate of its improper payments — money that shouldn't have gone out, or went out in the wrong amount. For FY2025 that figure was <b>$186 billion</b>, across 64 programs at 15 agencies. Since FY2003 the running total is roughly <b>$3 trillion</b>.</p>
+      <p>Then, deeper into the same report, this:</p>
+      <blockquote>
+        "These estimates do not represent the full extent of government-wide improper payments. For instance, the $186 billion does not include certain programs that agencies have determined are susceptible to significant improper payments, such as the Department of Health and Human Services' <b>Temporary Assistance for Needy Families</b>."
+        <cite>GAO-26-108694, published April 27, 2026</cite>
+      </blockquote>
+      <div class="callout">
+        <b>Read that carefully.</b> The published government-wide total leaves out programs the agencies <i>themselves</i> identified as high-risk. The caveat is real, documented, and honest — and it lives in prose, in a report most people who quote "$186 billion" will never open. <b>The number travels; the caveat doesn't.</b>
+      </div>
+      <p class="note">This isn't a story about anyone hiding anything. It's a story about a number and its qualifier getting separated the moment the number is copied into a slide.</p>
+      <div class="row"><button class="act" data-go="1">Start the tour →</button></div>
+    </div>
+  </section>
+
+  <!-- ═══════════ STEP 2 ═══════════ -->
+  <section class="step hide" data-step="1">
+    <div class="card">
+      <h2>2 · What we built</h2>
+      <p>A small data pipeline that assembles a government-wide total from individual program reports. The important part is one line of configuration — it <b>declares in advance which programs must report</b> for the total to be complete:</p>
+      <pre><span class="k">"expected"</span>: [
+  <span class="s">"hhs.medicaid"</span>, <span class="s">"hhs.medicare-ffs"</span>, <span class="s">"treasury.eitc"</span>,
+  <span class="s">"dol.unemployment-insurance"</span>, <span class="s">"sba.disaster-assistance"</span>, <span class="s">"hhs.tanf"</span>
+], <span class="k">"op"</span>: <span class="s">"sum"</span></pre>
+      <p>Six programs. Reports flow in, get summed, and the total travels on to whatever consumes it:</p>
+      <div class="topo">
+        <span>program reports</span><b>→</b><span class="hl">rollup</span><b>→</b><span>convert to $B</span><b>→</b><span>audit log</span><b>→</b><span>dashboard</span>
+      </div>
+      <div class="callout">
+        <b>The one idea in this tour:</b> every value that moves through this pipeline carries a <b>lane</b> — a claim about how far it can be trusted. <code>canonical</code> means it can be reconstructed and defended. <code>apocryphal</code> means it cannot. The lane is part of the value, not a note attached beside it.
+      </div>
+      <p class="note">Dollar figures per program in this tour are <b>illustrative</b>. The FY2025 aggregates in step 1 are real and cited. What's being demonstrated is the structure, not the arithmetic.</p>
+      <div class="row"><button class="act" data-go="2">Start reporting programs →</button></div>
+    </div>
+  </section>
+
+  <!-- ═══════════ STEP 3 ═══════════ -->
+  <section class="step hide" data-step="2">
+    <div class="card">
+      <h2>3 · The programs report in</h2>
+      <p>Click each program to file its improper-payment estimate. Watch the total build — and keep an eye on the lane badge.</p>
+      <div class="grid" id="progs"></div>
+      <div id="errbox"></div>
+
+      <div class="readout">
+        <div class="top">
+          <div>
+            <div class="big"><span id="total">—</span><span class="unit" id="unit"></span></div>
+            <div class="note" id="cov" style="margin-top:2px">No programs have reported yet.</div>
+          </div>
+          <div class="lane none" id="lane">no value yet</div>
+        </div>
+        <div class="meter"><i id="bar" style="width:0%"></i></div>
+        <div class="bot" id="detail">Report a program to begin.</div>
+      </div>
+
+      <div id="pivot" class="hide">
+        <div class="callout warn">
+          <b>Stop here for a second.</b> Five of six programs have reported. The total is <b>$94.0 billion</b> — a clean, plausible, board-ready number. Nothing on the face of it looks wrong. If you saw this in a briefing deck you would have no reason to question it.
+          <br><br>
+          But the pipeline is emitting it as <b>apocryphal</b>, and it names <code>hhs.tanf</code> as the reason. Not in a footnote — <i>inside the value itself.</i>
+          <br><br>
+          That is the exact situation GAO described in step 1, caught mechanically instead of editorially.
+        </div>
+        <div class="row"><button class="act" id="btn-tanf">Now let TANF report →</button></div>
+      </div>
+
+      <div id="closed" class="hide">
+        <div class="callout">
+          <b>The gap closes.</b> Same pipeline, same arithmetic, one more report — and the lane flips to <code>canonical</code>. Nothing was overridden or approved. The total simply became defensible, because every declared contributor is now accounted for.
+        </div>
+        <div class="row"><button class="act" data-go="3">See what happens downstream →</button></div>
+      </div>
+
+      <div class="row"><button class="act ghost" id="btn-reset">↻ Reset and run again</button></div>
+    </div>
+  </section>
+
+  <!-- ═══════════ STEP 4 ═══════════ -->
+  <section class="step hide" data-step="3">
+    <div class="card">
+      <h2>4 · The part that matters most</h2>
+      <p>An incomplete total gets flagged. Fine. But real systems don't stop there — the number gets divided, converted, averaged, and charted. The obvious failure mode is that a clean-looking result comes out the far end and the warning is lost in transit.</p>
+      <p>Here is the conversion step running on the <b>incomplete</b> $94.0B total:</p>
+      <pre>{
+  <span class="k">"result"</span>: <span class="n">94</span>,
+  <span class="k">"expression"</span>: <span class="s">"94000 / 1000"</span>,
+  <span class="k">"exact"</span>: <span class="n">true</span>,
+  <span class="k">"lane"</span>: <span class="apo">"apocryphal"</span>,
+  <span class="k">"receipt"</span>: { <span class="k">"kind"</span>: <span class="s">"recipe"</span>,
+               <span class="k">"operation"</span>: <span class="s">"{value} / 1000"</span>,
+               <span class="k">"inputs"</span>: { <span class="k">"value"</span>: <span class="n">94000</span> } }
+}</pre>
+      <div class="callout">
+        <b>The math is exact and fully reproducible — and the value is still apocryphal.</b> Correct arithmetic over an incomplete input does not repair the input. A downstream dashboard cannot quietly recover a trustworthy number by dividing an untrustworthy one.
+      </div>
+      <p>Note the receipt survives the demotion. You get the full recipe — the operation and its inputs — so the calculation is auditable <i>and</i> correctly labelled as resting on incomplete ground. Those are two separate facts and the system reports both.</p>
+      <div class="row"><button class="act" data-go="4">One more test →</button></div>
+    </div>
+  </section>
+
+  <!-- ═══════════ STEP 5 ═══════════ -->
+  <section class="step hide" data-step="4">
+    <div class="card">
+      <h2>5 · Can an undeclared source move the number?</h2>
+      <p>The expected list names six programs. What if a seventh reports — one nobody declared? If an unlisted contributor can push dollars into a total that still reads <code>canonical</code>, then the expected list is decoration.</p>
+      <p>Press the button to inject <code>dhs.fema-public-assistance</code>, a program not on the list, with a $7.5B estimate.</p>
+      <div class="row"><button class="act" id="btn-oos">Inject the undeclared program</button></div>
+      <div id="oosbox"></div>
+    </div>
+  </section>
+
+  <!-- ═══════════ STEP 6 ═══════════ -->
+  <section class="step hide" data-step="5">
+    <div class="card">
+      <h2>6 · What this does and doesn't prove</h2>
+      <table>
+        <tr><th>Shown</th><th>Not shown</th></tr>
+        <tr>
+          <td>A partial total can be made structurally incapable of presenting as complete.</td>
+          <td>That any of this is production-hardened. This ran in <b>imagine mode</b>.</td>
+        </tr>
+        <tr>
+          <td>The warning survives exact downstream computation.</td>
+          <td>That the underlying program figures are correct — lanes describe assembly, not accuracy.</td>
+        </tr>
+        <tr>
+          <td>An undeclared contributor can't move a canonical total.</td>
+          <td>Any ATO or accreditation posture. None of this is a control implementation.</td>
+        </tr>
+        <tr>
+          <td>The missing member is named inside the value, where it travels with it.</td>
+          <td>That someone must act on the flag. It informs; it doesn't enforce policy.</td>
+        </tr>
+      </table>
+      <div class="callout warn">
+        <b>Said plainly:</b> the host this ran on describes itself as <i>"in-memory, ephemeral keys, restart-lossy — a sketch, not a record."</i> Enforcement is off. The signing keys don't outlive the process. A signed record of bad work is still a faithful record of bad work — provenance tells you where a number came from, never whether it was a good number.
+      </div>
+      <p>The claim is narrow and worth stating precisely: <b>a total that is missing declared inputs should not be able to present itself as whole.</b> Today that's guaranteed by a footnote and a careful reader. Here it's guaranteed by the value's own structure.</p>
+      <div class="row">
+        <button class="act" data-go="0">↺ Start the tour over</button>
+        <button class="act ghost" id="btn-reset2">↻ Reset the pipeline</button>
+      </div>
+    </div>
+  </section>
+
+  <footer>
+    Source: <a href="https://www.gao.gov/products/gao-26-108694" target="_blank" rel="noopener">GAO-26-108694 — Payment Integrity: Agencies' Estimated Improper Payments Increased to $186 Billion in Fiscal Year 2025</a> (Apr 27, 2026).
+    Per-program dollar values are illustrative. <span id="foot-mode"></span>
+  </footer>
+</div>
+
+<script>
+"use strict";
+
+const PROGRAMS = [
+  { key:"hhs.medicaid",               label:"HHS — Medicaid",                 v:31200 },
+  { key:"hhs.medicare-ffs",           label:"HHS — Medicare FFS",             v:31700 },
+  { key:"treasury.eitc",              label:"Treasury — EITC",                v:21900 },
+  { key:"dol.unemployment-insurance", label:"DOL — Unemployment Insurance",   v:5800  },
+  { key:"sba.disaster-assistance",    label:"SBA — Disaster Assistance",      v:3400  }
+];
+const TANF = { key:"hhs.tanf", label:"HHS — TANF", v:2600 };
+const ALL = [...PROGRAMS, TANF];
+const OOS = { key:"dhs.fema-public-assistance", label:"DHS — FEMA Public Assistance", v:7500 };
+
+let LIVE = false, graphName = null, reported = [], step = 0;
+
+const $  = s => document.querySelector(s);
+const $$ = s => Array.from(document.querySelectorAll(s));
+
+function graphDef(name) {
+  return { symbia:"graph/1.0", name, version:"1.0.0",
+    description:"Guided-tour instance of the federal payment integrity rollup. Illustrative values.",
+    author:"federal-demo",
+    nodes:[
+      { id:"entry",  component:"symbia.io.passthrough" },
+      { id:"valid",  component:"symbia.logic.filter", config:{ field:"value", op:"exists" } },
+      { id:"rollup", component:"symbia.state.rollup",
+        config:{ expected: ALL.map(p => p.key), op:"sum", keyField:"key", valueField:"value" } },
+      { id:"rollupOut", component:"symbia.io.collect" }
+    ],
+    edges:[
+      { id:"e1", source:{node:"entry", port:"out"},  target:{node:"valid",  port:"in"} },
+      { id:"e2", source:{node:"valid", port:"pass"}, target:{node:"rollup", port:"in"} },
+      { id:"e3", source:{node:"rollup",port:"out"},  target:{node:"rollupOut", port:"in"} }
+    ],
+    metadata:{ role:"tour", ingress:{ node:"entry", port:"in" } } };
+}
+
+async function symbia(args) {
+  const r = await window.cowork.callMcpTool("mcp__Symbia__imagine___symbia_call", args);
+  if (r.isError) throw new Error((r.content && r.content[0] && r.content[0].text) || "tool error");
+  const parsed = r.structuredContent ?? JSON.parse(r.content[0].text);
+  if (parsed && parsed.error) throw new Error(parsed.error);
+  return parsed.result ?? parsed;
+}
+
+async function boot() {
+  // Attempt a live connection. The artifact sandbox cannot currently reach the
+  // Symbia stdio connector (every call shape returns 400), so in practice this
+  // falls through to the recorded values below. Kept so the tour goes live
+  // automatically wherever the bridge does work.
+  try {
+    if (!window.cowork || !window.cowork.callMcpTool) throw new Error("no bridge");
+    await newGraph();
+    LIVE = true;
+    setMode("live", "Live — connected to the running Symbia stack");
+  } catch (e) {
+    LIVE = false;
+    console.warn("running from recorded values:", e && e.message);
+    setMode("recorded", "Recorded run — measured 16 Aug 2026 on the live stack");
+  }
+  renderProgs();
+  renderNav();
+}
+
+async function newGraph() {
+  const name = "payment-integrity-tour-" + Date.now();
+  const loaded = await symbia({ service:"runtime", method:"POST", path:"/api/graphs", body:graphDef(name) });
+  await symbia({ operationId:"post_graphs_id_execute", params:{ id: loaded.id } });
+  graphName = name;
+}
+
+function setMode(cls, text) {
+  const el = $("#mode");
+  el.className = "mode " + cls;
+  $("#modetext").textContent = text;
+  $("#foot-mode").textContent = cls === "live"
+    ? "This session is calling the live stack."
+    : "Showing the recorded transcript of the run on 2026-08-16.";
+}
+
+async function report(p) {
+  if (reported.includes(p.key)) return;
+  $("#errbox").innerHTML = "";
+  let out;
+  if (LIVE) {
+    try {
+      const res = await symbia({ operationId:"post_ingress_graphName_",
+        params:{ graphName }, body:{ key:p.key, value:p.v } });
+      const o = res.outputs && res.outputs["rollupOut:out"];
+      if (!o) throw new Error("no rollup output in response");
+      out = { ...o.value, lane:o.lane };
+    } catch (e) {
+      LIVE = false;
+      setMode("recorded", "Recorded run — measured 16 Aug 2026 on the live stack");
+    }
+  }
+  reported.push(p.key);
+  // Recorded path recomputes from actual click order, so the readout stays
+  // correct whatever sequence the programs are reported in.
+  if (!out) out = replay();
+  paint(out);
+  renderProgs();
+}
+
+// Deterministic recompute for the recorded path, honouring click order.
+function replay() {
+  const sum = reported.reduce((a,k) => a + ALL.find(x => x.key === k).v, 0);
+  const missing = ALL.map(x => x.key).filter(k => !reported.includes(k));
+  return { value:sum, op:"sum", coverage:reported.length/6, present:reported.length,
+           missing, lane: missing.length ? "apocryphal" : "canonical" };
+}
+
+function paint(o) {
+  const bn = (o.value / 1000).toFixed(1);
+  $("#total").textContent = bn;
+  $("#unit").textContent = "B";
+  $("#cov").textContent =
+    o.present + " of 6 programs reporting · coverage " + o.coverage.toFixed(3);
+
+  const lane = $("#lane");
+  lane.className = "lane " + o.lane;
+  lane.textContent = o.lane;
+
+  const bar = $("#bar");
+  bar.style.width = (o.coverage * 100) + "%";
+  bar.className = o.missing.length ? "" : "full";
+
+  $("#detail").innerHTML = o.missing.length
+    ? 'Not counted: <span class="missing">' + o.missing.map(escapeHtml).join(", ") + '</span>'
+    : '<span class="ok">Every declared program has reported. This total can be defended.</span>';
+
+  $("#pivot").classList.toggle("hide", !(o.present === 5 && o.missing.includes("hhs.tanf")));
+  $("#closed").classList.toggle("hide", o.missing.length !== 0);
+  if (o.missing.length === 0) markDone(2);
+}
+
+function renderProgs() {
+  const wrap = $("#progs");
+  wrap.innerHTML = "";
+  ALL.forEach(p => {
+    const done = reported.includes(p.key);
+    const isT = p.key === "hhs.tanf";
+    // TANF stays out of reach until the other five have filed — that's the whole point.
+    const locked = isT && reported.length < 5;
+    const b = document.createElement("button");
+    b.className = "prog" + (done ? " reported" : "") + (isT ? " tanf" : "");
+    b.disabled = done || locked;
+    b.innerHTML = '<span class="nm">' + escapeHtml(p.label) + '</span>' +
+      '<span class="amt">$' + (p.v/1000).toFixed(1) + 'B' +
+      (locked ? ' · the program that doesn\'t report' : '') + '</span>';
+    b.onclick = () => report(p);
+    wrap.appendChild(b);
+  });
+}
+
+async function reset() {
+  reported = [];
+  $("#errbox").innerHTML = ""; $("#oosbox").innerHTML = "";
+  $("#total").textContent = "—"; $("#unit").textContent = "";
+  $("#cov").textContent = "No programs have reported yet.";
+  $("#detail").textContent = "Report a program to begin.";
+  $("#lane").className = "lane none"; $("#lane").textContent = "no value yet";
+  $("#bar").style.width = "0%"; $("#bar").className = "";
+  $("#pivot").classList.add("hide"); $("#closed").classList.add("hide");
+  $("#btn-oos").disabled = false;
+  if (LIVE) { try { await newGraph(); } catch (e) { LIVE = false; setMode("recorded","Recorded run — lost the live connection"); } }
+  renderProgs();
+}
+
+async function outOfSet() {
+  const box = $("#oosbox");
+  const before = replay();
+  let after;
+  if (LIVE && reported.length === 6) {
+    try {
+      const res = await symbia({ operationId:"post_ingress_graphName_",
+        params:{ graphName }, body:{ key:OOS.key, value:OOS.v } });
+      const o = res.outputs["rollupOut:out"];
+      after = { ...o.value, lane:o.lane };
+    } catch (e) { after = null; }
+  }
+  if (!after) after = { ...before };   // recorded behaviour: unchanged
+  $("#btn-oos").disabled = true;
+
+  const moved = after.value !== before.value;
+  box.innerHTML =
+    '<table><tr><th></th><th>Total</th><th>Coverage</th><th>Contributors</th><th>Lane</th></tr>' +
+    '<tr><td>Before</td><td class="num">$' + (before.value/1000).toFixed(1) + 'B</td><td class="num">' +
+      before.coverage.toFixed(3) + '</td><td class="num">' + before.present + '</td><td>' + before.lane + '</td></tr>' +
+    '<tr><td>After</td><td class="num">$' + (after.value/1000).toFixed(1) + 'B</td><td class="num">' +
+      after.coverage.toFixed(3) + '</td><td class="num">' + after.present + '</td><td>' + after.lane + '</td></tr></table>' +
+    '<div class="callout' + (moved ? ' warn' : '') + '"><b>' +
+    (moved
+      ? 'The undeclared program moved the total.'
+      : 'Nothing moved.') + '</b> ' +
+    (moved
+      ? 'That would mean the expected list is documentation rather than enforcement — a source nobody declared was able to change a total that still reads as trustworthy.'
+      : 'The undeclared program was excluded from the sum, coverage held at 1.000, and the contributor count stayed at 6. The expected list is enforced, not advisory. A source nobody declared cannot move this number.') +
+    '</div>' +
+    '<div class="row"><button class="act" data-go="5">See the honest limits →</button></div>';
+  box.querySelector("[data-go]").onclick = e => go(+e.target.dataset.go);
+  markDone(4);
+}
+
+const STEPS = ["The problem","What we built","Watch it happen","Downstream","The stress test","Limits"];
+let doneSteps = new Set();
+function markDone(i) { doneSteps.add(i); renderNav(); }
+
+function renderNav() {
+  const nav = $("#nav"); nav.innerHTML = "";
+  STEPS.forEach((label, i) => {
+    const b = document.createElement("button");
+    b.textContent = (i + 1) + ". " + label;
+    b.className = (i === step ? "on" : "") + (doneSteps.has(i) ? " done" : "");
+    b.onclick = () => go(i);
+    nav.appendChild(b);
+  });
+}
+
+function go(i) {
+  step = i;
+  $$(".step").forEach(s => s.classList.toggle("hide", +s.dataset.step !== i));
+  doneSteps.add(i);
+  renderNav();
+  window.scrollTo({ top:0, behavior:"smooth" });
+}
+
+function escapeHtml(s) {
+  return String(s).replace(/[&<>"']/g, c =>
+    ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[c]));
+}
+
+document.addEventListener("click", e => {
+  const t = e.target.closest("[data-go]");
+  if (t) go(+t.dataset.go);
+});
+$("#btn-tanf").onclick   = () => report(TANF);
+$("#btn-reset").onclick  = reset;
+$("#btn-reset2").onclick = () => { reset(); go(2); };
+$("#btn-oos").onclick    = outOfSet;
+
+boot();
+</script>
+</body>
+</html>

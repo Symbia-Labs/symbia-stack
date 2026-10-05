@@ -17,6 +17,8 @@ export interface IncomingEvent {
   message?: MessageContext;
   user?: UserContext;
   metadata?: Record<string, unknown>;
+  /** Catalog snapshot injected by webhooks so rules can resolve @catalog refs. */
+  catalog?: { resources?: Record<string, unknown>[] };
 }
 
 export interface RunCoordinatorConfig {

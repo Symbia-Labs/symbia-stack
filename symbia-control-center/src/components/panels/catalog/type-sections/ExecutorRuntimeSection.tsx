@@ -6,7 +6,10 @@
  */
 
 import { useState, useCallback } from 'react';
-import type { CatalogResource, ExecutorResource } from '@/types/catalog';
+// 'executor' is no longer a catalog ResourceType (settled 9 Aug,
+// docs/2026-08-09-catalog-roadmap.md §7.3); this section is retained but
+// unrouted, typed against the base resource.
+import type { CatalogResource } from '@/types/catalog';
 
 interface ExecutorRuntimeSectionProps {
   resource: CatalogResource;
@@ -25,7 +28,7 @@ export function ExecutorRuntimeSection({
   resource,
   onUpdateMetadata,
 }: ExecutorRuntimeSectionProps) {
-  const executorResource = resource as ExecutorResource;
+  const executorResource = resource;
   const metadata = executorResource.metadata || {};
 
   const runtime = (metadata.runtime || {}) as {

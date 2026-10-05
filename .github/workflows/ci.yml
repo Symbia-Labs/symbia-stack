@@ -1,50 +1,28 @@
 name: CI
 
+# Build / docs / image / release PIPELINE.
+#
+# Correctness GATES (type check, port invariant, security suite, live RLS) live
+# in verify.yml and run on every branch. This file is only the things that come
+# after "is it correct?": produce the build, validate the generated docs against
+# it, build images, and cut releases. The old per-package `audit` type-check job
+# was removed on 13 Aug 2026 — it duplicated `npm run check` (now in verify.yml)
+# using the pre-rebuild per-directory install instead of the workspace root.
+
 on:
   push:
     branches: [main, develop]
   pull_request:
     branches: [main]
 
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
-  audit:
-    name: Audit & Type Check
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-          cache: 'npm'
-          cache-dependency-path: '**/package-lock.json'
-
-      - name: Install dependencies (shared packages)
-        run: |
-          for pkg in symbia-sys symbia-db symbia-auth symbia-http symbia-id symbia-logging-client symbia-relay symbia-seed; do
-            if [ -d "$pkg" ]; then
-              echo "Installing $pkg..."
-              cd "$pkg" && npm ci && cd ..
-            fi
-          done
-
-      - name: Install dependencies (services)
-        run: |
-          for svc in identity catalog integrations logging messaging network runtime assistants; do
-            if [ -d "$svc/server" ]; then
-              echo "Installing $svc/server..."
-              cd "$svc/server" && npm ci && cd ../..
-            fi
-          done
-
-      - name: Run audit
-        run: ./scripts/workflow/audit-fix.sh --type-check
-
   build:
     name: Build All
     runs-on: ubuntu-latest
-    needs: audit
     steps:
       - uses: actions/checkout@v4
 
@@ -53,19 +31,12 @@ jobs:
         with:
           node-version: '20'
           cache: 'npm'
-          cache-dependency-path: '**/package-lock.json'
 
-      - name: Install and build shared packages
-        run: |
-          for pkg in symbia-sys symbia-db symbia-auth symbia-http symbia-id symbia-logging-client symbia-relay symbia-seed; do
-            if [ -d "$pkg" ]; then
-              echo "Building $pkg..."
-              cd "$pkg" && npm ci && npm run build && cd ..
-            fi
-          done
+      - name: Install (workspaces)
+        run: npm ci
 
-      - name: Build services
-        run: ./scripts/workflow/build-all.sh --skip-packages
+      - name: Build (libs then services)
+        run: npm run build
 
       - name: Upload build artifacts
         uses: actions/upload-artifact@v4
@@ -109,7 +80,7 @@ jobs:
     name: Create Release
     runs-on: ubuntu-latest
     needs: [build, validate-docs]
-    if: github.ref == 'refs/heads/main' && startsWith(github.event.head_commit.message, 'chore: bump version')
+    if: "github.ref == 'refs/heads/main' && startsWith(github.event.head_commit.message, 'chore: bump version')"
     steps:
       - uses: actions/checkout@v4
         with:

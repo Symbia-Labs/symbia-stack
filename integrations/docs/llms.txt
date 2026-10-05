@@ -21,6 +21,7 @@ Use http://localhost:5007 as the base path for all endpoints.
 
 - POST /api/api/integrations/execute - Execute an LLM operation
 - POST /api/api/integrations/invoke - Invoke any registered integration operation
+- POST /api/api/integrations/download - Stream a file from a provider through this service
 - GET /api/api/integrations/providers - List available providers
 - GET /api/api/integrations/providers/{provider} - Get provider configuration
 - GET /api/api/integrations/providers/{provider}/models - Get available models for a provider

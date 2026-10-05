@@ -1,6 +1,7 @@
 import { BaseActionHandler } from './base.js';
 import type { ActionConfig, ActionResult, ExecutionContext } from '../types.js';
 import { interpolate } from '../template.js';
+import { safeFetch } from '@symbia/egress';
 
 export interface NotifyParams {
   channel?: 'email' | 'sms' | 'webhook' | 'slack' | 'push';
@@ -64,7 +65,8 @@ export class NotifyHandler extends BaseActionHandler {
     notification: Record<string, unknown>,
     context: ExecutionContext
   ): Promise<void> {
-    const response = await fetch(url, {
+    // R3: webhookUrl is caller-supplied — gate egress against SSRF.
+    const response = await safeFetch(url, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

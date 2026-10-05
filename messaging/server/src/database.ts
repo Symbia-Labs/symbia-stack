@@ -3,6 +3,7 @@ import { randomUUID } from 'crypto';
 import { newDb, DataType, IMemoryDb } from 'pg-mem';
 import { writeFileSync, mkdirSync } from 'fs';
 import { dirname } from 'path';
+import { attachRLSPoolWrapper } from '@symbia/db';
 import { config } from './config.js';
 
 const { Pool } = pg;
@@ -43,6 +44,20 @@ if (USE_MEMORY_DB) {
   pool = new Pool({
     connectionString: config.databaseUrl,
   });
+  // Survive a Postgres restart (13 Aug 2026): an unhandled pool 'error'
+  // event kills the process. Log and continue; the pool reconnects on the
+  // next query once Postgres is back.
+  pool.on('error', (err) => {
+    console.error(
+      `[messaging] Postgres pool error (backend gone away?): ${err.message}. ` +
+      `Continuing; new connections will be attempted on next query.`
+    );
+  });
+  // Honor the ambient RLS context (set per-request in auth.ts via
+  // runWithRLSContext) on pooled queries. No-op until a context is in scope, so
+  // this is safe before the RLS policies are applied. Explicit-client paths
+  // (pool.connect()) are NOT covered — see @symbia/db als-context.ts.
+  attachRLSPoolWrapper(pool);
 }
 
 export async function initDatabase(): Promise<void> {

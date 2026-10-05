@@ -28,12 +28,12 @@ than by importing each other's code.
 | integrations | 5007 | LLM gateway, external integrations, MCP surface |
 | models | 5008 | local GGUF inference |
 | network | 5009 | event routing, service mesh, topology |
-| service-admin | 3000 | minimal admin UI (plain Node, no build step) |
-| control center | 5173 | the main UI — Vite dev server, **started separately** |
+| service-admin | 9000 | the API + admin front door (plain Node, no build step) — the one host-published port by default |
+| control center | 8000 | the operator console — an esbuild bundle served by its own Node server; proxies `/svc/{id}` to each service |
 
 Ports are not hardcoded in nine places. They live in `symbia-sys/src/index.ts`
 as `ServiceId` / `ServicePorts`, and everything else — the start scripts, the
-Vite proxy table, the clients — derives from there. If you add or move a
+control-center `/svc/{id}` proxy, the clients — derives from there. If you add or move a
 service, that file is the edit; anything that needs a second edit somewhere
 else is a bug worth reporting.
 
@@ -128,16 +128,25 @@ CATALOG_USE_MEMORY_DB=true npm run dev:catalog
 IDENTITY_USE_MEMORY_DB=true npm run dev:identity
 ```
 
-### The control center is not started by either script
+### Running the control center for UI work
 
-This catches everyone. Neither `start.sh` nor `start-local.sh` runs the main
-UI, and it is **not** an npm workspace — it has its own `node_modules`.
+Both `start.sh` and `start-local.sh` bring the console up on
+**http://localhost:8000** as part of the stack — you do not need to start it by
+hand to use it. It is **not** an npm workspace: it has its own `node_modules`
+and its own esbuild build (`scripts/build.ts`), which bundles the React client
+and a small Node server into `dist/server.mjs`.
+
+Start it separately only when you are changing the UI and want a rebuild-on-save
+loop:
 
 ```bash
 cd symbia-control-center
 npm install      # once
-npm run dev      # http://localhost:5173
+npm run dev      # esbuild --watch; its server still serves on http://localhost:8000
 ```
+
+There is no Vite dev server and no separate UI port. Every environment reaches
+services through `/svc/{id}` on the same 8000 origin — see §8.
 
 ### Configuration
 
@@ -186,7 +195,7 @@ symbia-stack/
 ├── network/ runtime/ assistants/              # each self-contained
 ├── integrations/ models/
 ├── service-admin/            # minimal admin UI, plain Node
-├── symbia-control-center/    # the real UI (React + Vite), NOT a workspace
+├── symbia-control-center/    # the real UI (React, esbuild), NOT a workspace
 │
 ├── symbia-sys/               # ServiceId, ServicePorts, bootstrap, script
 ├── symbia-http/              # Express + WebSocket + middleware + health
@@ -413,21 +422,21 @@ the defect, not the feature.
 Each of these is a real failure that happened here, not a hypothetical.
 
 **Never make cross-origin calls from the control center.** Use `/svc/{service}`,
-which Vite proxies to the service root without rewriting path segments — so
-both `/health` (root) and `/api/*` are reachable. Only messaging, network, and
-runtime set CORS headers in their entry point; the other six do not — so
-absolute `http://localhost:PORT` URLs get blocked by the browser before the app
-sees the response. This surfaced as a dashboard reading
-"3/8 healthy" with every container healthy, and as "Failed to fetch" rendering
-every LLM provider as "Not configured".
+which the console's own Node server proxies to the service root without
+rewriting path segments — so both `/health` (root) and `/api/*` are reachable.
+Absolute `http://localhost:PORT` URLs get blocked by the browser before the app
+sees the response. This surfaced as a dashboard reading "3/8 healthy" with every
+container healthy, and as "Failed to fetch" rendering every LLM provider as "Not
+configured".
 
-**Do not gate proxy selection on `import.meta.env.DEV`.** Measured in the
-running page, that flag is `false` even under `npm run dev` — `NODE_ENV` leaks
-in from the environment. Detect the dev server by
-`window.location.port === '5173'`. This defect appeared in two separate config
-files (`symbia-control-center/src/config/services.ts` and
-`symbia-control-center/src/config/endpoints.ts`), and fixing one did not reach
-the other.
+**Do not reintroduce a dev/prod URL branch.** `getServiceUrl` returns
+`/svc/{id}` in every environment, with no branch —
+`symbia-control-center/src/config/services.ts` and `endpoints.ts` both say so.
+This replaced a Vite-era defect where proxy selection was gated on
+`import.meta.env.DEV`, which measured `false` even under the dev server and took
+the wrong branch in two config files at once. Vite is deleted; any
+`import.meta.env` read or port-sniffing branch that comes back is a regression,
+not a fix.
 
 **A shared-looking concern with N independent implementations is not shared.**
 `authMiddleware` has been forked into at least three services; patching

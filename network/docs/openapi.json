@@ -1518,6 +1518,7 @@
             "type": "string",
             "enum": [
               "delivered",
+              "unrouted",
               "dropped",
               "pending",
               "error"

@@ -40,6 +40,43 @@ Use /api as the base path for all endpoints.
 - POST /api/assistant/analyze - Analyze errors with AI
 - POST /api/assistant/investigate - Investigate a specific insight
 - POST /api/assistant/group - Group related logs by pattern
+- DELETE /api/auth/keys/{id} - Delete keys
+- DELETE /api/data-sources/{id} - Delete data sources
+- GET /api/data-sources/{id} - Get data sources
+- PATCH /api/data-sources/{id} - Update data sources
+- DELETE /api/integrations/{id} - Delete integrations
+- GET /api/integrations/{id} - Get integrations
+- PATCH /api/integrations/{id} - Update integrations
+- DELETE /api/logs/streams/{id} - Delete streams
+- GET /api/logs/streams/{id} - Get streams
+- PATCH /api/logs/streams/{id} - Update streams
+- DELETE /api/metrics/{id} - Delete metrics
+- GET /api/metrics/{id} - Get metrics
+- PATCH /api/metrics/{id} - Update metrics
+- DELETE /api/objects/streams/{id} - Delete streams
+- GET /api/objects/streams/{id} - Get streams
+- PATCH /api/objects/streams/{id} - Update streams
+- GET /api/auth/config - Get config
+- GET /api/auth/keys - List keys
+- POST /api/auth/keys - Create keys
+- GET /api/auth/me - Get me
+- GET /api/auth/session - Get session
+- GET /api/bootstrap/service - Get service
+- GET /api/data-sources - List data sources
+- POST /api/data-sources - Create data sources
+- GET /api/integrations - List integrations
+- POST /api/integrations - Create integrations
+- GET /api/logs/stream - Get stream
+- GET /api/stats - List stats
+- GET /api/stats/ingest-rate - Get ingest rate
+- GET /api/stats/query-latency - Get query latency
+- GET /api/traces/{id} - Get traces
+- POST /api/auth/login - Login auth login
+- POST /api/auth/logout - Logout auth logout
+- POST /api/data-sources/{id}/sync - Sync data sources sync
+- POST /api/ingest - Create ingest
+- POST /api/integrations/{id}/test - Test integrations test
+- POST /api/query - Query query
 
 ## Authentication
 

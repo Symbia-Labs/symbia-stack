@@ -95,6 +95,29 @@ export interface LocalModel {
   digest?: string;
   /** Bytes hashed, so a truncated or swapped file is visible without rehashing. */
   sizeBytes?: number;
+  /**
+   * Set at load time when the catalog card's digest and the file's digest
+   * disagree. Disclose-don't-refuse (ruling 15 Aug 2026): the load proceeds,
+   * and the registry and API carry this field so nothing downstream can cite
+   * the card while serving different bytes unannounced. Becomes a refusal
+   * when the pull path guarantees every card a digest
+   * (docs/proposals/models-defect-closure.md).
+   */
+  cardDigestMismatch?: { card: string; file: string };
+  /**
+   * A load that was attempted and did not finish.
+   *
+   * Recorded ON DISK before the load starts and cleared on success,
+   * because the failure this exists for KILLS THE PROCESS: loading a model
+   * larger than the host will allow gets the runtime SIGKILLed, so no
+   * catch block runs and an in-memory flag dies with it. Measured 15 Aug —
+   * the deployed models container restarted mid-load in a 1.9 GB VM, and
+   * the registry went on reporting the model exactly as it had before.
+   *
+   * "On disk" and "will serve" are different claims. This field is what
+   * makes the difference sayable.
+   */
+  loadFailure?: { at: string; reason: string };
   contextLength: number;
   capabilities: string[];
   status: "available" | "loading" | "loaded" | "error";
@@ -102,6 +125,54 @@ export interface LocalModel {
   memoryUsageMB: number;
   createdAt?: string;
   lastUsed?: Date;
+}
+
+/**
+ * The load-attempt journal: `MODELS_PATH/.load-attempts.json`.
+ *
+ * One entry per model id, written before a load and removed after a
+ * successful one. An entry still present at boot means the previous
+ * attempt never finished — the process died holding it — which is the
+ * only way to observe a SIGKILLed load after the fact.
+ */
+interface LoadAttempt {
+  startedAt: string;
+  digest?: string;
+  /** Present when the failure was catchable; absent when the process died. */
+  reason?: string;
+}
+
+function attemptsPath(): string {
+  return join(config.modelsPath, ".load-attempts.json");
+}
+
+async function readAttempts(): Promise<Record<string, LoadAttempt>> {
+  try {
+    return JSON.parse(await readFile(attemptsPath(), "utf8")) as Record<string, LoadAttempt>;
+  } catch {
+    return {};
+  }
+}
+
+async function writeAttempts(all: Record<string, LoadAttempt>): Promise<void> {
+  try {
+    await writeFile(attemptsPath(), JSON.stringify(all, null, 2));
+  } catch (err) {
+    console.warn(`[llama] Could not write load journal: ${err instanceof Error ? err.message : err}`);
+  }
+}
+
+async function recordLoadAttempt(id: string, digest?: string, reason?: string): Promise<void> {
+  const all = await readAttempts();
+  all[id] = { startedAt: new Date().toISOString(), digest, ...(reason ? { reason } : {}) };
+  await writeAttempts(all);
+}
+
+async function clearLoadAttempt(id: string): Promise<void> {
+  const all = await readAttempts();
+  if (!(id in all)) return;
+  delete all[id];
+  await writeAttempts(all);
 }
 
 interface LoadedModel {
@@ -228,6 +299,9 @@ class LlamaEngine {
       const ggufFiles = files.filter((f) => f.endsWith(".gguf"));
       console.log(`[llama] Found ${ggufFiles.length} GGUF files`);
 
+      // Unfinished attempts from a previous process — see LoadAttempt.
+      const attempts = await readAttempts();
+
       for (const filename of ggufFiles) {
         const filepath = join(modelsPath, filename);
         const fileStat = await stat(filepath);
@@ -250,7 +324,21 @@ class LlamaEngine {
           loaded: false,
           memoryUsageMB: Math.round(fileStat.size / 1024 / 1024),
           createdAt: fileStat.birthtime.toISOString(),
+          // An attempt still in the journal was never completed by the
+          // process that wrote it.
+          loadFailure: attempts[id]
+            ? {
+                at: attempts[id].startedAt,
+                reason:
+                  attempts[id].reason ??
+                  "a previous load did not finish — the process ended while loading these weights (host memory is the usual cause)",
+              }
+            : undefined,
         };
+        if (model.loadFailure) {
+          model.status = "error";
+          console.warn(`[llama] ${id}: ${model.loadFailure.reason}`);
+        }
 
         this.models.set(id, model);
         console.log(
@@ -308,6 +396,32 @@ class LlamaEngine {
 
     console.log(`[llama] Loading model: ${id}`);
     modelInfo.status = "loading";
+    // Journal the attempt before touching the weights, so a load that ends
+    // the process still leaves evidence that it was tried.
+    await recordLoadAttempt(id, modelInfo.digest);
+
+    // Compare the file against its catalog card, when both sides have a
+    // digest. A null here is "could not ask" or "card makes no claim" — not
+    // a pass, and not a failure either; the distinction §6.10 taught.
+    try {
+      const { fetchCardDigest } = await import("../catalog/model-sync.js");
+      const cardDigest = await fetchCardDigest(id, modelInfo.digest);
+      if (cardDigest && modelInfo.digest) {
+        const fileDigest = `sha256:${modelInfo.digest}`;
+        if (cardDigest !== fileDigest) {
+          modelInfo.cardDigestMismatch = { card: cardDigest, file: fileDigest };
+          console.warn(
+            `[llama] DIGEST MISMATCH for ${id}: card says ${cardDigest.slice(0, 24)}…, file is ${fileDigest.slice(0, 24)}… — loading anyway, disclosed on the registry entry`
+          );
+        } else {
+          modelInfo.cardDigestMismatch = undefined;
+        }
+      }
+    } catch (err) {
+      console.warn(
+        `[llama] Card digest check skipped: ${err instanceof Error ? err.message : err}`
+      );
+    }
 
     try {
       if (!this.llama) {
@@ -339,10 +453,15 @@ class LlamaEngine {
 
       this.startIdleTimer(id);
       console.log(`[llama] Model loaded: ${id}`);
+      await clearLoadAttempt(id);
+      modelInfo.loadFailure = undefined;
 
       return loaded;
     } catch (err) {
       modelInfo.status = "error";
+      const reason = err instanceof Error ? err.message : String(err);
+      modelInfo.loadFailure = { at: new Date().toISOString(), reason };
+      await recordLoadAttempt(id, modelInfo.digest, reason);
       throw err;
     }
   }

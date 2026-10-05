@@ -19,6 +19,17 @@ export * from './bootstrap.js';
 // Shared authorization utilities and capabilities
 export * from './auth.js';
 
+// W3C Trace Context - standards-compliant distributed tracing.
+// Replaces bespoke runId/traceId correlation so traces stitch to any
+// OpenTelemetry-aware tool, and to MCP servers (which reserve `traceparent`
+// in `_meta` for this purpose).
+export * from './trace-context.js';
+
+// Event header promotion + validation. Promotes `boundary` — a trust decision —
+// into a header so intermediaries can enforce policy without parsing bodies,
+// and validates header/body agreement to avoid two sources of truth.
+export * from './event-headers.js';
+
 /**
  * Service identifiers used across the platform
  */

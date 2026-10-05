@@ -515,7 +515,7 @@ Response: Network graph
   runId?: string;
   path?: array;
   totalDurationMs?: number;
-  status?: delivered|dropped|pending|error;
+  status?: delivered|unrouted|dropped|pending|error;
   error?: string;
 }
 ```

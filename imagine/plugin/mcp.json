@@ -1,0 +1,14 @@
+{
+  "mcpServers": {
+    "symbia-imagine": {
+      "command": "node",
+      "args": [
+        "${CLAUDE_PLUGIN_ROOT}/sidecar/shim.mjs",
+        "--autostart"
+      ],
+      "env": {
+        "IMAGINE_BUILD": "0.1.0"
+      }
+    }
+  }
+}

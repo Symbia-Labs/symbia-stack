@@ -1,0 +1,37 @@
+{
+  "name": "@symbia/logging-client",
+  "version": "1.0.0",
+  "description": "Logging service client - logs, metrics, traces, and telemetry for Symbia services",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "require": "./dist/index.js",
+      "default": "./dist/index.js"
+    },
+    "./telemetry": {
+      "types": "./dist/client.d.ts",
+      "import": "./dist/client.js",
+      "require": "./dist/client.js",
+      "default": "./dist/client.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "clean": "rm -rf dist"
+  },
+  "keywords": ["symbia", "logging", "telemetry", "observability", "metrics", "tracing"],
+  "author": "Symbia",
+  "license": "MIT",
+  "dependencies": {
+    "@symbia/sys": "file:../symbia-sys"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "typescript": "^5.0.0"
+  }
+}

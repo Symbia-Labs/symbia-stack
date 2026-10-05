@@ -27,6 +27,27 @@ const TYPE_LABELS: Record<string, string> = {
 function NetworkFlowNodeComponent({ data, selected }: NetworkFlowNodeProps) {
   const { networkNode, color, icon, label, isStale, isConnected, capabilityCount, isActive, activityLevel, traffic } = data;
 
+  /**
+   * A node must be visible even when nothing is known about it.
+   *
+   * `borderColor` was set straight from `data.color`, and the card's fill came
+   * from the class `bg-surface-elevated` — which has never existed. The
+   * surface scale is base / raised / overlay / sunken / highlight; `elevated`
+   * lives only in the `scc` namespace. So the fill was `rgba(0,0,0,0)` on
+   * every node ever rendered, and the only thing making a node visible was its
+   * inline border colour.
+   *
+   * Measured 9 Aug 2026 on a stack whose nodes carried no `color`: ten nodes
+   * present in the DOM, correctly positioned, correctly sized, and completely
+   * invisible — the graph drew edges across empty space and looked like a
+   * rendering bug. Two independent failures, and either one alone would have
+   * kept the cards on screen.
+   *
+   * A node with no declared colour now draws in a neutral one rather than
+   * vanishing. Absent metadata is not absence of a service.
+   */
+  const strokeColor = color || 'var(--border-default, #30363d)';
+
   // Activity level affects glow intensity (0-1 scale)
   const glowIntensity = activityLevel || 0;
   const hasRecentActivity = isActive || glowIntensity > 0;
@@ -34,15 +55,18 @@ function NetworkFlowNodeComponent({ data, selected }: NetworkFlowNodeProps) {
   return (
     <div
       className={`
-        w-[180px] bg-surface-elevated border-2 rounded-lg shadow-lg
+        w-[180px] bg-surface-raised border-2 rounded-lg shadow-lg
         transition-all duration-200
         ${selected ? 'ring-2 ring-offset-2 ring-offset-surface-base' : ''}
         ${isStale ? 'opacity-60' : ''}
         ${hasRecentActivity ? 'network-node-active' : ''}
       `}
       style={{
-        borderColor: isStale ? '#f59e0b' : color,
-        boxShadow: isConnected && !isStale
+        borderColor: isStale ? '#f59e0b' : strokeColor,
+        // Glow only when there IS a colour to glow with. Appending an alpha
+        // suffix to `undefined` produced the string "undefined30", which is
+        // not a colour and silently dropped the shadow.
+        boxShadow: isConnected && !isStale && color
           ? hasRecentActivity
             ? `0 0 ${20 + glowIntensity * 20}px ${color}${Math.round(48 + glowIntensity * 32).toString(16)}`
             : `0 0 20px ${color}30`
@@ -141,25 +165,56 @@ function NetworkFlowNodeComponent({ data, selected }: NetworkFlowNodeProps) {
         )}
       </div>
 
-      {/* Handles */}
-      <Handle
-        type="target"
-        position={Position.Left}
-        className="!w-3 !h-3 !border-2"
-        style={{
-          backgroundColor: color,
-          borderColor: `${color}80`,
-        }}
-      />
-      <Handle
-        type="source"
-        position={Position.Right}
-        className="!w-3 !h-3 !border-2"
-        style={{
-          backgroundColor: color,
-          borderColor: `${color}80`,
-        }}
-      />
+      {/*
+        FOUR CONNECTION POINTS, ONE PER FACE.
+
+        There used to be two: a target on the left and a source on the right.
+        Every wire therefore had to leave rightwards and arrive leftwards
+        regardless of where the other node was, which is what turned a mesh
+        into parallel corridors. The fix was never to stop attaching wires to
+        connection points — it was to stop having only two.
+
+        Each face carries an overlapping source and target handle so a call can
+        arrive at or leave from any side, plus one visible dot. Eight handles
+        would be eight dots; the handles are transparent and the dot beneath is
+        what a reader sees.
+      */}
+      {(['top', 'right', 'bottom', 'left'] as const).map((side) => {
+        const pos = {
+          top: Position.Top,
+          right: Position.Right,
+          bottom: Position.Bottom,
+          left: Position.Left,
+        }[side];
+        return (
+          <div key={side}>
+            <Handle
+              type="target"
+              id={`t-${side}`}
+              position={pos}
+              style={{ opacity: 0, width: 12, height: 12, border: 'none' }}
+            />
+            <Handle
+              type="source"
+              id={`s-${side}`}
+              position={pos}
+              style={{ opacity: 0, width: 12, height: 12, border: 'none' }}
+            />
+            <span
+              className="absolute rounded-full pointer-events-none"
+              style={{
+                width: 8,
+                height: 8,
+                backgroundColor: strokeColor,
+                ...(side === 'top' ? { top: -4, left: 'calc(50% - 4px)' } : {}),
+                ...(side === 'bottom' ? { bottom: -4, left: 'calc(50% - 4px)' } : {}),
+                ...(side === 'left' ? { left: -4, top: 'calc(50% - 4px)' } : {}),
+                ...(side === 'right' ? { right: -4, top: 'calc(50% - 4px)' } : {}),
+              }}
+            />
+          </div>
+        );
+      })}
     </div>
   );
 }

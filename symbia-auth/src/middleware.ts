@@ -92,6 +92,14 @@ export function createAuthMiddleware(options: AuthMiddlewareOptions) {
 
   const authClient = createAuthClient({ identityServiceUrl });
 
+  // Run the rest of the request through the optional onAuthenticated hook (e.g.
+  // an RLS scope), or straight to next() when no hook is configured. Absent hook
+  // ⇒ identical behaviour to before, so existing consumers are unaffected.
+  const finish = (req: Request, res: Response, next: NextFunction): void => {
+    if (options.onAuthenticated) options.onAuthenticated(req, res, next);
+    else next();
+  };
+
   /**
    * Get the current authenticated user
    */
@@ -127,7 +135,7 @@ export function createAuthMiddleware(options: AuthMiddlewareOptions) {
           req.user = user;
         }
 
-        next();
+        finish(req, res, next);
       })
       .catch(next);
   }
@@ -139,7 +147,7 @@ export function createAuthMiddleware(options: AuthMiddlewareOptions) {
     getCurrentUser(req)
       .then((user) => {
         req.user = user || undefined;
-        next();
+        finish(req, res, next);
       })
       .catch(next);
   }
@@ -167,7 +175,7 @@ export function createAuthMiddleware(options: AuthMiddlewareOptions) {
         }
 
         req.user = user;
-        next();
+        finish(req, res, next);
       })
       .catch(next);
   }
@@ -189,7 +197,7 @@ export function createAuthMiddleware(options: AuthMiddlewareOptions) {
         }
 
         req.user = user;
-        next();
+        finish(req, res, next);
       })
       .catch(next);
   }

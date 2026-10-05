@@ -19,9 +19,7 @@ import * as crypto from "crypto";
 // reason `npm run seed` has never completed on this stack.
 import bcrypt from "bcryptjs";
 import { eq, and } from "drizzle-orm";
-
-// Encryption key for credentials (use JWT_SECRET as fallback)
-const ENCRYPTION_KEY = process.env.CREDENTIAL_ENCRYPTION_KEY || process.env.JWT_SECRET || "dev-secret-key-32chars-minimum!!";
+import { encryptSecret } from "@symbia/crypto";
 
 // Dev API keys loaded from environment variables (optional)
 // Set DEV_OPENAI_API_KEY, DEV_HUGGINGFACE_API_KEY, DEV_TELEGRAM_BOT_TOKEN to enable auto-seeding
@@ -32,16 +30,11 @@ const DEV_API_KEYS: Record<string, string | undefined> = {
 };
 
 /**
- * Encrypt an API key for storage
+ * Encrypt an API key for storage (A2: @symbia/crypto vault, HKDF-keyed
+ * AES-256-GCM — no JWT_SECRET coupling, no hardcoded fallback).
  */
 function encryptApiKey(apiKey: string): string {
-  const iv = crypto.randomBytes(16);
-  const key = Buffer.from(ENCRYPTION_KEY.padEnd(32).slice(0, 32));
-  const cipher = crypto.createCipheriv('aes-256-gcm', key, iv);
-  let encrypted = cipher.update(apiKey, 'utf8', 'hex');
-  encrypted += cipher.final('hex');
-  const authTag = cipher.getAuthTag().toString('hex');
-  return `${iv.toString('hex')}:${authTag}:${encrypted}`;
+  return encryptSecret(apiKey);
 }
 
 /**
@@ -244,7 +237,19 @@ async function seedMcpProbe(orgId: string): Promise<boolean> {
     role: "member",
   });
 
-  console.log(`   • Seeded ${MCP_PROBE_EMAIL} (read-only probe, member of ${orgId})`);
+  // Observability grant. Platform telemetry is emitted into the SYSTEM org, so a
+  // plain member of one org sees none of it under RLS — which is exactly why the
+  // MCP log tools came up empty. cap:telemetry.global-read triggers the RLS
+  // read-bypass (@symbia/db GLOBAL_READ_CAPABILITIES), read-only across orgs, so
+  // symbia_query_logs / symbia_list_log_streams actually return data out of the
+  // box in a quickstart. Read-only: the probe is still NOT a super admin.
+  await db.insert(schema.userEntitlements).values({
+    id: crypto.randomUUID(),
+    userId,
+    entitlementKey: "cap:telemetry.global-read",
+  });
+
+  console.log(`   • Seeded ${MCP_PROBE_EMAIL} (read-only probe + telemetry.global-read, member of ${orgId})`);
   return true;
 }
 

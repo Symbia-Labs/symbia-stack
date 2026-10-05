@@ -253,13 +253,13 @@ data-processor ──[contract]──▶ result-handler
 Every event has a cryptographic hash:
 
 ```
-hash = HMAC-SHA256(secret, JSON.stringify(payload) + wrapper.source + wrapper.timestamp)
+hash = HMAC-SHA256(secret, JSON({type, data, id, timestamp, source, runId, boundary, target}))
 ```
 
 **What this provides:**
-- Tamper-evidence (modified events have wrong hash)
+- Tamper-evidence (modified events have wrong hash; constant-time verification)
 - Source authentication (only nodes with secret can generate valid hashes)
-- Replay detection (timestamp in hash)
+- Replay-relevant coverage (id and timestamp are inside the MAC)
 
 **What this does NOT provide:**
 - Encryption (events are plaintext)
@@ -540,10 +540,10 @@ MAX_TRACE_HISTORY_SIZE = 5000
 
 ### Why HMAC-SHA256 for Hashing
 
-Event hashes use HMAC with a shared secret:
+Event hashes use HMAC with a shared secret (via `@symbia/crypto`):
 
 ```
-hash = HMAC-SHA256(NETWORK_HASH_SECRET, payload + source + timestamp)
+hash = HMAC-SHA256(NETWORK_HASH_SECRET, JSON({type, data, id, timestamp, source, runId, boundary, target}))
 ```
 
 **Why HMAC over plain SHA256:**

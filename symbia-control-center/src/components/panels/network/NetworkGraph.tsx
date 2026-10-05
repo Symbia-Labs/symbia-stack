@@ -14,6 +14,8 @@ import {
   BackgroundVariant,
   Controls,
   type Node,
+  useReactFlow,
+  useNodesInitialized,
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
 
@@ -50,6 +52,37 @@ interface NetworkGraphProps {
   showIntegrations?: boolean;
   integrationCount?: number;
   onToggleIntegrations?: () => void;
+}
+
+/**
+ * Re-fit when the graph arrives.
+ *
+ * `fitView` on <ReactFlow> fits ONCE, at mount. This graph's nodes arrive over
+ * the mesh socket a moment later, so the fit ran against an empty canvas and
+ * was never repeated. Measured: 22 nodes laid out on a ring roughly 2100px
+ * across, viewport left where it started — every node outside the pane and
+ * only the chords between them visible. The picture was edges crossing empty
+ * space, which reads as a rendering bug and is actually a stale viewport.
+ *
+ * Fits again whenever the node COUNT changes, not on every render: dragging a
+ * node must not yank the camera, and node data updates every few seconds with
+ * fresh traffic counts.
+ */
+function FitWhenGraphChanges({ nodeCount }: { nodeCount: number }) {
+  const { fitView } = useReactFlow();
+  const initialized = useNodesInitialized();
+  const lastFitted = useRef<number>(-1);
+
+  useEffect(() => {
+    if (!initialized || nodeCount === 0) return;
+    if (lastFitted.current === nodeCount) return;
+    lastFitted.current = nodeCount;
+    // Measured, not measured-once: nodes must have real dimensions before a
+    // fit means anything, which is what useNodesInitialized reports.
+    void fitView({ padding: 0.15, maxZoom: 1.1, duration: 300 });
+  }, [initialized, nodeCount, fitView]);
+
+  return null;
 }
 
 export function NetworkGraph({
@@ -196,6 +229,7 @@ export function NetworkGraph({
         proOptions={{ hideAttribution: true }}
         className="network-graph-canvas"
       >
+        <FitWhenGraphChanges nodeCount={nodes.length} />
         <Background
           variant={BackgroundVariant.Dots}
           gap={20}

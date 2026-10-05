@@ -6,6 +6,9 @@
   "workspaces": [
     "symbia-sys",
     "symbia-crypto",
+    "symbia-pathguard",
+    "symbia-egress",
+    "symbia-redact",
     "symbia-lineage",
     "symbia-auth",
     "symbia-db",
@@ -33,8 +36,8 @@
   ],
   "scripts": {
     "install:all": "npm install",
-    "build:libs": "npm run build -w symbia-sys && npm run build -w symbia-relay -w symbia-logging-client && npm run build -w symbia-auth -w symbia-db -w symbia-http -w symbia-seed -w symbia-md -w symbia-id -w symbia-messaging-client -w symbia-catalog-client",
-    "build:services": "npm run build -w identity -w logging -w catalog -w messaging -w network -w directory -w runtime -w assistants -w integrations -w models -w service-admin",
+    "build:libs": "npm run build -w symbia-sys -w symbia-crypto -w symbia-pathguard -w symbia-egress -w symbia-redact -w symbia-stream-client && npm run build -w symbia-lineage && npm run build -w symbia-relay -w symbia-logging-client && npm run build -w symbia-auth -w symbia-db -w symbia-http -w symbia-seed -w symbia-md -w symbia-id -w symbia-messaging-client -w symbia-catalog-client",
+    "build:services": "npm run build --if-present -w identity -w logging -w catalog -w messaging -w network -w directory -w runtime -w assistants -w integrations -w models -w service-admin",
     "build": "npm run build:libs && npm run build:services",
     "dev": "./start-local.sh",
     "dev:identity": "npm run dev -w identity",
@@ -50,7 +53,24 @@
     "db:setup": "./start-local.sh --db-only",
     "check": "npm run check --workspaces --if-present",
     "check:ports": "tsx scripts/check-ports.ts",
-    "clean": "rm -rf node_modules */node_modules */dist */.tsbuildinfo"
+    "audit:unauth": "node --experimental-strip-types scripts/enumerate-unauthenticated-routes.mts",
+    "verify:bus": "node scripts/verify-bus-eligibility.mjs",
+    "verify:manifests": "tsx scripts/verify-component-manifests.mts",
+    "verify:assistants": "tsx scripts/verify-assistants.mts",
+    "clean": "rm -rf node_modules */node_modules */dist */.tsbuildinfo",
+    "test:security": "npm run test:security:a1 && npm run test:security:a4 && npm run test:security:crypto && npm run test:security:egress && npm run test:security:seed-guard && npm run test:security:explicit-client-ratchet && npm run test:security:redaction && npm run test:security:credcrypto",
+    "test:security:redaction": "tsx scripts/tests/redaction.test.ts",
+    "test:security:credcrypto": "tsx scripts/tests/credential-crypto.test.ts",
+    "test:security:live": "npm run test:security:a4-live && npm run test:security:messaging-rls-live",
+    "test:security:a1": "cd assistants && tsx ../scripts/tests/a1-code-tools.test.ts",
+    "test:security:a4": "cd assistants && tsx ../scripts/tests/a4-tenancy.test.ts",
+    "test:security:a4-live": "tsx scripts/tests/a4-tenancy-live.test.ts",
+    "test:security:messaging-rls-live": "tsx scripts/tests/messaging-rls-live.test.ts",
+    "test:security:egress": "tsx scripts/tests/egress-guard.test.ts",
+    "test:security:seed-guard": "tsx scripts/tests/seed-guard.test.ts",
+    "test:security:explicit-client-ratchet": "tsx scripts/tests/explicit-client-ratchet.test.ts",
+    "test:security:crypto": "cd network && tsx ../scripts/tests/a2a3-crypto.test.ts",
+    "package:imagine": "bash scripts/package-imagine.sh"
   },
   "engines": {
     "node": ">=20.0.0"

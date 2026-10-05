@@ -5,14 +5,24 @@
  * admission, and a forwarding-permission query the bridge asks before it
  * relays. No event ever passes through this service.
  */
-import { Router, type Request, type Response } from 'express';
+import { Router, type Express, type Request, type Response } from 'express';
 import { loadServiceIdentity } from '@symbia/crypto';
 import * as registry from './registry.js';
 import { checkAdmission } from './admission.js';
 import { config } from './config.js';
+import { apiDocumentation } from './openapi.js';
 
 export function createRouter(): Router {
   const router = Router();
+
+  // The spec is a route, so it is registered with the routes. This service
+  // shipped none until 16 Aug, and the MCP dispatcher reported it as zero
+  // operations — which a caller cannot tell apart from a service that does
+  // nothing. Mounted at the router's own prefix and at /docs, because the
+  // dispatcher fetches /docs/openapi.json.
+  router.get('/openapi.json', (_req: Request, res: Response) => {
+    res.json(apiDocumentation);
+  });
 
   // --- Offer (the read side of declaration-based discovery) ----------------
   //
@@ -166,4 +176,19 @@ export function createRouter(): Router {
   });
 
   return router;
+}
+
+/**
+ * The standard shape, so every host mounts this service the same way.
+ *
+ * This service exported only `createRouter()`, which left the caller to
+ * decide the prefix. The deployed stack chose `/api`; the imagine sidecar
+ * mounted it at the root. Same service, two address spaces, and a spec that
+ * could only be right about one of them. Measured 16 Aug.
+ */
+export async function registerRoutes(_httpServer: unknown, app: Express): Promise<void> {
+  app.use('/api', createRouter());
+  app.get('/docs/openapi.json', (_req: Request, res: Response) => {
+    res.json(apiDocumentation);
+  });
 }
