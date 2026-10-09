@@ -1,3 +1,5 @@
+> **This repository is archived.** It is part of Symbia v1, which is no longer maintained. Symbia v2 replaces it: [github.com/Symbia-Labs/symbia](https://github.com/Symbia-Labs/symbia)
+
 # Symbia Stack
 
 An LLM-native orchestration platform for building, deploying, and operating autonomous AI workflows. Symbia provides the foundational infrastructure for creating intelligent assistants, executing graph-based automation, managing real-time messaging, and observing system behavior across a multi-tenant environment.
